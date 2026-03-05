@@ -40,10 +40,10 @@
         /* Admin UI */
         #adminPanel { border-top: 2px solid var(--primary); padding-top: 20px; display: none; }
         .user-row { background: #000; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #222; }
-        .role-btn { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; }
+        .role-btn { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: white; border: none; border-radius: 4px; cursor: pointer; }
 
         /* Map Controls Overlay */
-        .map-overlay { position: absolute; bottom: 30px; right: 20px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; border: 1px solid var(--border); color: white; font-size: 0.8rem; }
+        .map-overlay { position: absolute; bottom: 30px; right: 20px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; border: 1px solid var(--border); color: white; font-size: 0.8rem; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -63,13 +63,13 @@
     <div id="sidebar">
         <div id="scroll-area">
             <div id="mainUI" style="display:none;">
-                <h2>FORECASTER <span id="roleBadge" class="role-badge" style="background:var(--accent); font-size: 0.6rem; padding: 3px 8px; border-radius: 4px; vertical-align: middle;">...</span></h2>
+                <h2>FORECASTER <span id="roleBadge" style="background:var(--accent); font-size: 0.6rem; padding: 3px 8px; border-radius: 4px; vertical-align: middle;">...</span></h2>
 
                 <div class="panel">
                     <label>Archive & Run Management</label>
                     <div style="display: flex; gap: 10px;">
                         <input type="date" id="calendarFilter" style="margin-bottom: 0;">
-                        <select id="idSelector" style="margin-bottom: 0;"><option>Loading...</option></select>
+                        <select id="idSelector" style="margin-bottom: 0;"><option value="">Select Run...</option></select>
                     </div>
                 </div>
 
@@ -127,7 +127,7 @@
             </div>
         </div>
         
-        <button id="logoutBtn">Terminte Session</button>
+        <button id="logoutBtn">Terminate Session</button>
     </div>
 
     <div id="map"></div>
@@ -151,7 +151,7 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const functions = getFunctions(app);
+        const functions = getFunctions(app, "us-central1");
         const triggerHocoRun = httpsCallable(functions, 'triggerHocoRun');
 
         let userRole = 'pending';
@@ -172,6 +172,19 @@
             center: [-1.5, 52.5],
             zoom: 6
         });
+
+        // Inspector Popup
+        map.on('click', 'hoco-grid', (e) => {
+            const props = e.features[0].properties;
+            const risk = props.risk || props.Risk || 0;
+            new mapboxgl.Popup()
+                .setLngLat(e.lngLat)
+                .setHTML(`<strong>Ensemble Data</strong><br>Risk Index: ${risk}<br>Lat: ${e.lngLat.lat.toFixed(2)} Lon: ${e.lngLat.lng.toFixed(2)}`)
+                .addTo(map);
+        });
+
+        map.on('mouseenter', 'hoco-grid', () => map.getCanvas().style.cursor = 'pointer');
+        map.on('mouseleave', 'hoco-grid', () => map.getCanvas().style.cursor = '');
 
         // UI Listeners
         document.getElementById('mapStyleSelect').addEventListener('change', (e) => map.setStyle(e.target.value));
@@ -195,11 +208,16 @@
                 document.getElementById('authOverlay').style.display = 'none';
                 const uRef = doc(db, "users", user.uid);
                 const uDoc = await getDoc(uRef);
-                if (!uDoc.exists()) await setDoc(uRef, { email: user.email, role: 'pending' });
-                userRole = uDoc.exists() ? uDoc.data().role : 'pending';
+                if (!uDoc.exists()) {
+                    await setDoc(uRef, { email: user.email, role: 'pending' });
+                    userRole = 'pending';
+                } else {
+                    userRole = uDoc.data().role;
+                }
                 setupUI(user.uid);
             } else {
                 document.getElementById('authOverlay').style.display = 'flex';
+                document.getElementById('mainUI').style.display = 'none';
             }
         });
 
@@ -212,13 +230,34 @@
             if (approved) {
                 document.getElementById('roleBadge').innerText = userRole.toUpperCase();
                 document.getElementById('exclusiveSection').style.display = (userRole === 'developer' || userRole === 'exclusive') ? 'block' : 'none';
-                if (userRole === 'developer') { document.getElementById('adminPanel').style.display = 'block'; loadAdminUsers(); }
+                if (userRole === 'developer') { 
+                    document.getElementById('adminPanel').style.display = 'block'; 
+                    loadAdminUsers(); 
+                }
                 initScenarioLogic();
                 loadArchive();
             }
         }
 
-        // Scenario & Weight Initialization
+        // Grid Logic (Crucial for visibility)
+        function pointsToGrid(geojson, size = 0.08) {
+            if (!geojson || !geojson.features) return geojson;
+            const features = geojson.features.map(f => {
+                const [lon, lat] = f.geometry.coordinates;
+                const half = size / 2;
+                return {
+                    type: "Feature", 
+                    properties: f.properties,
+                    geometry: { 
+                        type: "Polygon", 
+                        coordinates: [[[lon-half, lat-half], [lon+half, lat-half], [lon+half, lat+half], [lon-half, lat+half], [lon-half, lat-half]]] 
+                    }
+                };
+            });
+            return { type: "FeatureCollection", features };
+        }
+
+        // Scenario Logic
         function initScenarioLogic() {
             const mSel = document.getElementById('modelSelect');
             mSel.innerHTML = '';
@@ -270,7 +309,7 @@
         }
         window.removeScenario = (i) => { selectedScenarios.splice(i, 1); renderChips(); };
 
-        // Admin User Management
+        // Admin
         function loadAdminUsers() {
             onSnapshot(collection(db, "users"), (snap) => {
                 const list = document.getElementById('userList'); list.innerHTML = '';
@@ -279,7 +318,7 @@
                     const row = document.createElement('div'); row.className = 'user-row';
                     row.innerHTML = `<div>${u.email}<br><small style="color:var(--primary)">${u.role}</small></div>
                         <div style="display:flex; gap:4px;">
-                            <button class="role-btn" onclick="setRole('${d.id}','normal')">N</button>
+                            <button class="role-btn" style="background:#444" onclick="setRole('${d.id}','normal')">N</button>
                             <button class="role-btn" style="background:#f39c12" onclick="setRole('${d.id}','exclusive')">E</button>
                             <button class="role-btn" style="background:#e74c3c" onclick="setRole('${d.id}','developer')">D</button>
                         </div>`;
@@ -289,7 +328,7 @@
         }
         window.setRole = (uid, role) => updateDoc(doc(db, "users", uid), { role });
 
-        // Archive Loader
+        // Archive
         let allRuns = [];
         function loadArchive() {
             const today = new Date().toISOString().split('T')[0];
@@ -301,19 +340,22 @@
         }
         document.getElementById('calendarFilter').onchange = filterRuns;
         function filterRuns() {
-            const date = document.getElementById('calendarFilter').value;
-            const filtered = allRuns.filter(r => r.createdAt?.toDate().toISOString().split('T')[0] === date);
+            const dateStr = document.getElementById('calendarFilter').value;
+            const filtered = allRuns.filter(r => r.createdAt?.toDate().toISOString().split('T')[0] === dateStr);
             const sel = document.getElementById('idSelector'); sel.innerHTML = '<option value="">Select Run</option>';
             filtered.forEach(r => {
-                const o = document.createElement('option'); o.value = r.id; o.textContent = `[${r.status}] ${r.startTime}`; sel.appendChild(o);
+                const o = document.createElement('option'); o.value = r.id; o.textContent = `[${r.status.toUpperCase()}] ${r.startTime}`; sel.appendChild(o);
             });
         }
 
-        // Trigger Run
+        // Exec Run
         document.getElementById('hocoForm').onsubmit = async (e) => {
             e.preventDefault();
             const btn = document.getElementById('submitBtn'); btn.disabled = true;
-            const weights = {}; Object.keys(defaultWeights).forEach(m => weights[m] = parseFloat(document.getElementById(`w-${m}`).value));
+            const weights = {}; Object.keys(defaultWeights).forEach(m => {
+                const el = document.getElementById(`w-${m}`);
+                weights[m] = el ? parseFloat(el.value) : defaultWeights[m];
+            });
             
             const payload = {
                 region: document.getElementById('regionSelect').value,
@@ -329,35 +371,41 @@
             try {
                 const docRef = await addDoc(collection(db, "hoco_requests"), payload);
                 await triggerHocoRun({ id: docRef.id, ...payload });
-                document.getElementById('statusOverlay').innerText = "Status: Transmitted to Cloud";
+                document.getElementById('statusOverlay').innerText = "Status: Executing...";
             } catch (err) { alert(err.message); }
             btn.disabled = false;
         };
 
-        // Map Visualization
+        // Map Visualization (Updated with Grid Conversion)
         document.getElementById('idSelector').onchange = async (e) => {
             const id = e.target.value; if(!id) return;
-            const d = await getDoc(doc(db, "hoco_requests", id));
-            if(d.exists() && d.data().geojsonUrl) {
-                const geo = await (await fetch(d.data().geojsonUrl)).json();
+            const docSnap = await getDoc(doc(db, "hoco_requests", id));
+            if(docSnap.exists() && docSnap.data().geojsonUrl) {
+                document.getElementById('statusOverlay').innerText = "Status: Loading GeoJSON...";
+                const rawData = await (await fetch(docSnap.data().geojsonUrl)).json();
+                const gridData = pointsToGrid(rawData); // Convert points to squares
+
                 if (map.getLayer('hoco-grid')) map.removeLayer('hoco-grid');
                 if (map.getSource('hoco-source')) map.removeSource('hoco-source');
-                map.addSource('hoco-source', { type: 'geojson', data: geo });
+                
+                map.addSource('hoco-source', { type: 'geojson', data: gridData });
                 map.addLayer({
                     id: 'hoco-grid', type: 'fill', source: 'hoco-source',
                     paint: {
                         'fill-color': [
-                            'interpolate',
-                            ['linear'],
-                            // This 'coalesce' check handles both lowercase and uppercase 'risk'
-                            ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], 
+                            'interpolate', ['linear'],
+                            ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0],
                             0, '#ffffff',
-                            50, '#f1c40f',
-                            100, '#e74c3c'
+                            20, '#66c2a4',
+                            40, '#fff200',
+                            60, '#ff7f27',
+                            80, '#ec1c24',
+                            100, '#b83dba'
                         ],
                         'fill-opacity': document.getElementById('opacitySlider').value / 100
                     }
                 });
+                document.getElementById('statusOverlay').innerText = "Status: Data Rendered";
             }
         };
     </script>
