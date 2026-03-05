@@ -302,7 +302,6 @@
         function loadGeoJson(url) {
             if (!map.loaded()) return;
 
-            // Clean up existing layers/sources to prevent overlap
             if (map.getSource('hoco-source')) {
                 map.removeLayer('hoco-heat');
                 map.removeSource('hoco-source');
@@ -315,44 +314,47 @@
                 type: 'heatmap',
                 source: 'hoco-source',
                 paint: {
-                    // 1. Scale weight based on the 'risk' property
-                    'heatmap-weight': ['interpolate', ['linear'], ['get', 'risk'], 0, 0, 1, 1],
+                    // 1. We treat the 'risk' value as the primary weight.
+                    // Since your python script multiplies by 100, we divide by 100 here 
+                    // to keep the weight between 0 and 1 for better blending.
+                    'heatmap-weight': ['/', ['get', 'risk'], 100],
 
-                    // 2. Increase intensity as you zoom in to bridge gaps between grid points
+                    // 2. Intensity is the "glue". Increasing it at high zoom 
+                    // fills the black spaces between your data points.
                     'heatmap-intensity': [
                         'interpolate',
                         ['linear'],
                         ['zoom'],
                         0, 1,
-                        12, 3
+                        12, 5 // 5x intensity at zoom 12 to bridge the gaps
                     ],
 
-                    // 3. THE "FILL" LOGIC: Radius expands as you zoom in to ensure points touch
+                    // 3. THE GRID FILLER: The radius must grow as you zoom.
+                    // At zoom 10+, an 80px to 120px radius ensures that 
+                    // points spaced ~10-20km apart will physically overlap.
                     'heatmap-radius': [
                         'interpolate',
                         ['linear'],
                         ['zoom'],
-                        0, 2,      // Very small at global view
-                        5, 25,     // Medium blend at regional view
-                        10, 80,    // Large radius to fill space at local view
-                        15, 150    // Maximum spread for a solid "grid" look
+                        0, 2,      // Global view: tiny dots
+                        5, 20,     // Regional view: soft clusters
+                        10, 80,    // Local view: Large overlap to "fill" the grid
+                        14, 180    // High zoom: Massive overlap for a solid field
                     ],
 
-                    // 4. Color Ramp (Standard Weather Palette)
+                    // 4. Color Ramp
                     'heatmap-color': [
                         'interpolate',
                         ['linear'],
                         ['heatmap-density'],
-                        0, 'rgba(0,0,255,0)',   // Transparent for no risk
-                        0.2, 'royalblue',
-                        0.4, 'cyan',
-                        0.6, 'lime',
-                        0.8, 'yellow',
+                        0, 'rgba(0,0,255,0)',
+                        0.1, 'royalblue',
+                        0.3, 'cyan',
+                        0.5, 'lime',
+                        0.7, 'yellow',
                         1, 'red'
                     ],
-
-                    // 5. Opacity (set to 0.7 to see the map through the colors)
-                    'heatmap-opacity': 0.7
+                    'heatmap-opacity': 0.75
                 }
             });
         }
