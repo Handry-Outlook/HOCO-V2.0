@@ -9,27 +9,31 @@
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <style>
         body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; background: #1a1a1a; color: #eee; }
-        #sidebar { width: 400px; padding: 20px; background: #252525; border-right: 1px solid #444; overflow-y: auto; z-index: 10; box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5); }
+        #sidebar { width: 420px; padding: 20px; background: #252525; border-right: 1px solid #444; overflow-y: auto; z-index: 10; box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5); }
         #map { flex-grow: 1; height: 100%; }
         .form-group { margin-bottom: 12px; }
         label { display: block; font-size: 0.8em; font-weight: bold; margin-bottom: 4px; color: #bbb; }
         input, select { width: 100%; padding: 10px; border: 1px solid #444; border-radius: 4px; background: #333; color: white; box-sizing: border-box; }
         
-        /* Multi-selection styles */
-        .scenario-builder { background: #1e1e1e; padding: 10px; border-radius: 4px; border: 1px dashed #555; margin-bottom: 15px; }
+        #scenarioSection { display: none; margin-top: 15px; }
+        .scenario-builder { background: #1e1e1e; padding: 12px; border-radius: 6px; border: 1px solid #3498db; margin-bottom: 15px; }
+        
         .scenario-list { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
-        .scenario-chip { background: #3498db; color: white; padding: 4px 10px; border-radius: 15px; font-size: 0.75em; display: flex; align-items: center; }
+        .scenario-chip { background: #3498db; color: white; padding: 5px 12px; border-radius: 20px; font-size: 0.75em; display: flex; align-items: center; }
         .scenario-chip span { margin-left: 8px; cursor: pointer; font-weight: bold; }
         
-        .weights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-        .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
-        .checkbox-item { display: flex; align-items: center; font-size: 0.8em; background: #333; padding: 5px 10px; border-radius: 4px; }
+        .weight-grid { max-height: 150px; overflow-y: auto; border: 1px solid #444; padding: 8px; background: #1a1a1a; margin-bottom: 15px; }
+        .weight-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; font-size: 0.75em; border-bottom: 1px solid #333; padding-bottom: 4px; }
+        .weight-item input { width: 60px; padding: 4px; text-align: center; height: 25px; }
+
+        .checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .checkbox-item { display: flex; align-items: center; font-size: 0.8em; background: #333; padding: 6px 12px; border-radius: 20px; border: 1px solid #444; }
         .checkbox-item input { width: auto; margin-right: 8px; }
         
         button { width: 100%; padding: 12px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px; transition: 0.3s; }
-        .btn-add { background: #27ae60; margin-top: 5px; padding: 8px; }
+        .btn-add { background: #27ae60; margin-top: 8px; padding: 8px; }
         button:hover { filter: brightness(1.2); }
-        button:disabled { background: #444; cursor: not-allowed; }
+        button:disabled { background: #444; cursor: not-allowed; opacity: 0.5; }
         
         hr { border: 0; border-top: 1px solid #444; margin: 20px 0; }
         .status-box { margin-top: 20px; padding: 12px; border-radius: 4px; font-size: 0.85em; display: none; text-align: center; }
@@ -45,43 +49,45 @@
         
         <form id="hocoForm">
             <div class="form-group">
-                <label>Region</label>
-                <select id="regionSelect">
+                <label>1. Forecast Period & Region</label>
+                <select id="regionSelect" style="margin-bottom: 8px;">
                     <option value="England">England</option>
                     <option value="UK">United Kingdom</option>
+                    <option value="Wales">Wales</option>
+                    <option value="Scotland">Scotland</option>
                 </select>
-            </div>
-
-            <div class="scenario-builder">
-                <label>Add Model Scenarios</label>
-                <select id="modelSelect" style="margin-bottom: 5px;"></select>
-                <select id="runSelect"></select>
-                <button type="button" class="btn-add" id="addScenarioBtn">+ Add Run to Request</button>
-                <div class="scenario-list" id="scenarioList"></div>
-            </div>
-
-            <div class="form-group">
-                <label>Forecast Start (DD/MM/YYYY HH:MM)</label>
-                <input type="text" id="startTime" placeholder="20/05/2026 12:00" required>
+                <input type="text" id="startTime" placeholder="Start: DD/MM/YYYY HH:MM" required>
             </div>
             <div class="form-group">
-                <label>Forecast End (DD/MM/YYYY HH:MM)</label>
-                <input type="text" id="endTime" placeholder="21/05/2026 06:00" required>
+                <input type="text" id="endTime" placeholder="End: DD/MM/YYYY HH:MM" required>
             </div>
 
-            <label>Weather Parameters</label>
-            <div class="checkbox-group">
-                <div class="checkbox-item"><input type="checkbox" name="weather" value="lightning" checked> Lightning</div>
-                <div class="checkbox-item"><input type="checkbox" name="weather" value="tornado"> Tornado</div>
-                <div class="checkbox-item"><input type="checkbox" name="weather" value="supercell"> Supercell</div>
-            </div>
+            <div id="scenarioSection">
+                <div class="scenario-builder">
+                    <label>2. Select Model Runs</label>
+                    <select id="modelSelect" style="margin-bottom: 5px;"></select>
+                    <select id="runSelect"></select>
+                    <button type="button" class="btn-add" id="addScenarioBtn">+ Add Run to Request</button>
+                    <div class="scenario-list" id="scenarioList"></div>
+                </div>
 
-            <button type="submit" id="submitBtn">Generate Combined Forecast</button>
+                <label>3. Global Model Weights</label>
+                <div id="weightsContainer" class="weight-grid"></div>
+
+                <label>4. Parameters</label>
+                <div class="checkbox-group">
+                    <div class="checkbox-item"><input type="checkbox" name="weather" value="lightning" checked> Lightning</div>
+                    <div class="checkbox-item"><input type="checkbox" name="weather" value="tornado"> Tornado</div>
+                    <div class="checkbox-item"><input type="checkbox" name="weather" value="supercell"> Supercell</div>
+                    <div class="checkbox-item"><input type="checkbox" name="weather" value="snow"> Snow</div>
+                </div>
+
+                <button type="submit" id="submitBtn">Generate Combined Forecast</button>
+            </div>
         </form>
         
         <div id="statusBox" class="status-box"></div>
         <hr>
-        <h4>History / Recent Runs</h4>
         <select id="idSelector"><option value="">-- Recent Runs --</option></select>
     </div>
 
@@ -107,72 +113,14 @@
         const functions = getFunctions(app, "us-central1");
         const triggerHocoRun = httpsCallable(functions, 'triggerHocoRun');
 
+        // Colors for the Grid Processor
         const lightning_colors = ["#ffffff", "#d0cece", "#d0cece", "#d0cece", "#d0cece", "#bea497", "#bea497", "#bea497", "#bea497", "#bea497", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba"];
+
+        const defaultWeights = { 'rpdid2': 0.8, 'swisseu': 1.1, 'ez': 1.1, 'swissnow': 0.9, 'frahd': 0.8, 'hardmi': 1.0, 'ukmo2km': 0.9, 'deuhd': 1.0 };
+        const models = { frahd: { name: "FRAHD", freq: 3 }, rpdid2: { name: "RPDID2", freq: 3 }, hardmi: { name: "HARDMI", freq: 3 }, swisseu: { name: "SWISSEU", freq: 3 }, swissnow: { name: "SWISSNOW", freq: 1 }, ez: { name: "EZ", freq: 12 }, ukmo2km: { name: "UKMO 2KM", freq: 1 } };
 
         mapboxgl.accessToken = 'pk.eyJ1IjoibWV0ZW9ncm91cC1tYXBib3giLCJhIjoiY2pudWJyMWVhMDQ0bjNxdXFsNWJ5M2ZtbSJ9.ANOKYyv5s0VFVbnesnGGUQ';
         const map = new mapboxgl.Map({ container: 'map', style: 'mapbox://styles/mapbox/dark-v11', center: [-1.5, 52.5], zoom: 5.5 });
-
-        // --- DYNAMIC MULTI-SELECT LOGIC ---
-        const models = {
-            frahd: { name: "FRAHD", freq: 3 },
-            rpdid2: { name: "RPDID2", freq: 3 },
-            hardmi: { name: "HARDMI", freq: 3 },
-            swisseu: { name: "SWISSEU", freq: 3 },
-            swissnow: { name: "SWISSNOW", freq: 1 },
-            ez: { name: "EZ", freq: 12 }
-        };
-
-        const modelSelect = document.getElementById('modelSelect');
-        const runSelect = document.getElementById('runSelect');
-        const addBtn = document.getElementById('addScenarioBtn');
-        const scenarioListDiv = document.getElementById('scenarioList');
-        let selectedScenarios = [];
-
-        // Populate Model Select
-        Object.keys(models).forEach(m => {
-            const opt = document.createElement('option');
-            opt.value = m; opt.textContent = models[m].name;
-            modelSelect.appendChild(opt);
-        });
-
-        function updateRunOptions() {
-            const m = modelSelect.value;
-            const freq = models[m].freq;
-            runSelect.innerHTML = '';
-            for (let i = 0; i < 24; i += freq) {
-                const val = `${i.toString().padStart(2, '0')}z`;
-                const opt = document.createElement('option');
-                opt.value = val; opt.textContent = val;
-                runSelect.appendChild(opt);
-            }
-        }
-
-        modelSelect.addEventListener('change', updateRunOptions);
-        updateRunOptions();
-
-        addBtn.addEventListener('click', () => {
-            const scenario = { model: modelSelect.value, run: runSelect.value };
-            // Avoid duplicates
-            if (selectedScenarios.some(s => s.model === scenario.model && s.run === scenario.run)) return;
-            
-            selectedScenarios.push(scenario);
-            renderScenarios();
-        });
-
-        function renderScenarios() {
-            scenarioListDiv.innerHTML = '';
-            selectedScenarios.forEach((s, idx) => {
-                const chip = document.createElement('div');
-                chip.className = 'scenario-chip';
-                chip.innerHTML = `${models[s.model].name} (${s.run}) <span onclick="removeScenario(${idx})">×</span>`;
-                scenarioListDiv.appendChild(chip);
-            });
-        }
-
-        window.removeScenario = (idx) => {
-            selectedScenarios.splice(idx, 1);
-            renderScenarios();
-        };
 
         // --- GRID PROCESSOR & LOADER ---
         function pointsToGrid(geojson, size = 0.08) {
@@ -198,52 +146,138 @@
                 map.addSource('hoco-source', { type: 'geojson', data: processedData });
                 
                 let colorExp = ['step', ['/', ['get', 'risk'], 6]];
-                lightning_colors.forEach((c, i) => { colorExp.push(c); if (i < lightning_colors.length - 1) colorExp.push(i + 1); });
+                lightning_colors.forEach((c, i) => { 
+                    colorExp.push(c); 
+                    if (i < lightning_colors.length - 1) colorExp.push(i + 1); 
+                });
 
                 map.addLayer({ id: 'hoco-grid', type: 'fill', source: 'hoco-source', paint: { 'fill-color': colorExp, 'fill-opacity': 0.7 }});
-            } catch (err) { console.error(err); }
+            } catch (err) { console.error("Loader Error:", err); }
         }
 
-        // --- SUBMISSION ---
+        // --- UI LOGIC ---
+        const weightsContainer = document.getElementById('weightsContainer');
+        const modelSelect = document.getElementById('modelSelect');
+        const runSelect = document.getElementById('runSelect');
+        const startTimeInput = document.getElementById('startTime');
+        const scenarioSection = document.getElementById('scenarioSection');
+
+        Object.keys(defaultWeights).forEach(m => {
+            const div = document.createElement('div');
+            div.className = 'weight-item';
+            div.innerHTML = `<span>${m.toUpperCase()}</span><input type="number" step="0.1" id="weight-${m}" value="${defaultWeights[m]}">`;
+            weightsContainer.appendChild(div);
+        });
+
+        Object.keys(models).forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m; opt.textContent = models[m].name;
+            modelSelect.appendChild(opt);
+        });
+
+        // --- UPDATED SMART LOOK-BACK LOGIC ---
+        function updateRunOptions() {
+            runSelect.innerHTML = '';
+            const m = modelSelect.value;
+            const freq = models[m].freq;
+            
+            // 1. Get Current System Time
+            const now = new Date();
+            
+            // 2. Parse User's Forecast Start Time (if it exists)
+            let baseDate = new Date(); // Default anchor
+            const userDateStr = startTimeInput.value; // e.g., "20/05/2026 12:00"
+            
+            if (userDateStr) {
+                // Simple parser for DD/MM/YYYY HH:MM format
+                const parts = userDateStr.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
+                if (parts) {
+                    const userDate = new Date(parts[3], parts[2] - 1, parts[1], parts[4], parts[5]);
+                    
+                    // RECOMMENDATION LOGIC:
+                    // If the forecast start is in the past, anchor the look-back there.
+                    // This allows you to reconstruct historical forecasts exactly as they would have looked.
+                    if (!isNaN(userDate) && userDate < now) {
+                        baseDate = userDate;
+                    }
+                }
+            }
+
+            // Set minutes/seconds to zero for clean meteorological intervals
+            baseDate.setMinutes(0, 0, 0, 0);
+            
+            // 3. Generate the 30 most recent runs from the anchor point
+            for (let i = 0; i < 60; i++) { // Increased loop range to find gaps in high-freq models
+                const d = new Date(baseDate.getTime() - (i * 1 * 60 * 60 * 1000));
+                
+                // Check if this hour is a valid run hour for this model (e.g., divisible by freq)
+                if (d.getHours() % freq === 0) {
+                    const label = `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}z`;
+                    const opt = document.createElement('option');
+                    opt.value = d.toISOString();
+                    opt.textContent = label;
+                    runSelect.appendChild(opt);
+                }
+                
+                // Stop once we have 30 recommendations
+                if (runSelect.childElementCount >= 30) break;
+            }
+        }
+
+        startTimeInput.addEventListener('blur', () => { if (startTimeInput.value.length >= 10) { scenarioSection.style.display = 'block'; updateRunOptions(); } });
+        modelSelect.addEventListener('change', updateRunOptions);
+
+        let selectedScenarios = [];
+        document.getElementById('addScenarioBtn').addEventListener('click', () => {
+            const runISO = runSelect.value;
+            const modelKey = modelSelect.value;
+            if (selectedScenarios.some(s => s.run === runISO && s.model === modelKey)) return;
+            selectedScenarios.push({ model: modelKey, run: runISO, label: runSelect.options[runSelect.selectedIndex].text });
+            renderScenarios();
+        });
+
+        function renderScenarios() {
+            const list = document.getElementById('scenarioList');
+            list.innerHTML = '';
+            selectedScenarios.forEach((s, idx) => {
+                const chip = document.createElement('div');
+                chip.className = 'scenario-chip';
+                chip.innerHTML = `${models[s.model].name} (${s.label}) <span onclick="removeScenario(${idx})">×</span>`;
+                list.appendChild(chip);
+            });
+        }
+        window.removeScenario = (idx) => { selectedScenarios.splice(idx, 1); renderScenarios(); };
+
         document.getElementById('hocoForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (selectedScenarios.length === 0) { alert("Please add at least one model run."); return; }
-            
             const btn = document.getElementById('submitBtn');
             const statusBox = document.getElementById('statusBox');
             btn.disabled = true;
             statusBox.style.display = 'block';
             statusBox.className = 'status-box pending';
-            statusBox.innerText = 'Triggering multi-model run...';
+            statusBox.innerText = 'Triggering Ensemble...';
 
-            const weatherTypes = Array.from(document.querySelectorAll('input[name="weather"]:checked')).map(cb => cb.value);
+            const activeWeights = {};
+            Object.keys(defaultWeights).forEach(m => { activeWeights[m] = parseFloat(document.getElementById(`weight-${m}`).value); });
 
             try {
                 const forecastData = {
                     region: document.getElementById('regionSelect').value,
-                    scenarios: selectedScenarios, // ARRAY OF {model, run}
+                    scenarios: selectedScenarios,
                     startTime: document.getElementById('startTime').value,
                     endTime: document.getElementById('endTime').value,
-                    weather: weatherTypes.join(','),
+                    weather: Array.from(document.querySelectorAll('input[name="weather"]:checked')).map(cb => cb.value).join(','),
+                    weights: JSON.stringify(activeWeights),
                     createdAt: new Date()
                 };
-
                 const docRef = await addDoc(collection(db, "hoco_requests"), { ...forecastData, status: 'pending' });
                 const result = await triggerHocoRun({ id: docRef.id, ...forecastData });
-
-                if (result.data?.success) {
-                    statusBox.innerText = 'Success! GitHub is blending models.';
-                    statusBox.className = 'status-box completed';
-                } else { throw new Error("Backend trigger failed."); }
-
-            } catch (err) {
-                statusBox.innerText = 'Error: ' + err.message;
-                btn.disabled = false;
-            }
+                if (result.data?.success) { statusBox.innerText = 'Success! Blending started.'; statusBox.className = 'status-box completed'; }
+                else { throw new Error("Trigger failed."); }
+            } catch (err) { statusBox.innerText = 'Error: ' + err.message; btn.disabled = false; }
         });
 
-        // History
-        onSnapshot(query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(15)), (snap) => {
+        onSnapshot(query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(10)), (snap) => {
             const s = document.getElementById('idSelector');
             s.innerHTML = '<option value="">-- Recent Runs --</option>';
             snap.forEach(d => {
