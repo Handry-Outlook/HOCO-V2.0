@@ -280,7 +280,11 @@
                 // NOTE: We pass ONE object containing all keys
                 const result = await triggerHocoRun({
                     id: docRef.id,
-                    ...forecastData
+                    region: payload.region,
+                    startTime: payload.startTime,
+                    endTime: payload.endTime,
+                    weather: payload.weather,
+                    weights: payload.weights
                 });
 
                 if (result.data && result.data.success) {
