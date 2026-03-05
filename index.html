@@ -403,29 +403,40 @@
                 <div class="panel">
                     <form id="hocoForm">
                         <label>Ensemble Parameters</label>
-                        <select id="regionSelect">
+                        <select id="regionSelect" style="width: 100%; margin-bottom: 10px;">
                             <option value="England">England (South/Central)</option>
+                            <option value="Scotland">Scotland</option>
+                            <option value="Wales">Wales</option>
+                        </select>
 
-                            <input type="text" id="startTime" placeholder="Start: DD/MM/YYYY HH:MM" required>
-                            <input type="text" id="endTime" placeholder="End: DD/MM/YYYY HH:MM" required>
+                        <label>Start Time</label>
+                        <input type="datetime-local" id="startTime" name="startTime" required
+                            style="width: 100%; margin-bottom: 10px; background: #333; color: white; border: 1px solid #444; padding: 5px;">
 
-                            <label style="margin-top: 10px;">Weather Hazards</label>
-                            <div class="checkbox-group"
-                                style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 15px;">
-                                <div class="checkbox-item"><input type="checkbox" name="weather" value="lightning"
-                                        checked>
-                                    <span style="font-size: 0.85rem;">Lightning</span>
-                                </div>
+                        <label>End Time</label>
+                        <input type="datetime-local" id="endTime" name="endTime" required
+                            style="width: 100%; margin-bottom: 15px; background: #333; color: white; border: 1px solid #444; padding: 5px;">
 
+                        <label>Weather Hazards</label>
+                        <div class="checkbox-group"
+                            style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 15px;">
+                            <div class="checkbox-item">
+                                <input type="checkbox" name="weather" value="lightning" checked>
+                                <span style="font-size: 0.85rem;">Lightning</span>
                             </div>
+                        </div>
 
-                            <button type="submit" id="submitBtn">Execute Ensemble Run</button>
+                        <button type="submit" id="submitBtn" style="width: 100%;">Execute Ensemble Run</button>
                     </form>
                 </div>
 
                 <div id="adminPanel" style="display:none;">
                     <label>Developer: User Permissions</label>
                     <div id="userList"></div>
+
+                    <button id="publishBtn" class="btn-add" style="background: var(--primary); margin-top: 15px;">
+                        Publish Selected Run
+                    </button>
                 </div>
             </div>
 
@@ -678,14 +689,18 @@
                 const showExclusive = (userRole === 'developer' || userRole === 'exclusive');
                 document.getElementById('exclusiveSection').style.display = showExclusive ? 'block' : 'none';
 
-                // FIX: Explicitly handle admin visibility
+                // Explicitly handle admin/developer visibility
                 const adminPanel = document.getElementById('adminPanel');
+                const publishBtn = document.getElementById('publishBtn');
+
                 if (userRole === 'developer') {
                     adminPanel.style.display = 'block';
+                    if (publishBtn) publishBtn.style.display = 'block'; // Show publish button
                     loadAdminUsers();
                 } else {
                     // Explicitly HIDE if the user is not a developer
                     adminPanel.style.display = 'none';
+                    if (publishBtn) publishBtn.style.display = 'none'; // Ensure button is hidden
                     adminPanel.innerHTML = ''; // Clear contents for safety
                 }
 
@@ -900,10 +915,21 @@
 
         function filterRuns() {
             const dateStr = document.getElementById('calendarFilter').value;
+
             const filtered = allRuns.filter(r => {
                 if (!r.createdAt) return false;
+
+                // Date check
                 const rDate = r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
-                return rDate.toISOString().split('T')[0] === dateStr;
+                const matchesDate = rDate.toISOString().split('T')[0] === dateStr;
+
+                // Visibility logic
+                const isOwner = r.userId === auth.currentUser.uid;
+                const isPublic = r.public === true;
+                const isAuto = r.type === 'automated';
+                const isDev = userRole === 'developer';
+
+                return matchesDate && (isDev || isOwner || isPublic || isAuto);
             });
 
             const sel = document.getElementById('idSelector');
@@ -912,7 +938,21 @@
             filtered.forEach(r => {
                 const opt = document.createElement('option');
                 opt.value = r.id;
-                opt.textContent = `[${(r.status || 'UNKN').toUpperCase()}] ${r.startTime || 'No Time'}`;
+
+                // 1. Determine Tag
+                let tag = "";
+                if (r.type === 'automated') tag = "[AUTO-HOCO] ";
+                else if (r.public) tag = "[ADV-HOCO] ";
+                else tag = "[PRIVATE] ";
+
+                // 2. Extract Created Time for display
+                const created = r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
+                const timeCreated = created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                // 3. Set combined display text
+                // Format: [TAG] Start - End | Created: HH:MM
+                opt.textContent = `${tag}${r.startTime || '??'} to ${r.endTime || '??'} | Created: ${timeCreated}`;
+
                 sel.appendChild(opt);
             });
         }
@@ -928,6 +968,12 @@
             btn.disabled = true;
             btn.innerText = "Executing Request...";
 
+            // Helper to format date: YYYY-MM-DDTHH:MM -> DD/MM/YYYY HH:MM
+            const formatDate = (isoStr) => {
+                const dateObj = new Date(isoStr);
+                return `${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}/${dateObj.getFullYear()} ${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}`;
+            };
+
             // Determine weights
             const activeWeights = {};
             Object.keys(defaultWeights).forEach(m => {
@@ -939,9 +985,9 @@
                 const payload = {
                     region: document.getElementById('regionSelect').value,
                     scenarios: userRole === 'normal' ? [] : selectedScenarios,
-                    startTime: document.getElementById('startTime').value,
-                    endTime: document.getElementById('endTime').value,
-                    // Extract weather checkboxes as a comma-separated string
+                    // Convert to the required format here
+                    startTime: formatDate(document.getElementById('startTime').value),
+                    endTime: formatDate(document.getElementById('endTime').value),
                     weather: Array.from(document.querySelectorAll('input[name="weather"]:checked')).map(cb => cb.value).join(','),
                     weights: JSON.stringify(activeWeights),
                     userId: auth.currentUser.uid,
@@ -961,6 +1007,7 @@
                 selectedScenarios = [];
                 renderChips();
             } catch (err) {
+                console.error("Submission error:", err);
                 showToast("Execution failed: " + err.message, "error");
                 document.getElementById('statusOverlay').innerText = "Status: Trigger Failed";
             } finally {
@@ -1004,6 +1051,17 @@
                     ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0],
                     heightScale
                 ]);
+            }
+        });
+        document.getElementById('publishBtn').addEventListener('click', async () => {
+            const runId = document.getElementById('idSelector').value;
+            if (!runId) return showToast("Select a run first", "error");
+
+            try {
+                await updateDoc(doc(db, "hoco_requests", runId), { public: true });
+                showToast("Run published as ADV-HOCO", "success");
+            } catch (err) {
+                showToast("Failed to publish", "error");
             }
         });
     </script>
