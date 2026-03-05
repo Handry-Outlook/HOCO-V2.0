@@ -52,6 +52,13 @@
         .status-box { margin-top: 20px; padding: 12px; border-radius: 4px; font-size: 0.85em; display: none; text-align: center; }
         .pending { background: #f39c12; color: #fff; }
         .completed { background: #27ae60; color: #fff; }
+        
+        #idSelector option {
+            background: #252525;
+            color: white;
+            padding: 8px;
+        }
+
     </style>
 </head>
 
@@ -333,22 +340,54 @@
             } catch (err) { statusBox.innerText = 'Error: ' + err.message; btn.disabled = false; }
         });
 
-        onSnapshot(query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(10)), (snap) => {
+        onSnapshot(query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(15)), (snap) => {
             const s = document.getElementById('idSelector');
             s.innerHTML = '<option value="">-- Recent Runs --</option>';
+            
             snap.forEach(d => {
                 const data = d.data();
                 const opt = document.createElement('option');
                 opt.value = d.id;
-                opt.textContent = `[${data.status}] ${data.region} (${data.scenarios?.length} runs)`;
+                
+                // Determine label and icon
+                const icon = data.type === 'automated' ? '🤖' : '👤';
+                const scenarioInfo = data.scenarios?.length > 0 
+                    ? `${data.scenarios.length} runs` 
+                    : 'Auto-Models';
+                
+                opt.textContent = `${icon} [${data.status.toUpperCase()}] ${data.region} - ${scenarioInfo} (${data.startTime})`;
+                
+                // Color coding for status in the list
+                if (data.status === 'completed') opt.style.color = '#27ae60';
+                if (data.status === 'pending') opt.style.color = '#f39c12';
+                
                 s.appendChild(opt);
             });
         });
 
         document.getElementById('idSelector').addEventListener('change', async (e) => {
-            if (!e.target.value) return;
-            const docSnap = await getDoc(doc(db, "hoco_requests", e.target.value));
-            if (docSnap.exists() && docSnap.data().geojsonUrl) loadGeoJson(docSnap.data().geojsonUrl);
+            const runId = e.target.value;
+            if (!runId) return;
+
+            const statusBox = document.getElementById('statusBox');
+            statusBox.style.display = 'block';
+            statusBox.className = 'status-box pending';
+            statusBox.innerText = 'Loading Layer...';
+
+            const docSnap = await getDoc(doc(db, "hoco_requests", runId));
+            
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (data.geojsonUrl) {
+                    loadGeoJson(data.geojsonUrl);
+                    statusBox.className = 'status-box completed';
+                    statusBox.innerText = `Displaying: ${data.type === 'automated' ? 'Standard Product' : 'Custom Run'}`;
+                } else if (data.status === 'pending') {
+                    statusBox.innerText = 'Run is still processing in GitHub...';
+                } else {
+                    statusBox.innerText = 'Error: No GeoJSON URL found.';
+                }
+            }
         });
     </script>
 </body>
