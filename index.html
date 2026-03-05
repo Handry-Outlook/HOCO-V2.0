@@ -189,54 +189,62 @@
         });
 
         function loadGeoJson(url) {
-            if (!map.loaded()) return;
+    if (!map.loaded()) return;
 
-            // Clean up existing layers and source
-            if (map.getLayer('hoco-grid')) map.removeLayer('hoco-grid');
-            if (map.getLayer('hoco-grid-outline')) map.removeLayer('hoco-grid-outline');
-            if (map.getSource('hoco-source')) map.removeSource('hoco-source');
+    // The color array provided (shortened representation for the code)
+    const lightning_colors = [
+        "#ffffff", "#d0cece", "#d0cece", "#d0cece", "#d0cece", "#bea497", "#bea497", "#bea497", "#bea497", "#bea497",
+        "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4",
+        "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4",
+        "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200",
+        "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200",
+        "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27",
+        "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27",
+        "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24",
+        "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba",
+        "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba"
+    ];
 
-            map.addSource('hoco-source', { 
-                type: 'geojson', 
-                data: url 
-            });
+    // Clean up existing layers
+    if (map.getLayer('hoco-grid')) map.removeLayer('hoco-grid');
+    if (map.getLayer('hoco-grid-outline')) map.removeLayer('hoco-grid-outline');
+    if (map.getSource('hoco-source')) map.removeSource('hoco-source');
 
-            // DISPLAY AS SQUARES (GRID)
-            // Note: If your GeoJSON contains Points, we use 'circle' with a large radius 
-            // or 'symbol'. If it contains Polygons (Squares), we use 'fill'.
-            // Below assumes your GeoJSON provides Polygons for the grid:
-            map.addLayer({
-                id: 'hoco-grid',
-                type: 'fill', // Changed from heatmap to fill
-                source: 'hoco-source',
-                paint: {
-                    'fill-color': [
-                        'interpolate',
-                        ['linear'],
-                        ['/', ['get', 'risk'], 5], // Accesses the 'risk' property in your data
-                        0, 'rgba(0,0,255,0)',
-                        10, '#3498db',
-                        30, '#2ecc71',
-                        50, '#f1c40f',
-                        70, '#e67e22',
-                        90, '#e74c3c'
-                    ],
-                    'fill-opacity': 0.7
-                }
-            });
+    map.addSource('hoco-source', { type: 'geojson', data: url });
 
-            // Add a subtle outline to the grid squares
-            map.addLayer({
-                id: 'hoco-grid-outline',
-                type: 'line',
-                source: 'hoco-source',
-                paint: {
-                    'line-color': '#ffffff',
-                    'line-width': 0.5,
-                    'line-opacity': 0.2
-                }
-            });
+    // Construct the step expression for the 100 colors
+    // This divides 'risk' by 10, then picks the color from the list based on the result
+    let colorExpression = ['step', ['/', ['get', 'risk'], 10]];
+    
+    // We loop through the array to build the Mapbox stops
+    lightning_colors.forEach((color, index) => {
+        colorExpression.push(color); // The color to use
+        if (index < lightning_colors.length - 1) {
+            colorExpression.push(index + 1); // The threshold to trigger the next color
         }
+    });
+
+    map.addLayer({
+        id: 'hoco-grid',
+        type: 'fill',
+        source: 'hoco-source',
+        paint: {
+            'fill-color': colorExpression,
+            'fill-opacity': 0.75
+        }
+    });
+
+    map.addLayer({
+        id: 'hoco-grid-outline',
+        type: 'line',
+        source: 'hoco-source',
+        paint: {
+            'line-color': '#000000',
+            'line-width': 0.2,
+            'line-opacity': 0.3
+        }
+    });
+}
 
         document.getElementById('idSelector').addEventListener('change', async (e) => {
             if (!e.target.value) return;
