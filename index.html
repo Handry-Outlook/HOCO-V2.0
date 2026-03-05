@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,223 +8,225 @@
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <style>
-        :root { 
-            --primary: #3498db; 
-            --bg: #0f0f0f; 
-            --card: #1e1e1e; 
-            --text: #f0f0f0; 
-            --border: #333; 
-            --accent: #2ecc71; 
+        :root {
+            --primary: #3498db;
+            --bg: #0f0f0f;
+            --card: #1e1e1e;
+            --text: #f0f0f0;
+            --border: #333;
+            --accent: #2ecc71;
             --danger: #e74c3c;
         }
-        
-        body { 
-            margin: 0; 
-            padding: 0; 
-            font-family: 'Inter', system-ui, sans-serif; 
-            display: flex; 
-            height: 100vh; 
-            background: var(--bg); 
-            color: var(--text); 
-            overflow: hidden; 
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', system-ui, sans-serif;
+            display: flex;
+            height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            overflow: hidden;
         }
-        
+
         /* Sidebar Layout */
-        #sidebar { 
-            width: 420px; 
-            padding: 20px; 
-            background: var(--card); 
-            border-right: 1px solid var(--border); 
-            display: flex; 
-            flex-direction: column; 
-            z-index: 10; 
-            box-shadow: 5px 0 20px rgba(0,0,0,0.7); 
+        #sidebar {
+            width: 420px;
+            padding: 20px;
+            background: var(--card);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            box-shadow: 5px 0 20px rgba(0, 0, 0, 0.7);
         }
-        
-        #scroll-area { 
-            flex-grow: 1; 
-            overflow-y: auto; 
-            padding-right: 10px; 
-            margin-bottom: 10px; 
+
+        #scroll-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding-right: 10px;
+            margin-bottom: 10px;
         }
-        
-        #map { 
-            flex-grow: 1; 
-            height: 100%; 
+
+        #map {
+            flex-grow: 1;
+            height: 100%;
         }
 
         /* Auth Screen */
-        #authOverlay { 
-            position: fixed; 
-            inset: 0; 
-            background: radial-gradient(circle, #2c3e50 0%, #000 100%); 
-            z-index: 1000; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
+        #authOverlay {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle, #2c3e50 0%, #000 100%);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
-        
-        .auth-card { 
-            background: #222; 
-            padding: 40px; 
-            border-radius: 16px; 
-            width: 360px; 
-            border: 1px solid var(--primary); 
-            box-shadow: 0 0 30px rgba(52, 152, 219, 0.2); 
-            text-align: center; 
+
+        .auth-card {
+            background: #222;
+            padding: 40px;
+            border-radius: 16px;
+            width: 360px;
+            border: 1px solid var(--primary);
+            box-shadow: 0 0 30px rgba(52, 152, 219, 0.2);
+            text-align: center;
         }
 
         /* Components */
-        .panel { 
-            background: #151515; 
-            padding: 18px; 
-            border-radius: 10px; 
-            border: 1px solid var(--border); 
-            margin-bottom: 20px; 
-        }
-        
-        h2 { 
-            color: var(--primary); 
-            margin: 0 0 20px 0; 
-            font-size: 1.4rem; 
-            letter-spacing: -0.5px; 
-        }
-        
-        label { 
-            display: block; 
-            font-size: 0.7rem; 
-            font-weight: 800; 
-            margin-bottom: 10px; 
-            color: #888; 
-            text-transform: uppercase; 
-            letter-spacing: 1.2px; 
+        .panel {
+            background: #151515;
+            padding: 18px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
         }
 
-        input, select { 
-            width: 100%; 
-            padding: 12px; 
-            margin-bottom: 12px; 
-            border-radius: 6px; 
-            border: 1px solid var(--border); 
-            background: #252525; 
-            color: #fff; 
-            font-size: 0.9rem; 
-            box-sizing: border-box; 
+        h2 {
+            color: var(--primary);
+            margin: 0 0 20px 0;
+            font-size: 1.4rem;
+            letter-spacing: -0.5px;
         }
-        
-        input:focus { 
-            border-color: var(--primary); 
-            outline: none; 
-            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2); 
+
+        label {
+            display: block;
+            font-size: 0.7rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
         }
-        
-        button { 
-            width: 100%; 
-            padding: 14px; 
-            background: var(--primary); 
-            color: white; 
-            border: none; 
-            border-radius: 6px; 
-            cursor: pointer; 
-            font-weight: 700; 
-            transition: 0.2s; 
+
+        input,
+        select {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: #252525;
+            color: #fff;
+            font-size: 0.9rem;
+            box-sizing: border-box;
         }
-        
-        button:hover:not(:disabled) { 
-            filter: brightness(1.1); 
-            transform: translateY(-1px); 
+
+        input:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
         }
-        
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 700;
+            transition: 0.2s;
+        }
+
+        button:hover:not(:disabled) {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+
         button:disabled {
             opacity: 0.6;
             cursor: not-allowed;
         }
 
-        .btn-add { 
-            background: var(--accent); 
-            margin-top: 5px; 
-            padding: 8px; 
-            font-size: 0.8rem; 
+        .btn-add {
+            background: var(--accent);
+            margin-top: 5px;
+            padding: 8px;
+            font-size: 0.8rem;
         }
-        
-        #logoutBtn { 
-            background: transparent; 
-            border: 1px solid var(--danger); 
-            color: var(--danger); 
-            margin-top: 10px; 
+
+        #logoutBtn {
+            background: transparent;
+            border: 1px solid var(--danger);
+            color: var(--danger);
+            margin-top: 10px;
         }
 
         /* Scenarios Chips */
-        .chip-container { 
-            display: flex; 
-            flex-wrap: wrap; 
-            gap: 8px; 
-            margin-top: 10px; 
+        .chip-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
         }
-        
-        .chip { 
-            background: var(--primary); 
-            padding: 5px 12px; 
-            border-radius: 20px; 
-            font-size: 0.75rem; 
-            display: flex; 
-            align-items: center; 
-            gap: 8px; 
+
+        .chip {
+            background: var(--primary);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
-        
-        .chip span { 
-            cursor: pointer; 
-            font-weight: bold; 
-            font-size: 1.1rem; 
+
+        .chip span {
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.1rem;
         }
 
         /* Admin UI */
-        #adminPanel { 
-            border-top: 2px solid var(--primary); 
-            padding-top: 20px; 
-            display: none; 
+        #adminPanel {
+            border-top: 2px solid var(--primary);
+            padding-top: 20px;
+            display: none;
         }
-        
-        .user-row { 
-            background: #000; 
-            padding: 12px; 
-            border-radius: 8px; 
-            margin-bottom: 8px; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            border: 1px solid #222; 
+
+        .user-row {
+            background: #000;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #222;
         }
-        
-        .role-btn { 
-            width: 32px; 
-            height: 32px; 
-            padding: 0; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            font-size: 0.7rem; 
-            color: white; 
-            border: none; 
-            border-radius: 4px; 
-            cursor: pointer; 
+
+        .role-btn {
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
         }
 
         /* Map Controls Overlay */
-        .map-overlay { 
-            position: absolute; 
-            bottom: 30px; 
-            right: 20px; 
-            background: rgba(0,0,0,0.8); 
-            padding: 10px; 
-            border-radius: 8px; 
-            border: 1px solid var(--border); 
-            color: white; 
-            font-size: 0.8rem; 
-            pointer-events: none; 
+        .map-overlay {
+            position: absolute;
+            bottom: 30px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            color: white;
+            font-size: 0.8rem;
+            pointer-events: none;
         }
     </style>
 </head>
+
 <body>
 
     <div id="authOverlay">
@@ -241,7 +244,9 @@
     <div id="sidebar">
         <div id="scroll-area">
             <div id="mainUI" style="display:none;">
-                <h2>FORECASTER <span id="roleBadge" style="background:var(--accent); font-size: 0.6rem; padding: 3px 8px; border-radius: 4px; vertical-align: middle;">...</span></h2>
+                <h2>FORECASTER <span id="roleBadge"
+                        style="background:var(--accent); font-size: 0.6rem; padding: 3px 8px; border-radius: 4px; vertical-align: middle;">...</span>
+                </h2>
 
                 <div class="panel">
                     <label>Archive & Run Management</label>
@@ -284,9 +289,10 @@
                             <select id="runSelect"></select>
                             <button type="button" class="btn-add" id="addScenarioBtn">+ Add Run to Stack</button>
                             <div class="chip-container" id="scenarioList"></div>
-                            
+
                             <label style="margin-top:20px;">Manual Weight Adjustments</label>
-                            <div id="weightsContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;"></div>
+                            <div id="weightsContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            </div>
                         </div>
                     </div>
 
@@ -303,10 +309,11 @@
                 <h3 style="color: var(--primary);">System Access Pending</h3>
                 <p style="font-size: 0.9rem; color: #888;">Your account must be manually verified by a developer.</p>
                 <label>Your Unique ID</label>
-                <code id="displayUid" style="background:#000; padding:12px; display:block; border-radius:6px; font-size:0.7rem; color: var(--accent); word-break: break-all;"></code>
+                <code id="displayUid"
+                    style="background:#000; padding:12px; display:block; border-radius:6px; font-size:0.7rem; color: var(--accent); word-break: break-all;"></code>
             </div>
         </div>
-        
+
         <button id="logoutBtn">Terminate Session</button>
     </div>
 
@@ -343,11 +350,11 @@
         let userRole = 'pending';
         let selectedScenarios = [];
         let allRuns = [];
-        
-        const models = { 
-            frahd: { name: "FRAHD", freq: 3 }, 
-            rpdid2: { name: "RPDID2", freq: 3 }, 
-            ukmo2km: { name: "UKMO 2KM", freq: 3},
+
+        const models = {
+            frahd: { name: "FRAHD", freq: 3 },
+            rpdid2: { name: "RPDID2", freq: 3 },
+            ukmo2km: { name: "UKMO 2KM", freq: 3 },
             ez: { name: "ECMWF EZ", freq: 12 }
         };
         const defaultWeights = { 'rpdid2': 0.8, 'swisseu': 1.1, 'ez': 1.1, 'ukmo2km': 0.9, 'deuhd': 1.0 };
@@ -366,11 +373,20 @@
         // Inspector Popup Logic
         map.on('click', 'hoco-grid', (e) => {
             const props = e.features[0].properties;
-            const risk = props.risk || props.Risk || 0;
-            new mapboxgl.Popup()
+
+            // Divide risk by 5
+            const risk = (props.risk || props.Risk || 0) / 5;
+
+            const popup = new mapboxgl.Popup()
                 .setLngLat(e.lngLat)
                 .setHTML(`<strong>Ensemble Data</strong><br>Risk Index: ${risk}<br>Lat: ${e.lngLat.lat.toFixed(2)} Lon: ${e.lngLat.lng.toFixed(2)}`)
                 .addTo(map);
+
+            // Accessibility Fix: Remove aria-hidden from the focused close button
+            const closeBtn = popup.getElement().querySelector('.mapboxgl-popup-close-button');
+            if (closeBtn) {
+                closeBtn.removeAttribute('aria-hidden');
+            }
         });
 
         // Cursor Updates
@@ -381,7 +397,7 @@
         document.getElementById('mapStyleSelect').addEventListener('change', (e) => {
             map.setStyle(e.target.value);
         });
-        
+
         document.getElementById('opacitySlider').addEventListener('input', (e) => {
             if (map.getLayer('hoco-grid')) {
                 map.setPaintProperty('hoco-grid', 'fill-opacity', e.target.value / 100);
@@ -397,11 +413,11 @@
 
         document.getElementById('loginBtn').addEventListener('click', async (e) => {
             e.target.disabled = true;
-            try { 
-                await signInWithEmailAndPassword(auth, emailIn.value, passIn.value); 
+            try {
+                await signInWithEmailAndPassword(auth, emailIn.value, passIn.value);
                 authError.innerText = '';
-            } catch (err) { 
-                authError.innerText = err.message; 
+            } catch (err) {
+                authError.innerText = err.message;
             } finally {
                 e.target.disabled = false;
             }
@@ -409,11 +425,11 @@
 
         document.getElementById('registerBtn').addEventListener('click', async (e) => {
             e.target.disabled = true;
-            try { 
-                await createUserWithEmailAndPassword(auth, emailIn.value, passIn.value); 
+            try {
+                await createUserWithEmailAndPassword(auth, emailIn.value, passIn.value);
                 authError.innerText = '';
-            } catch (err) { 
-                authError.innerText = err.message; 
+            } catch (err) {
+                authError.innerText = err.message;
             } finally {
                 e.target.disabled = false;
             }
@@ -425,7 +441,7 @@
             if (user) {
                 document.getElementById('authOverlay').style.display = 'none';
                 const uRef = doc(db, "users", user.uid);
-                
+
                 try {
                     const uDoc = await getDoc(uRef);
                     if (!uDoc.exists()) {
@@ -453,18 +469,18 @@
             document.getElementById('mainUI').style.display = isApproved ? 'block' : 'none';
             document.getElementById('accessDenied').style.display = isApproved ? 'none' : 'block';
             document.getElementById('displayUid').innerText = uid;
-            
+
             if (isApproved) {
                 document.getElementById('roleBadge').innerText = userRole.toUpperCase();
-                
+
                 const showExclusive = (userRole === 'developer' || userRole === 'exclusive');
                 document.getElementById('exclusiveSection').style.display = showExclusive ? 'block' : 'none';
-                
-                if (userRole === 'developer') { 
-                    document.getElementById('adminPanel').style.display = 'block'; 
-                    loadAdminUsers(); 
+
+                if (userRole === 'developer') {
+                    document.getElementById('adminPanel').style.display = 'block';
+                    loadAdminUsers();
                 }
-                
+
                 initScenarioLogic();
                 loadArchive();
             }
@@ -475,22 +491,22 @@
         // ==========================================
         function pointsToGrid(geojson, size = 0.08) {
             if (!geojson || !geojson.features) return geojson;
-            
+
             const features = geojson.features.map(f => {
                 const [lon, lat] = f.geometry.coordinates;
                 const half = size / 2;
                 return {
-                    type: "Feature", 
+                    type: "Feature",
                     properties: f.properties,
-                    geometry: { 
-                        type: "Polygon", 
+                    geometry: {
+                        type: "Polygon",
                         coordinates: [[
-                            [lon - half, lat - half], 
-                            [lon + half, lat - half], 
-                            [lon + half, lat + half], 
-                            [lon - half, lat + half], 
+                            [lon - half, lat - half],
+                            [lon + half, lat - half],
+                            [lon + half, lat + half],
+                            [lon - half, lat + half],
                             [lon - half, lat - half]
-                        ]] 
+                        ]]
                     }
                 };
             });
@@ -503,14 +519,14 @@
         function initScenarioLogic() {
             const mSel = document.getElementById('modelSelect');
             mSel.innerHTML = '';
-            
+
             Object.keys(models).forEach(k => {
-                const option = document.createElement('option'); 
-                option.value = k; 
-                option.textContent = models[k].name; 
+                const option = document.createElement('option');
+                option.value = k;
+                option.textContent = models[k].name;
                 mSel.appendChild(option);
             });
-            
+
             updateRunTimes();
             mSel.addEventListener('change', updateRunTimes);
 
@@ -528,21 +544,21 @@
         }
 
         function updateRunTimes() {
-            const rSel = document.getElementById('runSelect'); 
+            const rSel = document.getElementById('runSelect');
             rSel.innerHTML = '';
-            
+
             const modelVal = document.getElementById('modelSelect').value;
             const freq = models[modelVal].freq;
-            
-            let now = new Date(); 
+
+            let now = new Date();
             now.setMinutes(0, 0, 0);
-            
+
             for (let i = 0; i < 30; i++) {
                 let d = new Date(now - (i * 3600000));
                 if (d.getUTCHours() % freq === 0) {
                     let opt = document.createElement('option');
                     opt.value = d.toISOString();
-                    opt.textContent = `${d.getUTCDate()}/${d.getUTCMonth()+1} ${d.getUTCHours()}z`;
+                    opt.textContent = `${d.getUTCDate()}/${d.getUTCMonth() + 1} ${d.getUTCHours()}z`;
                     rSel.appendChild(opt);
                 }
             }
@@ -553,21 +569,21 @@
             const rSel = document.getElementById('runSelect');
             const r = rSel.value;
             const label = rSel.options[rSel.selectedIndex].text;
-            
-            selectedScenarios.push({ 
-                model: m, 
-                run: r, 
-                label: `${models[m].name} (${label})` 
+
+            selectedScenarios.push({
+                model: m,
+                run: r,
+                label: `${models[m].name} (${label})`
             });
             renderChips();
         });
 
         function renderChips() {
-            const cont = document.getElementById('scenarioList'); 
+            const cont = document.getElementById('scenarioList');
             cont.innerHTML = '';
-            
+
             selectedScenarios.forEach((s, i) => {
-                const c = document.createElement('div'); 
+                const c = document.createElement('div');
                 c.className = 'chip';
                 c.innerHTML = `${s.label} <span onclick="removeScenario(${i})">×</span>`;
                 cont.appendChild(c);
@@ -575,9 +591,9 @@
         }
 
         // Global function required for chip inline onclick
-        window.removeScenario = (i) => { 
-            selectedScenarios.splice(i, 1); 
-            renderChips(); 
+        window.removeScenario = (i) => {
+            selectedScenarios.splice(i, 1);
+            renderChips();
         };
 
         // ==========================================
@@ -585,12 +601,12 @@
         // ==========================================
         function loadAdminUsers() {
             onSnapshot(collection(db, "users"), (snap) => {
-                const list = document.getElementById('userList'); 
+                const list = document.getElementById('userList');
                 list.innerHTML = '';
-                
+
                 snap.forEach(d => {
                     const u = d.data();
-                    const row = document.createElement('div'); 
+                    const row = document.createElement('div');
                     row.className = 'user-row';
                     row.innerHTML = `
                         <div>
@@ -623,17 +639,17 @@
         function loadArchive() {
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('calendarFilter').value = today;
-            
+
             const q = query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(100));
             onSnapshot(q, (snap) => {
-                allRuns = []; 
+                allRuns = [];
                 snap.forEach(d => allRuns.push({ id: d.id, ...d.data() }));
                 filterRuns();
             });
         }
-        
+
         document.getElementById('calendarFilter').addEventListener('change', filterRuns);
-        
+
         function filterRuns() {
             const dateStr = document.getElementById('calendarFilter').value;
             const filtered = allRuns.filter(r => {
@@ -641,14 +657,14 @@
                 const rDate = r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
                 return rDate.toISOString().split('T')[0] === dateStr;
             });
-            
-            const sel = document.getElementById('idSelector'); 
+
+            const sel = document.getElementById('idSelector');
             sel.innerHTML = '<option value="">Select Run</option>';
-            
+
             filtered.forEach(r => {
-                const opt = document.createElement('option'); 
-                opt.value = r.id; 
-                opt.textContent = `[${(r.status || 'unknown').toUpperCase()}] ${r.startTime}`; 
+                const opt = document.createElement('option');
+                opt.value = r.id;
+                opt.textContent = `[${(r.status || 'unknown').toUpperCase()}] ${r.startTime}`;
                 sel.appendChild(opt);
             });
         }
@@ -658,16 +674,16 @@
         // ==========================================
         document.getElementById('hocoForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const btn = document.getElementById('submitBtn'); 
+            const btn = document.getElementById('submitBtn');
             btn.disabled = true;
-            
+
             // Collect Weights
-            const weights = {}; 
+            const weights = {};
             Object.keys(defaultWeights).forEach(m => {
                 const el = document.getElementById(`w-${m}`);
                 weights[m] = el ? parseFloat(el.value) : defaultWeights[m];
             });
-            
+
             const payload = {
                 region: document.getElementById('regionSelect').value,
                 startTime: document.getElementById('startTime').value,
@@ -682,11 +698,11 @@
             try {
                 const docRef = await addDoc(collection(db, "hoco_requests"), payload);
                 document.getElementById('statusOverlay').innerText = "Status: Executing Request...";
-                
+
                 await triggerHocoRun({ id: docRef.id, ...payload });
                 document.getElementById('statusOverlay').innerText = "Status: Run triggered successfully.";
-            } catch (err) { 
-                alert("Execution failed: " + err.message); 
+            } catch (err) {
+                alert("Execution failed: " + err.message);
                 document.getElementById('statusOverlay').innerText = "Status: Failed";
             } finally {
                 btn.disabled = false;
@@ -697,37 +713,37 @@
         // 11. MAP DATA VISUALIZATION
         // ==========================================
         document.getElementById('idSelector').addEventListener('change', async (e) => {
-            const id = e.target.value; 
+            const id = e.target.value;
             if (!id) return;
-            
+
             document.getElementById('statusOverlay').innerText = "Status: Fetching run metadata...";
-            
+
             try {
                 const docSnap = await getDoc(doc(db, "hoco_requests", id));
                 if (docSnap.exists() && docSnap.data().geojsonUrl) {
-                    
+
                     document.getElementById('statusOverlay').innerText = "Status: Loading GeoJSON...";
                     const response = await fetch(docSnap.data().geojsonUrl);
-                    
+
                     if (!response.ok) throw new Error("Network response was not ok");
-                    
+
                     const rawData = await response.json();
                     const gridData = pointsToGrid(rawData); // Convert points to squares
 
                     // Clean existing layer/source
                     if (map.getLayer('hoco-grid')) map.removeLayer('hoco-grid');
                     if (map.getSource('hoco-source')) map.removeSource('hoco-source');
-                    
+
                     // Add new layer/source
                     map.addSource('hoco-source', { type: 'geojson', data: gridData });
                     map.addLayer({
-                        id: 'hoco-grid', 
-                        type: 'fill', 
+                        id: 'hoco-grid',
+                        type: 'fill',
                         source: 'hoco-source',
                         paint: {
                             'fill-color': [
                                 'interpolate', ['linear'],
-                                ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0],
+                                ['/', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], 5],
                                 0, '#ffffff',
                                 20, '#66c2a4',
                                 40, '#fff200',
@@ -738,7 +754,7 @@
                             'fill-opacity': document.getElementById('opacitySlider').value / 100
                         }
                     });
-                    
+
                     document.getElementById('statusOverlay').innerText = "Status: Data Rendered Successfully";
                 } else {
                     document.getElementById('statusOverlay').innerText = "Status: No GeoJSON URL found for this run.";
@@ -751,4 +767,5 @@
 
     </script>
 </body>
+
 </html>
