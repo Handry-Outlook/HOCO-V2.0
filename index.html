@@ -202,7 +202,7 @@
                 source: 'hoco-source',
                 paint: {
                     // 1. DIVIDE the risk value to scale it down (e.g., divide by 5 or 10)
-                    'heatmap-weight': ['/', ['get', 'risk'], 10], 
+                    'heatmap-weight': ['/', ['get', 'risk'], 100], 
                     
                     // 2. Reduce intensity so colors don't max out so fast
                     'heatmap-intensity': 0.5, 
