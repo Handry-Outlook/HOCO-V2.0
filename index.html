@@ -201,26 +201,42 @@
                 type: 'heatmap',
                 source: 'hoco-source',
                 paint: {
-                    // 1. DIVIDE the risk value to scale it down (e.g., divide by 5 or 10)
-                    'heatmap-weight': ['/', ['get', 'risk'], 100], 
+                        // 1. Increase weight and scale it down slightly so colors don't max out immediately
+                        'heatmap-weight': ['/', ['get', 'risk'], 100],
                     
-                    // 2. Reduce intensity so colors don't max out so fast
-                    'heatmap-intensity': 0.5, 
+                        // 2. Adjust intensity by zoom: Higher intensity at higher zoom fills the "empty" space
+                        'heatmap-intensity': [
+                            'interpolate',
+                            ['linear'],
+                            ['zoom'],
+                            0, 1,
+                            10, 3  // Becomes 3x stronger as you zoom in to bridge the gap between dots
+                        ],
                     
-                    // 3. Shrink the radius so points don't bleed into each other as much
-                    'heatmap-radius': 15, 
+                        // 3. THE KEY: Large radius makes dots overlap to create a smooth surface
+                        'heatmap-radius': [
+                            'interpolate',
+                            ['linear'],
+                            ['zoom'],
+                            0, 5,    // Tiny dots when far away
+                            5, 30,   // Medium blending at mid-zoom
+                            10, 80   // Huge 80px radius when close up to ensure dots touch and blend
+                        ],
                     
-                    'heatmap-opacity': 0.5,
-                    'heatmap-color': [
-                        'interpolate', ['linear'], ['heatmap-density'],
-                        0, 'rgba(0,0,255,0)',
-                        0.2, 'royalblue',
-                        0.4, 'cyan',
-                        0.6, 'lime',
-                        0.8, 'yellow',
-                        1, 'red'
-                    ],
-                }
+                        // 4. Smooth color transition
+                        'heatmap-color': [
+                            'interpolate',
+                            ['linear'],
+                            ['heatmap-density'],
+                            0, 'rgba(0,0,255,0)',
+                            0.2, 'royalblue',
+                            0.4, 'cyan',
+                            0.6, 'lime',
+                            0.8, 'yellow',
+                            1, 'red'
+                        ],
+                        'heatmap-opacity': 0.7
+                    }
             });
         }
 
