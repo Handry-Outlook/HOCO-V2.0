@@ -951,37 +951,53 @@
 
                     map.addLayer({
                         id: 'hoco-grid',
-                        type: 'fill-extrusion', // Enables 3D heights
+                        type: 'fill-extrusion',
                         source: 'hoco-source',
                         paint: {
-                            // Height is Risk value * 5000 (meters) for visual clarity
-                            // Inside Section 11 - map.addLayer()
                             'fill-extrusion-height': [
                                 '*',
                                 ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0],
                                 parseInt(document.getElementById('heightSlider').value, 10)
                             ],
-                            'fill-extrusion-base': 0,
+                            // Create an SPC-like shaded look with transparency
                             'fill-extrusion-color': [
                                 'interpolate', ['linear'],
                                 ['/', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], 5],
-                                0, '#ffffff',
-                                20, '#66c2a4',
-                                40, '#fff200',
-                                60, '#ff7f27',
-                                80, '#ec1c24',
-                                100, '#b83dba'
+                                0, 'rgba(255, 255, 255, 0)',   // Transparent at low risk
+                                20, 'rgba(102, 194, 164, 0.6)', // Semi-transparent shading
+                                40, 'rgba(255, 242, 0, 0.6)',
+                                60, 'rgba(255, 127, 39, 0.6)',
+                                80, 'rgba(236, 28, 36, 0.6)',
+                                100, 'rgba(184, 61, 218, 0.7)'
                             ],
-                            'fill-extrusion-opacity': parseInt(document.getElementById('opacitySlider').value, 10) / 100
+                            'fill-extrusion-opacity': 0.8
                         }
                     });
-
-                    // Automatically tilt the map to reveal the 3D towers
-                    map.easeTo({
-                        pitch: 60,
-                        bearing: -10,
-                        duration: 1200
+                    // Add a contour-style line layer
+                    map.addLayer({
+                        id: 'hoco-outline',
+                        type: 'line',
+                        source: 'hoco-source',
+                        paint: {
+                            'line-color': '#000',
+                            'line-width': 0.5,
+                            'line-opacity': 0.3
+                        }
                     });
+                    // Automatically tilt the map to reveal the 3D towers
+                    const layers = map.getStyle().layers;
+                    let labelLayerId;
+                    for (const layer of layers) {
+                        if (layer.type === 'symbol' && layer.layout && layer.layout['text-field']) {
+                            labelLayerId = layer.id;
+                            break;
+                        }
+                    }
+
+                    // Move the hoco-grid layer below the labels so text is always on top
+                    if (labelLayerId) {
+                        map.moveLayer('hoco-grid', labelLayerId);
+                    }
 
                     statusUI.innerText = "Status: 3D Visualization Active";
                     showToast("3D Risk Towers Rendered", "success");
