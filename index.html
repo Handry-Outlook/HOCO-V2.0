@@ -250,46 +250,49 @@
 
             const weatherTypes = Array.from(document.querySelectorAll('input[name="weather"]:checked')).map(cb => cb.value);
 
-            const payload = {
-                region: document.getElementById('regionSelect').value,
-                startTime: document.getElementById('startTime').value,
-                endTime: document.getElementById('endTime').value,
-                weather: weatherTypes.join(','),
-                weights: {
-                    frahd: parseFloat(document.getElementById('w_frahd').value),
-                    rpdid2: parseFloat(document.getElementById('w_rpd').value),
-                    swisseu: parseFloat(document.getElementById('w_seu').value),
-                    ez: parseFloat(document.getElementById('w_ez').value),
-                    ukmo2km: parseFloat(document.getElementById('w_ukmo').value),
-                    hardmi: parseFloat(document.getElementById('w_hard').value)
-                }
-            };
-
             try {
-                // A. Store in Firestore first to generate the ID
+                // 1. Create the base data
+                const forecastData = {
+                    region: document.getElementById('regionSelect').value,
+                    startTime: document.getElementById('startTime').value,
+                    endTime: document.getElementById('endTime').value,
+                    weather: weatherTypes.join(','), // join to string for easier Python parsing
+                    weights: {
+                        frahd: parseFloat(document.getElementById('w_frahd').value),
+                        rpdid2: parseFloat(document.getElementById('w_rpd').value),
+                        swisseu: parseFloat(document.getElementById('w_seu').value),
+                        ez: parseFloat(document.getElementById('w_ez').value),
+                        ukmo2km: parseFloat(document.getElementById('w_ukmo').value),
+                        hardmi: parseFloat(document.getElementById('w_hard').value)
+                    }
+                };
+
+                // 2. Save to Firestore to get the ID
                 const docRef = await addDoc(collection(db, "hoco_requests"), {
-                    ...payload,
+                    ...forecastData,
                     status: 'pending',
                     createdAt: new Date()
                 });
 
-                // B. Trigger the Function - WE MUST PASS THE ID HERE
+                console.log("Document created with ID:", docRef.id);
+
+                // 3. Trigger the Function with the ID inside the object
+                // NOTE: We pass ONE object containing all keys
                 const result = await triggerHocoRun({
-                    id: docRef.id,        // <--- THIS WAS MISSING
-                    region: payload.region,
-                    startTime: payload.startTime,
-                    endTime: payload.endTime,
-                    weather: payload.weather,
-                    weights: payload.weights
+                    id: docRef.id,
+                    ...forecastData
                 });
 
-                if (result.data.success) {
+                if (result.data && result.data.success) {
                     statusBox.innerText = 'Success: GitHub is processing!';
                     statusBox.className = 'status-box completed';
+                } else {
+                    console.error("Function Error Details:", result.data);
+                    throw new Error("Cloud Function failed to trigger GitHub.");
                 }
 
             } catch (err) {
-                console.error(err);
+                console.error("Full Error Object:", err);
                 statusBox.className = 'status-box';
                 statusBox.style.background = '#c0392b';
                 statusBox.innerText = 'Error: ' + err.message;
