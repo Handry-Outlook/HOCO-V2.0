@@ -146,7 +146,7 @@
 
                 map.addSource('hoco-source', { type: 'geojson', data: processedData });
 
-                let colorExp = ['step', ['/', ['get', 'risk'], 10]]; // Math nerf
+                let colorExp = ['step', ['/', ['get', 'risk'], 6]]; // Math nerf
                 lightning_colors.forEach((c, i) => {
                     colorExp.push(c);
                     if (i < lightning_colors.length - 1) colorExp.push(i + 1);
@@ -158,7 +158,7 @@
                     source: 'hoco-source',
                     paint: { 
                         'fill-color': colorExp, 
-                        'fill-opacity': 0.8 
+                        'fill-opacity': 0.5
                     }
                 });
 
