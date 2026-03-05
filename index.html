@@ -4,26 +4,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ADV-HOCO Forecaster & Viewer</title>
+    <title>ADV-HOCO Multi-Model Forecaster</title>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <style>
         body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; background: #1a1a1a; color: #eee; }
-        #sidebar { width: 380px; padding: 20px; background: #252525; border-right: 1px solid #444; overflow-y: auto; z-index: 10; box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5); }
+        #sidebar { width: 400px; padding: 20px; background: #252525; border-right: 1px solid #444; overflow-y: auto; z-index: 10; box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5); }
         #map { flex-grow: 1; height: 100%; }
         .form-group { margin-bottom: 12px; }
         label { display: block; font-size: 0.8em; font-weight: bold; margin-bottom: 4px; color: #bbb; }
-        input, select { width: 95%; padding: 10px; border: 1px solid #444; border-radius: 4px; background: #333; color: white; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #444; border-radius: 4px; background: #333; color: white; box-sizing: border-box; }
+        
+        /* Multi-selection styles */
+        .scenario-builder { background: #1e1e1e; padding: 10px; border-radius: 4px; border: 1px dashed #555; margin-bottom: 15px; }
+        .scenario-list { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+        .scenario-chip { background: #3498db; color: white; padding: 4px 10px; border-radius: 15px; font-size: 0.75em; display: flex; align-items: center; }
+        .scenario-chip span { margin-left: 8px; cursor: pointer; font-weight: bold; }
+        
         .weights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
         .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
         .checkbox-item { display: flex; align-items: center; font-size: 0.8em; background: #333; padding: 5px 10px; border-radius: 4px; }
         .checkbox-item input { width: auto; margin-right: 8px; }
-        button { width: 100%; padding: 15px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 20px; transition: background 0.3s; }
-        button:hover { background: #2980b9; }
+        
+        button { width: 100%; padding: 12px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px; transition: 0.3s; }
+        .btn-add { background: #27ae60; margin-top: 5px; padding: 8px; }
+        button:hover { filter: brightness(1.2); }
         button:disabled { background: #444; cursor: not-allowed; }
+        
         hr { border: 0; border-top: 1px solid #444; margin: 20px 0; }
         .status-box { margin-top: 20px; padding: 12px; border-radius: 4px; font-size: 0.85em; display: none; text-align: center; }
-        .pending { background: #f39c12; color: #fff; border: 1px solid #e67e22; }
+        .pending { background: #f39c12; color: #fff; }
         .completed { background: #27ae60; color: #fff; }
     </style>
 </head>
@@ -31,7 +41,8 @@
 <body>
 
     <div id="sidebar">
-        <h2 style="margin-top:0; color: #3498db;">ADV-HOCO v2.0</h2>
+        <h2 style="margin-top:0; color: #3498db;">ADV-HOCO Multi-Run</h2>
+        
         <form id="hocoForm">
             <div class="form-group">
                 <label>Region</label>
@@ -40,12 +51,21 @@
                     <option value="UK">United Kingdom</option>
                 </select>
             </div>
+
+            <div class="scenario-builder">
+                <label>Add Model Scenarios</label>
+                <select id="modelSelect" style="margin-bottom: 5px;"></select>
+                <select id="runSelect"></select>
+                <button type="button" class="btn-add" id="addScenarioBtn">+ Add Run to Request</button>
+                <div class="scenario-list" id="scenarioList"></div>
+            </div>
+
             <div class="form-group">
-                <label>Start (DD/MM/YYYY HH:MM)</label>
+                <label>Forecast Start (DD/MM/YYYY HH:MM)</label>
                 <input type="text" id="startTime" placeholder="20/05/2026 12:00" required>
             </div>
             <div class="form-group">
-                <label>End (DD/MM/YYYY HH:MM)</label>
+                <label>Forecast End (DD/MM/YYYY HH:MM)</label>
                 <input type="text" id="endTime" placeholder="21/05/2026 06:00" required>
             </div>
 
@@ -56,21 +76,12 @@
                 <div class="checkbox-item"><input type="checkbox" name="weather" value="supercell"> Supercell</div>
             </div>
 
-            <h4 style="margin-bottom:5px; margin-top: 20px;">Model Weights</h4>
-            <div class="weights-grid">
-                <div class="form-group"><label>FRAHD</label><input type="number" id="w_frahd" value="1.0" step="0.1"></div>
-                <div class="form-group"><label>RPDID2</label><input type="number" id="w_rpd" value="0.8" step="0.1"></div>
-                <div class="form-group"><label>SWISSEU</label><input type="number" id="w_seu" value="1.1" step="0.1"></div>
-                <div class="form-group"><label>EZ</label><input type="number" id="w_ez" value="1.0" step="0.1"></div>
-                <div class="form-group"><label>UKMO2KM</label><input type="number" id="w_ukmo" value="1.0" step="0.1"></div>
-                <div class="form-group"><label>HARDMI</label><input type="number" id="w_hard" value="1.0" step="0.1"></div>
-            </div>
-
-            <button type="submit" id="submitBtn">Generate Forecast</button>
+            <button type="submit" id="submitBtn">Generate Combined Forecast</button>
         </form>
+        
         <div id="statusBox" class="status-box"></div>
         <hr>
-        <h4>History / Select Run</h4>
+        <h4>History / Recent Runs</h4>
         <select id="idSelector"><option value="">-- Recent Runs --</option></select>
     </div>
 
@@ -96,35 +107,81 @@
         const functions = getFunctions(app, "us-central1");
         const triggerHocoRun = httpsCallable(functions, 'triggerHocoRun');
 
-        // Static Lightning Colors Array
         const lightning_colors = ["#ffffff", "#d0cece", "#d0cece", "#d0cece", "#d0cece", "#bea497", "#bea497", "#bea497", "#bea497", "#bea497", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba"];
 
         mapboxgl.accessToken = 'pk.eyJ1IjoibWV0ZW9ncm91cC1tYXBib3giLCJhIjoiY2pudWJyMWVhMDQ0bjNxdXFsNWJ5M2ZtbSJ9.ANOKYyv5s0VFVbnesnGGUQ';
-        const map = new mapboxgl.Map({
-            container: 'map',
-            style: 'mapbox://styles/mapbox/dark-v11',
-            center: [-1.5, 52.5],
-            zoom: 5.5
+        const map = new mapboxgl.Map({ container: 'map', style: 'mapbox://styles/mapbox/dark-v11', center: [-1.5, 52.5], zoom: 5.5 });
+
+        // --- DYNAMIC MULTI-SELECT LOGIC ---
+        const models = {
+            frahd: { name: "FRAHD", freq: 3 },
+            rpdid2: { name: "RPDID2", freq: 3 },
+            hardmi: { name: "HARDMI", freq: 3 },
+            swisseu: { name: "SWISSEU", freq: 3 },
+            swissnow: { name: "SWISSNOW", freq: 1 },
+            ez: { name: "EZ", freq: 12 }
+        };
+
+        const modelSelect = document.getElementById('modelSelect');
+        const runSelect = document.getElementById('runSelect');
+        const addBtn = document.getElementById('addScenarioBtn');
+        const scenarioListDiv = document.getElementById('scenarioList');
+        let selectedScenarios = [];
+
+        // Populate Model Select
+        Object.keys(models).forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m; opt.textContent = models[m].name;
+            modelSelect.appendChild(opt);
         });
 
-        // HELPER: Convert Points to Square Polygons
+        function updateRunOptions() {
+            const m = modelSelect.value;
+            const freq = models[m].freq;
+            runSelect.innerHTML = '';
+            for (let i = 0; i < 24; i += freq) {
+                const val = `${i.toString().padStart(2, '0')}z`;
+                const opt = document.createElement('option');
+                opt.value = val; opt.textContent = val;
+                runSelect.appendChild(opt);
+            }
+        }
+
+        modelSelect.addEventListener('change', updateRunOptions);
+        updateRunOptions();
+
+        addBtn.addEventListener('click', () => {
+            const scenario = { model: modelSelect.value, run: runSelect.value };
+            // Avoid duplicates
+            if (selectedScenarios.some(s => s.model === scenario.model && s.run === scenario.run)) return;
+            
+            selectedScenarios.push(scenario);
+            renderScenarios();
+        });
+
+        function renderScenarios() {
+            scenarioListDiv.innerHTML = '';
+            selectedScenarios.forEach((s, idx) => {
+                const chip = document.createElement('div');
+                chip.className = 'scenario-chip';
+                chip.innerHTML = `${models[s.model].name} (${s.run}) <span onclick="removeScenario(${idx})">×</span>`;
+                scenarioListDiv.appendChild(chip);
+            });
+        }
+
+        window.removeScenario = (idx) => {
+            selectedScenarios.splice(idx, 1);
+            renderScenarios();
+        };
+
+        // --- GRID PROCESSOR & LOADER ---
         function pointsToGrid(geojson, size = 0.08) {
             const features = geojson.features.map(f => {
                 const [lon, lat] = f.geometry.coordinates;
                 const half = size / 2;
                 return {
-                    type: "Feature",
-                    properties: f.properties,
-                    geometry: {
-                        type: "Polygon",
-                        coordinates: [[
-                            [lon - half, lat - half],
-                            [lon + half, lat - half],
-                            [lon + half, lat + half],
-                            [lon - half, lat + half],
-                            [lon - half, lat - half]
-                        ]]
-                    }
+                    type: "Feature", properties: f.properties,
+                    geometry: { type: "Polygon", coordinates: [[[lon-half, lat-half], [lon+half, lat-half], [lon+half, lat+half], [lon-half, lat+half], [lon-half, lat-half]]] }
                 };
             });
             return { type: "FeatureCollection", features };
@@ -132,122 +189,76 @@
 
         async function loadGeoJson(url) {
             if (!map.loaded()) return;
-
             try {
                 const response = await fetch(url);
                 const rawData = await response.json();
-                
-                // CRITICAL: Convert point data to grid polygons
                 const processedData = pointsToGrid(rawData);
-
                 if (map.getLayer('hoco-grid')) map.removeLayer('hoco-grid');
-                if (map.getLayer('hoco-grid-outline')) map.removeLayer('hoco-grid-outline');
                 if (map.getSource('hoco-source')) map.removeSource('hoco-source');
-
                 map.addSource('hoco-source', { type: 'geojson', data: processedData });
+                
+                let colorExp = ['step', ['/', ['get', 'risk'], 6]];
+                lightning_colors.forEach((c, i) => { colorExp.push(c); if (i < lightning_colors.length - 1) colorExp.push(i + 1); });
 
-                let colorExp = ['step', ['/', ['get', 'risk'], 6]]; // Math nerf
-                lightning_colors.forEach((c, i) => {
-                    colorExp.push(c);
-                    if (i < lightning_colors.length - 1) colorExp.push(i + 1);
-                });
-
-                map.addLayer({
-                    id: 'hoco-grid',
-                    type: 'fill',
-                    source: 'hoco-source',
-                    paint: { 
-                        'fill-color': colorExp, 
-                        'fill-opacity': 0.5
-                    }
-                });
-
-                map.addLayer({
-                    id: 'hoco-grid-outline',
-                    type: 'line',
-                    source: 'hoco-source',
-                    paint: { 'line-color': '#000', 'line-width': 0.1, 'line-opacity': 0.2 }
-                });
-
-            } catch (err) {
-                console.error("UI Load Error:", err);
-            }
+                map.addLayer({ id: 'hoco-grid', type: 'fill', source: 'hoco-source', paint: { 'fill-color': colorExp, 'fill-opacity': 0.7 }});
+            } catch (err) { console.error(err); }
         }
 
-        // Run History listener
-        const q = query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(15));
-        onSnapshot(q, (snapshot) => {
-            const selector = document.getElementById('idSelector');
-            selector.innerHTML = '<option value="">-- Recent Runs --</option>';
-            snapshot.forEach((snapDoc) => {
-                const data = snapDoc.data();
-                const option = document.createElement('option');
-                option.value = snapDoc.id;
-                option.textContent = `[${data.status.toUpperCase()}] ${data.region} - ${data.startTime}`;
-                selector.appendChild(option);
-            });
-        });
-
-        // Form Submission
+        // --- SUBMISSION ---
         document.getElementById('hocoForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            if (selectedScenarios.length === 0) { alert("Please add at least one model run."); return; }
+            
             const btn = document.getElementById('submitBtn');
             const statusBox = document.getElementById('statusBox');
             btn.disabled = true;
             statusBox.style.display = 'block';
             statusBox.className = 'status-box pending';
-            statusBox.innerText = 'Initializing...';
+            statusBox.innerText = 'Triggering multi-model run...';
 
             const weatherTypes = Array.from(document.querySelectorAll('input[name="weather"]:checked')).map(cb => cb.value);
 
             try {
                 const forecastData = {
                     region: document.getElementById('regionSelect').value,
+                    scenarios: selectedScenarios, // ARRAY OF {model, run}
                     startTime: document.getElementById('startTime').value,
                     endTime: document.getElementById('endTime').value,
                     weather: weatherTypes.join(','),
-                    weights: {
-                        frahd: parseFloat(document.getElementById('w_frahd').value),
-                        rpdid2: parseFloat(document.getElementById('w_rpd').value),
-                        swisseu: parseFloat(document.getElementById('w_seu').value),
-                        ez: parseFloat(document.getElementById('w_ez').value),
-                        ukmo2km: parseFloat(document.getElementById('w_ukmo').value),
-                        hardmi: parseFloat(document.getElementById('w_hard').value)
-                    }
+                    createdAt: new Date()
                 };
 
-                const docRef = await addDoc(collection(db, "hoco_requests"), {
-                    ...forecastData,
-                    status: 'pending',
-                    createdAt: new Date()
-                });
-
+                const docRef = await addDoc(collection(db, "hoco_requests"), { ...forecastData, status: 'pending' });
                 const result = await triggerHocoRun({ id: docRef.id, ...forecastData });
 
-                if (result.data && result.data.success) {
-                    statusBox.innerText = 'Success: Processing on GitHub!';
+                if (result.data?.success) {
+                    statusBox.innerText = 'Success! GitHub is blending models.';
                     statusBox.className = 'status-box completed';
-                } else {
-                    throw new Error("Trigger failed.");
-                }
+                } else { throw new Error("Backend trigger failed."); }
 
             } catch (err) {
-                statusBox.className = 'status-box';
-                statusBox.style.background = '#c0392b';
                 statusBox.innerText = 'Error: ' + err.message;
                 btn.disabled = false;
             }
         });
 
+        // History
+        onSnapshot(query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(15)), (snap) => {
+            const s = document.getElementById('idSelector');
+            s.innerHTML = '<option value="">-- Recent Runs --</option>';
+            snap.forEach(d => {
+                const data = d.data();
+                const opt = document.createElement('option');
+                opt.value = d.id;
+                opt.textContent = `[${data.status}] ${data.region} (${data.scenarios?.length} runs)`;
+                s.appendChild(opt);
+            });
+        });
+
         document.getElementById('idSelector').addEventListener('change', async (e) => {
             if (!e.target.value) return;
-            const docRef = doc(db, "hoco_requests", e.target.value);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists() && docSnap.data().geojsonUrl) {
-                loadGeoJson(docSnap.data().geojsonUrl);
-            } else {
-                alert("Processing or No Data.");
-            }
+            const docSnap = await getDoc(doc(db, "hoco_requests", e.target.value));
+            if (docSnap.exists() && docSnap.data().geojsonUrl) loadGeoJson(docSnap.data().geojsonUrl);
         });
     </script>
 </body>
