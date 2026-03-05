@@ -207,19 +207,25 @@
             baseDate.setMinutes(0, 0, 0, 0);
             
             // 3. Generate the 30 most recent runs from the anchor point
-            for (let i = 0; i < 60; i++) { // Increased loop range to find gaps in high-freq models
+            for (let i = 0; i < 40; i++) {
                 const d = new Date(baseDate.getTime() - (i * 1 * 60 * 60 * 1000));
                 
-                // Check if this hour is a valid run hour for this model (e.g., divisible by freq)
-                if (d.getHours() % freq === 0) {
-                    const label = `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}z`;
+                // Use getUTCHours() instead of getHours()
+                if (d.getUTCHours() % freq === 0) {
+                    // Manually build the ISO string to ensure it is EXACTLY the top of the hour UTC
+                    const year = d.getUTCFullYear();
+                    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+                    const day = String(d.getUTCDate()).padStart(2, '0');
+                    const hour = String(d.getUTCHours()).padStart(2, '0');
+                    
+                    const isoUTC = `${year}-${month}-${day}T${hour}:00:00Z`;
+                    const label = `${day}/${month} ${hour}z`;
+
                     const opt = document.createElement('option');
-                    opt.value = d.toISOString();
+                    opt.value = isoUTC; 
                     opt.textContent = label;
                     runSelect.appendChild(opt);
                 }
-                
-                // Stop once we have 30 recommendations
                 if (runSelect.childElementCount >= 30) break;
             }
         }
