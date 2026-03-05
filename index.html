@@ -376,6 +376,22 @@
                     </div>
                 </div>
 
+                <div id="exclusiveSection" style="display:none;">
+                    <div class="panel">
+                        <label>Scenario Builder</label>
+                        <select id="modelSelect" style="margin-bottom: 8px;"></select>
+                        <select id="runSelect" style="margin-bottom: 8px;"></select>
+                        <button id="addScenarioBtn" class="btn-add">Add to Ensemble</button>
+                        <div id="scenarioList" class="chip-container"></div>
+                    </div>
+
+                    <div class="panel">
+                        <label>Model Weighting</label>
+                        <div id="weightsContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        </div>
+                    </div>
+                </div>
+
                 <div class="panel">
                     <form id="hocoForm">
                         <label>Ensemble Parameters</label>
@@ -388,26 +404,20 @@
 
                         <label style="margin-top: 10px;">Weather Hazards</label>
                         <div class="checkbox-group"
-                            style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 10px;">
+                            style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 15px;">
                             <div class="checkbox-item"><input type="checkbox" name="weather" value="lightning" checked>
-                                <span style="font-size: 0.85rem;">Lightning</span>
-                            </div>
-                            <div class="checkbox-item"><input type="checkbox" name="weather" value="tornado">
-                                <span style="font-size: 0.85rem;">Tornado</span>
-                            </div>
-                            <div class="checkbox-item"><input type="checkbox" name="weather" value="snow">
-                                <span style="font-size: 0.85rem;">Snow</span>
-                            </div>
+                                <span style="font-size: 0.85rem;">Lightning</span></div>
+                            <div class="checkbox-item"><input type="checkbox" name="weather" value="tornado"> <span
+                                    style="font-size: 0.85rem;">Tornado</span></div>
+                            <div class="checkbox-item"><input type="checkbox" name="weather" value="snow"> <span
+                                    style="font-size: 0.85rem;">Snow</span></div>
                         </div>
 
                         <button type="submit" id="submitBtn">Execute Ensemble Run</button>
                     </form>
                 </div>
 
-                <button type="submit" id="submitBtn">Execute Ensemble Run</button>
-                </form>
-
-                <div id="adminPanel">
+                <div id="adminPanel" style="display:none;">
                     <label>Developer: User Permissions</label>
                     <div id="userList"></div>
                 </div>
@@ -429,8 +439,6 @@
     </div>
 
     <div id="map"></div>
-    <div class="map-overlay" id="statusOverlay">Engine: Awaiting Instructions</div>
-
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
