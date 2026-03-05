@@ -405,20 +405,21 @@
                         <label>Ensemble Parameters</label>
                         <select id="regionSelect">
                             <option value="England">England (South/Central)</option>
-                            
-                        <input type="text" id="startTime" placeholder="Start: DD/MM/YYYY HH:MM" required>
-                        <input type="text" id="endTime" placeholder="End: DD/MM/YYYY HH:MM" required>
 
-                        <label style="margin-top: 10px;">Weather Hazards</label>
-                        <div class="checkbox-group"
-                            style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 15px;">
-                            <div class="checkbox-item"><input type="checkbox" name="weather" value="lightning" checked>
-                                <span style="font-size: 0.85rem;">Lightning</span>
+                            <input type="text" id="startTime" placeholder="Start: DD/MM/YYYY HH:MM" required>
+                            <input type="text" id="endTime" placeholder="End: DD/MM/YYYY HH:MM" required>
+
+                            <label style="margin-top: 10px;">Weather Hazards</label>
+                            <div class="checkbox-group"
+                                style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 15px;">
+                                <div class="checkbox-item"><input type="checkbox" name="weather" value="lightning"
+                                        checked>
+                                    <span style="font-size: 0.85rem;">Lightning</span>
+                                </div>
+
                             </div>
-                            
-                        </div>
 
-                        <button type="submit" id="submitBtn">Execute Ensemble Run</button>
+                            <button type="submit" id="submitBtn">Execute Ensemble Run</button>
                     </form>
                 </div>
 
@@ -448,7 +449,7 @@
         // REUSABLE FUNCTION
         async function renderHocoLayers(map, gridData) {
             // Clean up existing layers first
-            if (map.getLayer('hoco-outline')) map.removeLayer('hoco-outline');
+
             if (map.getLayer('hoco-grid')) map.removeLayer('hoco-grid');
             if (map.getSource('hoco-source')) map.removeSource('hoco-source');
 
@@ -460,9 +461,15 @@
                 type: 'fill-extrusion',
                 source: 'hoco-source',
                 paint: {
-                    'fill-extrusion-height': ['*', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], parseInt(document.getElementById('heightSlider').value, 10)],
+                    'fill-extrusion-height': [
+                        '*',
+                        ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0],
+                        parseInt(document.getElementById('heightSlider').value, 10)
+                    ],
                     'fill-extrusion-color': [
-                        'interpolate', ['linear'], ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0],
+                        'interpolate', ['linear'],
+                        // DIVIDE BY 5 HERE:
+                        ['/', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], 5],
                         0, 'rgba(255, 255, 255, 0)',
                         20, 'rgba(102, 194, 164, 0.7)',
                         40, 'rgba(255, 242, 0, 0.7)',
@@ -473,19 +480,8 @@
                     'fill-extrusion-opacity': parseInt(document.getElementById('opacitySlider').value, 10) / 100
                 }
             });
-
             // 2. Add Contour Lines
-            map.addLayer({
-                id: 'hoco-outline',
-                type: 'line',
-                source: 'hoco-source',
-                paint: {
-                    'line-color': '#fff',
-                    'line-width': 0.8,
-                    'line-opacity': 0.5
-                },
-                filter: ['==', ['%', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], 10], 0]
-            });
+
 
             // 3. Ensure labels stay on top
             const layers = map.getStyle().layers;
