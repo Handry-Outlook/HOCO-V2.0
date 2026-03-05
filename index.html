@@ -33,10 +33,22 @@
         }
 
         /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: var(--bg); }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
 
         /* Sidebar Layout */
         #sidebar {
@@ -111,7 +123,8 @@
             letter-spacing: 1px;
         }
 
-        input, select {
+        input,
+        select {
             width: 100%;
             padding: 12px;
             margin-bottom: 12px;
@@ -124,7 +137,8 @@
             transition: border-color 0.2s;
         }
 
-        input:focus, select:focus {
+        input:focus,
+        select:focus {
             border-color: var(--primary);
             outline: none;
             box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
@@ -160,7 +174,10 @@
             padding: 10px;
             font-size: 0.85rem;
         }
-        .btn-add:hover:not(:disabled) { background: #27ae60; }
+
+        .btn-add:hover:not(:disabled) {
+            background: #27ae60;
+        }
 
         #logoutBtn {
             background: transparent;
@@ -168,7 +185,10 @@
             color: var(--danger);
             margin-top: 10px;
         }
-        #logoutBtn:hover { background: rgba(231, 76, 60, 0.1); }
+
+        #logoutBtn:hover {
+            background: rgba(231, 76, 60, 0.1);
+        }
 
         /* Scenarios Chips */
         .chip-container {
@@ -196,7 +216,10 @@
             opacity: 0.7;
             transition: opacity 0.2s;
         }
-        .chip span:hover { opacity: 1; }
+
+        .chip span:hover {
+            opacity: 1;
+        }
 
         /* Admin UI */
         #adminPanel {
@@ -244,7 +267,7 @@
             font-size: 0.85rem;
             font-weight: 500;
             pointer-events: none;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
             z-index: 5;
         }
 
@@ -259,27 +282,47 @@
             gap: 10px;
             pointer-events: none;
         }
+
         .toast {
             background: var(--card);
             border-left: 4px solid var(--primary);
             color: #fff;
             padding: 12px 20px;
             border-radius: 4px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
             font-size: 0.85rem;
             animation: slideIn 0.3s ease forwards;
             min-width: 200px;
         }
-        .toast.error { border-left-color: var(--danger); }
-        .toast.success { border-left-color: var(--accent); }
-        
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
+
+        .toast.error {
+            border-left-color: var(--danger);
         }
+
+        .toast.success {
+            border-left-color: var(--accent);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
         @keyframes fadeOut {
-            from { opacity: 1; }
-            to { opacity: 0; }
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0;
+            }
         }
     </style>
 </head>
@@ -294,7 +337,8 @@
             <input type="email" id="emailIn" placeholder="Email Address" required>
             <input type="password" id="passIn" placeholder="Password" required>
             <button id="loginBtn">Sign In</button>
-            <button id="registerBtn" style="background:transparent; border: 1px solid #555; margin-top: 10px;">Create Access Request</button>
+            <button id="registerBtn" style="background:transparent; border: 1px solid #555; margin-top: 10px;">Create
+                Access Request</button>
             <p id="authError" style="color:var(--danger); font-size:0.8rem; margin-top:15px; min-height: 16px;"></p>
         </div>
     </div>
@@ -302,8 +346,9 @@
     <div id="sidebar">
         <div id="scroll-area">
             <div id="mainUI" style="display:none;">
-                <h2>FORECASTER 
-                    <span id="roleBadge" style="background:var(--accent); font-size: 0.6rem; padding: 4px 8px; border-radius: 4px; vertical-align: middle; color: #000; font-weight: 800;">...</span>
+                <h2>FORECASTER
+                    <span id="roleBadge"
+                        style="background:var(--accent); font-size: 0.6rem; padding: 4px 8px; border-radius: 4px; vertical-align: middle; color: #000; font-weight: 800;">...</span>
                 </h2>
 
                 <div class="panel">
@@ -326,36 +371,35 @@
                     </select>
                     <div style="display: flex; align-items: center; gap: 15px; margin-top: 10px;">
                         <label style="margin:0; min-width: 60px;">Opacity</label>
-                        <input type="range" id="opacitySlider" min="0" max="100" value="75" style="margin:0; cursor: pointer;">
+                        <input type="range" id="opacitySlider" min="0" max="100" value="75"
+                            style="margin:0; cursor: pointer;">
                     </div>
                 </div>
 
-                <form id="hocoForm">
-                    <div class="panel">
-                        <label>Ensemble Parameters</label>
-                        <select id="regionSelect">
-                            <option value="UK">United Kingdom (Full)</option>
-                            <option value="England">England (South/Central)</option>
-                        </select>
-                        <input type="text" id="startTime" placeholder="Start: DD/MM/YYYY HH:MM" required>
-                        <input type="text" id="endTime" placeholder="End: DD/MM/YYYY HH:MM" required>
-                    </div>
+                <div class="panel">
+                    <label>Ensemble Parameters</label>
+                    <select id="regionSelect">
+                        <option value="England">England (South/Central)</option>
+                        <option value="UK">United Kingdom (Full)</option>
 
-                    <div id="exclusiveSection" style="display:none;">
-                        <div class="panel" style="border-left: 3px solid var(--primary);">
-                            <label>Scenario Builder (Custom Models)</label>
-                            <select id="modelSelect"></select>
-                            <select id="runSelect"></select>
-                            <button type="button" class="btn-add" id="addScenarioBtn">+ Add Run to Stack</button>
-                            <div class="chip-container" id="scenarioList"></div>
+                    </select>
+                    <input type="text" id="startTime" placeholder="Start: DD/MM/YYYY HH:MM" required>
+                    <input type="text" id="endTime" placeholder="End: DD/MM/YYYY HH:MM" required>
 
-                            <label style="margin-top:20px;">Manual Weight Adjustments</label>
-                            <div id="weightsContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                                </div>
+                    <label style="margin-top: 10px;">Weather Hazards</label>
+                    <div class="checkbox-group"
+                        style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 10px;">
+                        <div class="checkbox-item"><input type="checkbox" name="weather" value="lightning" checked>
+                            <span style="font-size: 0.85rem;">Lightning</span>
                         </div>
+                        <div class="checkbox-item"><input type="checkbox" name="weather" value="tornado"> <span
+                                style="font-size: 0.85rem;">Tornado</span></div>
+                        <div class="checkbox-item"><input type="checkbox" name="weather" value="snow"> <span
+                                style="font-size: 0.85rem;">Snow</span></div>
                     </div>
+                </div>
 
-                    <button type="submit" id="submitBtn">Execute Ensemble Run</button>
+                <button type="submit" id="submitBtn">Execute Ensemble Run</button>
                 </form>
 
                 <div id="adminPanel">
@@ -366,10 +410,12 @@
 
             <div id="accessDenied" style="display:none; text-align: center; padding: 40px 20px;">
                 <h3 style="color: var(--primary);">System Access Pending</h3>
-                <p style="font-size: 0.9rem; color: #888; line-height: 1.5;">Your account must be manually verified by a developer before accessing the engine.</p>
+                <p style="font-size: 0.9rem; color: #888; line-height: 1.5;">Your account must be manually verified by a
+                    developer before accessing the engine.</p>
                 <div style="margin-top: 20px; text-align: left;">
                     <label>Your Unique ID</label>
-                    <code id="displayUid" style="background:#000; padding:12px; display:block; border-radius:6px; font-size:0.75rem; color: var(--accent); word-break: break-all; border: 1px solid #222;"></code>
+                    <code id="displayUid"
+                        style="background:#000; padding:12px; display:block; border-radius:6px; font-size:0.75rem; color: var(--accent); word-break: break-all; border: 1px solid #222;"></code>
                 </div>
             </div>
         </div>
@@ -395,7 +441,7 @@
             toast.className = `toast ${type}`;
             toast.innerText = message;
             container.appendChild(toast);
-            
+
             setTimeout(() => {
                 toast.style.animation = 'fadeOut 0.3s ease forwards';
                 setTimeout(() => toast.remove(), 300);
@@ -446,7 +492,7 @@
             style: 'mapbox://styles/mapbox/dark-v11',
             center: [-1.5, 52.5],
             zoom: 6,
-            projection: 'mercator' 
+            projection: 'mercator'
         });
 
         // Add standard navigation controls
@@ -581,10 +627,10 @@
         function pointsToGrid(geojson, size = 0.08) {
             if (!geojson || !geojson.features) return geojson;
             const half = size / 2;
-            
+
             // Pre-allocate array for performance
             const features = new Array(geojson.features.length);
-            
+
             for (let i = 0; i < geojson.features.length; i++) {
                 const f = geojson.features[i];
                 const [lon, lat] = f.geometry.coordinates;
@@ -633,11 +679,11 @@
 
             updateRunTimes();
             mSel.addEventListener('change', updateRunTimes);
-            
+
             const startInput = document.getElementById('startTime');
             startInput.addEventListener('blur', updateRunTimes);
             startInput.addEventListener('keyup', (e) => {
-                if(e.key === 'Enter') updateRunTimes();
+                if (e.key === 'Enter') updateRunTimes();
             });
 
             // Setup Default Weights
@@ -662,7 +708,7 @@
 
             let baseTime = parseStartTime(document.getElementById('startTime').value);
             baseTime.setUTCMinutes(0, 0, 0);
-            
+
             let currentHour = baseTime.getUTCHours();
             let roundedHour = Math.floor(currentHour / freq) * freq;
             baseTime.setUTCHours(roundedHour);
@@ -800,38 +846,44 @@
         // ==========================================
         // 10. EXECUTE RUN LOGIC
         // ==========================================
+        // Updated Execution Logic in Section 10
+        // SECTION 10: Updated Execute Run Logic
         document.getElementById('hocoForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('submitBtn');
             btn.disabled = true;
             btn.innerText = "Executing Request...";
 
-            const weights = {};
+            // Determine weights
+            const activeWeights = {};
             Object.keys(defaultWeights).forEach(m => {
                 const el = document.getElementById(`w-${m}`);
-                weights[m] = el ? parseFloat(el.value) : defaultWeights[m];
+                activeWeights[m] = el ? parseFloat(el.value) : defaultWeights[m];
             });
 
-            const payload = {
-                region: document.getElementById('regionSelect').value,
-                startTime: document.getElementById('startTime').value,
-                endTime: document.getElementById('endTime').value,
-                scenarios: selectedScenarios,
-                weights: JSON.stringify(weights),
-                userId: auth.currentUser.uid,
-                createdAt: new Date(),
-                status: 'pending'
-            };
-
             try {
+                const payload = {
+                    region: document.getElementById('regionSelect').value,
+                    scenarios: userRole === 'normal' ? [] : selectedScenarios,
+                    startTime: document.getElementById('startTime').value,
+                    endTime: document.getElementById('endTime').value,
+                    // Extract weather checkboxes as a comma-separated string
+                    weather: Array.from(document.querySelectorAll('input[name="weather"]:checked')).map(cb => cb.value).join(','),
+                    weights: JSON.stringify(activeWeights),
+                    userId: auth.currentUser.uid,
+                    createdAt: new Date(),
+                    status: 'pending',
+                    type: 'manual'
+                };
+
                 const docRef = await addDoc(collection(db, "hoco_requests"), payload);
-                document.getElementById('statusOverlay').innerText = "Status: Provisioning Compute...";
+                const statusOverlay = document.getElementById('statusOverlay');
+                statusOverlay.innerText = 'Status: Processing started...';
 
                 await triggerHocoRun({ id: docRef.id, ...payload });
+
                 showToast("Run triggered successfully", "success");
-                document.getElementById('statusOverlay').innerText = "Status: Ready";
-                
-                // Reset form state
+                statusOverlay.innerText = "Status: Ready";
                 selectedScenarios = [];
                 renderChips();
             } catch (err) {
@@ -846,35 +898,40 @@
         // ==========================================
         // 11. MAP DATA VISUALIZATION
         // ==========================================
+        // Updated Map Data Visualization in Section 11
+        // SECTION 11: Updated Map Data Visualization
         document.getElementById('idSelector').addEventListener('change', async (e) => {
             const id = e.target.value;
             if (!id) return;
 
             const statusUI = document.getElementById('statusOverlay');
-            statusUI.innerText = "Status: Fetching metadata...";
+            statusUI.innerText = "Status: Loading 3D Engine...";
 
             try {
                 const docSnap = await getDoc(doc(db, "hoco_requests", id));
                 if (docSnap.exists() && docSnap.data().geojsonUrl) {
-                    statusUI.innerText = "Status: Downloading Model Data...";
                     const response = await fetch(docSnap.data().geojsonUrl);
-
-                    if (!response.ok) throw new Error("GeoJSON unavailable");
-
                     const rawData = await response.json();
-                    statusUI.innerText = "Status: Parsing Grid...";
                     const gridData = pointsToGrid(rawData);
 
                     if (map.getLayer('hoco-grid')) map.removeLayer('hoco-grid');
                     if (map.getSource('hoco-source')) map.removeSource('hoco-source');
 
                     map.addSource('hoco-source', { type: 'geojson', data: gridData });
+
                     map.addLayer({
                         id: 'hoco-grid',
-                        type: 'fill',
+                        type: 'fill-extrusion', // Enables 3D heights
                         source: 'hoco-source',
                         paint: {
-                            'fill-color': [
+                            // Height is Risk value * 5000 (meters) for visual clarity
+                            'fill-extrusion-height': [
+                                '*',
+                                ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0],
+                                5000
+                            ],
+                            'fill-extrusion-base': 0,
+                            'fill-extrusion-color': [
                                 'interpolate', ['linear'],
                                 ['/', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], 5],
                                 0, '#ffffff',
@@ -884,22 +941,26 @@
                                 80, '#ec1c24',
                                 100, '#b83dba'
                             ],
-                            'fill-opacity': parseInt(document.getElementById('opacitySlider').value, 10) / 100
+                            'fill-extrusion-opacity': parseInt(document.getElementById('opacitySlider').value, 10) / 100
                         }
                     });
 
-                    statusUI.innerText = "Status: Visualization Active";
-                    showToast("Map data updated successfully", "success");
-                } else {
-                    statusUI.innerText = "Status: Awaiting engine output";
-                    showToast("Data is not yet ready for this run.", "info");
+                    // Automatically tilt the map to reveal the 3D towers
+                    map.easeTo({
+                        pitch: 60,
+                        bearing: -10,
+                        duration: 1200
+                    });
+
+                    statusUI.innerText = "Status: 3D Visualization Active";
+                    showToast("3D Risk Towers Rendered", "success");
                 }
             } catch (error) {
-                console.error("Render Error:", error);
                 statusUI.innerText = "Status: Data Load Error";
                 showToast("Failed to load map data", "error");
             }
         });
     </script>
 </body>
+
 </html>
