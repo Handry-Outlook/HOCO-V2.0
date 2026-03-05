@@ -16,14 +16,15 @@
         #authOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,10,0.95); z-index: 1000; display: flex; align-items: center; justify-content: center; }
         .auth-card { background: #252525; padding: 30px; border-radius: 12px; border: 1px solid #444; width: 320px; text-align: center; }
 
+        /* Access Control UI */
+        #accessDenied { display: none; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; background: #2c3e50; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e67e22; }
+        #mainUI { display: none; }
+
         /* UI Components */
         .form-group { margin-bottom: 12px; }
         label { display: block; font-size: 0.75em; font-weight: bold; margin-bottom: 5px; color: #888; text-transform: uppercase; }
         input, select { width: 100%; padding: 10px; border: 1px solid #444; border-radius: 4px; background: #333; color: white; box-sizing: border-box; font-size: 0.9em; }
-        
         .control-panel { background: #1e1e1e; padding: 15px; border-radius: 8px; border: 1px solid #333; margin-bottom: 15px; }
-        
-        /* Calendar Explorer */
         .explorer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 5px; }
 
         /* Scenarios & Weights */
@@ -62,61 +63,71 @@
             <h2 style="color:#3498db; margin-top:0;">HOCO Access</h2>
             <input type="email" id="emailIn" placeholder="Email" style="margin-bottom:10px;">
             <input type="password" id="passIn" placeholder="Password" style="margin-bottom:15px;">
-            <button id="loginBtn">Sign In</button>
+            <button id="loginBtn">Sign In / Register</button>
             <p id="authError" style="color:#e74c3c; font-size:0.8em; margin-top:10px;"></p>
+            <p style="font-size: 0.65em; color: #666; margin-top: 15px;">Note: New accounts require admin activation.</p>
         </div>
     </div>
 
     <div id="sidebar">
-        <div style="display:flex; justify-content:space-between; align-items: center; margin-bottom: 20px;">
-            <h2 style="margin:0; color: #3498db; font-size: 1.4em;">ADV-HOCO <span id="roleBadge" class="role-badge">GUEST</span></h2>
-        </div>
-        
-        <div class="control-panel">
-            <label>Run Explorer (Calendar)</label>
-            <div class="explorer-grid">
-                <input type="date" id="calendarFilter">
-                <select id="idSelector"><option value="">Select Date...</option></select>
-            </div>
-            <div class="legend-bar"></div>
+        <div id="accessDenied">
+            <h3 style="color: #e67e22; margin-top: 0;">Activation Required</h3>
+            <p style="font-size: 0.8em;">Your account is pending. Send this UID to the administrator for access:</p>
+            <code id="displayUid" style="background: #111; padding: 8px; display: block; margin: 10px 0; font-size: 0.75em; word-break: break-all; border-radius: 4px; color: #3498db;"></code>
         </div>
 
-        <form id="hocoForm">
-            <div class="form-group">
-                <label>1. Region & Window</label>
-                <select id="regionSelect" style="margin-bottom: 8px;">
-                    <option value="UK">United Kingdom</option>
-                    <option value="England">England</option>
-                </select>
-                <input type="text" id="startTime" placeholder="Start: DD/MM/YYYY HH:MM" required>
-                <input type="text" id="endTime" placeholder="End: DD/MM/YYYY HH:MM" required style="margin-top:8px;">
-                <p id="limitNote" style="font-size:0.7em; color:#888; margin-top:5px; font-style:italic;"></p>
+        <div id="mainUI">
+            <div style="display:flex; justify-content:space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin:0; color: #3498db; font-size: 1.4em;">ADV-HOCO <span id="roleBadge" class="role-badge">...</span></h2>
+            </div>
+            
+            <div class="control-panel">
+                <label>Run Explorer (Calendar)</label>
+                <div class="explorer-grid">
+                    <input type="date" id="calendarFilter">
+                    <select id="idSelector"><option value="">Select Date...</option></select>
+                </div>
+                <div class="legend-bar"></div>
             </div>
 
-            <div id="exclusiveSection">
-                <div class="scenario-builder">
-                    <label>2. Custom Model Runs</label>
-                    <select id="modelSelect" style="margin-bottom: 5px;"></select>
-                    <select id="runSelect"></select>
-                    <button type="button" class="btn-add" id="addScenarioBtn">+ Add Run</button>
-                    <div class="scenario-list" id="scenarioList"></div>
+            <form id="hocoForm">
+                <div class="form-group">
+                    <label>1. Region & Window</label>
+                    <select id="regionSelect" style="margin-bottom: 8px;">
+                        <option value="UK">United Kingdom</option>
+                        <option value="England">England</option>
+                    </select>
+                    <input type="text" id="startTime" placeholder="Start: DD/MM/YYYY HH:MM" required>
+                    <input type="text" id="endTime" placeholder="End: DD/MM/YYYY HH:MM" required style="margin-top:8px;">
+                    <p id="limitNote" style="font-size:0.7em; color:#888; margin-top:5px; font-style:italic;"></p>
                 </div>
 
-                <label>3. Model Weights</label>
-                <div id="weightsContainer" class="weight-grid"></div>
-            </div>
+                <div id="exclusiveSection">
+                    <div class="scenario-builder">
+                        <label>2. Custom Model Runs</label>
+                        <select id="modelSelect" style="margin-bottom: 5px;"></select>
+                        <select id="runSelect"></select>
+                        <button type="button" class="btn-add" id="addScenarioBtn">+ Add Run</button>
+                        <div class="scenario-list" id="scenarioList"></div>
+                    </div>
 
-            <label>4. Parameters</label>
-            <div class="checkbox-group">
-                <div class="checkbox-item"><input type="checkbox" name="weather" value="lightning" checked> Lightning</div>
-                <div class="checkbox-item"><input type="checkbox" name="weather" value="tornado"> Tornado</div>
-                <div class="checkbox-item"><input type="checkbox" name="weather" value="snow"> Snow</div>
-            </div>
+                    <label>3. Model Weights</label>
+                    <div id="weightsContainer" class="weight-grid"></div>
+                </div>
 
-            <button type="submit" id="submitBtn">Generate Ensemble</button>
-        </form>
-        
-        <div id="statusBox" class="status-box"></div>
+                <label>4. Parameters</label>
+                <div class="checkbox-group">
+                    <div class="checkbox-item"><input type="checkbox" name="weather" value="lightning" checked> Lightning</div>
+                    <div class="checkbox-item"><input type="checkbox" name="weather" value="tornado"> Tornado</div>
+                    <div class="checkbox-item"><input type="checkbox" name="weather" value="snow"> Snow</div>
+                </div>
+
+                <button type="submit" id="submitBtn">Generate Ensemble</button>
+            </form>
+            
+            <div id="statusBox" class="status-box"></div>
+        </div>
+
         <button id="logoutBtn">Logout</button>
     </div>
 
@@ -124,22 +135,19 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, doc, getDoc, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 
-        // --- 1. FRONT-END LOGIN FIREBASE (Auth Only) ---
         const authConfig = {
             apiKey: "AIzaSyBjMyJIMp1F_zktvOR1GsGPCgEvmx_Qmdg",
             authDomain: "hoco-frontend.firebaseapp.com",
             projectId: "hoco-frontend",
             storageBucket: "hoco-frontend.firebasestorage.app",
             messagingSenderId: "276113939915",
-            appId: "1:276113939915:web:f11104760b00ef2074aa4e",
-            measurementId: "G-2E689K3KBD"
-            };
+            appId: "1:276113939915:web:f11104760b00ef2074aa4e"
+        };
 
-        // --- 2. BACKEND FIREBASE (Database & Functions) ---
         const backendConfig = {
             apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ",
             authDomain: "hoco-3b23e.firebaseapp.com",
@@ -149,70 +157,109 @@
             appId: "1:409513272369:web:a857d9b039d53710f8a110"
         };
 
-        // Initialize Apps with Unique Names
         const authApp = initializeApp(authConfig, "authApp");
         const backendApp = initializeApp(backendConfig, "backendApp");
 
-        // Map Services to the Correct App
         const auth = getAuth(authApp);
         const db = getFirestore(backendApp);
         const functions = getFunctions(backendApp, "us-central1");
         const triggerHocoRun = httpsCallable(functions, 'triggerHocoRun');
 
-        // --- Role Config ---
-        let userRole = 'normal'; 
+        // --- Role Logic ---
+        let userRole = 'pending'; 
         const ROLES = {
-            NORMAL: { maxRange: 24, lookAhead: 72, customModels: false },
-            EXCLUSIVE: { maxRange: 72, lookAhead: 72, customModels: true },
-            DEVELOPER: { maxRange: 999, lookAhead: 999, customModels: true }
+            PENDING:   { active: false, maxRange: 0,   lookAhead: 0,   customModels: false },
+            NORMAL:    { active: true,  maxRange: 24,  lookAhead: 72,  customModels: false },
+            EXCLUSIVE: { active: true,  maxRange: 72,  lookAhead: 72,  customModels: true },
+            DEVELOPER: { active: true,  maxRange: 999, lookAhead: 999, customModels: true }
         };
 
         const defaultWeights = { 'rpdid2': 0.8, 'swisseu': 1.1, 'ez': 1.1, 'swissnow': 0.9, 'frahd': 0.8, 'hardmi': 1.0, 'ukmo2km': 0.9, 'deuhd': 1.0 };
         const models = { frahd: { name: "FRAHD", freq: 3 }, rpdid2: { name: "RPDID2", freq: 3 }, hardmi: { name: "HARDMI", freq: 3 }, swisseu: { name: "SWISSEU", freq: 3 }, swissnow: { name: "SWISSNOW", freq: 1 }, ez: { name: "EZ", freq: 12 }, ukmo2km: { name: "UKMO 2KM", freq: 3} };
 
-        // --- Map Init ---
         mapboxgl.accessToken = 'pk.eyJ1IjoibWV0ZW9ncm91cC1tYXBib3giLCJhIjoiY2pudWJyMWVhMDQ0bjNxdXFsNWJ5M2ZtbSJ9.ANOKYyv5s0VFVbnesnGGUQ';
         const map = new mapboxgl.Map({ container: 'map', style: 'mapbox://styles/mapbox/dark-v11', center: [-1.5, 52.5], zoom: 5.5 });
 
-        // --- Authentication Logic ---
+        // --- Auth Flow ---
         document.getElementById('loginBtn').addEventListener('click', async () => {
             const email = document.getElementById('emailIn').value;
             const pass = document.getElementById('passIn').value;
+            const errDiv = document.getElementById('authError');
+            errDiv.innerText = "";
+
             try {
                 await signInWithEmailAndPassword(auth, email, pass);
-            } catch (err) { document.getElementById('authError').innerText = err.message; }
+            } catch (err) {
+                if (err.code === 'auth/user-not-found') {
+                    try {
+                        await createUserWithEmailAndPassword(auth, email, pass);
+                    } catch (regErr) { errDiv.innerText = "Register failed: " + regErr.message; }
+                } else {
+                    errDiv.innerText = "Login failed: " + err.message;
+                }
+            }
         });
 
         document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {
-                // Roles are stored in the BACKEND database, keyed by the Auth UID
-                const userDoc = await getDoc(doc(db, "users", user.uid));
-                userRole = userDoc.exists() ? userDoc.data().role : 'normal';
-                setupUIForRole();
                 document.getElementById('authOverlay').style.display = 'none';
-                initRunExplorer();
+                
+                // 1. Check if the user exists in the Backend Database (Project B)
+                const userRef = doc(db, "users", user.uid);
+                const userDoc = await getDoc(userRef);
+
+                if (userDoc.exists()) {
+                    // User exists, use their assigned role
+                    userRole = userDoc.data().role || 'normal';
+                } else {
+                    // 2. NEW USER: Automatically grant 'normal' (guest) access
+                    userRole = 'normal'; 
+                    try {
+                        await setDoc(userRef, {
+                            email: user.email,
+                            role: 'normal',
+                            createdAt: new Date()
+                        });
+                        console.log("Automatic guest profile created for:", user.email);
+                    } catch (e) {
+                        console.error("Error creating auto-profile:", e);
+                    }
+                }
+                
+                setupUI(user.uid);
             } else {
                 document.getElementById('authOverlay').style.display = 'flex';
+                document.getElementById('mainUI').style.display = 'none';
+                document.getElementById('accessDenied').style.display = 'none';
             }
         });
 
-        function setupUIForRole() {
-            const roleKey = userRole.toUpperCase();
-            const config = ROLES[roleKey];
-            document.getElementById('roleBadge').innerText = roleKey;
-            document.getElementById('exclusiveSection').style.display = config.customModels ? 'block' : 'none';
-            document.getElementById('limitNote').innerText = roleKey === 'DEVELOPER' ? 'Unlimited access enabled.' : `Max Range: ${config.maxRange}h | Look-ahead: ${config.lookAhead}h`;
+        function setupUI(uid) {
+            const config = ROLES[userRole.toUpperCase()] || ROLES.PENDING;
+            
+            if (!config.active) {
+                document.getElementById('mainUI').style.display = 'none';
+                document.getElementById('accessDenied').style.display = 'flex';
+                document.getElementById('displayUid').innerText = uid;
+            } else {
+                document.getElementById('accessDenied').style.display = 'none';
+                document.getElementById('mainUI').style.display = 'block';
+                document.getElementById('roleBadge').innerText = userRole.toUpperCase();
+                document.getElementById('exclusiveSection').style.display = config.customModels ? 'block' : 'none';
+                document.getElementById('limitNote').innerText = userRole === 'developer' ? 'Unlimited access.' : `Max Range: ${config.maxRange}h | Look-ahead: ${config.lookAhead}h`;
+                initRunExplorer();
+            }
         }
 
-        // --- Calendar Explorer Logic ---
+        // --- Run Explorer ---
         let cachedRuns = [];
         function initRunExplorer() {
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('calendarFilter').value = today;
 
-            onSnapshot(query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(200)), (snap) => {
+            onSnapshot(query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(100)), (snap) => {
                 cachedRuns = [];
                 snap.forEach(d => cachedRuns.push({ id: d.id, ...d.data() }));
                 refreshRunList(document.getElementById('calendarFilter').value);
@@ -224,56 +271,26 @@
         function refreshRunList(dateStr) {
             const s = document.getElementById('idSelector');
             s.innerHTML = '<option value="">-- Select Run --</option>';
-            
-            const filtered = cachedRuns.filter(r => {
-                const runDate = r.createdAt?.toDate().toISOString().split('T')[0];
-                return runDate === dateStr;
-            });
+            const filtered = cachedRuns.filter(r => r.createdAt?.toDate().toISOString().split('T')[0] === dateStr);
 
             if (filtered.length === 0) {
-                s.innerHTML = '<option value="">No runs on this date</option>';
+                s.innerHTML = '<option value="">No runs found</option>';
                 return;
             }
 
             filtered.forEach(data => {
                 const opt = document.createElement('option');
                 opt.value = data.id;
-                const icon = data.type === 'automated' ? '🤖' : '👤';
-                opt.textContent = `${icon} [${data.status.toUpperCase()}] ${data.startTime}`;
+                opt.textContent = `${data.type === 'automated' ? '🤖' : '👤'} [${data.status.toUpperCase()}] ${data.startTime}`;
                 if (data.status === 'completed') opt.style.color = '#27ae60';
                 s.appendChild(opt);
             });
         }
 
-        // --- Time Validation ---
-        function validateRequest(startStr, endStr) {
-            if (userRole === 'developer') return true;
-            
-            const start = parseDate(startStr);
-            const end = parseDate(endStr);
-            const now = new Date();
-            const diffHours = (end - start) / (1000 * 60 * 60);
-            const aheadHours = (start - now) / (1000 * 60 * 60);
-
-            const config = ROLES[userRole.toUpperCase()];
-
-            if (start < now && userRole !== 'developer') { alert("Historical runs are developer-only."); return false; }
-            if (aheadHours > config.lookAhead) { alert(`Your plan only allows looking ${config.lookAhead}h ahead.`); return false; }
-            if (diffHours > config.maxRange || diffHours <= 0) { alert(`Invalid range. Max allowed: ${config.maxRange}h`); return false; }
-            
-            return true;
-        }
-
-        function parseDate(s) {
-            const p = s.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
-            return new Date(p[3], p[2]-1, p[1], p[4], p[5]);
-        }
-
-        // --- Model Selection Logic ---
+        // --- Scenario Builder ---
         const weightsContainer = document.getElementById('weightsContainer');
         const modelSelect = document.getElementById('modelSelect');
         const runSelect = document.getElementById('runSelect');
-        const startTimeInput = document.getElementById('startTime');
 
         Object.keys(defaultWeights).forEach(m => {
             const div = document.createElement('div');
@@ -295,8 +312,8 @@
             let baseDate = new Date();
             baseDate.setMinutes(0, 0, 0, 0);
             
-            for (let i = 0; i < 30; i++) {
-                const d = new Date(baseDate.getTime() - (i * 1 * 60 * 60 * 1000));
+            for (let i = 0; i < 24; i++) {
+                const d = new Date(baseDate.getTime() - (i * 3600000));
                 if (d.getUTCHours() % freq === 0) {
                     const iso = d.toISOString();
                     const label = `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')} ${String(d.getUTCHours()).padStart(2,'0')}z`;
@@ -333,37 +350,35 @@
         // --- Submission ---
         document.getElementById('hocoForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const start = document.getElementById('startTime').value;
-            const end = document.getElementById('endTime').value;
-
-            if (!validateRequest(start, end)) return;
-
             const btn = document.getElementById('submitBtn');
             const statusBox = document.getElementById('statusBox');
+            
             btn.disabled = true;
             statusBox.style.display = 'block';
             statusBox.className = 'status-box pending';
-            statusBox.innerText = 'Initializing Ensemble...';
+            statusBox.innerText = 'Transmitting to Cloud...';
 
             const activeWeights = {};
             Object.keys(defaultWeights).forEach(m => { activeWeights[m] = parseFloat(document.getElementById(`weight-${m}`).value); });
 
             try {
-                const forecastData = {
+                const payload = {
                     region: document.getElementById('regionSelect').value,
                     scenarios: userRole === 'normal' ? [] : selectedScenarios,
-                    startTime: start,
-                    endTime: end,
+                    startTime: document.getElementById('startTime').value,
+                    endTime: document.getElementById('endTime').value,
                     weather: Array.from(document.querySelectorAll('input[name="weather"]:checked')).map(cb => cb.value).join(','),
                     weights: JSON.stringify(activeWeights),
-                    createdAt: new Date(),
                     userId: auth.currentUser.uid,
+                    createdAt: new Date(),
+                    status: 'pending',
                     type: 'manual'
                 };
                 
-                const docRef = await addDoc(collection(db, "hoco_requests"), { ...forecastData, status: 'pending' });
-                await triggerHocoRun({ id: docRef.id, ...forecastData });
-                statusBox.innerText = 'Ensemble processing in cloud...';
+                const docRef = await addDoc(collection(db, "hoco_requests"), payload);
+                await triggerHocoRun({ id: docRef.id, ...payload });
+                
+                statusBox.innerText = 'Processing started...';
                 statusBox.className = 'status-box completed';
             } catch (err) { 
                 statusBox.innerText = 'Error: ' + err.message; 
@@ -371,14 +386,11 @@
             }
         });
 
-        // --- Layer Loading ---
+        // --- Map Display ---
         document.getElementById('idSelector').addEventListener('change', async (e) => {
-            const runId = e.target.value;
-            if (!runId) return;
-            const docSnap = await getDoc(doc(db, "hoco_requests", runId));
-            if (docSnap.exists() && docSnap.data().geojsonUrl) {
-                loadGeoJson(docSnap.data().geojsonUrl);
-            }
+            if (!e.target.value) return;
+            const docSnap = await getDoc(doc(db, "hoco_requests", e.target.value));
+            if (docSnap.exists() && docSnap.data().geojsonUrl) loadGeoJson(docSnap.data().geojsonUrl);
         });
 
         async function loadGeoJson(url) {
@@ -390,7 +402,7 @@
             map.addSource('hoco-source', { type: 'geojson', data: processed });
             map.addLayer({ 
                 id: 'hoco-grid', type: 'fill', source: 'hoco-source', 
-                paint: { 'fill-color': ['step', ['/', ['get', 'risk'], 5], "#ffffff", 1, "#bea497", 10, "#66c2a4", 30, "#fff200", 50, "#ff7f27", 70, "#ec1c24", 85, "#b83dba"], 'fill-opacity': 0.7 }
+                paint: { 'fill-color': ['step', ['/', ['get', 'risk'], 5], "#ffffff", 1, "#66c2a4", 30, "#fff200", 50, "#ff7f27", 70, "#ec1c24", 85, "#b83dba"], 'fill-opacity': 0.7 }
             });
         }
 
