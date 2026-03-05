@@ -29,7 +29,6 @@
         button { width: 100%; padding: 12px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         button:hover { filter: brightness(1.1); }
         
-        /* Specific Button Styles */
         .btn-secondary { background: #444; }
         .btn-google { background: #fff; color: #444; display: flex; align-items: center; justify-content: center; gap: 10px; }
         .btn-google img { width: 18px; }
@@ -38,7 +37,6 @@
         .divider { margin: 15px 0; color: #666; font-size: 0.8em; display: flex; align-items: center; }
         .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #444; margin: 0 10px; }
 
-        /* Existing Styles Retained... */
         .form-group { margin-bottom: 12px; }
         label { display: block; font-size: 0.75em; font-weight: bold; margin-bottom: 5px; color: #888; text-transform: uppercase; }
         .explorer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 5px; }
@@ -66,22 +64,24 @@
     <div id="authOverlay">
         <div class="auth-card">
             <h2>HOCO Access</h2>
-            <div class="auth-methods">
-                <input type="email" id="emailIn" placeholder="Email Address">
-                <input type="password" id="passIn" placeholder="Password">
-                
-                <div style="display: flex; gap: 10px;">
-                    <button id="loginBtn">Login</button>
-                    <button id="registerBtn" class="btn-secondary">Register</button>
+            <form id="loginForm" onsubmit="return false;">
+                <div class="auth-methods">
+                    <input type="email" id="emailIn" placeholder="Email Address" autocomplete="email">
+                    <input type="password" id="passIn" placeholder="Password" autocomplete="current-password">
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" id="loginBtn">Login</button>
+                        <button type="button" id="registerBtn" class="btn-secondary">Register</button>
+                    </div>
+
+                    <div class="divider">OR</div>
+
+                    <button type="button" id="googleBtn" class="btn-google">
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/layout/google.svg" alt="Google">
+                        Continue with Google
+                    </button>
                 </div>
-
-                <div class="divider">OR</div>
-
-                <button id="googleBtn" class="btn-google">
-                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/layout/google.svg" alt="Google">
-                    Continue with Google
-                </button>
-            </div>
+            </form>
             
             <p id="authError" style="color:#e74c3c; font-size:0.8em; margin-top:15px; min-height: 1em;"></p>
             <p style="font-size: 0.65em; color: #666; margin-top: 15px;">By signing in, you agree to our weather data TOS.</p>
@@ -177,16 +177,8 @@
         } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 
-        const authConfig = {
-            apiKey: "AIzaSyBjMyJIMp1F_zktvOR1GsGPCgEvmx_Qmdg",
-            authDomain: "hoco-frontend.firebaseapp.com",
-            projectId: "hoco-frontend",
-            storageBucket: "hoco-frontend.firebasestorage.app",
-            messagingSenderId: "276113939915",
-            appId: "1:276113939915:web:f11104760b00ef2074aa4e"
-        };
-
-        const backendConfig = {
+        // CONSOLIDATED PROJECT CONFIG (Using hoco-3b23e for everything)
+        const firebaseConfig = {
             apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ",
             authDomain: "hoco-3b23e.firebaseapp.com",
             projectId: "hoco-3b23e",
@@ -195,15 +187,12 @@
             appId: "1:409513272369:web:a857d9b039d53710f8a110"
         };
 
-        const authApp = initializeApp(authConfig, "authApp");
-        const backendApp = initializeApp(backendConfig, "backendApp");
-
-        const auth = getAuth(authApp);
-        const db = getFirestore(backendApp);
-        const functions = getFunctions(backendApp, "us-central1");
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const functions = getFunctions(app, "us-central1");
         const triggerHocoRun = httpsCallable(functions, 'triggerHocoRun');
 
-        // --- Role Logic ---
         let userRole = 'pending'; 
         const ROLES = {
             PENDING:   { active: false, maxRange: 0,   lookAhead: 0,   customModels: false },
@@ -218,64 +207,51 @@
         mapboxgl.accessToken = 'pk.eyJ1IjoibWV0ZW9ncm91cC1tYXBib3giLCJhIjoiY2pudWJyMWVhMDQ0bjNxdXFsNWJ5M2ZtbSJ9.ANOKYyv5s0VFVbnesnGGUQ';
         const map = new mapboxgl.Map({ container: 'map', style: 'mapbox://styles/mapbox/dark-v11', center: [-1.5, 52.5], zoom: 5.5 });
 
-        // --- Auth Flow UI Elements ---
         const emailIn = document.getElementById('emailIn');
         const passIn = document.getElementById('passIn');
         const errDiv = document.getElementById('authError');
 
-        // 1. LOGIN (Existing Users)
         document.getElementById('loginBtn').addEventListener('click', async () => {
             errDiv.innerText = "";
             try {
                 await signInWithEmailAndPassword(auth, emailIn.value, passIn.value);
-            } catch (err) {
-                errDiv.innerText = "Login failed: " + err.message;
-            }
+            } catch (err) { errDiv.innerText = "Login failed: " + err.message; }
         });
 
-        // 2. REGISTER (New Users)
         document.getElementById('registerBtn').addEventListener('click', async () => {
             errDiv.innerText = "";
             try {
                 await createUserWithEmailAndPassword(auth, emailIn.value, passIn.value);
-            } catch (err) {
-                errDiv.innerText = "Register failed: " + err.message;
-            }
+            } catch (err) { errDiv.innerText = "Register failed: " + err.message; }
         });
 
-        // 3. GOOGLE SIGN-IN
         document.getElementById('googleBtn').addEventListener('click', async () => {
             const provider = new GoogleAuthProvider();
             try {
                 await signInWithPopup(auth, provider);
-            } catch (err) {
-                errDiv.innerText = "Google sign-in failed: " + err.message;
-            }
+            } catch (err) { errDiv.innerText = "Google sign-in failed: " + err.message; }
         });
 
         document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
 
-        // --- Auth State Observer ---
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 document.getElementById('authOverlay').style.display = 'none';
-                
                 const userRef = doc(db, "users", user.uid);
                 const userDoc = await getDoc(userRef);
 
                 if (userDoc.exists()) {
-                    userRole = userDoc.data().role || 'normal';
+                    userRole = userDoc.data().role || 'pending';
                 } else {
-                    userRole = 'normal'; 
+                    userRole = 'pending'; // Start as pending for admin approval
                     try {
                         await setDoc(userRef, {
                             email: user.email,
-                            role: 'normal',
+                            role: 'pending',
                             createdAt: new Date()
                         });
-                    } catch (e) { console.error("Auto-profile error:", e); }
+                    } catch (e) { console.error("Permission error: Check Firestore rules in Project B", e); }
                 }
-                
                 setupUI(user.uid);
             } else {
                 document.getElementById('authOverlay').style.display = 'flex';
@@ -300,7 +276,7 @@
             }
         }
 
-        /* All other functions (Explorer, Scenario Builder, Map) remain exactly the same as your source... */
+        // Run Explorer & Scenario Logic
         let cachedRuns = [];
         function initRunExplorer() {
             const today = new Date().toISOString().split('T')[0];
@@ -311,7 +287,9 @@
                 refreshRunList(document.getElementById('calendarFilter').value);
             });
         }
+
         document.getElementById('calendarFilter').addEventListener('change', (e) => refreshRunList(e.target.value));
+
         function refreshRunList(dateStr) {
             const s = document.getElementById('idSelector');
             s.innerHTML = '<option value="">-- Select Run --</option>';
@@ -324,20 +302,24 @@
                 s.appendChild(opt);
             });
         }
+
         const weightsContainer = document.getElementById('weightsContainer');
         const modelSelect = document.getElementById('modelSelect');
         const runSelect = document.getElementById('runSelect');
+
         Object.keys(defaultWeights).forEach(m => {
             const div = document.createElement('div');
             div.className = 'weight-item';
             div.innerHTML = `<span>${m.toUpperCase()}</span><input type="number" step="0.1" id="weight-${m}" value="${defaultWeights[m]}">`;
             weightsContainer.appendChild(div);
         });
+
         Object.keys(models).forEach(m => {
             const opt = document.createElement('option');
             opt.value = m; opt.textContent = models[m].name;
             modelSelect.appendChild(opt);
         });
+
         function updateRunOptions() {
             runSelect.innerHTML = '';
             const m = modelSelect.value;
@@ -357,6 +339,7 @@
         }
         modelSelect.addEventListener('change', updateRunOptions);
         updateRunOptions();
+
         let selectedScenarios = [];
         document.getElementById('addScenarioBtn').addEventListener('click', () => {
             const runISO = runSelect.value;
@@ -365,6 +348,7 @@
             selectedScenarios.push({ model: modelKey, run: runISO, label: runSelect.options[runSelect.selectedIndex].text });
             renderScenarios();
         });
+
         function renderScenarios() {
             const list = document.getElementById('scenarioList');
             list.innerHTML = '';
@@ -376,6 +360,7 @@
             });
         }
         window.removeScenario = (idx) => { selectedScenarios.splice(idx, 1); renderScenarios(); };
+
         document.getElementById('hocoForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('submitBtn');
@@ -384,8 +369,10 @@
             statusBox.style.display = 'block';
             statusBox.className = 'status-box pending';
             statusBox.innerText = 'Transmitting to Cloud...';
+            
             const activeWeights = {};
             Object.keys(defaultWeights).forEach(m => { activeWeights[m] = parseFloat(document.getElementById(`weight-${m}`).value); });
+            
             try {
                 const payload = {
                     region: document.getElementById('regionSelect').value,
@@ -405,11 +392,13 @@
                 statusBox.className = 'status-box completed';
             } catch (err) { statusBox.innerText = 'Error: ' + err.message; btn.disabled = false; }
         });
+
         document.getElementById('idSelector').addEventListener('change', async (e) => {
             if (!e.target.value) return;
             const docSnap = await getDoc(doc(db, "hoco_requests", e.target.value));
             if (docSnap.exists() && docSnap.data().geojsonUrl) loadGeoJson(docSnap.data().geojsonUrl);
         });
+
         async function loadGeoJson(url) {
             const response = await fetch(url);
             const data = await response.json();
@@ -422,6 +411,7 @@
                 paint: { 'fill-color': ['step', ['/', ['get', 'risk'], 5], "#ffffff", 1, "#66c2a4", 30, "#fff200", 50, "#ff7f27", 70, "#ec1c24", 85, "#b83dba"], 'fill-opacity': 0.7 }
             });
         }
+
         function pointsToGrid(geojson, size = 0.08) {
             const features = geojson.features.map(f => {
                 const [lon, lat] = f.geometry.coordinates;
