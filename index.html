@@ -56,6 +56,12 @@
         .completed { background: #27ae6022; border: 1px solid #27ae60; color: #27ae60; }
         .legend-bar { height: 10px; width: 100%; background: linear-gradient(to right, #66c2a4, #fff200, #ff7f27, #ec1c24, #b83dba); border-radius: 5px; margin: 8px 0; }
         .role-badge { font-size: 0.6em; padding: 2px 6px; border-radius: 10px; background: #3498db; vertical-align: middle; margin-left: 5px; }
+
+        /* Admin Styles */
+        #adminPanel { display: none; border-top: 2px solid #3498db; margin-top: 20px; padding-top: 15px; }
+        .user-row { font-size: 0.75em; padding: 10px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; background: #1a1a1a; margin-bottom: 5px; border-radius: 4px; }
+        .role-btn { padding: 4px 8px; border-radius: 3px; border: none; font-size: 0.8em; cursor: pointer; opacity: 0.7; }
+        .role-btn:hover { opacity: 1; }
     </style>
 </head>
 
@@ -84,7 +90,6 @@
             </form>
             
             <p id="authError" style="color:#e74c3c; font-size:0.8em; margin-top:15px; min-height: 1em;"></p>
-            <p style="font-size: 0.65em; color: #666; margin-top: 15px;">By signing in, you agree to our weather data TOS.</p>
         </div>
     </div>
 
@@ -101,11 +106,12 @@
             </div>
             
             <div class="control-panel">
-                <label>Run Explorer (Calendar)</label>
+                <label>Run Explorer</label>
                 <div class="explorer-grid">
-                    <input type="date" id="calendarFilter">
+                    <input type="date" id="calendarFilter" style="transition: border 0.3s; border-width: 2px;">
                     <select id="idSelector"><option value="">Select Date...</option></select>
                 </div>
+                <div id="dayCounter" style="font-size: 0.65em; color: #888; margin-bottom: 5px;">0 runs available for this day</div>
                 <div class="legend-bar"></div>
             </div>
 
@@ -145,6 +151,11 @@
             </form>
             
             <div id="statusBox" class="status-box"></div>
+
+            <div id="adminPanel">
+                <label style="color: #3498db; margin-bottom: 10px; display: block;">User Management</label>
+                <div id="userList" style="max-height: 250px; overflow-y: auto;"></div>
+            </div>
         </div>
 
         <button id="logoutBtn">Logout</button>
@@ -154,30 +165,10 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { 
-            getAuth, 
-            signInWithEmailAndPassword, 
-            createUserWithEmailAndPassword, 
-            onAuthStateChanged, 
-            signOut,
-            GoogleAuthProvider,
-            signInWithPopup 
-        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { 
-            getFirestore, 
-            collection, 
-            addDoc, 
-            onSnapshot, 
-            query, 
-            orderBy, 
-            limit, 
-            doc, 
-            getDoc,
-            setDoc 
-        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 
-        // CONSOLIDATED PROJECT CONFIG (Using hoco-3b23e for everything)
         const firebaseConfig = {
             apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ",
             authDomain: "hoco-3b23e.firebaseapp.com",
@@ -207,31 +198,16 @@
         mapboxgl.accessToken = 'pk.eyJ1IjoibWV0ZW9ncm91cC1tYXBib3giLCJhIjoiY2pudWJyMWVhMDQ0bjNxdXFsNWJ5M2ZtbSJ9.ANOKYyv5s0VFVbnesnGGUQ';
         const map = new mapboxgl.Map({ container: 'map', style: 'mapbox://styles/mapbox/dark-v11', center: [-1.5, 52.5], zoom: 5.5 });
 
-        const emailIn = document.getElementById('emailIn');
-        const passIn = document.getElementById('passIn');
-        const errDiv = document.getElementById('authError');
-
+        // Authentication Handlers
         document.getElementById('loginBtn').addEventListener('click', async () => {
-            errDiv.innerText = "";
-            try {
-                await signInWithEmailAndPassword(auth, emailIn.value, passIn.value);
-            } catch (err) { errDiv.innerText = "Login failed: " + err.message; }
+            try { await signInWithEmailAndPassword(auth, emailIn.value, passIn.value); } catch (err) { authError.innerText = err.message; }
         });
-
         document.getElementById('registerBtn').addEventListener('click', async () => {
-            errDiv.innerText = "";
-            try {
-                await createUserWithEmailAndPassword(auth, emailIn.value, passIn.value);
-            } catch (err) { errDiv.innerText = "Register failed: " + err.message; }
+            try { await createUserWithEmailAndPassword(auth, emailIn.value, passIn.value); } catch (err) { authError.innerText = err.message; }
         });
-
         document.getElementById('googleBtn').addEventListener('click', async () => {
-            const provider = new GoogleAuthProvider();
-            try {
-                await signInWithPopup(auth, provider);
-            } catch (err) { errDiv.innerText = "Google sign-in failed: " + err.message; }
+            try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch (err) { authError.innerText = err.message; }
         });
-
         document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
 
         onAuthStateChanged(auth, async (user) => {
@@ -243,20 +219,13 @@
                 if (userDoc.exists()) {
                     userRole = userDoc.data().role || 'pending';
                 } else {
-                    userRole = 'pending'; // Start as pending for admin approval
-                    try {
-                        await setDoc(userRef, {
-                            email: user.email,
-                            role: 'pending',
-                            createdAt: new Date()
-                        });
-                    } catch (e) { console.error("Permission error: Check Firestore rules in Project B", e); }
+                    userRole = 'pending';
+                    await setDoc(userRef, { email: user.email, role: 'pending', createdAt: new Date() });
                 }
                 setupUI(user.uid);
             } else {
                 document.getElementById('authOverlay').style.display = 'flex';
                 document.getElementById('mainUI').style.display = 'none';
-                document.getElementById('accessDenied').style.display = 'none';
             }
         });
 
@@ -271,24 +240,55 @@
                 document.getElementById('mainUI').style.display = 'block';
                 document.getElementById('roleBadge').innerText = userRole.toUpperCase();
                 document.getElementById('exclusiveSection').style.display = config.customModels ? 'block' : 'none';
-                document.getElementById('limitNote').innerText = userRole === 'developer' ? 'Unlimited access.' : `Max Range: ${config.maxRange}h | Look-ahead: ${config.lookAhead}h`;
+                
+                if (userRole === 'developer') {
+                    document.getElementById('adminPanel').style.display = 'block';
+                    loadUserAdmin();
+                }
                 initRunExplorer();
             }
         }
 
-        // Run Explorer & Scenario Logic
+        // --- NEW: CALENDAR HEATMAP LOGIC ---
         let cachedRuns = [];
         function initRunExplorer() {
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('calendarFilter').value = today;
-            onSnapshot(query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(100)), (snap) => {
+            
+            onSnapshot(query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(200)), (snap) => {
                 cachedRuns = [];
                 snap.forEach(d => cachedRuns.push({ id: d.id, ...d.data() }));
+                updateCalendarHeat();
                 refreshRunList(document.getElementById('calendarFilter').value);
             });
         }
 
-        document.getElementById('calendarFilter').addEventListener('change', (e) => refreshRunList(e.target.value));
+        function updateCalendarHeat() {
+            const dateInput = document.getElementById('calendarFilter');
+            const selectedDate = dateInput.value;
+            
+            // Count runs for selected date
+            const count = cachedRuns.filter(r => {
+                const rDate = r.createdAt?.toDate().toISOString().split('T')[0];
+                return rDate === selectedDate;
+            }).length;
+
+            document.getElementById('dayCounter').innerText = `${count} simulations recorded for this date.`;
+
+            // Dynamic Styling (Green -> Yellow -> Red based on density)
+            let color = "#444"; // Default
+            if (count > 0 && count < 3) color = "#27ae60"; // Low density
+            if (count >= 3 && count < 8) color = "#f1c40f"; // Medium
+            if (count >= 8) color = "#e74c3c"; // High density
+            
+            dateInput.style.borderColor = color;
+            dateInput.style.boxShadow = `0 0 10px ${color}44`;
+        }
+
+        document.getElementById('calendarFilter').addEventListener('change', (e) => {
+            updateCalendarHeat();
+            refreshRunList(e.target.value);
+        });
 
         function refreshRunList(dateStr) {
             const s = document.getElementById('idSelector');
@@ -303,10 +303,109 @@
             });
         }
 
-        const weightsContainer = document.getElementById('weightsContainer');
-        const modelSelect = document.getElementById('modelSelect');
-        const runSelect = document.getElementById('runSelect');
+        // --- NEW: ADMIN PANEL LOGIC ---
+        function loadUserAdmin() {
+            const userListDiv = document.getElementById('userList');
+            onSnapshot(collection(db, "users"), (snap) => {
+                userListDiv.innerHTML = '';
+                snap.forEach(userDoc => {
+                    const data = userDoc.data();
+                    const id = userDoc.id;
+                    const row = document.createElement('div');
+                    row.className = 'user-row';
+                    row.innerHTML = `
+                        <div style="flex:1">
+                            <strong>${data.email}</strong><br>
+                            <small style="color:#888">Role: ${data.role}</small>
+                        </div>
+                        <div style="display:flex; gap:5px;">
+                            <button class="role-btn" style="background:#27ae60" onclick="updateUserRole('${id}', 'normal')">N</button>
+                            <button class="role-btn" style="background:#f39c12" onclick="updateUserRole('${id}', 'exclusive')">E</button>
+                            <button class="role-btn" style="background:#e74c3c" onclick="updateUserRole('${id}', 'developer')">D</button>
+                        </div>
+                    `;
+                    userListDiv.appendChild(row);
+                });
+            });
+        }
 
+        window.updateUserRole = async (targetId, newRole) => {
+            try {
+                await updateDoc(doc(db, "users", targetId), { role: newRole });
+            } catch (e) { alert("Permission Denied: Only developers can edit roles."); }
+        };
+
+        // --- ENSEMBLE SUBMISSION LOGIC ---
+        document.getElementById('hocoForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            const statusBox = document.getElementById('statusBox');
+            btn.disabled = true;
+            statusBox.style.display = 'block';
+            statusBox.className = 'status-box pending';
+            statusBox.innerText = 'Transmitting to Cloud...';
+            
+            const activeWeights = {};
+            Object.keys(defaultWeights).forEach(m => { activeWeights[m] = parseFloat(document.getElementById(`weight-${m}`).value); });
+            
+            try {
+                const payload = {
+                    region: document.getElementById('regionSelect').value,
+                    scenarios: userRole === 'normal' ? [] : selectedScenarios,
+                    startTime: document.getElementById('startTime').value,
+                    endTime: document.getElementById('endTime').value,
+                    weather: Array.from(document.querySelectorAll('input[name="weather"]:checked')).map(cb => cb.value).join(','),
+                    weights: JSON.stringify(activeWeights),
+                    userId: auth.currentUser.uid,
+                    createdAt: new Date(),
+                    status: 'pending',
+                    type: 'manual'
+                };
+                const docRef = await addDoc(collection(db, "hoco_requests"), payload);
+                await triggerHocoRun({ id: docRef.id, ...payload });
+                statusBox.innerText = 'Simulation Queued...';
+                statusBox.className = 'status-box completed';
+            } catch (err) { 
+                statusBox.innerText = 'Error: ' + err.message; 
+                btn.disabled = false; 
+            }
+        });
+
+        // Map Selection Loading
+        document.getElementById('idSelector').addEventListener('change', async (e) => {
+            if (!e.target.value) return;
+            const docSnap = await getDoc(doc(db, "hoco_requests", e.target.value));
+            if (docSnap.exists() && docSnap.data().geojsonUrl) {
+                loadGeoJson(docSnap.data().geojsonUrl);
+            }
+        });
+
+        async function loadGeoJson(url) {
+            const response = await fetch(url);
+            const data = await response.json();
+            const processed = pointsToGrid(data);
+            if (map.getLayer('hoco-grid')) map.removeLayer('hoco-grid');
+            if (map.getSource('hoco-source')) map.removeSource('hoco-source');
+            map.addSource('hoco-source', { type: 'geojson', data: processed });
+            map.addLayer({ 
+                id: 'hoco-grid', type: 'fill', source: 'hoco-source', 
+                paint: { 'fill-color': ['step', ['/', ['get', 'risk'], 5], "#ffffff", 1, "#66c2a4", 30, "#fff200", 50, "#ff7f27", 70, "#ec1c24", 85, "#b83dba"], 'fill-opacity': 0.7 }
+            });
+        }
+
+        function pointsToGrid(geojson, size = 0.08) {
+            const features = geojson.features.map(f => {
+                const [lon, lat] = f.geometry.coordinates;
+                const half = size / 2;
+                return {
+                    type: "Feature", properties: f.properties,
+                    geometry: { type: "Polygon", coordinates: [[[lon-half, lat-half], [lon+half, lat-half], [lon+half, lat+half], [lon-half, lat+half], [lon-half, lat-half]]] }
+                };
+            });
+            return { type: "FeatureCollection", features };
+        }
+
+        // Scenario Weight Generator
         Object.keys(defaultWeights).forEach(m => {
             const div = document.createElement('div');
             div.className = 'weight-item';
@@ -361,68 +460,6 @@
         }
         window.removeScenario = (idx) => { selectedScenarios.splice(idx, 1); renderScenarios(); };
 
-        document.getElementById('hocoForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('submitBtn');
-            const statusBox = document.getElementById('statusBox');
-            btn.disabled = true;
-            statusBox.style.display = 'block';
-            statusBox.className = 'status-box pending';
-            statusBox.innerText = 'Transmitting to Cloud...';
-            
-            const activeWeights = {};
-            Object.keys(defaultWeights).forEach(m => { activeWeights[m] = parseFloat(document.getElementById(`weight-${m}`).value); });
-            
-            try {
-                const payload = {
-                    region: document.getElementById('regionSelect').value,
-                    scenarios: userRole === 'normal' ? [] : selectedScenarios,
-                    startTime: document.getElementById('startTime').value,
-                    endTime: document.getElementById('endTime').value,
-                    weather: Array.from(document.querySelectorAll('input[name="weather"]:checked')).map(cb => cb.value).join(','),
-                    weights: JSON.stringify(activeWeights),
-                    userId: auth.currentUser.uid,
-                    createdAt: new Date(),
-                    status: 'pending',
-                    type: 'manual'
-                };
-                const docRef = await addDoc(collection(db, "hoco_requests"), payload);
-                await triggerHocoRun({ id: docRef.id, ...payload });
-                statusBox.innerText = 'Processing started...';
-                statusBox.className = 'status-box completed';
-            } catch (err) { statusBox.innerText = 'Error: ' + err.message; btn.disabled = false; }
-        });
-
-        document.getElementById('idSelector').addEventListener('change', async (e) => {
-            if (!e.target.value) return;
-            const docSnap = await getDoc(doc(db, "hoco_requests", e.target.value));
-            if (docSnap.exists() && docSnap.data().geojsonUrl) loadGeoJson(docSnap.data().geojsonUrl);
-        });
-
-        async function loadGeoJson(url) {
-            const response = await fetch(url);
-            const data = await response.json();
-            const processed = pointsToGrid(data);
-            if (map.getLayer('hoco-grid')) map.removeLayer('hoco-grid');
-            if (map.getSource('hoco-source')) map.removeSource('hoco-source');
-            map.addSource('hoco-source', { type: 'geojson', data: processed });
-            map.addLayer({ 
-                id: 'hoco-grid', type: 'fill', source: 'hoco-source', 
-                paint: { 'fill-color': ['step', ['/', ['get', 'risk'], 5], "#ffffff", 1, "#66c2a4", 30, "#fff200", 50, "#ff7f27", 70, "#ec1c24", 85, "#b83dba"], 'fill-opacity': 0.7 }
-            });
-        }
-
-        function pointsToGrid(geojson, size = 0.08) {
-            const features = geojson.features.map(f => {
-                const [lon, lat] = f.geometry.coordinates;
-                const half = size / 2;
-                return {
-                    type: "Feature", properties: f.properties,
-                    geometry: { type: "Polygon", coordinates: [[[lon-half, lat-half], [lon+half, lat-half], [lon+half, lat+half], [lon-half, lat+half], [lon-half, lat-half]]] }
-                };
-            });
-            return { type: "FeatureCollection", features };
-        }
     </script>
 </body>
 </html>
