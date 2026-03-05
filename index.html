@@ -544,9 +544,12 @@
         // Map Control UI Listeners
         document.getElementById('mapStyleSelect').addEventListener('change', (e) => map.setStyle(e.target.value));
 
+        // Replace your existing opacitySlider event listener with this:
         document.getElementById('opacitySlider').addEventListener('input', (e) => {
             if (map.getLayer('hoco-grid')) {
-                map.setPaintProperty('hoco-grid', 'fill-opacity', parseInt(e.target.value, 10) / 100);
+                const opacityValue = parseInt(e.target.value, 10) / 100;
+                // FIX: Change 'fill-opacity' to 'fill-extrusion-opacity'
+                map.setPaintProperty('hoco-grid', 'fill-extrusion-opacity', opacityValue);
             }
         });
 
