@@ -201,11 +201,25 @@
                 type: 'heatmap',
                 source: 'hoco-source',
                 paint: {
-                    'heatmap-weight': ['get', 'risk'],
-                    'heatmap-intensity': 1,
-                    'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'], 0, 'rgba(0,0,255,0)', 0.2, 'royalblue', 0.4, 'cyan', 0.6, 'lime', 0.8, 'yellow', 1, 'red'],
-                    'heatmap-radius': 30,
-                    'heatmap-opacity': 0.6
+                    // 1. DIVIDE the risk value to scale it down (e.g., divide by 5 or 10)
+                    'heatmap-weight': ['/', ['get', 'risk'], 10], 
+                    
+                    // 2. Reduce intensity so colors don't max out so fast
+                    'heatmap-intensity': 0.5, 
+                    
+                    // 3. Shrink the radius so points don't bleed into each other as much
+                    'heatmap-radius': 15, 
+                    
+                    'heatmap-opacity': 0.5,
+                    'heatmap-color': [
+                        'interpolate', ['linear'], ['heatmap-density'],
+                        0, 'rgba(0,0,255,0)',
+                        0.2, 'royalblue',
+                        0.4, 'cyan',
+                        0.6, 'lime',
+                        0.8, 'yellow',
+                        1, 'red'
+                    ],
                 }
             });
         }
