@@ -629,12 +629,20 @@
 
             if (isApproved) {
                 document.getElementById('roleBadge').innerText = userRole.toUpperCase();
+
+                // Show/Hide Exclusive section
                 const showExclusive = (userRole === 'developer' || userRole === 'exclusive');
                 document.getElementById('exclusiveSection').style.display = showExclusive ? 'block' : 'none';
 
+                // FIX: Explicitly handle admin visibility
+                const adminPanel = document.getElementById('adminPanel');
                 if (userRole === 'developer') {
-                    document.getElementById('adminPanel').style.display = 'block';
+                    adminPanel.style.display = 'block';
                     loadAdminUsers();
+                } else {
+                    // Explicitly HIDE if the user is not a developer
+                    adminPanel.style.display = 'none';
+                    adminPanel.innerHTML = ''; // Clear contents for safety
                 }
 
                 initScenarioLogic();
