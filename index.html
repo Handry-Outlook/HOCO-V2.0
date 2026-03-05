@@ -5,17 +5,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ADV-HOCO Pro Forecaster</title>
-    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
-    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
     <style>
         :root {
             --primary: #3498db;
+            --primary-hover: #2980b9;
             --bg: #0f0f0f;
             --card: #1e1e1e;
             --text: #f0f0f0;
             --border: #333;
             --accent: #2ecc71;
             --danger: #e74c3c;
+            --warning: #f39c12;
+            --sidebar-width: 420px;
         }
 
         body {
@@ -29,9 +32,15 @@
             overflow: hidden;
         }
 
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+
         /* Sidebar Layout */
         #sidebar {
-            width: 420px;
+            width: var(--sidebar-width);
             padding: 20px;
             background: var(--card);
             border-right: 1px solid var(--border);
@@ -39,6 +48,7 @@
             flex-direction: column;
             z-index: 10;
             box-shadow: 5px 0 20px rgba(0, 0, 0, 0.7);
+            box-sizing: border-box;
         }
 
         #scroll-area {
@@ -57,20 +67,21 @@
         #authOverlay {
             position: fixed;
             inset: 0;
-            background: radial-gradient(circle, #2c3e50 0%, #000 100%);
+            background: radial-gradient(circle, #1a252f 0%, #000 100%);
             z-index: 1000;
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: opacity 0.3s ease;
         }
 
         .auth-card {
-            background: #222;
+            background: #111;
             padding: 40px;
-            border-radius: 16px;
-            width: 360px;
-            border: 1px solid var(--primary);
-            box-shadow: 0 0 30px rgba(52, 152, 219, 0.2);
+            border-radius: 12px;
+            width: 340px;
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
             text-align: center;
         }
 
@@ -92,16 +103,15 @@
 
         label {
             display: block;
-            font-size: 0.7rem;
-            font-weight: 800;
-            margin-bottom: 10px;
-            color: #888;
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #aaa;
             text-transform: uppercase;
-            letter-spacing: 1.2px;
+            letter-spacing: 1px;
         }
 
-        input,
-        select {
+        input, select {
             width: 100%;
             padding: 12px;
             margin-bottom: 12px;
@@ -111,9 +121,10 @@
             color: #fff;
             font-size: 0.9rem;
             box-sizing: border-box;
+            transition: border-color 0.2s;
         }
 
-        input:focus {
+        input:focus, select:focus {
             border-color: var(--primary);
             outline: none;
             box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
@@ -127,26 +138,29 @@
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            font-weight: 700;
-            transition: 0.2s;
+            font-weight: 600;
+            transition: all 0.2s;
+            font-size: 0.95rem;
         }
 
         button:hover:not(:disabled) {
-            filter: brightness(1.1);
+            background: var(--primary-hover);
             transform: translateY(-1px);
         }
 
         button:disabled {
-            opacity: 0.6;
+            opacity: 0.5;
             cursor: not-allowed;
+            transform: none;
         }
 
         .btn-add {
             background: var(--accent);
             margin-top: 5px;
-            padding: 8px;
-            font-size: 0.8rem;
+            padding: 10px;
+            font-size: 0.85rem;
         }
+        .btn-add:hover:not(:disabled) { background: #27ae60; }
 
         #logoutBtn {
             background: transparent;
@@ -154,40 +168,45 @@
             color: var(--danger);
             margin-top: 10px;
         }
+        #logoutBtn:hover { background: rgba(231, 76, 60, 0.1); }
 
         /* Scenarios Chips */
         .chip-container {
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
-            margin-top: 10px;
+            margin-top: 12px;
         }
 
         .chip {
             background: var(--primary);
-            padding: 5px 12px;
+            padding: 6px 12px;
             border-radius: 20px;
             font-size: 0.75rem;
             display: flex;
             align-items: center;
             gap: 8px;
+            font-weight: 500;
         }
 
         .chip span {
             cursor: pointer;
             font-weight: bold;
             font-size: 1.1rem;
+            opacity: 0.7;
+            transition: opacity 0.2s;
         }
+        .chip span:hover { opacity: 1; }
 
         /* Admin UI */
         #adminPanel {
-            border-top: 2px solid var(--primary);
+            border-top: 1px solid var(--border);
             padding-top: 20px;
             display: none;
         }
 
         .user-row {
-            background: #000;
+            background: #0a0a0a;
             padding: 12px;
             border-radius: 8px;
             margin-bottom: 8px;
@@ -195,6 +214,7 @@
             justify-content: space-between;
             align-items: center;
             border: 1px solid #222;
+            font-size: 0.85rem;
         }
 
         .role-btn {
@@ -204,7 +224,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             color: white;
             border: none;
             border-radius: 4px;
@@ -216,43 +236,81 @@
             position: absolute;
             bottom: 30px;
             right: 20px;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 10px;
+            background: rgba(15, 15, 15, 0.9);
+            padding: 12px 16px;
             border-radius: 8px;
             border: 1px solid var(--border);
             color: white;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
+            font-weight: 500;
             pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            z-index: 5;
+        }
+
+        /* Toast Notifications */
+        #toastContainer {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast {
+            background: var(--card);
+            border-left: 4px solid var(--primary);
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            font-size: 0.85rem;
+            animation: slideIn 0.3s ease forwards;
+            min-width: 200px;
+        }
+        .toast.error { border-left-color: var(--danger); }
+        .toast.success { border-left-color: var(--accent); }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
         }
     </style>
 </head>
 
 <body>
+    <div id="toastContainer"></div>
 
     <div id="authOverlay">
         <div class="auth-card">
-            <h2 style="margin-bottom: 10px;">ADV-HOCO Pro</h2>
-            <p style="color: #666; font-size: 0.8rem; margin-bottom: 25px;">Meteorological Ensemble Engine</p>
+            <h2 style="margin-bottom: 5px;">ADV-HOCO Pro</h2>
+            <p style="color: #888; font-size: 0.85rem; margin-bottom: 25px;">Meteorological Ensemble Engine</p>
             <input type="email" id="emailIn" placeholder="Email Address" required>
             <input type="password" id="passIn" placeholder="Password" required>
             <button id="loginBtn">Sign In</button>
-            <button id="registerBtn" style="background:#444; margin-top: 10px;">Create Access Request</button>
-            <p id="authError" style="color:#e74c3c; font-size:0.8rem; margin-top:15px;"></p>
+            <button id="registerBtn" style="background:transparent; border: 1px solid #555; margin-top: 10px;">Create Access Request</button>
+            <p id="authError" style="color:var(--danger); font-size:0.8rem; margin-top:15px; min-height: 16px;"></p>
         </div>
     </div>
 
     <div id="sidebar">
         <div id="scroll-area">
             <div id="mainUI" style="display:none;">
-                <h2>FORECASTER <span id="roleBadge"
-                        style="background:var(--accent); font-size: 0.6rem; padding: 3px 8px; border-radius: 4px; vertical-align: middle;">...</span>
+                <h2>FORECASTER 
+                    <span id="roleBadge" style="background:var(--accent); font-size: 0.6rem; padding: 4px 8px; border-radius: 4px; vertical-align: middle; color: #000; font-weight: 800;">...</span>
                 </h2>
 
                 <div class="panel">
                     <label>Archive & Run Management</label>
                     <div style="display: flex; gap: 10px;">
-                        <input type="date" id="calendarFilter" style="margin-bottom: 0;">
-                        <select id="idSelector" style="margin-bottom: 0;">
+                        <input type="date" id="calendarFilter" style="margin-bottom: 0; flex: 1;">
+                        <select id="idSelector" style="margin-bottom: 0; flex: 2;">
                             <option value="">Select Run...</option>
                         </select>
                     </div>
@@ -264,10 +322,11 @@
                         <option value="mapbox://styles/mapbox/dark-v11">Professional Dark</option>
                         <option value="mapbox://styles/mapbox/satellite-v9">Satellite Hybrid</option>
                         <option value="mapbox://styles/mapbox/light-v11">High Contrast Light</option>
+                        <option value="mapbox://styles/mapbox/outdoors-v12">Outdoors / Terrain</option>
                     </select>
                     <div style="display: flex; align-items: center; gap: 15px; margin-top: 10px;">
-                        <label style="margin:0;">Opacity</label>
-                        <input type="range" id="opacitySlider" min="0" max="100" value="75">
+                        <label style="margin:0; min-width: 60px;">Opacity</label>
+                        <input type="range" id="opacitySlider" min="0" max="100" value="75" style="margin:0; cursor: pointer;">
                     </div>
                 </div>
 
@@ -283,7 +342,7 @@
                     </div>
 
                     <div id="exclusiveSection" style="display:none;">
-                        <div class="panel" style="border-left: 4px solid var(--primary);">
+                        <div class="panel" style="border-left: 3px solid var(--primary);">
                             <label>Scenario Builder (Custom Models)</label>
                             <select id="modelSelect"></select>
                             <select id="runSelect"></select>
@@ -291,8 +350,8 @@
                             <div class="chip-container" id="scenarioList"></div>
 
                             <label style="margin-top:20px;">Manual Weight Adjustments</label>
-                            <div id="weightsContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                            </div>
+                            <div id="weightsContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                </div>
                         </div>
                     </div>
 
@@ -307,18 +366,19 @@
 
             <div id="accessDenied" style="display:none; text-align: center; padding: 40px 20px;">
                 <h3 style="color: var(--primary);">System Access Pending</h3>
-                <p style="font-size: 0.9rem; color: #888;">Your account must be manually verified by a developer.</p>
-                <label>Your Unique ID</label>
-                <code id="displayUid"
-                    style="background:#000; padding:12px; display:block; border-radius:6px; font-size:0.7rem; color: var(--accent); word-break: break-all;"></code>
+                <p style="font-size: 0.9rem; color: #888; line-height: 1.5;">Your account must be manually verified by a developer before accessing the engine.</p>
+                <div style="margin-top: 20px; text-align: left;">
+                    <label>Your Unique ID</label>
+                    <code id="displayUid" style="background:#000; padding:12px; display:block; border-radius:6px; font-size:0.75rem; color: var(--accent); word-break: break-all; border: 1px solid #222;"></code>
+                </div>
             </div>
         </div>
 
-        <button id="logoutBtn">Terminate Session</button>
+        <button id="logoutBtn" style="display: none;">Terminate Session</button>
     </div>
 
     <div id="map"></div>
-    <div class="map-overlay" id="statusOverlay">Map Engine: Ready</div>
+    <div class="map-overlay" id="statusOverlay">Engine: Awaiting Instructions</div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -327,10 +387,26 @@
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 
         // ==========================================
+        // UTILS: TOAST NOTIFICATIONS
+        // ==========================================
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerText = message;
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'fadeOut 0.3s ease forwards';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // ==========================================
         // 1. FIREBASE INITIALIZATION
         // ==========================================
         const firebaseConfig = {
-            apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ",
+            apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ", // Note: Secure via GCP HTTP restrictions
             authDomain: "hoco-3b23e.firebaseapp.com",
             projectId: "hoco-3b23e",
             storageBucket: "hoco-3b23e.firebasestorage.app",
@@ -369,40 +445,53 @@
             container: 'map',
             style: 'mapbox://styles/mapbox/dark-v11',
             center: [-1.5, 52.5],
-            zoom: 6
+            zoom: 6,
+            projection: 'mercator' 
         });
+
+        // Add standard navigation controls
+        map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
         // Inspector Popup Logic
         map.on('click', 'hoco-grid', (e) => {
+            if (!e.features || e.features.length === 0) return;
             const props = e.features[0].properties;
+            const risk = ((props.risk || props.Risk || 0) / 5).toFixed(2);
 
-            // Divide risk by 5
-            const risk = (props.risk || props.Risk || 0) / 5;
-
-            const popup = new mapboxgl.Popup()
+            const popup = new mapboxgl.Popup({ closeButton: true, maxWidth: '250px' })
                 .setLngLat(e.lngLat)
-                .setHTML(`<strong>Ensemble Data</strong><br>Risk Index: ${risk}<br>Lat: ${e.lngLat.lat.toFixed(2)} Lon: ${e.lngLat.lng.toFixed(2)}`)
+                .setHTML(`
+                    <div style="color:#000; font-family:sans-serif;">
+                        <strong style="color:var(--primary); font-size:1.1rem;">Ensemble Node</strong><br>
+                        <span style="font-size:0.9rem;">Risk Index: <b>${risk}</b></span><br>
+                        <span style="font-size:0.8rem; color:#666;">Lat: ${e.lngLat.lat.toFixed(3)} | Lon: ${e.lngLat.lng.toFixed(3)}</span>
+                    </div>
+                `)
                 .addTo(map);
 
-            // Accessibility Fix: Remove aria-hidden from the focused close button
             const closeBtn = popup.getElement().querySelector('.mapboxgl-popup-close-button');
-            if (closeBtn) {
-                closeBtn.removeAttribute('aria-hidden');
-            }
+            if (closeBtn) closeBtn.removeAttribute('aria-hidden');
         });
 
-        // Cursor Updates
-        map.on('mouseenter', 'hoco-grid', () => map.getCanvas().style.cursor = 'pointer');
+        map.on('mouseenter', 'hoco-grid', () => map.getCanvas().style.cursor = 'crosshair');
         map.on('mouseleave', 'hoco-grid', () => map.getCanvas().style.cursor = '');
 
         // Map Control UI Listeners
-        document.getElementById('mapStyleSelect').addEventListener('change', (e) => {
-            map.setStyle(e.target.value);
-        });
+        document.getElementById('mapStyleSelect').addEventListener('change', (e) => map.setStyle(e.target.value));
 
         document.getElementById('opacitySlider').addEventListener('input', (e) => {
             if (map.getLayer('hoco-grid')) {
-                map.setPaintProperty('hoco-grid', 'fill-opacity', e.target.value / 100);
+                map.setPaintProperty('hoco-grid', 'fill-opacity', parseInt(e.target.value, 10) / 100);
+            }
+        });
+
+        // Restore layer on style load if it was active
+        map.on('style.load', () => {
+            const id = document.getElementById('idSelector').value;
+            if (id && map.getSource('hoco-source')) {
+                // To safely re-add layers after style change, ideally we re-fetch or cache geojson.
+                // For simplicity, triggering the change event handles it.
+                document.getElementById('idSelector').dispatchEvent(new Event('change'));
             }
         });
 
@@ -413,37 +502,32 @@
         const passIn = document.getElementById('passIn');
         const authError = document.getElementById('authError');
 
-        document.getElementById('loginBtn').addEventListener('click', async (e) => {
-            e.target.disabled = true;
+        const handleAuth = async (action, btn) => {
+            btn.disabled = true;
+            btn.innerText = "Processing...";
             try {
-                await signInWithEmailAndPassword(auth, emailIn.value, passIn.value);
+                if (action === 'login') await signInWithEmailAndPassword(auth, emailIn.value, passIn.value);
+                else await createUserWithEmailAndPassword(auth, emailIn.value, passIn.value);
                 authError.innerText = '';
             } catch (err) {
-                authError.innerText = err.message;
+                authError.innerText = err.message.replace('Firebase: ', '');
             } finally {
-                e.target.disabled = false;
+                btn.disabled = false;
+                btn.innerText = action === 'login' ? "Sign In" : "Create Access Request";
             }
-        });
+        };
 
-        document.getElementById('registerBtn').addEventListener('click', async (e) => {
-            e.target.disabled = true;
-            try {
-                await createUserWithEmailAndPassword(auth, emailIn.value, passIn.value);
-                authError.innerText = '';
-            } catch (err) {
-                authError.innerText = err.message;
-            } finally {
-                e.target.disabled = false;
-            }
-        });
-
+        document.getElementById('loginBtn').addEventListener('click', (e) => handleAuth('login', e.target));
+        document.getElementById('registerBtn').addEventListener('click', (e) => handleAuth('register', e.target));
         document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {
-                document.getElementById('authOverlay').style.display = 'none';
-                const uRef = doc(db, "users", user.uid);
+                document.getElementById('authOverlay').style.opacity = '0';
+                setTimeout(() => document.getElementById('authOverlay').style.display = 'none', 300);
+                document.getElementById('logoutBtn').style.display = 'block';
 
+                const uRef = doc(db, "users", user.uid);
                 try {
                     const uDoc = await getDoc(uRef);
                     if (!uDoc.exists()) {
@@ -454,12 +538,15 @@
                     }
                     setupUI(user.uid);
                 } catch (err) {
-                    console.error("Error fetching user role: ", err);
+                    showToast("Error verifying credentials", "error");
                 }
             } else {
                 document.getElementById('authOverlay').style.display = 'flex';
+                setTimeout(() => document.getElementById('authOverlay').style.opacity = '1', 10);
                 document.getElementById('mainUI').style.display = 'none';
                 document.getElementById('accessDenied').style.display = 'none';
+                document.getElementById('logoutBtn').style.display = 'none';
+                userRole = 'pending';
             }
         });
 
@@ -474,7 +561,6 @@
 
             if (isApproved) {
                 document.getElementById('roleBadge').innerText = userRole.toUpperCase();
-
                 const showExclusive = (userRole === 'developer' || userRole === 'exclusive');
                 document.getElementById('exclusiveSection').style.display = showExclusive ? 'block' : 'none';
 
@@ -485,6 +571,7 @@
 
                 initScenarioLogic();
                 loadArchive();
+                showToast("System Access Granted", "success");
             }
         }
 
@@ -493,11 +580,15 @@
         // ==========================================
         function pointsToGrid(geojson, size = 0.08) {
             if (!geojson || !geojson.features) return geojson;
-
-            const features = geojson.features.map(f => {
+            const half = size / 2;
+            
+            // Pre-allocate array for performance
+            const features = new Array(geojson.features.length);
+            
+            for (let i = 0; i < geojson.features.length; i++) {
+                const f = geojson.features[i];
                 const [lon, lat] = f.geometry.coordinates;
-                const half = size / 2;
-                return {
+                features[i] = {
                     type: "Feature",
                     properties: f.properties,
                     geometry: {
@@ -511,24 +602,21 @@
                         ]]
                     }
                 };
-            });
+            }
             return { type: "FeatureCollection", features };
         }
+
         function parseStartTime(timeStr) {
-            if (!timeStr) return new Date(); // Fallback to current system time
-            
-            // Attempt to parse DD/MM/YYYY HH:MM
+            if (!timeStr) return new Date();
             const match = timeStr.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/);
             if (match) {
                 const [_, day, month, year, hours, minutes] = match;
-                // Meteorological runs are typically UTC (zulu) time
                 return new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
             }
-            
-            // Fallback if they typed a standard date string instead
             const parsed = new Date(timeStr);
             return isNaN(parsed.getTime()) ? new Date() : parsed;
         }
+
         // ==========================================
         // 7. SCENARIO BUILDER LOGIC
         // ==========================================
@@ -545,16 +633,21 @@
 
             updateRunTimes();
             mSel.addEventListener('change', updateRunTimes);
-            document.getElementById('startTime').addEventListener('blur', updateRunTimes);
-            document.getElementById('startTime').addEventListener('keyup', updateRunTimes);
+            
+            const startInput = document.getElementById('startTime');
+            startInput.addEventListener('blur', updateRunTimes);
+            startInput.addEventListener('keyup', (e) => {
+                if(e.key === 'Enter') updateRunTimes();
+            });
+
             // Setup Default Weights
             const wCont = document.getElementById('weightsContainer');
             wCont.innerHTML = '';
             Object.keys(defaultWeights).forEach(m => {
                 const div = document.createElement('div');
                 div.innerHTML = `
-                    <span style="color:#666; font-size:10px">${m.toUpperCase()}</span>
-                    <input type="number" step="0.1" id="w-${m}" value="${defaultWeights[m]}" style="margin:0; padding:5px;">
+                    <span style="color:#888; font-size:10px; font-weight:bold;">${m.toUpperCase()}</span>
+                    <input type="number" step="0.1" id="w-${m}" value="${defaultWeights[m]}" style="margin:0; padding:8px;">
                 `;
                 wCont.appendChild(div);
             });
@@ -567,32 +660,27 @@
             const modelVal = document.getElementById('modelSelect').value;
             const freq = models[modelVal].freq;
 
-            // Get time from input or default to now
-            const startTimeInput = document.getElementById('startTime').value;
-            let baseTime = parseStartTime(startTimeInput);
-
-            // Round down the base time to the nearest valid run hour for the selected model
+            let baseTime = parseStartTime(document.getElementById('startTime').value);
             baseTime.setUTCMinutes(0, 0, 0);
+            
             let currentHour = baseTime.getUTCHours();
             let roundedHour = Math.floor(currentHour / freq) * freq;
             baseTime.setUTCHours(roundedHour);
 
-            // Generate exactly 30 past runs based on the model's specific frequency
+            const docFrag = document.createDocumentFragment();
             for (let i = 0; i < 30; i++) {
-                // Subtract (iteration * frequency) hours from baseTime
                 let d = new Date(baseTime.getTime() - (i * freq * 3600000));
-
                 let opt = document.createElement('option');
                 opt.value = d.toISOString();
 
-                // Format for display: DD/MM HHz
                 const dd = String(d.getUTCDate()).padStart(2, '0');
                 const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
                 const hh = String(d.getUTCHours()).padStart(2, '0');
 
                 opt.textContent = `${dd}/${mm} ${hh}z`;
-                rSel.appendChild(opt);
+                docFrag.appendChild(opt);
             }
+            rSel.appendChild(docFrag);
         }
 
         document.getElementById('addScenarioBtn').addEventListener('click', () => {
@@ -612,20 +700,23 @@
         function renderChips() {
             const cont = document.getElementById('scenarioList');
             cont.innerHTML = '';
-
             selectedScenarios.forEach((s, i) => {
                 const c = document.createElement('div');
                 c.className = 'chip';
-                c.innerHTML = `${s.label} <span onclick="removeScenario(${i})">×</span>`;
+                // Using data attributes for event delegation
+                c.innerHTML = `${s.label} <span class="remove-scenario" data-index="${i}">&times;</span>`;
                 cont.appendChild(c);
             });
         }
 
-        // Global function required for chip inline onclick
-        window.removeScenario = (i) => {
-            selectedScenarios.splice(i, 1);
-            renderChips();
-        };
+        // Event Delegation for scenario removal
+        document.getElementById('scenarioList').addEventListener('click', (e) => {
+            if (e.target.classList.contains('remove-scenario')) {
+                const index = parseInt(e.target.getAttribute('data-index'), 10);
+                selectedScenarios.splice(index, 1);
+                renderChips();
+            }
+        });
 
         // ==========================================
         // 8. ADMIN / DEVELOPER LOGIC
@@ -645,9 +736,9 @@
                             <small style="color:var(--primary)">${u.role}</small>
                         </div>
                         <div style="display:flex; gap:4px;">
-                            <button class="role-btn" style="background:#444" onclick="setRole('${d.id}','normal')">N</button>
-                            <button class="role-btn" style="background:#f39c12" onclick="setRole('${d.id}','exclusive')">E</button>
-                            <button class="role-btn" style="background:#e74c3c" onclick="setRole('${d.id}','developer')">D</button>
+                            <button class="role-btn btn-role-change" data-uid="${d.id}" data-role="normal" style="background:#444" title="Normal">N</button>
+                            <button class="role-btn btn-role-change" data-uid="${d.id}" data-role="exclusive" style="background:var(--warning)" title="Exclusive">E</button>
+                            <button class="role-btn btn-role-change" data-uid="${d.id}" data-role="developer" style="background:var(--danger)" title="Developer">D</button>
                         </div>
                     `;
                     list.appendChild(row);
@@ -655,14 +746,20 @@
             });
         }
 
-        // Global function required for admin buttons inline onclick
-        window.setRole = async (uid, role) => {
-            try {
-                await updateDoc(doc(db, "users", uid), { role });
-            } catch (err) {
-                console.error("Failed to update role:", err);
+        // Event Delegation for admin role changes
+        document.getElementById('userList').addEventListener('click', async (e) => {
+            const btn = e.target.closest('.btn-role-change');
+            if (btn) {
+                const uid = btn.getAttribute('data-uid');
+                const role = btn.getAttribute('data-role');
+                try {
+                    await updateDoc(doc(db, "users", uid), { role });
+                    showToast(`Role updated to ${role}`, 'success');
+                } catch (err) {
+                    showToast("Failed to update role", 'error');
+                }
             }
-        };
+        });
 
         // ==========================================
         // 9. ARCHIVE & RUN MANAGEMENT
@@ -690,12 +787,12 @@
             });
 
             const sel = document.getElementById('idSelector');
-            sel.innerHTML = '<option value="">Select Run</option>';
+            sel.innerHTML = '<option value="">Select Run...</option>';
 
             filtered.forEach(r => {
                 const opt = document.createElement('option');
                 opt.value = r.id;
-                opt.textContent = `[${(r.status || 'unknown').toUpperCase()}] ${r.startTime}`;
+                opt.textContent = `[${(r.status || 'UNKN').toUpperCase()}] ${r.startTime || 'No Time'}`;
                 sel.appendChild(opt);
             });
         }
@@ -707,8 +804,8 @@
             e.preventDefault();
             const btn = document.getElementById('submitBtn');
             btn.disabled = true;
+            btn.innerText = "Executing Request...";
 
-            // Collect Weights
             const weights = {};
             Object.keys(defaultWeights).forEach(m => {
                 const el = document.getElementById(`w-${m}`);
@@ -728,15 +825,21 @@
 
             try {
                 const docRef = await addDoc(collection(db, "hoco_requests"), payload);
-                document.getElementById('statusOverlay').innerText = "Status: Executing Request...";
+                document.getElementById('statusOverlay').innerText = "Status: Provisioning Compute...";
 
                 await triggerHocoRun({ id: docRef.id, ...payload });
-                document.getElementById('statusOverlay').innerText = "Status: Run triggered successfully.";
+                showToast("Run triggered successfully", "success");
+                document.getElementById('statusOverlay').innerText = "Status: Ready";
+                
+                // Reset form state
+                selectedScenarios = [];
+                renderChips();
             } catch (err) {
-                alert("Execution failed: " + err.message);
-                document.getElementById('statusOverlay').innerText = "Status: Failed";
+                showToast("Execution failed: " + err.message, "error");
+                document.getElementById('statusOverlay').innerText = "Status: Trigger Failed";
             } finally {
                 btn.disabled = false;
+                btn.innerText = "Execute Ensemble Run";
             }
         });
 
@@ -747,25 +850,24 @@
             const id = e.target.value;
             if (!id) return;
 
-            document.getElementById('statusOverlay').innerText = "Status: Fetching run metadata...";
+            const statusUI = document.getElementById('statusOverlay');
+            statusUI.innerText = "Status: Fetching metadata...";
 
             try {
                 const docSnap = await getDoc(doc(db, "hoco_requests", id));
                 if (docSnap.exists() && docSnap.data().geojsonUrl) {
-
-                    document.getElementById('statusOverlay').innerText = "Status: Loading GeoJSON...";
+                    statusUI.innerText = "Status: Downloading Model Data...";
                     const response = await fetch(docSnap.data().geojsonUrl);
 
-                    if (!response.ok) throw new Error("Network response was not ok");
+                    if (!response.ok) throw new Error("GeoJSON unavailable");
 
                     const rawData = await response.json();
-                    const gridData = pointsToGrid(rawData); // Convert points to squares
+                    statusUI.innerText = "Status: Parsing Grid...";
+                    const gridData = pointsToGrid(rawData);
 
-                    // Clean existing layer/source
                     if (map.getLayer('hoco-grid')) map.removeLayer('hoco-grid');
                     if (map.getSource('hoco-source')) map.removeSource('hoco-source');
 
-                    // Add new layer/source
                     map.addSource('hoco-source', { type: 'geojson', data: gridData });
                     map.addLayer({
                         id: 'hoco-grid',
@@ -782,21 +884,22 @@
                                 80, '#ec1c24',
                                 100, '#b83dba'
                             ],
-                            'fill-opacity': document.getElementById('opacitySlider').value / 100
+                            'fill-opacity': parseInt(document.getElementById('opacitySlider').value, 10) / 100
                         }
                     });
 
-                    document.getElementById('statusOverlay').innerText = "Status: Data Rendered Successfully";
+                    statusUI.innerText = "Status: Visualization Active";
+                    showToast("Map data updated successfully", "success");
                 } else {
-                    document.getElementById('statusOverlay').innerText = "Status: No GeoJSON URL found for this run.";
+                    statusUI.innerText = "Status: Awaiting engine output";
+                    showToast("Data is not yet ready for this run.", "info");
                 }
             } catch (error) {
-                console.error("Map rendering error:", error);
-                document.getElementById('statusOverlay').innerText = "Status: Error loading Map Data";
+                console.error("Render Error:", error);
+                statusUI.innerText = "Status: Data Load Error";
+                showToast("Failed to load map data", "error");
             }
         });
-
     </script>
 </body>
-
 </html>
