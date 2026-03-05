@@ -8,23 +8,128 @@
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <style>
-        body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; background: #1a1a1a; color: #eee; }
-        #sidebar { width: 380px; padding: 20px; background: #252525; border-right: 1px solid #444; overflow-y: auto; z-index: 10; box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5); }
-        #map { flex-grow: 1; height: 100%; }
-        .form-group { margin-bottom: 12px; }
-        label { display: block; font-size: 0.8em; font-weight: bold; margin-bottom: 4px; color: #bbb; }
-        input, select { width: 95%; padding: 10px; border: 1px solid #444; border-radius: 4px; background: #333; color: white; }
-        .weights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-        .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
-        .checkbox-item { display: flex; align-items: center; font-size: 0.8em; background: #333; padding: 5px 10px; border-radius: 4px; }
-        .checkbox-item input { width: auto; margin-right: 8px; }
-        button { width: 100%; padding: 15px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 20px; transition: background 0.3s; }
-        button:hover { background: #2980b9; }
-        button:disabled { background: #444; cursor: not-allowed; }
-        hr { border: 0; border-top: 1px solid #444; margin: 20px 0; }
-        .status-box { margin-top: 20px; padding: 12px; border-radius: 4px; font-size: 0.85em; display: none; text-align: center; }
-        .pending { background: #f39c12; color: #fff; border: 1px solid #e67e22; }
-        .completed { background: #27ae60; color: #fff; }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', sans-serif;
+            display: flex;
+            height: 100vh;
+            background: #1a1a1a;
+            color: #eee;
+        }
+
+        #sidebar {
+            width: 380px;
+            padding: 20px;
+            background: #252525;
+            border-right: 1px solid #444;
+            overflow-y: auto;
+            z-index: 10;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        #map {
+            flex-grow: 1;
+            height: 100%;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-bottom: 4px;
+            color: #bbb;
+        }
+
+        input,
+        select {
+            width: 95%;
+            padding: 10px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background: #333;
+            color: white;
+        }
+
+        .weights-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            font-size: 0.8em;
+            background: #333;
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+
+        .checkbox-item input {
+            width: auto;
+            margin-right: 8px;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 20px;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        button:disabled {
+            background: #444;
+            cursor: not-allowed;
+        }
+
+        hr {
+            border: 0;
+            border-top: 1px solid #444;
+            margin: 20px 0;
+        }
+
+        .status-box {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            display: none;
+            text-align: center;
+        }
+
+        .pending {
+            background: #f39c12;
+            color: #fff;
+            border: 1px solid #e67e22;
+        }
+
+        .completed {
+            background: #27ae60;
+            color: #fff;
+        }
     </style>
 </head>
 
@@ -53,19 +158,25 @@
 
             <label>Weather Parameters</label>
             <div class="checkbox-group">
-                <div class="checkbox-item"><input type="checkbox" name="weather" value="lightning" checked> Lightning</div>
+                <div class="checkbox-item"><input type="checkbox" name="weather" value="lightning" checked> Lightning
+                </div>
                 <div class="checkbox-item"><input type="checkbox" name="weather" value="tornado"> Tornado</div>
                 <div class="checkbox-item"><input type="checkbox" name="weather" value="supercell"> Supercell</div>
             </div>
 
             <h4 style="margin-bottom:5px; margin-top: 20px;">Model Weights</h4>
             <div class="weights-grid">
-                <div class="form-group"><label>FRAHD</label><input type="number" id="w_frahd" value="1.0" step="0.1"></div>
-                <div class="form-group"><label>RPDID2</label><input type="number" id="w_rpd" value="0.8" step="0.1"></div>
-                <div class="form-group"><label>SWISSEU</label><input type="number" id="w_seu" value="1.1" step="0.1"></div>
+                <div class="form-group"><label>FRAHD</label><input type="number" id="w_frahd" value="1.0" step="0.1">
+                </div>
+                <div class="form-group"><label>RPDID2</label><input type="number" id="w_rpd" value="0.8" step="0.1">
+                </div>
+                <div class="form-group"><label>SWISSEU</label><input type="number" id="w_seu" value="1.1" step="0.1">
+                </div>
                 <div class="form-group"><label>EZ</label><input type="number" id="w_ez" value="1.0" step="0.1"></div>
-                <div class="form-group"><label>UKMO2KM</label><input type="number" id="w_ukmo" value="1.0" step="0.1"></div>
-                <div class="form-group"><label>HARDMI</label><input type="number" id="w_hard" value="1.0" step="0.1"></div>
+                <div class="form-group"><label>UKMO2KM</label><input type="number" id="w_ukmo" value="1.0" step="0.1">
+                </div>
+                <div class="form-group"><label>HARDMI</label><input type="number" id="w_hard" value="1.0" step="0.1">
+                </div>
             </div>
 
             <button type="submit" id="submitBtn">Generate Forecast</button>
@@ -99,7 +210,7 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        
+
         // Ensure functions are pointing to the correct region
         const functions = getFunctions(app, "us-central1");
         const triggerHocoRun = httpsCallable(functions, 'triggerHocoRun');
@@ -190,56 +301,61 @@
 
         function loadGeoJson(url) {
             if (!map.loaded()) return;
+
+            // Clean up existing layers/sources to prevent overlap
             if (map.getSource('hoco-source')) {
                 map.removeLayer('hoco-heat');
-                map.removeLayer('hoco-point');
                 map.removeSource('hoco-source');
             }
+
             map.addSource('hoco-source', { type: 'geojson', data: url });
+
             map.addLayer({
                 id: 'hoco-heat',
                 type: 'heatmap',
                 source: 'hoco-source',
                 paint: {
-                        // 1. Increase weight and scale it down slightly so colors don't max out immediately
-                        'heatmap-weight': ['/', ['get', 'risk'], 100],
-                    
-                        // 2. Adjust intensity by zoom: Higher intensity at higher zoom fills the "empty" space
-                        'heatmap-intensity': [
-                            'interpolate',
-                            ['linear'],
-                            ['zoom'],
-                            0, 1,
-                            10, 3  // Becomes 3x stronger as you zoom in to bridge the gap between dots
-                        ],
-                    
-                        // 3. THE KEY: Large radius makes dots overlap to create a smooth surface
-                        'heatmap-radius': [
-                            'interpolate',
-                            ['linear'],
-                            ['zoom'],
-                            0, 5,    // Tiny dots when far away
-                            5, 30,   // Medium blending at mid-zoom
-                            10, 80   // Huge 80px radius when close up to ensure dots touch and blend
-                        ],
-                    
-                        // 4. Smooth color transition
-                        'heatmap-color': [
-                            'interpolate',
-                            ['linear'],
-                            ['heatmap-density'],
-                            0, 'rgba(0,0,255,0)',
-                            0.2, 'royalblue',
-                            0.4, 'cyan',
-                            0.6, 'lime',
-                            0.8, 'yellow',
-                            1, 'red'
-                        ],
-                        'heatmap-opacity': 0.7
-                    }
+                    // 1. Scale weight based on the 'risk' property
+                    'heatmap-weight': ['interpolate', ['linear'], ['get', 'risk'], 0, 0, 1, 1],
+
+                    // 2. Increase intensity as you zoom in to bridge gaps between grid points
+                    'heatmap-intensity': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        0, 1,
+                        12, 3
+                    ],
+
+                    // 3. THE "FILL" LOGIC: Radius expands as you zoom in to ensure points touch
+                    'heatmap-radius': [
+                        'interpolate',
+                        ['linear'],
+                        ['zoom'],
+                        0, 2,      // Very small at global view
+                        5, 25,     // Medium blend at regional view
+                        10, 80,    // Large radius to fill space at local view
+                        15, 150    // Maximum spread for a solid "grid" look
+                    ],
+
+                    // 4. Color Ramp (Standard Weather Palette)
+                    'heatmap-color': [
+                        'interpolate',
+                        ['linear'],
+                        ['heatmap-density'],
+                        0, 'rgba(0,0,255,0)',   // Transparent for no risk
+                        0.2, 'royalblue',
+                        0.4, 'cyan',
+                        0.6, 'lime',
+                        0.8, 'yellow',
+                        1, 'red'
+                    ],
+
+                    // 5. Opacity (set to 0.7 to see the map through the colors)
+                    'heatmap-opacity': 0.7
+                }
             });
         }
-
         document.getElementById('idSelector').addEventListener('change', async (e) => {
             if (!e.target.value) return;
             const docRef = doc(db, "hoco_requests", e.target.value);
