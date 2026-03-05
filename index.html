@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,176 +7,138 @@
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <style>
-        body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; background: #1a1a1a; color: #eee; overflow: hidden; }
-        #sidebar { width: 420px; padding: 20px; background: #252525; border-right: 1px solid #444; overflow-y: auto; z-index: 10; box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5); }
+        :root { --primary: #3498db; --bg: #0f0f0f; --card: #1e1e1e; --text: #f0f0f0; --border: #333; --accent: #2ecc71; }
+        body { margin: 0; padding: 0; font-family: 'Inter', system-ui, sans-serif; display: flex; height: 100vh; background: var(--bg); color: var(--text); overflow: hidden; }
+        
+        /* Sidebar Layout */
+        #sidebar { width: 420px; padding: 20px; background: var(--card); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 10; box-shadow: 5px 0 20px rgba(0,0,0,0.7); }
+        #scroll-area { flex-grow: 1; overflow-y: auto; padding-right: 10px; margin-bottom: 10px; }
         #map { flex-grow: 1; height: 100%; }
+
+        /* Auth Screen */
+        #authOverlay { position: fixed; inset: 0; background: radial-gradient(circle, #2c3e50 0%, #000 100%); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+        .auth-card { background: #222; padding: 40px; border-radius: 16px; width: 360px; border: 1px solid var(--primary); box-shadow: 0 0 30px rgba(52, 152, 219, 0.2); text-align: center; }
+
+        /* Components */
+        .panel { background: #151515; padding: 18px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 20px; }
+        h2 { color: var(--primary); margin: 0 0 20px 0; font-size: 1.4rem; letter-spacing: -0.5px; }
+        label { display: block; font-size: 0.7rem; font-weight: 800; margin-bottom: 10px; color: #888; text-transform: uppercase; letter-spacing: 1.2px; }
+
+        input, select { width: 100%; padding: 12px; margin-bottom: 12px; border-radius: 6px; border: 1px solid var(--border); background: #252525; color: #fff; font-size: 0.9rem; box-sizing: border-box; }
+        input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2); }
         
-        /* Auth Overlay */
-        #authOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,10,0.95); z-index: 1000; display: flex; align-items: center; justify-content: center; }
-        .auth-card { background: #252525; padding: 30px; border-radius: 12px; border: 1px solid #444; width: 340px; text-align: center; }
-        .auth-card h2 { color:#3498db; margin-top:0; margin-bottom: 20px; }
-        .auth-methods { display: flex; flex-direction: column; gap: 10px; }
+        button { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 700; transition: 0.2s; }
+        button:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .btn-add { background: var(--accent); margin-top: 5px; padding: 8px; font-size: 0.8rem; }
+        #logoutBtn { background: transparent; border: 1px solid #e74c3c; color: #e74c3c; margin-top: 10px; }
 
-        /* Access Control UI */
-        #accessDenied { display: none; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; background: #2c3e50; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e67e22; }
-        #mainUI { display: none; }
+        /* Scenarios Chips */
+        .chip-container { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .chip { background: var(--primary); padding: 5px 12px; border-radius: 20px; font-size: 0.75rem; display: flex; align-items: center; gap: 8px; }
+        .chip span { cursor: pointer; font-weight: bold; font-size: 1.1rem; }
 
-        /* UI Components */
-        input, select { width: 100%; padding: 10px; border: 1px solid #444; border-radius: 4px; background: #333; color: white; box-sizing: border-box; font-size: 0.9em; margin-bottom: 10px; }
-        .control-panel { background: #1e1e1e; padding: 15px; border-radius: 8px; border: 1px solid #333; margin-bottom: 15px; }
-        
-        button { width: 100%; padding: 12px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        button:hover { filter: brightness(1.1); }
-        
-        .btn-secondary { background: #444; }
-        .btn-google { background: #fff; color: #444; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .btn-google img { width: 18px; }
-        #logoutBtn { background: transparent; border: 1px solid #c0392b; color: #c0392b; margin-top: 20px; padding: 8px; }
+        /* Admin UI */
+        #adminPanel { border-top: 2px solid var(--primary); padding-top: 20px; display: none; }
+        .user-row { background: #000; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #222; }
+        .role-btn { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; }
 
-        .divider { margin: 15px 0; color: #666; font-size: 0.8em; display: flex; align-items: center; }
-        .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #444; margin: 0 10px; }
-
-        .form-group { margin-bottom: 12px; }
-        label { display: block; font-size: 0.75em; font-weight: bold; margin-bottom: 5px; color: #888; text-transform: uppercase; }
-        .explorer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 5px; }
-        #exclusiveSection { display: none; margin-top: 15px; padding: 10px; border-top: 2px dashed #444; }
-        .scenario-builder { background: #1e1e1e; padding: 12px; border-radius: 6px; border: 1px solid #3498db; margin-bottom: 15px; }
-        .scenario-list { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
-        .scenario-chip { background: #3498db; color: white; padding: 4px 10px; border-radius: 15px; font-size: 0.7em; display: flex; align-items: center; }
-        .scenario-chip span { margin-left: 8px; cursor: pointer; font-weight: bold; }
-        .weight-grid { max-height: 120px; overflow-y: auto; border: 1px solid #444; padding: 8px; background: #1a1a1a; }
-        .weight-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 0.75em; border-bottom: 1px solid #333; padding-bottom: 3px; }
-        .weight-item input { width: 50px; padding: 3px; text-align: center; }
-        .checkbox-group { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-        .checkbox-item { display: flex; align-items: center; font-size: 0.75em; background: #333; padding: 5px 10px; border-radius: 4px; border: 1px solid #444; }
-        .checkbox-item input { width: auto; margin-right: 6px; }
-        .status-box { margin-top: 15px; padding: 10px; border-radius: 4px; font-size: 0.8em; display: none; text-align: center; }
-        .pending { background: #f39c1222; border: 1px solid #f39c12; color: #f39c12; }
-        .completed { background: #27ae6022; border: 1px solid #27ae60; color: #27ae60; }
-        .legend-bar { height: 10px; width: 100%; background: linear-gradient(to right, #66c2a4, #fff200, #ff7f27, #ec1c24, #b83dba); border-radius: 5px; margin: 8px 0; }
-        .role-badge { font-size: 0.6em; padding: 2px 6px; border-radius: 10px; background: #3498db; vertical-align: middle; margin-left: 5px; }
+        /* Map Controls Overlay */
+        .map-overlay { position: absolute; bottom: 30px; right: 20px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; border: 1px solid var(--border); color: white; font-size: 0.8rem; }
     </style>
 </head>
-
 <body>
 
     <div id="authOverlay">
         <div class="auth-card">
-            <h2>HOCO Access</h2>
-            <form id="loginForm" onsubmit="return false;">
-                <div class="auth-methods">
-                    <input type="email" id="emailIn" placeholder="Email Address" autocomplete="email">
-                    <input type="password" id="passIn" placeholder="Password" autocomplete="current-password">
-                    
-                    <div style="display: flex; gap: 10px;">
-                        <button type="button" id="loginBtn">Login</button>
-                        <button type="button" id="registerBtn" class="btn-secondary">Register</button>
-                    </div>
-
-                    <div class="divider">OR</div>
-
-                    <button type="button" id="googleBtn" class="btn-google">
-                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/layout/google.svg" alt="Google">
-                        Continue with Google
-                    </button>
-                </div>
-            </form>
-            
-            <p id="authError" style="color:#e74c3c; font-size:0.8em; margin-top:15px; min-height: 1em;"></p>
-            <p style="font-size: 0.65em; color: #666; margin-top: 15px;">By signing in, you agree to our weather data TOS.</p>
+            <h2 style="margin-bottom: 10px;">ADV-HOCO Pro</h2>
+            <p style="color: #666; font-size: 0.8rem; margin-bottom: 25px;">Meteorological Ensemble Engine</p>
+            <input type="email" id="emailIn" placeholder="Email Address">
+            <input type="password" id="passIn" placeholder="Password">
+            <button id="loginBtn">Sign In</button>
+            <button id="registerBtn" style="background:#444; margin-top: 10px;">Create Access Request</button>
+            <p id="authError" style="color:#e74c3c; font-size:0.8rem; margin-top:15px;"></p>
         </div>
     </div>
 
     <div id="sidebar">
-        <div id="accessDenied">
-            <h3 style="color: #e67e22; margin-top: 0;">Activation Required</h3>
-            <p style="font-size: 0.8em;">Your account is pending. Send this UID to the administrator for access:</p>
-            <code id="displayUid" style="background: #111; padding: 8px; display: block; margin: 10px 0; font-size: 0.75em; word-break: break-all; border-radius: 4px; color: #3498db;"></code>
-        </div>
+        <div id="scroll-area">
+            <div id="mainUI" style="display:none;">
+                <h2>FORECASTER <span id="roleBadge" class="role-badge" style="background:var(--accent); font-size: 0.6rem; padding: 3px 8px; border-radius: 4px; vertical-align: middle;">...</span></h2>
 
-        <div id="mainUI">
-            <div style="display:flex; justify-content:space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="margin:0; color: #3498db; font-size: 1.4em;">ADV-HOCO <span id="roleBadge" class="role-badge">...</span></h2>
-            </div>
-            
-            <div class="control-panel">
-                <label>Run Explorer (Calendar)</label>
-                <div class="explorer-grid">
-                    <input type="date" id="calendarFilter">
-                    <select id="idSelector"><option value="">Select Date...</option></select>
+                <div class="panel">
+                    <label>Archive & Run Management</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="date" id="calendarFilter" style="margin-bottom: 0;">
+                        <select id="idSelector" style="margin-bottom: 0;"><option>Loading...</option></select>
+                    </div>
                 </div>
-                <div class="legend-bar"></div>
-            </div>
 
-            <form id="hocoForm">
-                <div class="form-group">
-                    <label>1. Region & Window</label>
-                    <select id="regionSelect" style="margin-bottom: 8px;">
-                        <option value="UK">United Kingdom</option>
-                        <option value="England">England</option>
+                <div class="panel">
+                    <label>Map Visualization</label>
+                    <select id="mapStyleSelect">
+                        <option value="mapbox://styles/mapbox/dark-v11">Professional Dark</option>
+                        <option value="mapbox://styles/mapbox/satellite-v9">Satellite Hybrid</option>
+                        <option value="mapbox://styles/mapbox/light-v11">High Contrast Light</option>
                     </select>
-                    <input type="text" id="startTime" placeholder="Start: DD/MM/YYYY HH:MM" required>
-                    <input type="text" id="endTime" placeholder="End: DD/MM/YYYY HH:MM" required style="margin-top:8px;">
-                    <p id="limitNote" style="font-size:0.7em; color:#888; margin-top:5px; font-style:italic;"></p>
+                    <div style="display: flex; align-items: center; gap: 15px; margin-top: 10px;">
+                        <label style="margin:0;">Opacity</label>
+                        <input type="range" id="opacitySlider" min="0" max="100" value="75">
+                    </div>
                 </div>
 
-                <div id="exclusiveSection">
-                    <div class="scenario-builder">
-                        <label>2. Custom Model Runs</label>
-                        <select id="modelSelect" style="margin-bottom: 5px;"></select>
-                        <select id="runSelect"></select>
-                        <button type="button" class="btn-add" id="addScenarioBtn">+ Add Run</button>
-                        <div class="scenario-list" id="scenarioList"></div>
+                <form id="hocoForm">
+                    <div class="panel">
+                        <label>Ensemble Parameters</label>
+                        <select id="regionSelect">
+                            <option value="UK">United Kingdom (Full)</option>
+                            <option value="England">England (South/Central)</option>
+                        </select>
+                        <input type="text" id="startTime" placeholder="Start: DD/MM/YYYY HH:MM">
+                        <input type="text" id="endTime" placeholder="End: DD/MM/YYYY HH:MM">
                     </div>
 
-                    <label>3. Model Weights</label>
-                    <div id="weightsContainer" class="weight-grid"></div>
-                </div>
+                    <div id="exclusiveSection" style="display:none;">
+                        <div class="panel" style="border-left: 4px solid var(--primary);">
+                            <label>Scenario Builder (Custom Models)</label>
+                            <select id="modelSelect"></select>
+                            <select id="runSelect"></select>
+                            <button type="button" class="btn-add" id="addScenarioBtn">+ Add Run to Stack</button>
+                            <div class="chip-container" id="scenarioList"></div>
+                            
+                            <label style="margin-top:20px;">Manual Weight Adjustments</label>
+                            <div id="weightsContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;"></div>
+                        </div>
+                    </div>
 
-                <label>4. Parameters</label>
-                <div class="checkbox-group">
-                    <div class="checkbox-item"><input type="checkbox" name="weather" value="lightning" checked> Lightning</div>
-                    <div class="checkbox-item"><input type="checkbox" name="weather" value="tornado"> Tornado</div>
-                    <div class="checkbox-item"><input type="checkbox" name="weather" value="snow"> Snow</div>
-                </div>
+                    <button type="submit" id="submitBtn">Execute Ensemble Run</button>
+                </form>
 
-                <button type="submit" id="submitBtn">Generate Ensemble</button>
-            </form>
-            
-            <div id="statusBox" class="status-box"></div>
+                <div id="adminPanel">
+                    <label>Developer: User Permissions</label>
+                    <div id="userList"></div>
+                </div>
+            </div>
+
+            <div id="accessDenied" style="display:none; text-align: center; padding: 40px 20px;">
+                <h3 style="color: var(--primary);">System Access Pending</h3>
+                <p style="font-size: 0.9rem; color: #888;">Your account must be manually verified by a developer.</p>
+                <label>Your Unique ID</label>
+                <code id="displayUid" style="background:#000; padding:12px; display:block; border-radius:6px; font-size:0.7rem; color: var(--accent); word-break: break-all;"></code>
+            </div>
         </div>
-
-        <button id="logoutBtn">Logout</button>
+        
+        <button id="logoutBtn">Terminte Session</button>
     </div>
 
     <div id="map"></div>
+    <div class="map-overlay" id="statusOverlay">Map Engine: Ready</div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { 
-            getAuth, 
-            signInWithEmailAndPassword, 
-            createUserWithEmailAndPassword, 
-            onAuthStateChanged, 
-            signOut,
-            GoogleAuthProvider,
-            signInWithPopup 
-        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { 
-            getFirestore, 
-            collection, 
-            addDoc, 
-            onSnapshot, 
-            query, 
-            orderBy, 
-            limit, 
-            doc, 
-            getDoc,
-            setDoc 
-        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 
-        // CONSOLIDATED PROJECT CONFIG (Using hoco-3b23e for everything)
         const firebaseConfig = {
             apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ",
             authDomain: "hoco-3b23e.firebaseapp.com",
@@ -190,239 +151,207 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const functions = getFunctions(app, "us-central1");
+        const functions = getFunctions(app);
         const triggerHocoRun = httpsCallable(functions, 'triggerHocoRun');
 
-        let userRole = 'pending'; 
-        const ROLES = {
-            PENDING:   { active: false, maxRange: 0,   lookAhead: 0,   customModels: false },
-            NORMAL:    { active: true,  maxRange: 24,  lookAhead: 72,  customModels: false },
-            EXCLUSIVE: { active: true,  maxRange: 72,  lookAhead: 72,  customModels: true },
-            DEVELOPER: { active: true,  maxRange: 999, lookAhead: 999, customModels: true }
+        let userRole = 'pending';
+        let selectedScenarios = [];
+        const models = { 
+            frahd: { name: "FRAHD", freq: 3 }, 
+            rpdid2: { name: "RPDID2", freq: 3 }, 
+            ukmo2km: { name: "UKMO 2KM", freq: 3},
+            ez: { name: "ECMWF EZ", freq: 12 }
         };
+        const defaultWeights = { 'rpdid2': 0.8, 'swisseu': 1.1, 'ez': 1.1, 'ukmo2km': 0.9, 'deuhd': 1.0 };
 
-        const defaultWeights = { 'rpdid2': 0.8, 'swisseu': 1.1, 'ez': 1.1, 'swissnow': 0.9, 'frahd': 0.8, 'hardmi': 1.0, 'ukmo2km': 0.9, 'deuhd': 1.0 };
-        const models = { frahd: { name: "FRAHD", freq: 3 }, rpdid2: { name: "RPDID2", freq: 3 }, hardmi: { name: "HARDMI", freq: 3 }, swisseu: { name: "SWISSEU", freq: 3 }, swissnow: { name: "SWISSNOW", freq: 1 }, ez: { name: "EZ", freq: 12 }, ukmo2km: { name: "UKMO 2KM", freq: 3} };
-
+        // Map Setup
         mapboxgl.accessToken = 'pk.eyJ1IjoibWV0ZW9ncm91cC1tYXBib3giLCJhIjoiY2pudWJyMWVhMDQ0bjNxdXFsNWJ5M2ZtbSJ9.ANOKYyv5s0VFVbnesnGGUQ';
-        const map = new mapboxgl.Map({ container: 'map', style: 'mapbox://styles/mapbox/dark-v11', center: [-1.5, 52.5], zoom: 5.5 });
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/dark-v11',
+            center: [-1.5, 52.5],
+            zoom: 6
+        });
 
-        const emailIn = document.getElementById('emailIn');
-        const passIn = document.getElementById('passIn');
-        const errDiv = document.getElementById('authError');
+        // UI Listeners
+        document.getElementById('mapStyleSelect').addEventListener('change', (e) => map.setStyle(e.target.value));
+        document.getElementById('opacitySlider').addEventListener('input', (e) => {
+            if (map.getLayer('hoco-grid')) map.setPaintProperty('hoco-grid', 'fill-opacity', e.target.value / 100);
+        });
 
+        // Auth Logic
         document.getElementById('loginBtn').addEventListener('click', async () => {
-            errDiv.innerText = "";
-            try {
-                await signInWithEmailAndPassword(auth, emailIn.value, passIn.value);
-            } catch (err) { errDiv.innerText = "Login failed: " + err.message; }
+            try { await signInWithEmailAndPassword(auth, emailIn.value, passIn.value); } 
+            catch (e) { document.getElementById('authError').innerText = e.message; }
         });
-
         document.getElementById('registerBtn').addEventListener('click', async () => {
-            errDiv.innerText = "";
-            try {
-                await createUserWithEmailAndPassword(auth, emailIn.value, passIn.value);
-            } catch (err) { errDiv.innerText = "Register failed: " + err.message; }
+            try { await createUserWithEmailAndPassword(auth, emailIn.value, passIn.value); } 
+            catch (e) { document.getElementById('authError').innerText = e.message; }
         });
-
-        document.getElementById('googleBtn').addEventListener('click', async () => {
-            const provider = new GoogleAuthProvider();
-            try {
-                await signInWithPopup(auth, provider);
-            } catch (err) { errDiv.innerText = "Google sign-in failed: " + err.message; }
-        });
-
         document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 document.getElementById('authOverlay').style.display = 'none';
-                const userRef = doc(db, "users", user.uid);
-                const userDoc = await getDoc(userRef);
-
-                if (userDoc.exists()) {
-                    userRole = userDoc.data().role || 'pending';
-                } else {
-                    userRole = 'pending'; // Start as pending for admin approval
-                    try {
-                        await setDoc(userRef, {
-                            email: user.email,
-                            role: 'pending',
-                            createdAt: new Date()
-                        });
-                    } catch (e) { console.error("Permission error: Check Firestore rules in Project B", e); }
-                }
+                const uRef = doc(db, "users", user.uid);
+                const uDoc = await getDoc(uRef);
+                if (!uDoc.exists()) await setDoc(uRef, { email: user.email, role: 'pending' });
+                userRole = uDoc.exists() ? uDoc.data().role : 'pending';
                 setupUI(user.uid);
             } else {
                 document.getElementById('authOverlay').style.display = 'flex';
-                document.getElementById('mainUI').style.display = 'none';
-                document.getElementById('accessDenied').style.display = 'none';
             }
         });
 
         function setupUI(uid) {
-            const config = ROLES[userRole.toUpperCase()] || ROLES.PENDING;
-            if (!config.active) {
-                document.getElementById('mainUI').style.display = 'none';
-                document.getElementById('accessDenied').style.display = 'flex';
-                document.getElementById('displayUid').innerText = uid;
-            } else {
-                document.getElementById('accessDenied').style.display = 'none';
-                document.getElementById('mainUI').style.display = 'block';
+            const approved = userRole !== 'pending';
+            document.getElementById('mainUI').style.display = approved ? 'block' : 'none';
+            document.getElementById('accessDenied').style.display = approved ? 'none' : 'block';
+            document.getElementById('displayUid').innerText = uid;
+            
+            if (approved) {
                 document.getElementById('roleBadge').innerText = userRole.toUpperCase();
-                document.getElementById('exclusiveSection').style.display = config.customModels ? 'block' : 'none';
-                document.getElementById('limitNote').innerText = userRole === 'developer' ? 'Unlimited access.' : `Max Range: ${config.maxRange}h | Look-ahead: ${config.lookAhead}h`;
-                initRunExplorer();
+                document.getElementById('exclusiveSection').style.display = (userRole === 'developer' || userRole === 'exclusive') ? 'block' : 'none';
+                if (userRole === 'developer') { document.getElementById('adminPanel').style.display = 'block'; loadAdminUsers(); }
+                initScenarioLogic();
+                loadArchive();
             }
         }
 
-        // Run Explorer & Scenario Logic
-        let cachedRuns = [];
-        function initRunExplorer() {
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('calendarFilter').value = today;
-            onSnapshot(query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(100)), (snap) => {
-                cachedRuns = [];
-                snap.forEach(d => cachedRuns.push({ id: d.id, ...d.data() }));
-                refreshRunList(document.getElementById('calendarFilter').value);
+        // Scenario & Weight Initialization
+        function initScenarioLogic() {
+            const mSel = document.getElementById('modelSelect');
+            mSel.innerHTML = '';
+            Object.keys(models).forEach(k => {
+                const o = document.createElement('option'); o.value = k; o.textContent = models[k].name; mSel.appendChild(o);
+            });
+            updateRunTimes();
+            mSel.onchange = updateRunTimes;
+
+            const wCont = document.getElementById('weightsContainer');
+            wCont.innerHTML = '';
+            Object.keys(defaultWeights).forEach(m => {
+                const d = document.createElement('div');
+                d.innerHTML = `<span style="color:#666; font-size:10px">${m.toUpperCase()}</span><input type="number" step="0.1" id="w-${m}" value="${defaultWeights[m]}" style="margin:0; padding:5px;">`;
+                wCont.appendChild(d);
             });
         }
 
-        document.getElementById('calendarFilter').addEventListener('change', (e) => refreshRunList(e.target.value));
-
-        function refreshRunList(dateStr) {
-            const s = document.getElementById('idSelector');
-            s.innerHTML = '<option value="">-- Select Run --</option>';
-            const filtered = cachedRuns.filter(r => r.createdAt?.toDate().toISOString().split('T')[0] === dateStr);
-            if (filtered.length === 0) { s.innerHTML = '<option value="">No runs found</option>'; return; }
-            filtered.forEach(data => {
-                const opt = document.createElement('option');
-                opt.value = data.id;
-                opt.textContent = `${data.type === 'automated' ? '🤖' : '👤'} [${data.status.toUpperCase()}] ${data.startTime}`;
-                s.appendChild(opt);
-            });
-        }
-
-        const weightsContainer = document.getElementById('weightsContainer');
-        const modelSelect = document.getElementById('modelSelect');
-        const runSelect = document.getElementById('runSelect');
-
-        Object.keys(defaultWeights).forEach(m => {
-            const div = document.createElement('div');
-            div.className = 'weight-item';
-            div.innerHTML = `<span>${m.toUpperCase()}</span><input type="number" step="0.1" id="weight-${m}" value="${defaultWeights[m]}">`;
-            weightsContainer.appendChild(div);
-        });
-
-        Object.keys(models).forEach(m => {
-            const opt = document.createElement('option');
-            opt.value = m; opt.textContent = models[m].name;
-            modelSelect.appendChild(opt);
-        });
-
-        function updateRunOptions() {
-            runSelect.innerHTML = '';
-            const m = modelSelect.value;
-            const freq = models[m].freq;
-            let baseDate = new Date();
-            baseDate.setMinutes(0, 0, 0, 0);
-            for (let i = 0; i < 24; i++) {
-                const d = new Date(baseDate.getTime() - (i * 3600000));
-                if (d.getUTCHours() % freq === 0) {
-                    const iso = d.toISOString();
-                    const label = `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')} ${String(d.getUTCHours()).padStart(2,'0')}z`;
-                    const opt = document.createElement('option');
-                    opt.value = iso; opt.textContent = label;
-                    runSelect.appendChild(opt);
+        function updateRunTimes() {
+            const rSel = document.getElementById('runSelect'); rSel.innerHTML = '';
+            const freq = models[document.getElementById('modelSelect').value].freq;
+            let now = new Date(); now.setMinutes(0,0,0);
+            for(let i=0; i<30; i++) {
+                let d = new Date(now - (i * 3600000));
+                if(d.getUTCHours() % freq === 0) {
+                    let opt = document.createElement('option');
+                    opt.value = d.toISOString();
+                    opt.textContent = `${d.getUTCDate()}/${d.getUTCMonth()+1} ${d.getUTCHours()}z`;
+                    rSel.appendChild(opt);
                 }
             }
         }
-        modelSelect.addEventListener('change', updateRunOptions);
-        updateRunOptions();
 
-        let selectedScenarios = [];
-        document.getElementById('addScenarioBtn').addEventListener('click', () => {
-            const runISO = runSelect.value;
-            const modelKey = modelSelect.value;
-            if (selectedScenarios.some(s => s.run === runISO && s.model === modelKey)) return;
-            selectedScenarios.push({ model: modelKey, run: runISO, label: runSelect.options[runSelect.selectedIndex].text });
-            renderScenarios();
-        });
+        document.getElementById('addScenarioBtn').onclick = () => {
+            const m = document.getElementById('modelSelect').value;
+            const r = document.getElementById('runSelect').value;
+            const label = document.getElementById('runSelect').options[document.getElementById('runSelect').selectedIndex].text;
+            selectedScenarios.push({ model: m, run: r, label: `${models[m].name} (${label})` });
+            renderChips();
+        };
 
-        function renderScenarios() {
-            const list = document.getElementById('scenarioList');
-            list.innerHTML = '';
-            selectedScenarios.forEach((s, idx) => {
-                const chip = document.createElement('div');
-                chip.className = 'scenario-chip';
-                chip.innerHTML = `${models[s.model].name} (${s.label}) <span onclick="removeScenario(${idx})">×</span>`;
-                list.appendChild(chip);
+        function renderChips() {
+            const cont = document.getElementById('scenarioList'); cont.innerHTML = '';
+            selectedScenarios.forEach((s, i) => {
+                const c = document.createElement('div'); c.className = 'chip';
+                c.innerHTML = `${s.label} <span onclick="removeScenario(${i})">×</span>`;
+                cont.appendChild(c);
             });
         }
-        window.removeScenario = (idx) => { selectedScenarios.splice(idx, 1); renderScenarios(); };
+        window.removeScenario = (i) => { selectedScenarios.splice(i, 1); renderChips(); };
 
-        document.getElementById('hocoForm').addEventListener('submit', async (e) => {
+        // Admin User Management
+        function loadAdminUsers() {
+            onSnapshot(collection(db, "users"), (snap) => {
+                const list = document.getElementById('userList'); list.innerHTML = '';
+                snap.forEach(d => {
+                    const u = d.data();
+                    const row = document.createElement('div'); row.className = 'user-row';
+                    row.innerHTML = `<div>${u.email}<br><small style="color:var(--primary)">${u.role}</small></div>
+                        <div style="display:flex; gap:4px;">
+                            <button class="role-btn" onclick="setRole('${d.id}','normal')">N</button>
+                            <button class="role-btn" style="background:#f39c12" onclick="setRole('${d.id}','exclusive')">E</button>
+                            <button class="role-btn" style="background:#e74c3c" onclick="setRole('${d.id}','developer')">D</button>
+                        </div>`;
+                    list.appendChild(row);
+                });
+            });
+        }
+        window.setRole = (uid, role) => updateDoc(doc(db, "users", uid), { role });
+
+        // Archive Loader
+        let allRuns = [];
+        function loadArchive() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('calendarFilter').value = today;
+            onSnapshot(query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(100)), (snap) => {
+                allRuns = []; snap.forEach(d => allRuns.push({id: d.id, ...d.data()}));
+                filterRuns();
+            });
+        }
+        document.getElementById('calendarFilter').onchange = filterRuns;
+        function filterRuns() {
+            const date = document.getElementById('calendarFilter').value;
+            const filtered = allRuns.filter(r => r.createdAt?.toDate().toISOString().split('T')[0] === date);
+            const sel = document.getElementById('idSelector'); sel.innerHTML = '<option value="">Select Run</option>';
+            filtered.forEach(r => {
+                const o = document.createElement('option'); o.value = r.id; o.textContent = `[${r.status}] ${r.startTime}`; sel.appendChild(o);
+            });
+        }
+
+        // Trigger Run
+        document.getElementById('hocoForm').onsubmit = async (e) => {
             e.preventDefault();
-            const btn = document.getElementById('submitBtn');
-            const statusBox = document.getElementById('statusBox');
-            btn.disabled = true;
-            statusBox.style.display = 'block';
-            statusBox.className = 'status-box pending';
-            statusBox.innerText = 'Transmitting to Cloud...';
+            const btn = document.getElementById('submitBtn'); btn.disabled = true;
+            const weights = {}; Object.keys(defaultWeights).forEach(m => weights[m] = parseFloat(document.getElementById(`w-${m}`).value));
             
-            const activeWeights = {};
-            Object.keys(defaultWeights).forEach(m => { activeWeights[m] = parseFloat(document.getElementById(`weight-${m}`).value); });
-            
+            const payload = {
+                region: document.getElementById('regionSelect').value,
+                startTime: document.getElementById('startTime').value,
+                endTime: document.getElementById('endTime').value,
+                scenarios: selectedScenarios,
+                weights: JSON.stringify(weights),
+                userId: auth.currentUser.uid,
+                createdAt: new Date(),
+                status: 'pending'
+            };
+
             try {
-                const payload = {
-                    region: document.getElementById('regionSelect').value,
-                    scenarios: userRole === 'normal' ? [] : selectedScenarios,
-                    startTime: document.getElementById('startTime').value,
-                    endTime: document.getElementById('endTime').value,
-                    weather: Array.from(document.querySelectorAll('input[name="weather"]:checked')).map(cb => cb.value).join(','),
-                    weights: JSON.stringify(activeWeights),
-                    userId: auth.currentUser.uid,
-                    createdAt: new Date(),
-                    status: 'pending',
-                    type: 'manual'
-                };
                 const docRef = await addDoc(collection(db, "hoco_requests"), payload);
                 await triggerHocoRun({ id: docRef.id, ...payload });
-                statusBox.innerText = 'Processing started...';
-                statusBox.className = 'status-box completed';
-            } catch (err) { statusBox.innerText = 'Error: ' + err.message; btn.disabled = false; }
-        });
+                document.getElementById('statusOverlay').innerText = "Status: Transmitted to Cloud";
+            } catch (err) { alert(err.message); }
+            btn.disabled = false;
+        };
 
-        document.getElementById('idSelector').addEventListener('change', async (e) => {
-            if (!e.target.value) return;
-            const docSnap = await getDoc(doc(db, "hoco_requests", e.target.value));
-            if (docSnap.exists() && docSnap.data().geojsonUrl) loadGeoJson(docSnap.data().geojsonUrl);
-        });
-
-        async function loadGeoJson(url) {
-            const response = await fetch(url);
-            const data = await response.json();
-            const processed = pointsToGrid(data);
-            if (map.getLayer('hoco-grid')) map.removeLayer('hoco-grid');
-            if (map.getSource('hoco-source')) map.removeSource('hoco-source');
-            map.addSource('hoco-source', { type: 'geojson', data: processed });
-            map.addLayer({ 
-                id: 'hoco-grid', type: 'fill', source: 'hoco-source', 
-                paint: { 'fill-color': ['step', ['/', ['get', 'risk'], 5], "#ffffff", 1, "#66c2a4", 30, "#fff200", 50, "#ff7f27", 70, "#ec1c24", 85, "#b83dba"], 'fill-opacity': 0.7 }
-            });
-        }
-
-        function pointsToGrid(geojson, size = 0.08) {
-            const features = geojson.features.map(f => {
-                const [lon, lat] = f.geometry.coordinates;
-                const half = size / 2;
-                return {
-                    type: "Feature", properties: f.properties,
-                    geometry: { type: "Polygon", coordinates: [[[lon-half, lat-half], [lon+half, lat-half], [lon+half, lat+half], [lon-half, lat+half], [lon-half, lat-half]]] }
-                };
-            });
-            return { type: "FeatureCollection", features };
-        }
+        // Map Visualization
+        document.getElementById('idSelector').onchange = async (e) => {
+            const id = e.target.value; if(!id) return;
+            const d = await getDoc(doc(db, "hoco_requests", id));
+            if(d.exists() && d.data().geojsonUrl) {
+                const geo = await (await fetch(d.data().geojsonUrl)).json();
+                if (map.getLayer('hoco-grid')) map.removeLayer('hoco-grid');
+                if (map.getSource('hoco-source')) map.removeSource('hoco-source');
+                map.addSource('hoco-source', { type: 'geojson', data: geo });
+                map.addLayer({
+                    id: 'hoco-grid', type: 'fill', source: 'hoco-source',
+                    paint: {
+                        'fill-color': ['interpolate', ['linear'], ['get', 'risk'], 0, '#fff', 50, '#f1c40f', 100, '#e74c3c'],
+                        'fill-opacity': document.getElementById('opacitySlider').value / 100
+                    }
+                });
+            }
+        };
     </script>
 </body>
 </html>
