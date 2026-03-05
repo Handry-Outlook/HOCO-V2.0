@@ -330,105 +330,121 @@
 <body>
     <div id="toastContainer"></div>
 
-<div id="authOverlay">
-    <div class="auth-card">
-        <h2 style="margin-bottom: 5px;">ADV-HOCO Pro</h2>
-        <p style="color: #888; font-size: 0.85rem; margin-bottom: 25px;">Meteorological Ensemble Engine</p>
-        <input type="email" id="emailIn" placeholder="Email Address" required>
-        <input type="password" id="passIn" placeholder="Password" required>
-        <button id="loginBtn">Sign In</button>
-        <button id="registerBtn" style="background:transparent; border: 1px solid #555; margin-top: 10px;">Create Access Request</button>
-        <p id="authError" style="color:var(--danger); font-size:0.8rem; margin-top:15px; min-height: 16px;"></p>
+    <div id="authOverlay">
+        <div class="auth-card">
+            <h2 style="margin-bottom: 5px;">ADV-HOCO Pro</h2>
+            <p style="color: #888; font-size: 0.85rem; margin-bottom: 25px;">Meteorological Ensemble Engine</p>
+            <input type="email" id="emailIn" placeholder="Email Address" required>
+            <input type="password" id="passIn" placeholder="Password" required>
+            <button id="loginBtn">Sign In</button>
+            <button id="registerBtn" style="background:transparent; border: 1px solid #555; margin-top: 10px;">Create
+                Access Request</button>
+            <p id="authError" style="color:var(--danger); font-size:0.8rem; margin-top:15px; min-height: 16px;"></p>
+        </div>
     </div>
-</div>
 
-<div id="sidebar">
-    <div id="scroll-area">
-        <div id="mainUI" style="display:none;">
-            <h2>FORECASTER
-                <span id="roleBadge" style="background:var(--accent); font-size: 0.6rem; padding: 4px 8px; border-radius: 4px; vertical-align: middle; color: #000; font-weight: 800;">...</span>
-            </h2>
+    <div id="sidebar">
+        <div id="scroll-area">
+            <div id="mainUI" style="display:none;">
+                <h2>FORECASTER
+                    <span id="roleBadge"
+                        style="background:var(--accent); font-size: 0.6rem; padding: 4px 8px; border-radius: 4px; vertical-align: middle; color: #000; font-weight: 800;">...</span>
+                </h2>
 
-            <div class="panel">
-                <label>Archive & Run Management</label>
-                <div style="display: flex; gap: 10px;">
-                    <input type="date" id="calendarFilter" style="margin-bottom: 0; flex: 1;">
-                    <select id="idSelector" style="margin-bottom: 0; flex: 2;">
-                        <option value="">Select Run...</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="panel">
-                <label>Map Visualization</label>
-                <select id="mapStyleSelect">
-                    <option value="mapbox://styles/mapbox/dark-v11">Professional Dark</option>
-                    <option value="mapbox://styles/mapbox/satellite-v9">Satellite Hybrid</option>
-                    <option value="mapbox://styles/mapbox/light-v11">High Contrast Light</option>
-                    <option value="mapbox://styles/mapbox/outdoors-v12">Outdoors / Terrain</option>
-                </select>
-                <div style="display: flex; align-items: center; gap: 15px; margin-top: 10px;">
-                    <label style="margin:0; min-width: 60px;">Opacity</label>
-                    <input type="range" id="opacitySlider" min="0" max="100" value="75" style="margin:0; cursor: pointer;">
-                </div>
-            </div>
-
-            <div id="exclusiveSection" style="display:none;">
                 <div class="panel">
-                    <label>Scenario Builder</label>
-                    <select id="modelSelect" style="margin-bottom: 8px;"></select>
-                    <select id="runSelect" style="margin-bottom: 8px;"></select>
-                    <button id="addScenarioBtn" class="btn-add">Add to Ensemble</button>
-                    <div id="scenarioList" class="chip-container"></div>
+                    <label>Archive & Run Management</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="date" id="calendarFilter" style="margin-bottom: 0; flex: 1;">
+                        <select id="idSelector" style="margin-bottom: 0; flex: 2;">
+                            <option value="">Select Run...</option>
+                        </select>
+                    </div>
                 </div>
-                
+
                 <div class="panel">
-                    <label>Model Weighting</label>
-                    <div id="weightsContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;"></div>
-                </div>
-            </div>
-
-            <div class="panel">
-                <form id="hocoForm">
-                    <label>Ensemble Parameters</label>
-                    <select id="regionSelect">
-                        <option value="England">England (South/Central)</option>
-                        <option value="UK">United Kingdom (Full)</option>
+                    <label>Map Visualization</label>
+                    <select id="mapStyleSelect">
+                        <option value="mapbox://styles/mapbox/dark-v11">Professional Dark</option>
+                        <option value="mapbox://styles/mapbox/satellite-v9">Satellite Hybrid</option>
+                        <option value="mapbox://styles/mapbox/light-v11">High Contrast Light</option>
+                        <option value="mapbox://styles/mapbox/outdoors-v12">Outdoors / Terrain</option>
                     </select>
-                    <input type="text" id="startTime" placeholder="Start: DD/MM/YYYY HH:MM" required>
-                    <input type="text" id="endTime" placeholder="End: DD/MM/YYYY HH:MM" required>
+                    <div style="display: flex; align-items: center; gap: 15px; margin-top: 10px;">
+                        <label style="margin:0; min-width: 60px;">Opacity</label>
+                        <input type="range" id="opacitySlider" min="0" max="100" value="75"
+                            style="margin:0; cursor: pointer;">
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 15px; margin-top: 15px;">
+                        <label style="margin:0; min-width: 60px;">Scale</label>
+                        <input type="range" id="heightSlider" min="0" max="20000" step="500" value="5000"
+                            style="margin:0; cursor: pointer;">
+                    </div>
+                </div>
 
-                    <label style="margin-top: 10px;">Weather Hazards</label>
-                    <div class="checkbox-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 15px;">
-                        <div class="checkbox-item"><input type="checkbox" name="weather" value="lightning" checked> <span style="font-size: 0.85rem;">Lightning</span></div>
-                        <div class="checkbox-item"><input type="checkbox" name="weather" value="tornado"> <span style="font-size: 0.85rem;">Tornado</span></div>
-                        <div class="checkbox-item"><input type="checkbox" name="weather" value="snow"> <span style="font-size: 0.85rem;">Snow</span></div>
+                <div id="exclusiveSection" style="display:none;">
+                    <div class="panel">
+                        <label>Scenario Builder</label>
+                        <select id="modelSelect" style="margin-bottom: 8px;"></select>
+                        <select id="runSelect" style="margin-bottom: 8px;"></select>
+                        <button id="addScenarioBtn" class="btn-add">Add to Ensemble</button>
+                        <div id="scenarioList" class="chip-container"></div>
                     </div>
 
-                    <button type="submit" id="submitBtn">Execute Ensemble Run</button>
-                </form>
+                    <div class="panel">
+                        <label>Model Weighting</label>
+                        <div id="weightsContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <form id="hocoForm">
+                        <label>Ensemble Parameters</label>
+                        <select id="regionSelect">
+                            <option value="England">England (South/Central)</option>
+                            <option value="UK">United Kingdom (Full)</option>
+                        </select>
+                        <input type="text" id="startTime" placeholder="Start: DD/MM/YYYY HH:MM" required>
+                        <input type="text" id="endTime" placeholder="End: DD/MM/YYYY HH:MM" required>
+
+                        <label style="margin-top: 10px;">Weather Hazards</label>
+                        <div class="checkbox-group"
+                            style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 15px;">
+                            <div class="checkbox-item"><input type="checkbox" name="weather" value="lightning" checked>
+                                <span style="font-size: 0.85rem;">Lightning</span>
+                            </div>
+                            <div class="checkbox-item"><input type="checkbox" name="weather" value="tornado"> <span
+                                    style="font-size: 0.85rem;">Tornado</span></div>
+                            <div class="checkbox-item"><input type="checkbox" name="weather" value="snow"> <span
+                                    style="font-size: 0.85rem;">Snow</span></div>
+                        </div>
+
+                        <button type="submit" id="submitBtn">Execute Ensemble Run</button>
+                    </form>
+                </div>
+
+                <div id="adminPanel" style="display:none;">
+                    <label>Developer: User Permissions</label>
+                    <div id="userList"></div>
+                </div>
             </div>
 
-            <div id="adminPanel" style="display:none;">
-                <label>Developer: User Permissions</label>
-                <div id="userList"></div>
+            <div id="accessDenied" style="display:none; text-align: center; padding: 40px 20px;">
+                <h3 style="color: var(--primary);">System Access Pending</h3>
+                <p style="font-size: 0.9rem; color: #888; line-height: 1.5;">Your account must be manually verified by a
+                    developer before accessing the engine.</p>
+                <div style="margin-top: 20px; text-align: left;">
+                    <label>Your Unique ID</label>
+                    <code id="displayUid"
+                        style="background:#000; padding:12px; display:block; border-radius:6px; font-size:0.75rem; color: var(--accent); word-break: break-all; border: 1px solid #222;"></code>
+                </div>
             </div>
         </div>
 
-        <div id="accessDenied" style="display:none; text-align: center; padding: 40px 20px;">
-            <h3 style="color: var(--primary);">System Access Pending</h3>
-            <p style="font-size: 0.9rem; color: #888; line-height: 1.5;">Your account must be manually verified by a developer before accessing the engine.</p>
-            <div style="margin-top: 20px; text-align: left;">
-                <label>Your Unique ID</label>
-                <code id="displayUid" style="background:#000; padding:12px; display:block; border-radius:6px; font-size:0.75rem; color: var(--accent); word-break: break-all; border: 1px solid #222;"></code>
-            </div>
-        </div>
+        <button id="logoutBtn" style="display: none;">Terminate Session</button>
     </div>
-
-    <button id="logoutBtn" style="display: none;">Terminate Session</button>
-</div>
-<div id="statusOverlay" class="map-overlay">Status: Ready</div>
-<div id="map"></div>
+    <div id="statusOverlay" class="map-overlay">Status: Ready</div>
+    <div id="map"></div>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
@@ -928,10 +944,11 @@
                         source: 'hoco-source',
                         paint: {
                             // Height is Risk value * 5000 (meters) for visual clarity
+                            // Inside Section 11 - map.addLayer()
                             'fill-extrusion-height': [
                                 '*',
                                 ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0],
-                                5000
+                                parseInt(document.getElementById('heightSlider').value, 10)
                             ],
                             'fill-extrusion-base': 0,
                             'fill-extrusion-color': [
@@ -961,6 +978,17 @@
             } catch (error) {
                 statusUI.innerText = "Status: Data Load Error";
                 showToast("Failed to load map data", "error");
+            }
+        });
+        // Dynamic Height Update
+        document.getElementById('heightSlider').addEventListener('input', (e) => {
+            if (map.getLayer('hoco-grid')) {
+                const heightScale = parseInt(e.target.value, 10);
+                map.setPaintProperty('hoco-grid', 'fill-extrusion-height', [
+                    '*',
+                    ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0],
+                    heightScale
+                ]);
             }
         });
     </script>
