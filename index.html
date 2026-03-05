@@ -85,23 +85,22 @@
     import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
     import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 
-    // --- FIREBASE CONFIG (Publicly Safe) ---
-    const firebaseConfig = {
-      apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ",
-      authDomain: "hoco-3b23e.firebaseapp.com",
-      projectId: "hoco-3b23e",
-      storageBucket: "hoco-3b23e.firebasestorage.app",
-      messagingSenderId: "409513272369",
-      appId: "1:409513272369:web:a857d9b039d53710f8a110",
-      measurementId: "G-NRPS6JHYN7"
+    // --- CONFIGURATION ---
+    const firebaseConfig = { 
+        apiKey: "YOUR_API_KEY",
+        authDomain: "hoco-3b23e.firebaseapp.com",
+        projectId: "hoco-3b23e",
+        storageBucket: "hoco-3b23e.appspot.com",
+        messagingSenderId: "YOUR_ID",
+        appId: "YOUR_APP_ID"
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
-    const functions = getFunctions(app);
+    const functions = getFunctions(app, "us-central1");
     const triggerHocoRun = httpsCallable(functions, 'triggerHocoRun');
 
-    // --- MAPBOX CONFIG ---
+    // --- MAP INITIALIZATION ---
     mapboxgl.accessToken = 'pk.eyJ1IjoibWV0ZW9ncm91cC1tYXBib3giLCJhIjoiY2pudWJyMWVhMDQ0bjNxdXFsNWJ5M2ZtbSJ9.ANOKYyv5s0VFVbnesnGGUQ';
     const map = new mapboxgl.Map({
         container: 'map',
@@ -110,7 +109,7 @@
         zoom: 5.5
     });
 
-    // 1. Listen for Recent Runs
+    // 1. Listen for Firestore Updates
     const q = query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(15));
     onSnapshot(q, (snapshot) => {
         const selector = document.getElementById('idSelector');
@@ -124,7 +123,7 @@
         });
     });
 
-    // 2. Submit & Trigger Secure Function
+    // 2. Submit Request & Trigger Cloud Function
     document.getElementById('hocoForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = document.getElementById('submitBtn');
@@ -133,51 +132,54 @@
         btn.disabled = true;
         statusBox.style.display = 'block';
         statusBox.className = 'status-box pending';
-        statusBox.innerText = 'Requesting Cloud Execution...';
+        statusBox.innerText = 'Initializing Cloud Run...';
 
         const weatherTypes = Array.from(document.querySelectorAll('input[name="weather"]:checked')).map(cb => cb.value);
-        const weights = {
-            frahd: parseFloat(document.getElementById('w_frahd').value),
-            rpdid2: parseFloat(document.getElementById('w_rpd').value),
-            swisseu: parseFloat(document.getElementById('w_seu').value),
-            ez: parseFloat(document.getElementById('w_ez').value),
-            ukmo2km: parseFloat(document.getElementById('w_ukmo').value),
-            hardmi: parseFloat(document.getElementById('w_hard').value)
+        
+        const payload = {
+            region: document.getElementById('regionSelect').value,
+            startTime: document.getElementById('startTime').value,
+            endTime: document.getElementById('endTime').value,
+            weather: weatherTypes.join(','),
+            weights: {
+                frahd: parseFloat(document.getElementById('w_frahd').value),
+                rpdid2: parseFloat(document.getElementById('w_rpd').value),
+                swisseu: parseFloat(document.getElementById('w_seu').value),
+                ez: parseFloat(document.getElementById('w_ez').value),
+                ukmo2km: parseFloat(document.getElementById('w_ukmo').value),
+                hardmi: parseFloat(document.getElementById('w_hard').value)
+            }
         };
 
         try {
-            // A. Log request in Firestore
+            // A. Store in Firestore
             const docRef = await addDoc(collection(db, "hoco_requests"), {
-                region: document.getElementById('regionSelect').value,
-                startTime: document.getElementById('startTime').value,
-                endTime: document.getElementById('endTime').value,
-                weather: weatherTypes,
-                weights: weights,
+                ...payload,
                 status: 'pending',
                 createdAt: new Date()
             });
             
-            // B. Trigger Secure Cloud Function (No token in frontend!)
+            // B. Trigger the "Brain" (Cloud Function)
             const result = await triggerHocoRun({
                 id: docRef.id,
-                start: document.getElementById('startTime').value,
-                end: document.getElementById('endTime').value,
-                region: document.getElementById('regionSelect').value,
-                weather: weatherTypes.join(','),
-                weights: JSON.stringify(weights)
+                ...payload
             });
 
             if (result.data.success) {
-                statusBox.innerText = 'Success! Backend triggered. Wait 5-10 mins.';
+                statusBox.innerText = 'Success: GitHub is processing. Check back in 5-10 mins.';
+                statusBox.className = 'status-box completed';
             }
 
         } catch (err) {
+            console.error(err);
+            statusBox.className = 'status-box';
+            statusBox.style.background = '#c0392b';
             statusBox.innerText = 'Error: ' + err.message;
             btn.disabled = false;
         }
     });
 
-    // 3. Map Rendering Logic
+    // 3. Map Layers Logic
     function loadGeoJson(url) {
         if (!map.loaded()) return;
         if (map.getSource('hoco-source')) {
@@ -193,19 +195,10 @@
             paint: {
                 'heatmap-weight': ['get', 'risk'],
                 'heatmap-intensity': 1,
-                'heatmap-color': [
-                    'interpolate', ['linear'], ['heatmap-density'],
-                    0, 'rgba(0,0,255,0)', 0.2, 'royalblue', 0.4, 'cyan', 0.6, 'lime', 0.8, 'yellow', 1, 'red'
-                ],
+                'heatmap-color': ['interpolate', ['linear'], ['heatmap-density'], 0, 'rgba(0,0,255,0)', 0.2, 'royalblue', 0.4, 'cyan', 0.6, 'lime', 0.8, 'yellow', 1, 'red' ],
                 'heatmap-radius': 30,
                 'heatmap-opacity': 0.6
             }
-        });
-        map.addLayer({
-            id: 'hoco-point',
-            type: 'circle',
-            source: 'hoco-source',
-            paint: { 'circle-radius': 3, 'circle-color': '#fff', 'circle-opacity': 0.4 }
         });
     }
 
@@ -216,7 +209,7 @@
         if (docSnap.exists() && docSnap.data().geojsonUrl) {
             loadGeoJson(docSnap.data().geojsonUrl);
         } else {
-            alert("No data found for this run.");
+            alert("Still processing or no data found.");
         }
     });
 </script>
