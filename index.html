@@ -2,261 +2,253 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ADV-HOCO Forecaster & Viewer</title>
-    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
-    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
-    <style>
-        body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; background: #1a1a1a; color: #eee; }
-        #sidebar { width: 380px; padding: 20px; background: #252525; border-right: 1px solid #444; overflow-y: auto; z-index: 10; box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5); }
-        #map { flex-grow: 1; height: 100%; }
-        .form-group { margin-bottom: 12px; }
-        label { display: block; font-size: 0.8em; font-weight: bold; margin-bottom: 4px; color: #bbb; }
-        input, select { width: 95%; padding: 10px; border: 1px solid #444; border-radius: 4px; background: #333; color: white; }
-        .weights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-        .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
-        .checkbox-item { display: flex; align-items: center; font-size: 0.8em; background: #333; padding: 5px 10px; border-radius: 4px; }
-        .checkbox-item input { width: auto; margin-right: 8px; }
-        button { width: 100%; padding: 15px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 20px; transition: background 0.3s; }
-        button:hover { background: #2980b9; }
-        button:disabled { background: #444; cursor: not-allowed; }
-        hr { border: 0; border-top: 1px solid #444; margin: 20px 0; }
-        .status-box { margin-top: 20px; padding: 12px; border-radius: 4px; font-size: 0.85em; display: none; text-align: center; }
-        .pending { background: #f39c12; color: #fff; border: 1px solid #e67e22; }
-        .completed { background: #27ae60; color: #fff; }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADV-HOCO Forecaster & Viewer</title>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <style>
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; background: #1a1a1a; color: #eee; }
+        #sidebar { width: 380px; padding: 20px; background: #252525; border-right: 1px solid #444; overflow-y: auto; z-index: 10; box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5); }
+        #map { flex-grow: 1; height: 100%; }
+        .form-group { margin-bottom: 12px; }
+        label { display: block; font-size: 0.8em; font-weight: bold; margin-bottom: 4px; color: #bbb; }
+        input, select { width: 95%; padding: 10px; border: 1px solid #444; border-radius: 4px; background: #333; color: white; }
+        .weights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+        .checkbox-item { display: flex; align-items: center; font-size: 0.8em; background: #333; padding: 5px 10px; border-radius: 4px; }
+        .checkbox-item input { width: auto; margin-right: 8px; }
+        button { width: 100%; padding: 15px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 20px; transition: background 0.3s; }
+        button:hover { background: #2980b9; }
+        button:disabled { background: #444; cursor: not-allowed; }
+        hr { border: 0; border-top: 1px solid #444; margin: 20px 0; }
+        .status-box { margin-top: 20px; padding: 12px; border-radius: 4px; font-size: 0.85em; display: none; text-align: center; }
+        .pending { background: #f39c12; color: #fff; border: 1px solid #e67e22; }
+        .completed { background: #27ae60; color: #fff; }
+    </style>
 </head>
 
 <body>
 
-    <div id="sidebar">
-        <h2 style="margin-top:0; color: #3498db;">ADV-HOCO v2.0</h2>
+    <div id="sidebar">
+        <h2 style="margin-top:0; color: #3498db;">ADV-HOCO v2.0</h2>
+        <form id="hocoForm">
+            <div class="form-group">
+                <label>Region</label>
+                <select id="regionSelect">
+                    <option value="England">England</option>
+                    <option value="UK">United Kingdom</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Start (DD/MM/YYYY HH:MM)</label>
+                <input type="text" id="startTime" placeholder="20/05/2026 12:00" required>
+            </div>
+            <div class="form-group">
+                <label>End (DD/MM/YYYY HH:MM)</label>
+                <input type="text" id="endTime" placeholder="21/05/2026 06:00" required>
+            </div>
 
-        <form id="hocoForm">
-            <div class="form-group">
-                <label>Region</label>
-                <select id="regionSelect">
-                    <option value="England">England</option>
-                    <option value="UK">United Kingdom</option>
-                </select>
-            </div>
+            <label>Weather Parameters</label>
+            <div class="checkbox-group">
+                <div class="checkbox-item"><input type="checkbox" name="weather" value="lightning" checked> Lightning</div>
+                <div class="checkbox-item"><input type="checkbox" name="weather" value="tornado"> Tornado</div>
+                <div class="checkbox-item"><input type="checkbox" name="weather" value="supercell"> Supercell</div>
+            </div>
 
-            <div class="form-group">
-                <label>Start (DD/MM/YYYY HH:MM)</label>
-                <input type="text" id="startTime" placeholder="20/05/2026 12:00" required>
-            </div>
-            <div class="form-group">
-                <label>End (DD/MM/YYYY HH:MM)</label>
-                <input type="text" id="endTime" placeholder="21/05/2026 06:00" required>
-            </div>
+            <h4 style="margin-bottom:5px; margin-top: 20px;">Model Weights</h4>
+            <div class="weights-grid">
+                <div class="form-group"><label>FRAHD</label><input type="number" id="w_frahd" value="1.0" step="0.1"></div>
+                <div class="form-group"><label>RPDID2</label><input type="number" id="w_rpd" value="0.8" step="0.1"></div>
+                <div class="form-group"><label>SWISSEU</label><input type="number" id="w_seu" value="1.1" step="0.1"></div>
+                <div class="form-group"><label>EZ</label><input type="number" id="w_ez" value="1.0" step="0.1"></div>
+                <div class="form-group"><label>UKMO2KM</label><input type="number" id="w_ukmo" value="1.0" step="0.1"></div>
+                <div class="form-group"><label>HARDMI</label><input type="number" id="w_hard" value="1.0" step="0.1"></div>
+            </div>
 
-            <label>Weather Parameters</label>
-            <div class="checkbox-group">
-                <div class="checkbox-item"><input type="checkbox" name="weather" value="lightning" checked> Lightning</div>
-                <div class="checkbox-item"><input type="checkbox" name="weather" value="tornado"> Tornado</div>
-                <div class="checkbox-item"><input type="checkbox" name="weather" value="supercell"> Supercell</div>
-            </div>
+            <button type="submit" id="submitBtn">Generate Forecast</button>
+        </form>
+        <div id="statusBox" class="status-box"></div>
+        <hr>
+        <h4>History / Select Run</h4>
+        <select id="idSelector"><option value="">-- Recent Runs --</option></select>
+    </div>
 
-            <h4 style="margin-bottom:5px; margin-top: 20px;">Model Weights</h4>
-            <div class="weights-grid">
-                <div class="form-group"><label>FRAHD</label><input type="number" id="w_frahd" value="1.0" step="0.1"></div>
-                <div class="form-group"><label>RPDID2</label><input type="number" id="w_rpd" value="0.8" step="0.1"></div>
-                <div class="form-group"><label>SWISSEU</label><input type="number" id="w_seu" value="1.1" step="0.1"></div>
-                <div class="form-group"><label>EZ</label><input type="number" id="w_ez" value="1.0" step="0.1"></div>
-                <div class="form-group"><label>UKMO2KM</label><input type="number" id="w_ukmo" value="1.0" step="0.1"></div>
-                <div class="form-group"><label>HARDMI</label><input type="number" id="w_hard" value="1.0" step="0.1"></div>
-            </div>
+    <div id="map"></div>
 
-            <button type="submit" id="submitBtn">Generate Forecast</button>
-        </form>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 
-        <div id="statusBox" class="status-box"></div>
+        const firebaseConfig = {
+            apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ",
+            authDomain: "hoco-3b23e.firebaseapp.com",
+            projectId: "hoco-3b23e",
+            storageBucket: "hoco-3b23e.firebasestorage.app",
+            messagingSenderId: "409513272369",
+            appId: "1:409513272369:web:a857d9b039d53710f8a110",
+            measurementId: "G-NRPS6JHYN7"
+        };
 
-        <hr>
-        <h4>History / Select Run</h4>
-        <select id="idSelector">
-            <option value="">-- Recent Runs --</option>
-        </select>
-    </div>
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const functions = getFunctions(app, "us-central1");
+        const triggerHocoRun = httpsCallable(functions, 'triggerHocoRun');
 
-    <div id="map"></div>
+        // Static Lightning Colors Array
+        const lightning_colors = ["#ffffff", "#d0cece", "#d0cece", "#d0cece", "#d0cece", "#bea497", "#bea497", "#bea497", "#bea497", "#bea497", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba"];
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-        import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
+        mapboxgl.accessToken = 'pk.eyJ1IjoibWV0ZW9ncm91cC1tYXBib3giLCJhIjoiY2pudWJyMWVhMDQ0bjNxdXFsNWJ5M2ZtbSJ9.ANOKYyv5s0VFVbnesnGGUQ';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/dark-v11',
+            center: [-1.5, 52.5],
+            zoom: 5.5
+        });
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ",
-            authDomain: "hoco-3b23e.firebaseapp.com",
-            projectId: "hoco-3b23e",
-            storageBucket: "hoco-3b23e.firebasestorage.app",
-            messagingSenderId: "409513272369",
-            appId: "1:409513272369:web:a857d9b039d53710f8a110",
-            measurementId: "G-NRPS6JHYN7"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        
-        // Ensure functions are pointing to the correct region
-        const functions = getFunctions(app, "us-central1");
-        const triggerHocoRun = httpsCallable(functions, 'triggerHocoRun');
-
-        // --- MAP INITIALIZATION ---
-        mapboxgl.accessToken = 'pk.eyJ1IjoibWV0ZW9ncm91cC1tYXBib3giLCJhIjoiY2pudWJyMWVhMDQ0bjNxdXFsNWJ5M2ZtbSJ9.ANOKYyv5s0VFVbnesnGGUQ';
-        const map = new mapboxgl.Map({
-            container: 'map',
-            style: 'mapbox://styles/mapbox/dark-v11',
-            center: [-1.5, 52.5],
-            zoom: 5.5
-        });
-
-        const q = query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(15));
-        onSnapshot(q, (snapshot) => {
-            const selector = document.getElementById('idSelector');
-            selector.innerHTML = '<option value="">-- Recent Runs --</option>';
-            snapshot.forEach((snapDoc) => {
-                const data = snapDoc.data();
-                const option = document.createElement('option');
-                option.value = snapDoc.id;
-                option.textContent = `[${data.status.toUpperCase()}] ${data.region} - ${data.startTime}`;
-                selector.appendChild(option);
-            });
-        });
-
-        document.getElementById('hocoForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('submitBtn');
-            const statusBox = document.getElementById('statusBox');
-
-            btn.disabled = true;
-            statusBox.style.display = 'block';
-            statusBox.className = 'status-box pending';
-            statusBox.innerText = 'Initializing Cloud Run...';
-
-            const weatherTypes = Array.from(document.querySelectorAll('input[name="weather"]:checked')).map(cb => cb.value);
-
-            try {
-                const forecastData = {
-                    region: document.getElementById('regionSelect').value,
-                    startTime: document.getElementById('startTime').value,
-                    endTime: document.getElementById('endTime').value,
-                    weather: weatherTypes.join(','),
-                    weights: {
-                        frahd: parseFloat(document.getElementById('w_frahd').value),
-                        rpdid2: parseFloat(document.getElementById('w_rpd').value),
-                        swisseu: parseFloat(document.getElementById('w_seu').value),
-                        ez: parseFloat(document.getElementById('w_ez').value),
-                        ukmo2km: parseFloat(document.getElementById('w_ukmo').value),
-                        hardmi: parseFloat(document.getElementById('w_hard').value)
-                    }
-                };
-
-                // 1. Save to Firestore
-                const docRef = await addDoc(collection(db, "hoco_requests"), {
-                    ...forecastData,
-                    status: 'pending',
-                    createdAt: new Date()
-                });
-
-                console.log("Firestore entry created:", docRef.id);
-
-                // 2. Trigger Function
-                // This MUST be a POST request handled by the SDK
-                const result = await triggerHocoRun({
-                    id: docRef.id,
-                    ...forecastData
-                });
-
-                console.log("Function Response:", result.data);
-
-                if (result.data && result.data.success) {
-                    statusBox.innerText = 'Success: GitHub is processing!';
-                    statusBox.className = 'status-box completed';
-                } else {
-                    throw new Error(result.data.details || "GitHub trigger failed.");
-                }
-
-            } catch (err) {
-                console.error("Critical Error:", err);
-                statusBox.className = 'status-box';
-                statusBox.style.background = '#c0392b';
-                statusBox.innerText = 'Error: ' + err.message;
-                btn.disabled = false;
-            }
-        });
-
-        function loadGeoJson(url) {
-    if (!map.loaded()) return;
-
-    // The color array provided (shortened representation for the code)
-    const lightning_colors = [
-        "#ffffff", "#d0cece", "#d0cece", "#d0cece", "#d0cece", "#bea497", "#bea497", "#bea497", "#bea497", "#bea497",
-        "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4",
-        "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4",
-        "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200",
-        "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200",
-        "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27",
-        "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27",
-        "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24",
-        "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba",
-        "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba"
-    ];
-
-    // Clean up existing layers
-    if (map.getLayer('hoco-grid')) map.removeLayer('hoco-grid');
-    if (map.getLayer('hoco-grid-outline')) map.removeLayer('hoco-grid-outline');
-    if (map.getSource('hoco-source')) map.removeSource('hoco-source');
-
-    map.addSource('hoco-source', { type: 'geojson', data: url });
-
-    // Construct the step expression for the 100 colors
-    // This divides 'risk' by 10, then picks the color from the list based on the result
-    let colorExpression = ['step', ['/', ['get', 'risk'], 10]];
-    
-    // We loop through the array to build the Mapbox stops
-    lightning_colors.forEach((color, index) => {
-        colorExpression.push(color); // The color to use
-        if (index < lightning_colors.length - 1) {
-            colorExpression.push(index + 1); // The threshold to trigger the next color
+        // HELPER: Convert Points to Square Polygons
+        function pointsToGrid(geojson, size = 0.08) {
+            const features = geojson.features.map(f => {
+                const [lon, lat] = f.geometry.coordinates;
+                const half = size / 2;
+                return {
+                    type: "Feature",
+                    properties: f.properties,
+                    geometry: {
+                        type: "Polygon",
+                        coordinates: [[
+                            [lon - half, lat - half],
+                            [lon + half, lat - half],
+                            [lon + half, lat + half],
+                            [lon - half, lat + half],
+                            [lon - half, lat - half]
+                        ]]
+                    }
+                };
+            });
+            return { type: "FeatureCollection", features };
         }
-    });
 
-    map.addLayer({
-        id: 'hoco-grid',
-        type: 'fill',
-        source: 'hoco-source',
-        paint: {
-            'fill-color': colorExpression,
-            'fill-opacity': 0.75
+        async function loadGeoJson(url) {
+            if (!map.loaded()) return;
+
+            try {
+                const response = await fetch(url);
+                const rawData = await response.json();
+                
+                // CRITICAL: Convert point data to grid polygons
+                const processedData = pointsToGrid(rawData);
+
+                if (map.getLayer('hoco-grid')) map.removeLayer('hoco-grid');
+                if (map.getLayer('hoco-grid-outline')) map.removeLayer('hoco-grid-outline');
+                if (map.getSource('hoco-source')) map.removeSource('hoco-source');
+
+                map.addSource('hoco-source', { type: 'geojson', data: processedData });
+
+                let colorExp = ['step', ['/', ['get', 'risk'], 10]]; // Math nerf
+                lightning_colors.forEach((c, i) => {
+                    colorExp.push(c);
+                    if (i < lightning_colors.length - 1) colorExp.push(i + 1);
+                });
+
+                map.addLayer({
+                    id: 'hoco-grid',
+                    type: 'fill',
+                    source: 'hoco-source',
+                    paint: { 
+                        'fill-color': colorExp, 
+                        'fill-opacity': 0.8 
+                    }
+                });
+
+                map.addLayer({
+                    id: 'hoco-grid-outline',
+                    type: 'line',
+                    source: 'hoco-source',
+                    paint: { 'line-color': '#000', 'line-width': 0.1, 'line-opacity': 0.2 }
+                });
+
+            } catch (err) {
+                console.error("UI Load Error:", err);
+            }
         }
-    });
 
-    map.addLayer({
-        id: 'hoco-grid-outline',
-        type: 'line',
-        source: 'hoco-source',
-        paint: {
-            'line-color': '#000000',
-            'line-width': 0.2,
-            'line-opacity': 0.3
-        }
-    });
-}
+        // Run History listener
+        const q = query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(15));
+        onSnapshot(q, (snapshot) => {
+            const selector = document.getElementById('idSelector');
+            selector.innerHTML = '<option value="">-- Recent Runs --</option>';
+            snapshot.forEach((snapDoc) => {
+                const data = snapDoc.data();
+                const option = document.createElement('option');
+                option.value = snapDoc.id;
+                option.textContent = `[${data.status.toUpperCase()}] ${data.region} - ${data.startTime}`;
+                selector.appendChild(option);
+            });
+        });
 
-        document.getElementById('idSelector').addEventListener('change', async (e) => {
-            if (!e.target.value) return;
-            const docRef = doc(db, "hoco_requests", e.target.value);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists() && docSnap.data().geojsonUrl) {
-                loadGeoJson(docSnap.data().geojsonUrl);
-            } else {
-                alert("Still processing or no data found.");
-            }
-        });
-    </script>
+        // Form Submission
+        document.getElementById('hocoForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            const statusBox = document.getElementById('statusBox');
+            btn.disabled = true;
+            statusBox.style.display = 'block';
+            statusBox.className = 'status-box pending';
+            statusBox.innerText = 'Initializing...';
+
+            const weatherTypes = Array.from(document.querySelectorAll('input[name="weather"]:checked')).map(cb => cb.value);
+
+            try {
+                const forecastData = {
+                    region: document.getElementById('regionSelect').value,
+                    startTime: document.getElementById('startTime').value,
+                    endTime: document.getElementById('endTime').value,
+                    weather: weatherTypes.join(','),
+                    weights: {
+                        frahd: parseFloat(document.getElementById('w_frahd').value),
+                        rpdid2: parseFloat(document.getElementById('w_rpd').value),
+                        swisseu: parseFloat(document.getElementById('w_seu').value),
+                        ez: parseFloat(document.getElementById('w_ez').value),
+                        ukmo2km: parseFloat(document.getElementById('w_ukmo').value),
+                        hardmi: parseFloat(document.getElementById('w_hard').value)
+                    }
+                };
+
+                const docRef = await addDoc(collection(db, "hoco_requests"), {
+                    ...forecastData,
+                    status: 'pending',
+                    createdAt: new Date()
+                });
+
+                const result = await triggerHocoRun({ id: docRef.id, ...forecastData });
+
+                if (result.data && result.data.success) {
+                    statusBox.innerText = 'Success: Processing on GitHub!';
+                    statusBox.className = 'status-box completed';
+                } else {
+                    throw new Error("Trigger failed.");
+                }
+
+            } catch (err) {
+                statusBox.className = 'status-box';
+                statusBox.style.background = '#c0392b';
+                statusBox.innerText = 'Error: ' + err.message;
+                btn.disabled = false;
+            }
+        });
+
+        document.getElementById('idSelector').addEventListener('change', async (e) => {
+            if (!e.target.value) return;
+            const docRef = doc(db, "hoco_requests", e.target.value);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists() && docSnap.data().geojsonUrl) {
+                loadGeoJson(docSnap.data().geojsonUrl);
+            } else {
+                alert("Processing or No Data.");
+            }
+        });
+    </script>
 </body>
-
-</html> 
+</html>
