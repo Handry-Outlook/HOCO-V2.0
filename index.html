@@ -514,7 +514,21 @@
             });
             return { type: "FeatureCollection", features };
         }
-
+        function parseStartTime(timeStr) {
+            if (!timeStr) return new Date(); // Fallback to current system time
+            
+            // Attempt to parse DD/MM/YYYY HH:MM
+            const match = timeStr.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/);
+            if (match) {
+                const [_, day, month, year, hours, minutes] = match;
+                // Meteorological runs are typically UTC (zulu) time
+                return new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
+            }
+            
+            // Fallback if they typed a standard date string instead
+            const parsed = new Date(timeStr);
+            return isNaN(parsed.getTime()) ? new Date() : parsed;
+        }
         // ==========================================
         // 7. SCENARIO BUILDER LOGIC
         // ==========================================
