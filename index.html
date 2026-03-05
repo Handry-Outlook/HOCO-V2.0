@@ -364,23 +364,24 @@
                 <div class="panel">
                     <label>Map Visualization</label>
                     <select id="mapStyleSelect">
-                        <select id="mapStyleSelect">
-                            <option value="mapbox://styles/mapbox/dark-v11">Dark Professional</option>
-                            <option value="mapbox://styles/mapbox/navigation-night-v1">Navigation Night</option>
-                            <option value="mapbox://styles/mapbox/satellite-v9">Satellite</option>
-                            <option value="mapbox://styles/mapbox/streets-v12">Standard Streets</option>
-                            <option value="mapbox://styles/mapbox/light-v11">Light Minimal</option>
-                        </select>
-                        <div style="display: flex; align-items: center; gap: 15px; margin-top: 10px;">
-                            <label style="margin:0; min-width: 60px;">Opacity</label>
-                            <input type="range" id="opacitySlider" min="0" max="100" value="75"
-                                style="margin:0; cursor: pointer;">
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 15px; margin-top: 15px;">
-                            <label style="margin:0; min-width: 60px;">Scale</label>
-                            <input type="range" id="heightSlider" min="0" max="200" step="5" value="50"
-                                style="margin:0; cursor: pointer;">
-                        </div>
+                        <option value="mapbox://styles/mapbox/dark-v11">Dark Professional</option>
+                        <option value="mapbox://styles/mapbox/navigation-night-v1">Navigation Night</option>
+                        <option value="mapbox://styles/mapbox/satellite-v9">Satellite</option>
+                        <option value="mapbox://styles/mapbox/streets-v12">Standard Streets</option>
+                        <option value="mapbox://styles/mapbox/light-v11">Light Minimal</option>
+                    </select>
+
+                    <div style="display: flex; align-items: center; gap: 15px; margin-top: 10px;">
+                        <label style="margin:0; min-width: 60px;">Opacity</label>
+                        <input type="range" id="opacitySlider" min="0" max="100" value="75"
+                            style="margin:0; cursor: pointer;">
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 15px; margin-top: 15px;">
+                        <label style="margin:0; min-width: 60px;">Scale</label>
+                        <input type="range" id="heightSlider" min="0" max="200" step="5" value="50"
+                            style="margin:0; cursor: pointer;">
+                    </div>
                 </div>
 
                 <div id="exclusiveSection" style="display:none;">
