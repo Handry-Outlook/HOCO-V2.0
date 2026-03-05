@@ -4,246 +4,276 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ADV-HOCO Multi-Model Forecaster</title>
+    <title>ADV-HOCO Pro Forecaster</title>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <style>
-        body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; background: #1a1a1a; color: #eee; }
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; background: #1a1a1a; color: #eee; overflow: hidden; }
         #sidebar { width: 420px; padding: 20px; background: #252525; border-right: 1px solid #444; overflow-y: auto; z-index: 10; box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5); }
         #map { flex-grow: 1; height: 100%; }
         
-        /* UI Components */
-        .form-group { margin-bottom: 15px; }
-        label { display: block; font-size: 0.8em; font-weight: bold; margin-bottom: 6px; color: #bbb; }
-        input, select { width: 100%; padding: 10px; border: 1px solid #444; border-radius: 4px; background: #333; color: white; box-sizing: border-box; }
-        
-        .control-panel { background: #1e1e1e; padding: 15px; border-radius: 8px; border: 1px solid #444; margin-top: 15px; }
-        
-        /* Legend Styles */
-        .legend-container { margin-top: 15px; }
-        .legend-bar { 
-            height: 12px; 
-            width: 100%; 
-            background: linear-gradient(to right, #66c2a4, #fff200, #ff7f27, #ec1c24, #b83dba); 
-            border-radius: 6px;
-            margin-bottom: 5px;
-        }
-        .legend-labels { display: flex; justify-content: space-between; font-size: 10px; color: #888; }
+        /* Auth Overlay */
+        #authOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,10,0.95); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+        .auth-card { background: #252525; padding: 30px; border-radius: 12px; border: 1px solid #444; width: 320px; text-align: center; }
 
-        #scenarioSection { display: none; margin-top: 15px; }
+        /* UI Components */
+        .form-group { margin-bottom: 12px; }
+        label { display: block; font-size: 0.75em; font-weight: bold; margin-bottom: 5px; color: #888; text-transform: uppercase; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #444; border-radius: 4px; background: #333; color: white; box-sizing: border-box; font-size: 0.9em; }
+        
+        .control-panel { background: #1e1e1e; padding: 15px; border-radius: 8px; border: 1px solid #333; margin-bottom: 15px; }
+        
+        /* Calendar Explorer */
+        .explorer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 5px; }
+
+        /* Scenarios & Weights */
+        #exclusiveSection { display: none; margin-top: 15px; padding: 10px; border-top: 2px dashed #444; }
         .scenario-builder { background: #1e1e1e; padding: 12px; border-radius: 6px; border: 1px solid #3498db; margin-bottom: 15px; }
         .scenario-list { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
-        .scenario-chip { background: #3498db; color: white; padding: 5px 12px; border-radius: 20px; font-size: 0.75em; display: flex; align-items: center; }
+        .scenario-chip { background: #3498db; color: white; padding: 4px 10px; border-radius: 15px; font-size: 0.7em; display: flex; align-items: center; }
         .scenario-chip span { margin-left: 8px; cursor: pointer; font-weight: bold; }
         
-        .weight-grid { max-height: 120px; overflow-y: auto; border: 1px solid #444; padding: 8px; background: #1a1a1a; margin-bottom: 15px; }
-        .weight-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; font-size: 0.75em; border-bottom: 1px solid #333; padding-bottom: 4px; }
-        .weight-item input { width: 60px; padding: 4px; text-align: center; height: 25px; }
+        .weight-grid { max-height: 120px; overflow-y: auto; border: 1px solid #444; padding: 8px; background: #1a1a1a; }
+        .weight-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 0.75em; border-bottom: 1px solid #333; padding-bottom: 3px; }
+        .weight-item input { width: 50px; padding: 3px; text-align: center; }
 
-        .checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-        .checkbox-item { display: flex; align-items: center; font-size: 0.8em; background: #333; padding: 6px 12px; border-radius: 20px; border: 1px solid #444; }
-        .checkbox-item input { width: auto; margin-right: 8px; }
+        .checkbox-group { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+        .checkbox-item { display: flex; align-items: center; font-size: 0.75em; background: #333; padding: 5px 10px; border-radius: 4px; border: 1px solid #444; }
+        .checkbox-item input { width: auto; margin-right: 6px; }
         
-        button { width: 100%; padding: 12px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px; transition: 0.3s; }
-        .btn-add { background: #27ae60; margin-top: 8px; padding: 8px; }
-        button:hover { filter: brightness(1.2); }
-        
-        hr { border: 0; border-top: 1px solid #444; margin: 20px 0; }
-        .status-box { margin-top: 20px; padding: 12px; border-radius: 4px; font-size: 0.85em; display: none; text-align: center; }
-        .pending { background: #f39c12; color: #fff; }
-        .completed { background: #27ae60; color: #fff; }
-        
-        #idSelector option {
-            background: #252525;
-            color: white;
-            padding: 8px;
-        }
+        button { width: 100%; padding: 12px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px; transition: 0.2s; }
+        .btn-add { background: #27ae60; margin-top: 8px; padding: 6px; font-size: 0.8em; }
+        button:hover { filter: brightness(1.1); }
+        #logoutBtn { background: transparent; border: 1px solid #c0392b; color: #c0392b; margin-top: 20px; padding: 8px; }
 
+        .status-box { margin-top: 15px; padding: 10px; border-radius: 4px; font-size: 0.8em; display: none; text-align: center; }
+        .pending { background: #f39c1222; border: 1px solid #f39c12; color: #f39c12; }
+        .completed { background: #27ae6022; border: 1px solid #27ae60; color: #27ae60; }
+
+        .legend-bar { height: 10px; width: 100%; background: linear-gradient(to right, #66c2a4, #fff200, #ff7f27, #ec1c24, #b83dba); border-radius: 5px; margin: 8px 0; }
+        .role-badge { font-size: 0.6em; padding: 2px 6px; border-radius: 10px; background: #3498db; vertical-align: middle; margin-left: 5px; }
     </style>
 </head>
 
 <body>
 
+    <div id="authOverlay">
+        <div class="auth-card">
+            <h2 style="color:#3498db; margin-top:0;">HOCO Access</h2>
+            <input type="email" id="emailIn" placeholder="Email" style="margin-bottom:10px;">
+            <input type="password" id="passIn" placeholder="Password" style="margin-bottom:15px;">
+            <button id="loginBtn">Sign In</button>
+            <p id="authError" style="color:#e74c3c; font-size:0.8em; margin-top:10px;"></p>
+        </div>
+    </div>
+
     <div id="sidebar">
-        <h2 style="margin-top:0; color: #3498db;">ADV-HOCO Multi-Run</h2>
+        <div style="display:flex; justify-content:space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="margin:0; color: #3498db; font-size: 1.4em;">ADV-HOCO <span id="roleBadge" class="role-badge">GUEST</span></h2>
+        </div>
         
         <div class="control-panel">
-            <div class="form-group">
-                <label>Base Map Style</label>
-                <select id="mapStyleSelect">
-                    <option value="mapbox://styles/mapbox/dark-v11">Dark Matter</option>
-                    <option value="mapbox://styles/mapbox/satellite-v9">Satellite</option>
-                    <option value="mapbox://styles/mapbox/light-v11">Light</option>
-                    <option value="mapbox://styles/mapbox/outdoors-v12">Outdoors</option>
-                    <option value="mapbox://styles/mapbox/navigation-night-v1">Navigation Night</option>
-                </select>
+            <label>Run Explorer (Calendar)</label>
+            <div class="explorer-grid">
+                <input type="date" id="calendarFilter">
+                <select id="idSelector"><option value="">Select Date...</option></select>
             </div>
-            
-            <div class="form-group">
-                <label>HOCO Layer Opacity: <span id="opacityVal">70%</span></label>
-                <input type="range" id="opacitySlider" min="0" max="100" value="70">
-            </div>
-
-            <div class="legend-container">
-                <label>Risk Intensity Scale</label>
-                <div class="legend-bar"></div>
-                <div class="legend-labels">
-                    <span>LOW</span>
-                    <span>MOD</span>
-                    <span>HIGH</span>
-                    <span>EXTREME</span>
-                </div>
-            </div>
+            <div class="legend-bar"></div>
         </div>
-
-        <hr>
 
         <form id="hocoForm">
             <div class="form-group">
-                <label>1. Forecast Period & Region</label>
+                <label>1. Region & Window</label>
                 <select id="regionSelect" style="margin-bottom: 8px;">
-                    <option value="England">England</option>
                     <option value="UK">United Kingdom</option>
-                    <option value="Wales">Wales</option>
-                    <option value="Scotland">Scotland</option>
+                    <option value="England">England</option>
                 </select>
                 <input type="text" id="startTime" placeholder="Start: DD/MM/YYYY HH:MM" required>
-            </div>
-            <div class="form-group">
-                <input type="text" id="endTime" placeholder="End: DD/MM/YYYY HH:MM" required>
+                <input type="text" id="endTime" placeholder="End: DD/MM/YYYY HH:MM" required style="margin-top:8px;">
+                <p id="limitNote" style="font-size:0.7em; color:#888; margin-top:5px; font-style:italic;"></p>
             </div>
 
-            <div id="scenarioSection">
+            <div id="exclusiveSection">
                 <div class="scenario-builder">
-                    <label>2. Select Model Runs (UTC/Z)</label>
+                    <label>2. Custom Model Runs</label>
                     <select id="modelSelect" style="margin-bottom: 5px;"></select>
                     <select id="runSelect"></select>
-                    <button type="button" class="btn-add" id="addScenarioBtn">+ Add Run to Request</button>
+                    <button type="button" class="btn-add" id="addScenarioBtn">+ Add Run</button>
                     <div class="scenario-list" id="scenarioList"></div>
                 </div>
 
                 <label>3. Model Weights</label>
                 <div id="weightsContainer" class="weight-grid"></div>
-
-                <label>4. Parameters</label>
-                <div class="checkbox-group">
-                    <div class="checkbox-item"><input type="checkbox" name="weather" value="lightning" checked> Lightning</div>
-                    <div class="checkbox-item"><input type="checkbox" name="weather" value="tornado"> Tornado</div>
-                    <div class="checkbox-item"><input type="checkbox" name="weather" value="supercell"> Supercell</div>
-                    <div class="checkbox-item"><input type="checkbox" name="weather" value="snow"> Snow</div>
-                </div>
-
-                <button type="submit" id="submitBtn">Generate Combined Forecast</button>
             </div>
+
+            <label>4. Parameters</label>
+            <div class="checkbox-group">
+                <div class="checkbox-item"><input type="checkbox" name="weather" value="lightning" checked> Lightning</div>
+                <div class="checkbox-item"><input type="checkbox" name="weather" value="tornado"> Tornado</div>
+                <div class="checkbox-item"><input type="checkbox" name="weather" value="snow"> Snow</div>
+            </div>
+
+            <button type="submit" id="submitBtn">Generate Ensemble</button>
         </form>
         
         <div id="statusBox" class="status-box"></div>
-        <hr>
-        <select id="idSelector"><option value="">-- Load Past Runs --</option></select>
+        <button id="logoutBtn">Logout</button>
     </div>
 
     <div id="map"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, doc, getDoc, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 
-        const firebaseConfig = {
+        // --- 1. FRONT-END LOGIN FIREBASE (Auth Only) ---
+        const authConfig = {
+            apiKey: "AIzaSyBjMyJIMp1F_zktvOR1GsGPCgEvmx_Qmdg",
+            authDomain: "hoco-frontend.firebaseapp.com",
+            projectId: "hoco-frontend",
+            storageBucket: "hoco-frontend.firebasestorage.app",
+            messagingSenderId: "276113939915",
+            appId: "1:276113939915:web:f11104760b00ef2074aa4e",
+            measurementId: "G-2E689K3KBD"
+            };
+
+        // --- 2. BACKEND FIREBASE (Database & Functions) ---
+        const backendConfig = {
             apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ",
             authDomain: "hoco-3b23e.firebaseapp.com",
             projectId: "hoco-3b23e",
             storageBucket: "hoco-3b23e.firebasestorage.app",
             messagingSenderId: "409513272369",
-            appId: "1:409513272369:web:a857d9b039d53710f8a110",
-            measurementId: "G-NRPS6JHYN7"
+            appId: "1:409513272369:web:a857d9b039d53710f8a110"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const functions = getFunctions(app, "us-central1");
+        // Initialize Apps with Unique Names
+        const authApp = initializeApp(authConfig, "authApp");
+        const backendApp = initializeApp(backendConfig, "backendApp");
+
+        // Map Services to the Correct App
+        const auth = getAuth(authApp);
+        const db = getFirestore(backendApp);
+        const functions = getFunctions(backendApp, "us-central1");
         const triggerHocoRun = httpsCallable(functions, 'triggerHocoRun');
 
-        const lightning_colors = ["#ffffff", "#d0cece", "#d0cece", "#d0cece", "#d0cece", "#bea497", "#bea497", "#bea497", "#bea497", "#bea497", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba"];
+        // --- Role Config ---
+        let userRole = 'normal'; 
+        const ROLES = {
+            NORMAL: { maxRange: 24, lookAhead: 72, customModels: false },
+            EXCLUSIVE: { maxRange: 72, lookAhead: 72, customModels: true },
+            DEVELOPER: { maxRange: 999, lookAhead: 999, customModels: true }
+        };
 
         const defaultWeights = { 'rpdid2': 0.8, 'swisseu': 1.1, 'ez': 1.1, 'swissnow': 0.9, 'frahd': 0.8, 'hardmi': 1.0, 'ukmo2km': 0.9, 'deuhd': 1.0 };
         const models = { frahd: { name: "FRAHD", freq: 3 }, rpdid2: { name: "RPDID2", freq: 3 }, hardmi: { name: "HARDMI", freq: 3 }, swisseu: { name: "SWISSEU", freq: 3 }, swissnow: { name: "SWISSNOW", freq: 1 }, ez: { name: "EZ", freq: 12 }, ukmo2km: { name: "UKMO 2KM", freq: 3} };
 
+        // --- Map Init ---
         mapboxgl.accessToken = 'pk.eyJ1IjoibWV0ZW9ncm91cC1tYXBib3giLCJhIjoiY2pudWJyMWVhMDQ0bjNxdXFsNWJ5M2ZtbSJ9.ANOKYyv5s0VFVbnesnGGUQ';
         const map = new mapboxgl.Map({ container: 'map', style: 'mapbox://styles/mapbox/dark-v11', center: [-1.5, 52.5], zoom: 5.5 });
 
-        // --- LAYER CONTROLS ---
-        document.getElementById('opacitySlider').addEventListener('input', (e) => {
-            const val = e.target.value / 100;
-            document.getElementById('opacityVal').innerText = `${e.target.value}%`;
-            if (map.getLayer('hoco-grid')) map.setPaintProperty('hoco-grid', 'fill-opacity', val);
-        });
-
-        document.getElementById('mapStyleSelect').addEventListener('change', (e) => {
-            const currentSource = map.getSource('hoco-source');
-            const currentData = currentSource ? currentSource._data : null;
-            
-            map.setStyle(e.target.value);
-            
-            // Re-add layer after style load
-            map.once('style.load', () => {
-                if (currentData) {
-                    map.addSource('hoco-source', { type: 'geojson', data: currentData });
-                    addHocoLayer();
-                }
-            });
-        });
-
-        function addHocoLayer() {
-            let colorExp = ['step', ['/', ['get', 'risk'], 5]];
-            lightning_colors.forEach((c, i) => { 
-                colorExp.push(c); 
-                if (i < lightning_colors.length - 1) colorExp.push(i + 1); 
-            });
-
-            const currentOpacity = document.getElementById('opacitySlider').value / 100;
-
-            map.addLayer({ 
-                id: 'hoco-grid', 
-                type: 'fill', 
-                source: 'hoco-source', 
-                paint: { 'fill-color': colorExp, 'fill-opacity': currentOpacity }
-            });
-        }
-
-        // --- GRID PROCESSOR & LOADER ---
-        function pointsToGrid(geojson, size = 0.08) {
-            const features = geojson.features.map(f => {
-                const [lon, lat] = f.geometry.coordinates;
-                const half = size / 2;
-                return {
-                    type: "Feature", properties: f.properties,
-                    geometry: { type: "Polygon", coordinates: [[[lon-half, lat-half], [lon+half, lat-half], [lon+half, lat+half], [lon-half, lat+half], [lon-half, lat-half]]] }
-                };
-            });
-            return { type: "FeatureCollection", features };
-        }
-
-        async function loadGeoJson(url) {
-            if (!map.loaded()) return;
+        // --- Authentication Logic ---
+        document.getElementById('loginBtn').addEventListener('click', async () => {
+            const email = document.getElementById('emailIn').value;
+            const pass = document.getElementById('passIn').value;
             try {
-                const response = await fetch(url);
-                const rawData = await response.json();
-                const processedData = pointsToGrid(rawData);
-                if (map.getLayer('hoco-grid')) map.removeLayer('hoco-grid');
-                if (map.getSource('hoco-source')) map.removeSource('hoco-source');
-                
-                map.addSource('hoco-source', { type: 'geojson', data: processedData });
-                addHocoLayer();
-            } catch (err) { console.error("Loader Error:", err); }
+                await signInWithEmailAndPassword(auth, email, pass);
+            } catch (err) { document.getElementById('authError').innerText = err.message; }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                // Roles are stored in the BACKEND database, keyed by the Auth UID
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                userRole = userDoc.exists() ? userDoc.data().role : 'normal';
+                setupUIForRole();
+                document.getElementById('authOverlay').style.display = 'none';
+                initRunExplorer();
+            } else {
+                document.getElementById('authOverlay').style.display = 'flex';
+            }
+        });
+
+        function setupUIForRole() {
+            const roleKey = userRole.toUpperCase();
+            const config = ROLES[roleKey];
+            document.getElementById('roleBadge').innerText = roleKey;
+            document.getElementById('exclusiveSection').style.display = config.customModels ? 'block' : 'none';
+            document.getElementById('limitNote').innerText = roleKey === 'DEVELOPER' ? 'Unlimited access enabled.' : `Max Range: ${config.maxRange}h | Look-ahead: ${config.lookAhead}h`;
         }
 
-        // --- FORM & RECOMMENDATION LOGIC ---
+        // --- Calendar Explorer Logic ---
+        let cachedRuns = [];
+        function initRunExplorer() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('calendarFilter').value = today;
+
+            onSnapshot(query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(200)), (snap) => {
+                cachedRuns = [];
+                snap.forEach(d => cachedRuns.push({ id: d.id, ...d.data() }));
+                refreshRunList(document.getElementById('calendarFilter').value);
+            });
+        }
+
+        document.getElementById('calendarFilter').addEventListener('change', (e) => refreshRunList(e.target.value));
+
+        function refreshRunList(dateStr) {
+            const s = document.getElementById('idSelector');
+            s.innerHTML = '<option value="">-- Select Run --</option>';
+            
+            const filtered = cachedRuns.filter(r => {
+                const runDate = r.createdAt?.toDate().toISOString().split('T')[0];
+                return runDate === dateStr;
+            });
+
+            if (filtered.length === 0) {
+                s.innerHTML = '<option value="">No runs on this date</option>';
+                return;
+            }
+
+            filtered.forEach(data => {
+                const opt = document.createElement('option');
+                opt.value = data.id;
+                const icon = data.type === 'automated' ? '🤖' : '👤';
+                opt.textContent = `${icon} [${data.status.toUpperCase()}] ${data.startTime}`;
+                if (data.status === 'completed') opt.style.color = '#27ae60';
+                s.appendChild(opt);
+            });
+        }
+
+        // --- Time Validation ---
+        function validateRequest(startStr, endStr) {
+            if (userRole === 'developer') return true;
+            
+            const start = parseDate(startStr);
+            const end = parseDate(endStr);
+            const now = new Date();
+            const diffHours = (end - start) / (1000 * 60 * 60);
+            const aheadHours = (start - now) / (1000 * 60 * 60);
+
+            const config = ROLES[userRole.toUpperCase()];
+
+            if (start < now && userRole !== 'developer') { alert("Historical runs are developer-only."); return false; }
+            if (aheadHours > config.lookAhead) { alert(`Your plan only allows looking ${config.lookAhead}h ahead.`); return false; }
+            if (diffHours > config.maxRange || diffHours <= 0) { alert(`Invalid range. Max allowed: ${config.maxRange}h`); return false; }
+            
+            return true;
+        }
+
+        function parseDate(s) {
+            const p = s.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
+            return new Date(p[3], p[2]-1, p[1], p[4], p[5]);
+        }
+
+        // --- Model Selection Logic ---
         const weightsContainer = document.getElementById('weightsContainer');
         const modelSelect = document.getElementById('modelSelect');
         const runSelect = document.getElementById('runSelect');
         const startTimeInput = document.getElementById('startTime');
-        const scenarioSection = document.getElementById('scenarioSection');
 
         Object.keys(defaultWeights).forEach(m => {
             const div = document.createElement('div');
@@ -263,32 +293,21 @@
             const m = modelSelect.value;
             const freq = models[m].freq;
             let baseDate = new Date();
-            const userDateStr = startTimeInput.value;
-            
-            if (userDateStr) {
-                const parts = userDateStr.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
-                if (parts) {
-                    const userDate = new Date(parts[3], parts[2] - 1, parts[1], parts[4], parts[5]);
-                    if (!isNaN(userDate) && userDate < new Date()) baseDate = userDate;
-                }
-            }
             baseDate.setMinutes(0, 0, 0, 0);
             
-            for (let i = 0; i < 40; i++) {
+            for (let i = 0; i < 30; i++) {
                 const d = new Date(baseDate.getTime() - (i * 1 * 60 * 60 * 1000));
                 if (d.getUTCHours() % freq === 0) {
-                    const isoUTC = `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}T${String(d.getUTCHours()).padStart(2,'0')}:00:00Z`;
+                    const iso = d.toISOString();
                     const label = `${String(d.getUTCDate()).padStart(2,'0')}/${String(d.getUTCMonth()+1).padStart(2,'0')} ${String(d.getUTCHours()).padStart(2,'0')}z`;
                     const opt = document.createElement('option');
-                    opt.value = isoUTC; opt.textContent = label;
+                    opt.value = iso; opt.textContent = label;
                     runSelect.appendChild(opt);
                 }
-                if (runSelect.childElementCount >= 30) break;
             }
         }
-
-        startTimeInput.addEventListener('blur', () => { if (startTimeInput.value.length >= 10) { scenarioSection.style.display = 'block'; updateRunOptions(); } });
         modelSelect.addEventListener('change', updateRunOptions);
+        updateRunOptions();
 
         let selectedScenarios = [];
         document.getElementById('addScenarioBtn').addEventListener('click', () => {
@@ -311,14 +330,20 @@
         }
         window.removeScenario = (idx) => { selectedScenarios.splice(idx, 1); renderScenarios(); };
 
+        // --- Submission ---
         document.getElementById('hocoForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const start = document.getElementById('startTime').value;
+            const end = document.getElementById('endTime').value;
+
+            if (!validateRequest(start, end)) return;
+
             const btn = document.getElementById('submitBtn');
             const statusBox = document.getElementById('statusBox');
             btn.disabled = true;
             statusBox.style.display = 'block';
             statusBox.className = 'status-box pending';
-            statusBox.innerText = 'Triggering Ensemble...';
+            statusBox.innerText = 'Initializing Ensemble...';
 
             const activeWeights = {};
             Object.keys(defaultWeights).forEach(m => { activeWeights[m] = parseFloat(document.getElementById(`weight-${m}`).value); });
@@ -326,69 +351,60 @@
             try {
                 const forecastData = {
                     region: document.getElementById('regionSelect').value,
-                    scenarios: selectedScenarios,
-                    startTime: document.getElementById('startTime').value,
-                    endTime: document.getElementById('endTime').value,
+                    scenarios: userRole === 'normal' ? [] : selectedScenarios,
+                    startTime: start,
+                    endTime: end,
                     weather: Array.from(document.querySelectorAll('input[name="weather"]:checked')).map(cb => cb.value).join(','),
                     weights: JSON.stringify(activeWeights),
-                    createdAt: new Date()
+                    createdAt: new Date(),
+                    userId: auth.currentUser.uid,
+                    type: 'manual'
                 };
+                
                 const docRef = await addDoc(collection(db, "hoco_requests"), { ...forecastData, status: 'pending' });
-                const result = await triggerHocoRun({ id: docRef.id, ...forecastData });
-                if (result.data?.success) { statusBox.innerText = 'Success! Blending started.'; statusBox.className = 'status-box completed'; }
-                else { throw new Error("Trigger failed."); }
-            } catch (err) { statusBox.innerText = 'Error: ' + err.message; btn.disabled = false; }
+                await triggerHocoRun({ id: docRef.id, ...forecastData });
+                statusBox.innerText = 'Ensemble processing in cloud...';
+                statusBox.className = 'status-box completed';
+            } catch (err) { 
+                statusBox.innerText = 'Error: ' + err.message; 
+                btn.disabled = false; 
+            }
         });
 
-        onSnapshot(query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(15)), (snap) => {
-            const s = document.getElementById('idSelector');
-            s.innerHTML = '<option value="">-- Recent Runs --</option>';
-            
-            snap.forEach(d => {
-                const data = d.data();
-                const opt = document.createElement('option');
-                opt.value = d.id;
-                
-                // Determine label and icon
-                const icon = data.type === 'automated' ? '🤖' : '👤';
-                const scenarioInfo = data.scenarios?.length > 0 
-                    ? `${data.scenarios.length} runs` 
-                    : 'Auto-Models';
-                
-                opt.textContent = `${icon} [${data.status.toUpperCase()}] ${data.region} - ${scenarioInfo} (${data.startTime})`;
-                
-                // Color coding for status in the list
-                if (data.status === 'completed') opt.style.color = '#27ae60';
-                if (data.status === 'pending') opt.style.color = '#f39c12';
-                
-                s.appendChild(opt);
-            });
-        });
-
+        // --- Layer Loading ---
         document.getElementById('idSelector').addEventListener('change', async (e) => {
             const runId = e.target.value;
             if (!runId) return;
-
-            const statusBox = document.getElementById('statusBox');
-            statusBox.style.display = 'block';
-            statusBox.className = 'status-box pending';
-            statusBox.innerText = 'Loading Layer...';
-
             const docSnap = await getDoc(doc(db, "hoco_requests", runId));
-            
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                if (data.geojsonUrl) {
-                    loadGeoJson(data.geojsonUrl);
-                    statusBox.className = 'status-box completed';
-                    statusBox.innerText = `Displaying: ${data.type === 'automated' ? 'Standard Product' : 'Custom Run'}`;
-                } else if (data.status === 'pending') {
-                    statusBox.innerText = 'Run is still processing in GitHub...';
-                } else {
-                    statusBox.innerText = 'Error: No GeoJSON URL found.';
-                }
+            if (docSnap.exists() && docSnap.data().geojsonUrl) {
+                loadGeoJson(docSnap.data().geojsonUrl);
             }
         });
+
+        async function loadGeoJson(url) {
+            const response = await fetch(url);
+            const data = await response.json();
+            const processed = pointsToGrid(data);
+            if (map.getLayer('hoco-grid')) map.removeLayer('hoco-grid');
+            if (map.getSource('hoco-source')) map.removeSource('hoco-source');
+            map.addSource('hoco-source', { type: 'geojson', data: processed });
+            map.addLayer({ 
+                id: 'hoco-grid', type: 'fill', source: 'hoco-source', 
+                paint: { 'fill-color': ['step', ['/', ['get', 'risk'], 5], "#ffffff", 1, "#bea497", 10, "#66c2a4", 30, "#fff200", 50, "#ff7f27", 70, "#ec1c24", 85, "#b83dba"], 'fill-opacity': 0.7 }
+            });
+        }
+
+        function pointsToGrid(geojson, size = 0.08) {
+            const features = geojson.features.map(f => {
+                const [lon, lat] = f.geometry.coordinates;
+                const half = size / 2;
+                return {
+                    type: "Feature", properties: f.properties,
+                    geometry: { type: "Polygon", coordinates: [[[lon-half, lat-half], [lon+half, lat-half], [lon+half, lat+half], [lon-half, lat+half], [lon-half, lat-half]]] }
+                };
+            });
+            return { type: "FeatureCollection", features };
+        }
     </script>
 </body>
 </html>
