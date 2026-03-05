@@ -266,21 +266,25 @@
             };
 
             try {
-                // A. Store in Firestore
+                // A. Store in Firestore first to generate the ID
                 const docRef = await addDoc(collection(db, "hoco_requests"), {
                     ...payload,
                     status: 'pending',
                     createdAt: new Date()
                 });
-                console.log("Payload being sent:", payload); // This will show you in F12 if anything is empty
-                // B. Trigger the "Brain" (Cloud Function)
+
+                // B. Trigger the Function - WE MUST PASS THE ID HERE
                 const result = await triggerHocoRun({
-                    id: docRef.id,
-                    ...payload
+                    id: docRef.id,        // <--- THIS WAS MISSING
+                    region: payload.region,
+                    startTime: payload.startTime,
+                    endTime: payload.endTime,
+                    weather: payload.weather,
+                    weights: payload.weights
                 });
 
                 if (result.data.success) {
-                    statusBox.innerText = 'Success: GitHub is processing. Check back in 5-10 mins.';
+                    statusBox.innerText = 'Success: GitHub is processing!';
                     statusBox.className = 'status-box completed';
                 }
 
