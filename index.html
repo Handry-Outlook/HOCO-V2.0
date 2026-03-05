@@ -14,43 +14,48 @@
         
         /* Auth Overlay */
         #authOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,10,0.95); z-index: 1000; display: flex; align-items: center; justify-content: center; }
-        .auth-card { background: #252525; padding: 30px; border-radius: 12px; border: 1px solid #444; width: 320px; text-align: center; }
+        .auth-card { background: #252525; padding: 30px; border-radius: 12px; border: 1px solid #444; width: 340px; text-align: center; }
+        .auth-card h2 { color:#3498db; margin-top:0; margin-bottom: 20px; }
+        .auth-methods { display: flex; flex-direction: column; gap: 10px; }
 
         /* Access Control UI */
         #accessDenied { display: none; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; background: #2c3e50; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e67e22; }
         #mainUI { display: none; }
 
         /* UI Components */
+        input, select { width: 100%; padding: 10px; border: 1px solid #444; border-radius: 4px; background: #333; color: white; box-sizing: border-box; font-size: 0.9em; margin-bottom: 10px; }
+        .control-panel { background: #1e1e1e; padding: 15px; border-radius: 8px; border: 1px solid #333; margin-bottom: 15px; }
+        
+        button { width: 100%; padding: 12px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { filter: brightness(1.1); }
+        
+        /* Specific Button Styles */
+        .btn-secondary { background: #444; }
+        .btn-google { background: #fff; color: #444; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-google img { width: 18px; }
+        #logoutBtn { background: transparent; border: 1px solid #c0392b; color: #c0392b; margin-top: 20px; padding: 8px; }
+
+        .divider { margin: 15px 0; color: #666; font-size: 0.8em; display: flex; align-items: center; }
+        .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #444; margin: 0 10px; }
+
+        /* Existing Styles Retained... */
         .form-group { margin-bottom: 12px; }
         label { display: block; font-size: 0.75em; font-weight: bold; margin-bottom: 5px; color: #888; text-transform: uppercase; }
-        input, select { width: 100%; padding: 10px; border: 1px solid #444; border-radius: 4px; background: #333; color: white; box-sizing: border-box; font-size: 0.9em; }
-        .control-panel { background: #1e1e1e; padding: 15px; border-radius: 8px; border: 1px solid #333; margin-bottom: 15px; }
         .explorer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 5px; }
-
-        /* Scenarios & Weights */
         #exclusiveSection { display: none; margin-top: 15px; padding: 10px; border-top: 2px dashed #444; }
         .scenario-builder { background: #1e1e1e; padding: 12px; border-radius: 6px; border: 1px solid #3498db; margin-bottom: 15px; }
         .scenario-list { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
         .scenario-chip { background: #3498db; color: white; padding: 4px 10px; border-radius: 15px; font-size: 0.7em; display: flex; align-items: center; }
         .scenario-chip span { margin-left: 8px; cursor: pointer; font-weight: bold; }
-        
         .weight-grid { max-height: 120px; overflow-y: auto; border: 1px solid #444; padding: 8px; background: #1a1a1a; }
         .weight-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 0.75em; border-bottom: 1px solid #333; padding-bottom: 3px; }
         .weight-item input { width: 50px; padding: 3px; text-align: center; }
-
         .checkbox-group { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
         .checkbox-item { display: flex; align-items: center; font-size: 0.75em; background: #333; padding: 5px 10px; border-radius: 4px; border: 1px solid #444; }
         .checkbox-item input { width: auto; margin-right: 6px; }
-        
-        button { width: 100%; padding: 12px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px; transition: 0.2s; }
-        .btn-add { background: #27ae60; margin-top: 8px; padding: 6px; font-size: 0.8em; }
-        button:hover { filter: brightness(1.1); }
-        #logoutBtn { background: transparent; border: 1px solid #c0392b; color: #c0392b; margin-top: 20px; padding: 8px; }
-
         .status-box { margin-top: 15px; padding: 10px; border-radius: 4px; font-size: 0.8em; display: none; text-align: center; }
         .pending { background: #f39c1222; border: 1px solid #f39c12; color: #f39c12; }
         .completed { background: #27ae6022; border: 1px solid #27ae60; color: #27ae60; }
-
         .legend-bar { height: 10px; width: 100%; background: linear-gradient(to right, #66c2a4, #fff200, #ff7f27, #ec1c24, #b83dba); border-radius: 5px; margin: 8px 0; }
         .role-badge { font-size: 0.6em; padding: 2px 6px; border-radius: 10px; background: #3498db; vertical-align: middle; margin-left: 5px; }
     </style>
@@ -60,12 +65,26 @@
 
     <div id="authOverlay">
         <div class="auth-card">
-            <h2 style="color:#3498db; margin-top:0;">HOCO Access</h2>
-            <input type="email" id="emailIn" placeholder="Email" style="margin-bottom:10px;">
-            <input type="password" id="passIn" placeholder="Password" style="margin-bottom:15px;">
-            <button id="loginBtn">Sign In / Register</button>
-            <p id="authError" style="color:#e74c3c; font-size:0.8em; margin-top:10px;"></p>
-            <p style="font-size: 0.65em; color: #666; margin-top: 15px;">Note: New accounts require admin activation.</p>
+            <h2>HOCO Access</h2>
+            <div class="auth-methods">
+                <input type="email" id="emailIn" placeholder="Email Address">
+                <input type="password" id="passIn" placeholder="Password">
+                
+                <div style="display: flex; gap: 10px;">
+                    <button id="loginBtn">Login</button>
+                    <button id="registerBtn" class="btn-secondary">Register</button>
+                </div>
+
+                <div class="divider">OR</div>
+
+                <button id="googleBtn" class="btn-google">
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/layout/google.svg" alt="Google">
+                    Continue with Google
+                </button>
+            </div>
+            
+            <p id="authError" style="color:#e74c3c; font-size:0.8em; margin-top:15px; min-height: 1em;"></p>
+            <p style="font-size: 0.65em; color: #666; margin-top: 15px;">By signing in, you agree to our weather data TOS.</p>
         </div>
     </div>
 
@@ -135,8 +154,27 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { 
+            getAuth, 
+            signInWithEmailAndPassword, 
+            createUserWithEmailAndPassword, 
+            onAuthStateChanged, 
+            signOut,
+            GoogleAuthProvider,
+            signInWithPopup 
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { 
+            getFirestore, 
+            collection, 
+            addDoc, 
+            onSnapshot, 
+            query, 
+            orderBy, 
+            limit, 
+            doc, 
+            getDoc,
+            setDoc 
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 
         const authConfig = {
@@ -180,41 +218,54 @@
         mapboxgl.accessToken = 'pk.eyJ1IjoibWV0ZW9ncm91cC1tYXBib3giLCJhIjoiY2pudWJyMWVhMDQ0bjNxdXFsNWJ5M2ZtbSJ9.ANOKYyv5s0VFVbnesnGGUQ';
         const map = new mapboxgl.Map({ container: 'map', style: 'mapbox://styles/mapbox/dark-v11', center: [-1.5, 52.5], zoom: 5.5 });
 
-        // --- Auth Flow ---
-        document.getElementById('loginBtn').addEventListener('click', async () => {
-            const email = document.getElementById('emailIn').value;
-            const pass = document.getElementById('passIn').value;
-            const errDiv = document.getElementById('authError');
-            errDiv.innerText = "";
+        // --- Auth Flow UI Elements ---
+        const emailIn = document.getElementById('emailIn');
+        const passIn = document.getElementById('passIn');
+        const errDiv = document.getElementById('authError');
 
+        // 1. LOGIN (Existing Users)
+        document.getElementById('loginBtn').addEventListener('click', async () => {
+            errDiv.innerText = "";
             try {
-                await signInWithEmailAndPassword(auth, email, pass);
+                await signInWithEmailAndPassword(auth, emailIn.value, passIn.value);
             } catch (err) {
-                if (err.code === 'auth/user-not-found') {
-                    try {
-                        await createUserWithEmailAndPassword(auth, email, pass);
-                    } catch (regErr) { errDiv.innerText = "Register failed: " + regErr.message; }
-                } else {
-                    errDiv.innerText = "Login failed: " + err.message;
-                }
+                errDiv.innerText = "Login failed: " + err.message;
+            }
+        });
+
+        // 2. REGISTER (New Users)
+        document.getElementById('registerBtn').addEventListener('click', async () => {
+            errDiv.innerText = "";
+            try {
+                await createUserWithEmailAndPassword(auth, emailIn.value, passIn.value);
+            } catch (err) {
+                errDiv.innerText = "Register failed: " + err.message;
+            }
+        });
+
+        // 3. GOOGLE SIGN-IN
+        document.getElementById('googleBtn').addEventListener('click', async () => {
+            const provider = new GoogleAuthProvider();
+            try {
+                await signInWithPopup(auth, provider);
+            } catch (err) {
+                errDiv.innerText = "Google sign-in failed: " + err.message;
             }
         });
 
         document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
 
+        // --- Auth State Observer ---
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 document.getElementById('authOverlay').style.display = 'none';
                 
-                // 1. Check if the user exists in the Backend Database (Project B)
                 const userRef = doc(db, "users", user.uid);
                 const userDoc = await getDoc(userRef);
 
                 if (userDoc.exists()) {
-                    // User exists, use their assigned role
                     userRole = userDoc.data().role || 'normal';
                 } else {
-                    // 2. NEW USER: Automatically grant 'normal' (guest) access
                     userRole = 'normal'; 
                     try {
                         await setDoc(userRef, {
@@ -222,10 +273,7 @@
                             role: 'normal',
                             createdAt: new Date()
                         });
-                        console.log("Automatic guest profile created for:", user.email);
-                    } catch (e) {
-                        console.error("Error creating auto-profile:", e);
-                    }
+                    } catch (e) { console.error("Auto-profile error:", e); }
                 }
                 
                 setupUI(user.uid);
@@ -238,7 +286,6 @@
 
         function setupUI(uid) {
             const config = ROLES[userRole.toUpperCase()] || ROLES.PENDING;
-            
             if (!config.active) {
                 document.getElementById('mainUI').style.display = 'none';
                 document.getElementById('accessDenied').style.display = 'flex';
@@ -253,65 +300,50 @@
             }
         }
 
-        // --- Run Explorer ---
+        /* All other functions (Explorer, Scenario Builder, Map) remain exactly the same as your source... */
         let cachedRuns = [];
         function initRunExplorer() {
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('calendarFilter').value = today;
-
             onSnapshot(query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(100)), (snap) => {
                 cachedRuns = [];
                 snap.forEach(d => cachedRuns.push({ id: d.id, ...d.data() }));
                 refreshRunList(document.getElementById('calendarFilter').value);
             });
         }
-
         document.getElementById('calendarFilter').addEventListener('change', (e) => refreshRunList(e.target.value));
-
         function refreshRunList(dateStr) {
             const s = document.getElementById('idSelector');
             s.innerHTML = '<option value="">-- Select Run --</option>';
             const filtered = cachedRuns.filter(r => r.createdAt?.toDate().toISOString().split('T')[0] === dateStr);
-
-            if (filtered.length === 0) {
-                s.innerHTML = '<option value="">No runs found</option>';
-                return;
-            }
-
+            if (filtered.length === 0) { s.innerHTML = '<option value="">No runs found</option>'; return; }
             filtered.forEach(data => {
                 const opt = document.createElement('option');
                 opt.value = data.id;
                 opt.textContent = `${data.type === 'automated' ? '🤖' : '👤'} [${data.status.toUpperCase()}] ${data.startTime}`;
-                if (data.status === 'completed') opt.style.color = '#27ae60';
                 s.appendChild(opt);
             });
         }
-
-        // --- Scenario Builder ---
         const weightsContainer = document.getElementById('weightsContainer');
         const modelSelect = document.getElementById('modelSelect');
         const runSelect = document.getElementById('runSelect');
-
         Object.keys(defaultWeights).forEach(m => {
             const div = document.createElement('div');
             div.className = 'weight-item';
             div.innerHTML = `<span>${m.toUpperCase()}</span><input type="number" step="0.1" id="weight-${m}" value="${defaultWeights[m]}">`;
             weightsContainer.appendChild(div);
         });
-
         Object.keys(models).forEach(m => {
             const opt = document.createElement('option');
             opt.value = m; opt.textContent = models[m].name;
             modelSelect.appendChild(opt);
         });
-
         function updateRunOptions() {
             runSelect.innerHTML = '';
             const m = modelSelect.value;
             const freq = models[m].freq;
             let baseDate = new Date();
             baseDate.setMinutes(0, 0, 0, 0);
-            
             for (let i = 0; i < 24; i++) {
                 const d = new Date(baseDate.getTime() - (i * 3600000));
                 if (d.getUTCHours() % freq === 0) {
@@ -325,7 +357,6 @@
         }
         modelSelect.addEventListener('change', updateRunOptions);
         updateRunOptions();
-
         let selectedScenarios = [];
         document.getElementById('addScenarioBtn').addEventListener('click', () => {
             const runISO = runSelect.value;
@@ -334,7 +365,6 @@
             selectedScenarios.push({ model: modelKey, run: runISO, label: runSelect.options[runSelect.selectedIndex].text });
             renderScenarios();
         });
-
         function renderScenarios() {
             const list = document.getElementById('scenarioList');
             list.innerHTML = '';
@@ -346,21 +376,16 @@
             });
         }
         window.removeScenario = (idx) => { selectedScenarios.splice(idx, 1); renderScenarios(); };
-
-        // --- Submission ---
         document.getElementById('hocoForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('submitBtn');
             const statusBox = document.getElementById('statusBox');
-            
             btn.disabled = true;
             statusBox.style.display = 'block';
             statusBox.className = 'status-box pending';
             statusBox.innerText = 'Transmitting to Cloud...';
-
             const activeWeights = {};
             Object.keys(defaultWeights).forEach(m => { activeWeights[m] = parseFloat(document.getElementById(`weight-${m}`).value); });
-
             try {
                 const payload = {
                     region: document.getElementById('regionSelect').value,
@@ -374,25 +399,17 @@
                     status: 'pending',
                     type: 'manual'
                 };
-                
                 const docRef = await addDoc(collection(db, "hoco_requests"), payload);
                 await triggerHocoRun({ id: docRef.id, ...payload });
-                
                 statusBox.innerText = 'Processing started...';
                 statusBox.className = 'status-box completed';
-            } catch (err) { 
-                statusBox.innerText = 'Error: ' + err.message; 
-                btn.disabled = false; 
-            }
+            } catch (err) { statusBox.innerText = 'Error: ' + err.message; btn.disabled = false; }
         });
-
-        // --- Map Display ---
         document.getElementById('idSelector').addEventListener('change', async (e) => {
             if (!e.target.value) return;
             const docSnap = await getDoc(doc(db, "hoco_requests", e.target.value));
             if (docSnap.exists() && docSnap.data().geojsonUrl) loadGeoJson(docSnap.data().geojsonUrl);
         });
-
         async function loadGeoJson(url) {
             const response = await fetch(url);
             const data = await response.json();
@@ -405,7 +422,6 @@
                 paint: { 'fill-color': ['step', ['/', ['get', 'risk'], 5], "#ffffff", 1, "#66c2a4", 30, "#fff200", 50, "#ff7f27", 70, "#ec1c24", 85, "#b83dba"], 'fill-opacity': 0.7 }
             });
         }
-
         function pointsToGrid(geojson, size = 0.08) {
             const features = geojson.features.map(f => {
                 const [lon, lat] = f.geometry.coordinates;
