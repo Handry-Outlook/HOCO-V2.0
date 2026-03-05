@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">  
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -346,7 +346,15 @@
                 map.addLayer({
                     id: 'hoco-grid', type: 'fill', source: 'hoco-source',
                     paint: {
-                        'fill-color': ['interpolate', ['linear'], ['get', 'risk'], 0, '#fff', 50, '#f1c40f', 100, '#e74c3c'],
+                        'fill-color': [
+                            'interpolate',
+                            ['linear'],
+                            // This 'coalesce' check handles both lowercase and uppercase 'risk'
+                            ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], 
+                            0, '#ffffff',
+                            50, '#f1c40f',
+                            100, '#e74c3c'
+                        ],
                         'fill-opacity': document.getElementById('opacitySlider').value / 100
                     }
                 });
