@@ -364,21 +364,23 @@
                 <div class="panel">
                     <label>Map Visualization</label>
                     <select id="mapStyleSelect">
-                        <option value="mapbox://styles/mapbox/dark-v11">Professional Dark</option>
-                        <option value="mapbox://styles/mapbox/satellite-v9">Satellite Hybrid</option>
-                        <option value="mapbox://styles/mapbox/light-v11">High Contrast Light</option>
-                        <option value="mapbox://styles/mapbox/outdoors-v12">Outdoors / Terrain</option>
-                    </select>
-                    <div style="display: flex; align-items: center; gap: 15px; margin-top: 10px;">
-                        <label style="margin:0; min-width: 60px;">Opacity</label>
-                        <input type="range" id="opacitySlider" min="0" max="100" value="75"
-                            style="margin:0; cursor: pointer;">
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 15px; margin-top: 15px;">
-                        <label style="margin:0; min-width: 60px;">Scale</label>
-                        <input type="range" id="heightSlider" min="0" max="200" step="5" value="50"
-                            style="margin:0; cursor: pointer;">
-                    </div>
+                        <select id="mapStyleSelect">
+                            <option value="mapbox://styles/mapbox/dark-v11">Dark Professional</option>
+                            <option value="mapbox://styles/mapbox/navigation-night-v1">Navigation Night</option>
+                            <option value="mapbox://styles/mapbox/satellite-v9">Satellite</option>
+                            <option value="mapbox://styles/mapbox/streets-v12">Standard Streets</option>
+                            <option value="mapbox://styles/mapbox/light-v11">Light Minimal</option>
+                        </select>
+                        <div style="display: flex; align-items: center; gap: 15px; margin-top: 10px;">
+                            <label style="margin:0; min-width: 60px;">Opacity</label>
+                            <input type="range" id="opacitySlider" min="0" max="100" value="75"
+                                style="margin:0; cursor: pointer;">
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 15px; margin-top: 15px;">
+                            <label style="margin:0; min-width: 60px;">Scale</label>
+                            <input type="range" id="heightSlider" min="0" max="200" step="5" value="50"
+                                style="margin:0; cursor: pointer;">
+                        </div>
                 </div>
 
                 <div id="exclusiveSection" style="display:none;">
@@ -446,6 +448,53 @@
     <div id="statusOverlay" class="map-overlay">Status: Ready</div>
     <div id="map"></div>
     <script type="module">
+        // REUSABLE FUNCTION
+        async function renderHocoLayers(map, gridData) {
+            // Clean up existing layers first
+            if (map.getLayer('hoco-outline')) map.removeLayer('hoco-outline');
+            if (map.getLayer('hoco-grid')) map.removeLayer('hoco-grid');
+            if (map.getSource('hoco-source')) map.removeSource('hoco-source');
+
+            map.addSource('hoco-source', { type: 'geojson', data: gridData });
+
+            // 1. Add Fill Extrusion Layer
+            map.addLayer({
+                id: 'hoco-grid',
+                type: 'fill-extrusion',
+                source: 'hoco-source',
+                paint: {
+                    'fill-extrusion-height': ['*', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], parseInt(document.getElementById('heightSlider').value, 10)],
+                    'fill-extrusion-color': [
+                        'interpolate', ['linear'], ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0],
+                        0, 'rgba(255, 255, 255, 0)',
+                        20, 'rgba(102, 194, 164, 0.7)',
+                        40, 'rgba(255, 242, 0, 0.7)',
+                        60, 'rgba(255, 127, 39, 0.7)',
+                        80, 'rgba(236, 28, 36, 0.7)',
+                        100, 'rgba(184, 61, 218, 0.8)'
+                    ],
+                    'fill-extrusion-opacity': parseInt(document.getElementById('opacitySlider').value, 10) / 100
+                }
+            });
+
+            // 2. Add Contour Lines
+            map.addLayer({
+                id: 'hoco-outline',
+                type: 'line',
+                source: 'hoco-source',
+                paint: {
+                    'line-color': '#fff',
+                    'line-width': 0.8,
+                    'line-opacity': 0.5
+                },
+                filter: ['==', ['%', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], 10], 0]
+            });
+
+            // 3. Ensure labels stay on top
+            const layers = map.getStyle().layers;
+            const labelLayer = layers.find(l => l.type === 'symbol' && l.layout && l.layout['text-field']);
+            if (labelLayer) map.moveLayer('hoco-grid', labelLayer.id);
+        }
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -554,13 +603,15 @@
         });
 
         // Restore layer on style load if it was active
-        map.on('style.load', () => {
-            const id = document.getElementById('idSelector').value;
-            if (id && map.getSource('hoco-source')) {
-                // To safely re-add layers after style change, ideally we re-fetch or cache geojson.
-                // For simplicity, triggering the change event handles it.
-                document.getElementById('idSelector').dispatchEvent(new Event('change'));
+        map.on('style.load', async () => {
+            if (window.currentGridData) {
+                await renderHocoLayers(map, window.currentGridData);
             }
+        });
+
+        // Update style listener
+        document.getElementById('mapStyleSelect').addEventListener('change', (e) => {
+            map.setStyle(e.target.value);
         });
 
         // ==========================================
@@ -931,80 +982,24 @@
         // Updated Map Data Visualization in Section 11
         // SECTION 11: Updated Map Data Visualization
         document.getElementById('idSelector').addEventListener('change', async (e) => {
-            const id = e.target.value;
-            if (!id) return;
+            const runId = e.target.value;
+            if (!runId) return;
 
+            // ADD THIS: Provide immediate feedback
             const statusUI = document.getElementById('statusOverlay');
-            statusUI.innerText = "Status: Loading 3D Engine...";
+            statusUI.innerText = "Status: Fetching Data...";
 
-            try {
-                const docSnap = await getDoc(doc(db, "hoco_requests", id));
-                if (docSnap.exists() && docSnap.data().geojsonUrl) {
-                    const response = await fetch(docSnap.data().geojsonUrl);
-                    const rawData = await response.json();
-                    const gridData = pointsToGrid(rawData);
+            const docSnap = await getDoc(doc(db, "hoco_requests", runId));
+            if (docSnap.exists() && docSnap.data().geojsonUrl) {
+                const response = await fetch(docSnap.data().geojsonUrl);
+                const gridData = pointsToGrid(await response.json(), 0.081);
 
-                    if (map.getLayer('hoco-grid')) map.removeLayer('hoco-grid');
-                    if (map.getSource('hoco-source')) map.removeSource('hoco-source');
+                window.currentGridData = gridData;
+                await renderHocoLayers(map, gridData);
 
-                    map.addSource('hoco-source', { type: 'geojson', data: gridData });
-
-                    map.addLayer({
-                        id: 'hoco-grid',
-                        type: 'fill-extrusion',
-                        source: 'hoco-source',
-                        paint: {
-                            'fill-extrusion-height': [
-                                '*',
-                                ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0],
-                                parseInt(document.getElementById('heightSlider').value, 10)
-                            ],
-                            // Create an SPC-like shaded look with transparency
-                            'fill-extrusion-color': [
-                                'interpolate', ['linear'],
-                                ['/', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], 5],
-                                0, 'rgba(255, 255, 255, 0)',   // Transparent at low risk
-                                20, 'rgba(102, 194, 164, 0.6)', // Semi-transparent shading
-                                40, 'rgba(255, 242, 0, 0.6)',
-                                60, 'rgba(255, 127, 39, 0.6)',
-                                80, 'rgba(236, 28, 36, 0.6)',
-                                100, 'rgba(184, 61, 218, 0.7)'
-                            ],
-                            'fill-extrusion-opacity': 0.8
-                        }
-                    });
-                    // Add a contour-style line layer
-                    map.addLayer({
-                        id: 'hoco-outline',
-                        type: 'line',
-                        source: 'hoco-source',
-                        paint: {
-                            'line-color': '#000',
-                            'line-width': 0.5,
-                            'line-opacity': 0.3
-                        }
-                    });
-                    // Automatically tilt the map to reveal the 3D towers
-                    const layers = map.getStyle().layers;
-                    let labelLayerId;
-                    for (const layer of layers) {
-                        if (layer.type === 'symbol' && layer.layout && layer.layout['text-field']) {
-                            labelLayerId = layer.id;
-                            break;
-                        }
-                    }
-
-                    // Move the hoco-grid layer below the labels so text is always on top
-                    if (labelLayerId) {
-                        map.moveLayer('hoco-grid', labelLayerId);
-                    }
-
-                    statusUI.innerText = "Status: 3D Visualization Active";
-                    showToast("3D Risk Towers Rendered", "success");
-                }
-            } catch (error) {
-                statusUI.innerText = "Status: Data Load Error";
-                showToast("Failed to load map data", "error");
+                statusUI.innerText = "Status: Visualization Loaded"; // ADD THIS
+            } else {
+                statusUI.innerText = "Status: Data Missing";
             }
         });
         // Dynamic Height Update
