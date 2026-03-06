@@ -919,28 +919,60 @@
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {
+                // UI Transition
                 document.getElementById('landingPage').style.display = 'none';
                 document.getElementById('mainUI').style.display = 'block';
                 document.getElementById('displayUid').innerText = `ID: ${user.uid}`;
 
-                const uRef = doc(db, "users", user.uid);
-                const uDoc = await getDoc(uRef);
-                if (!uDoc.exists()) {
-                    await setDoc(uRef, { email: user.email, role: 'guest' });
-                    userRole = 'guest';
-                } else {
-                    userRole = uDoc.data().role || 'guest';
-                }
+                try {
+                    const uRef = doc(db, "users", user.uid);
+                    const uDoc = await getDoc(uRef);
 
-                await updateRunCap(user.uid);
-                applyRoleLogic();
-                initScenarioLogic();
-                loadArchive();
-                if (userRole === 'developer') loadAdminData();
+                    if (!uDoc.exists()) {
+                        // Failsafe: Create the user document if it doesn't exist
+                        await setDoc(uRef, {
+                            email: user.email,
+                            role: 'normal', // Default to normal so they can run forecasts
+                            createdAt: new Date().toISOString()
+                        });
+                        userRole = 'normal';
+                    } else {
+                        userRole = uDoc.data().role || 'normal';
+                    }
+
+                    // Update the UI Role Badge
+                    const badge = document.getElementById('roleBadge');
+                    if (badge) {
+                        badge.innerText = userRole.toUpperCase();
+                        badge.style.background = userRole === 'developer' ? 'var(--accent)' : 'var(--primary)';
+                    }
+
+                    // Run application logic
+                    // Note: We use Promise.allSettled so one failure doesn't crash the whole app
+                    await Promise.allSettled([
+                        updateRunCap(user.uid),
+                        applyRoleLogic(),
+                        initScenarioLogic(),
+                        loadArchive()
+                    ]);
+
+                    // Only trigger admin listeners if verified
+                    if (userRole === 'developer') {
+                        loadAdminData();
+                    }
+
+                } catch (error) {
+                    console.error("Error in Auth State Transition:", error);
+                    showToast("Error loading profile. Check permissions.", "error");
+                }
             } else {
+                // Logged out state
                 document.getElementById('landingPage').style.display = 'flex';
                 document.getElementById('mainUI').style.display = 'none';
                 userRole = 'guest';
+                // Clear local data
+                allRuns = [];
+                renderArchiveDropdown();
             }
         });
 
@@ -1023,13 +1055,14 @@
                 const rDate = (r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt)).toISOString().split('T')[0];
                 if (rDate !== dateStr) return false;
 
-                // Developer sees everything
+                // --- VISIBILITY LOGIC ---
+                // 1. Developers see everything
                 if (userRole === 'developer') return true;
 
-                // Everyone (including Guests) sees Public runs and Automated runs
+                // 2. Public and Automated runs are visible to EVERYONE (including 'normal' and 'guest')
                 if (r.public === true || r.type === 'automated') return true;
 
-                // Logged in users see their own private runs
+                // 3. Logged in users see their own private runs
                 if (currentUid && r.userId === currentUid) return true;
 
                 return false;
@@ -1037,12 +1070,11 @@
                 const opt = document.createElement('option');
                 opt.value = r.id;
 
-                let tag = "[PVT]"; let cls = "";
-                if (r.public) { tag = "[PUB]"; cls = "opt-manual"; }
-                if (r.type === 'automated') { tag = "[AUTO]"; cls = "opt-auto"; }
-                if (currentUid && r.userId === currentUid) { tag = "[YOU]"; cls = "opt-self"; }
+                let tag = "[PVT]";
+                if (r.public) tag = "[PUB]";
+                if (r.type === 'automated') tag = "[AUTO]";
+                if (currentUid && r.userId === currentUid && !r.public && r.type !== 'automated') tag = "[YOU]";
 
-                opt.className = cls;
                 const timeStr = (r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 opt.textContent = `${tag} ${r.startTime || '?'} - ${r.region || 'UK'} (${timeStr})`;
                 sel.appendChild(opt);
