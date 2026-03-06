@@ -939,9 +939,16 @@
 
         async function updateRunCap(uid) {
             if (userRole === 'guest' || userRole === 'developer') return;
-            const todayStr = new Date().toISOString().split('T')[0];
-            const q = query(collection(db, "hoco_requests"), where("userId", "==", uid), orderBy("createdAt", "desc"), limit(20));
-            const snap = await getDoc(q).catch(() => null);
+            try {
+                const q = query(collection(db, "hoco_requests"),
+                    where("userId", "==", uid),
+                    orderBy("createdAt", "desc"),
+                    limit(20));
+                const snap = await getDocs(q); // Use getDocs for a query
+                // The daily count logic is already handled in the loadArchive listener
+            } catch (err) {
+                console.error("Error updating cap:", err);
+            }
         }
 
         function applyRoleLogic() {
@@ -1002,15 +1009,23 @@
             const sel = document.getElementById('idSelector');
             sel.innerHTML = '<option value="">Select Run to Load...</option>';
 
+            const currentUid = auth.currentUser ? auth.currentUser.uid : null;
+
             allRuns.filter(r => {
                 if (!r.createdAt) return false;
                 const rDate = (r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt)).toISOString().split('T')[0];
                 if (rDate !== dateStr) return false;
 
-                const isOwner = r.userId === auth.currentUser.uid;
-                if (userRole === 'guest') return r.public;
+                // Developer sees everything
                 if (userRole === 'developer') return true;
-                return r.public || isOwner || r.type === 'automated';
+
+                // Everyone (including Guests) sees Public runs and Automated runs
+                if (r.public === true || r.type === 'automated') return true;
+
+                // Logged in users see their own private runs
+                if (currentUid && r.userId === currentUid) return true;
+
+                return false;
             }).forEach(r => {
                 const opt = document.createElement('option');
                 opt.value = r.id;
@@ -1018,7 +1033,7 @@
                 let tag = "[PVT]"; let cls = "";
                 if (r.public) { tag = "[PUB]"; cls = "opt-manual"; }
                 if (r.type === 'automated') { tag = "[AUTO]"; cls = "opt-auto"; }
-                if (r.userId === auth.currentUser.uid) { tag = "[YOU]"; cls = "opt-self"; }
+                if (currentUid && r.userId === currentUid) { tag = "[YOU]"; cls = "opt-self"; }
 
                 opt.className = cls;
                 const timeStr = (r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
