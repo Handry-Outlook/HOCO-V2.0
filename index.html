@@ -9,12 +9,15 @@
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
     <style>
         :root {
-            --primary: #3498db;
-            --primary-hover: #2980b9;
+            --primary: #283673;
+            /* Your requested blue */
+            --primary-hover: #3d52ad;
+            /* A much brighter blue for contrast on hover */
             --bg: #0f0f0f;
             --card: #1e1e1e;
-            --text: #f0f0f0;
-            --border: #333;
+            --text: #ffffff;
+            /* Ensure text is pure white for readability */
+            --border: #3a4785;
             --accent: #2ecc71;
             --danger: #e74c3c;
             --warning: #f39c12;
@@ -120,7 +123,7 @@
         }
 
         .role-card.normal h4 {
-            color: var(--primary);
+            color: #5c70c7
         }
 
         .role-card.exclusive h4 {
@@ -300,11 +303,16 @@
             cursor: pointer;
             font-weight: 600;
             transition: all 0.2s;
+            box-shadow: 0 0 10px rgba(40, 54, 115, 0.3);
+            /* Subtle glow using your blue */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            /* Thin light border for definition */
         }
 
         button:hover:not(:disabled) {
             background: var(--primary-hover);
-            transform: translateY(-1px);
+            box-shadow: 0 0 15px rgba(61, 82, 173, 0.5);
+            /* Stronger glow on hover */
         }
 
         button:disabled {
@@ -461,9 +469,9 @@
 
     <div id="landingPage">
         <div class="landing-container">
-            <h1 style="color: var(--primary); margin-bottom: 5px; font-size: 2.8rem;">ADV-HOCO Pro</h1>
+            <h1 style="color: #FFFFFF; margin-bottom: 5px; font-size: 2.8rem;">HOCO 2.0</h1>
             <p style="color: #fff; font-weight: bold; margin-bottom: 15px; font-size: 1.1rem;">Meteorological Ensemble
-                Engine</p>
+                Engine By Handry Outlook</p>
 
             <p class="intro-text">
                 <strong>What is HOCO?</strong> High-Resolution Convective Outlooks (HOCO) utilizes advanced ensemble
@@ -554,7 +562,7 @@
         <div id="scroll-area">
             <div id="mainUI" style="display:none;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h2 style="margin:0;">FORECASTER</h2>
+                    <h2 style="margin:0; color: #ffffff;">HOCO 2.O</h2>
                     <span id="roleBadge"
                         style="background:var(--accent); font-size: 0.65rem; padding: 4px 8px; border-radius: 4px; color: #000; font-weight: 800; letter-spacing: 1px;">...</span>
                 </div>
@@ -628,8 +636,7 @@
                         <label>Region</label>
                         <select id="regionSelect">
                             <option value="England">England (South/Central)</option>
-                            <option value="Scotland">Scotland</option>
-                            <option value="Wales">Wales</option>
+
                         </select>
 
                         <div style="display: flex; gap: 10px; flex-wrap: nowrap;">
