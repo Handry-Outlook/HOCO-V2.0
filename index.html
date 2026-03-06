@@ -1052,21 +1052,27 @@
                     statusUI.innerText = "Loaded successfully.";
 
                     // Update Metadata UI
-                    const creationDate = runData.createdAt.toDate ? runData.createdAt.toDate() : new Date(runData.createdAt);
+                    // Update Metadata UI
+                    // Safely handle potentially missing dates
+                    const creationDate = runData.createdAt ? (runData.createdAt.toDate ? runData.createdAt.toDate() : new Date(runData.createdAt)) : new Date();
                     const isNormal = runData.type === 'automated';
 
-                    document.getElementById(`meta-title-${mapIndex}`).innerText = `Loaded: ${runData.region}`;
+                    // Safely handle missing user IDs for automated runs
+                    const displayUser = runData.userId ? runData.userId.substring(0, 6) : 'System';
+
+                    document.getElementById(`meta-title-${mapIndex}`).innerText = `Loaded: ${runData.region || 'Unknown'}`;
                     document.getElementById(`meta-desc-${mapIndex}`).innerHTML = `
-                        <strong>Period:</strong> ${runData.startTime} - ${runData.endTime}<br>
-                        <strong>Hazards:</strong> <span style="text-transform: capitalize">${runData.weather}</span><br>
-                        <strong>Mode:</strong> ${isNormal ? 'Normal Mode (Auto)' : 'Custom Weighting'}<br>
-                        <strong>Ran by:</strong> User ${runData.userId.substring(0, 6)}<br>
-                        <strong>Time:</strong> ${creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
-                    `;
+                    <strong>Period:</strong> ${runData.startTime || 'N/A'} - ${runData.endTime || 'N/A'}<br>
+                    <strong>Hazards:</strong> <span style="text-transform: capitalize">${runData.weather || 'None'}</span><br>
+                    <strong>Mode:</strong> ${isNormal ? 'Normal Mode (Auto)' : 'Custom Weighting'}<br>
+                    <strong>Ran by:</strong> User ${displayUser}<br>
+                    <strong>Time:</strong> ${creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
+                `;
                     document.getElementById(`meta-scale-${mapIndex}`).style.display = 'flex';
 
                 } catch (err) {
-                    statusUI.innerText = "Error parsing GeoJSON.";
+                    console.error("Map load error:", err); // Logs the real error to your dev tools
+                    statusUI.innerText = "Error loading run data.";
                 }
             } else {
                 statusUI.innerText = "Data pending or missing.";
