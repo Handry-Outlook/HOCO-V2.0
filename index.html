@@ -33,13 +33,24 @@
             overflow: hidden;
         }
 
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: var(--bg); }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
 
-        /* Landing Page */
+        ::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Landing Page Enhancements */
         #landingPage {
             position: fixed;
             inset: 0;
@@ -54,57 +65,118 @@
         }
 
         .landing-container {
-            max-width: 800px;
+            max-width: 900px;
+            width: 100%;
             text-align: center;
-            background: rgba(15, 15, 15, 0.95);
+            background: rgba(15, 15, 15, 0.85);
+            backdrop-filter: blur(10px);
             padding: 40px;
             border-radius: 12px;
-            border: 1px solid var(--border);
-            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+        }
+
+        .intro-text {
+            color: #aaa;
+            margin: 0 auto 30px auto;
+            font-size: 0.95rem;
+            max-width: 600px;
+            line-height: 1.5;
         }
 
         .role-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 15px;
             margin: 30px 0;
         }
 
+        /* Force 4 columns on desktop */
+        @media (min-width: 769px) {
+            .role-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
         .role-card {
-            background: #111;
+            background: rgba(17, 17, 17, 0.9);
             padding: 20px;
             border-radius: 8px;
             border: 1px solid var(--border);
             text-align: left;
+            transition: transform 0.2s;
         }
 
-        .role-card h4 { margin: 0 0 10px 0; font-size: 1.1rem; }
-        .role-card.guest h4 { color: var(--guest); }
-        .role-card.normal h4 { color: var(--primary); }
-        .role-card.exclusive h4 { color: var(--warning); }
-        .role-card.dev h4 { color: var(--danger); }
-        
-        .role-card ul { padding-left: 20px; font-size: 0.8rem; color: #aaa; margin: 0; line-height: 1.4; }
-        .role-card ul li { margin-bottom: 5px; }
+        .role-card:hover {
+            transform: translateY(-5px);
+        }
 
-        /* Auth Screen */
-        #authOverlay {
+        .role-card h4 {
+            margin: 0 0 10px 0;
+            font-size: 1.1rem;
+        }
+
+        .role-card.guest h4 {
+            color: var(--guest);
+        }
+
+        .role-card.normal h4 {
+            color: var(--primary);
+        }
+
+        .role-card.exclusive h4 {
+            color: var(--warning);
+        }
+
+        .role-card.dev h4 {
+            color: var(--danger);
+        }
+
+        .role-card ul {
+            padding-left: 20px;
+            font-size: 0.8rem;
+            color: #ccc;
+            margin: 0;
+            line-height: 1.6;
+        }
+
+        /* Modals (Auth & Tutorial) */
+        .overlay-modal {
             position: fixed;
             inset: 0;
-            background: rgba(0,0,0,0.9);
+            background: rgba(0, 0, 0, 0.9);
             z-index: 6000;
             display: none;
             align-items: center;
             justify-content: center;
+            padding: 20px;
         }
-        .auth-card {
+
+        .modal-card {
             background: #111;
             padding: 40px;
             border-radius: 12px;
-            width: 320px;
+            width: 100%;
+            max-width: 400px;
             border: 1px solid var(--border);
             text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+            box-sizing: border-box;
+        }
+
+        .tutorial-text {
+            text-align: left;
+            color: #ccc;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .tutorial-text ol {
+            padding-left: 20px;
+        }
+
+        .tutorial-text li {
+            margin-bottom: 10px;
         }
 
         /* Sidebar Layout */
@@ -134,24 +206,42 @@
             background: #222;
         }
 
-        #map-wrapper.grid-1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
-        #map-wrapper.grid-2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
-        #map-wrapper.grid-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+        #map-wrapper.grid-1 {
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr;
+        }
 
-        .map-instance { width: 100%; height: 100%; position: relative; }
-        
-        .map-label {
+        #map-wrapper.grid-2 {
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr;
+        }
+
+        #map-wrapper.grid-4 {
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+        }
+
+        .map-instance {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        /* Map Metadata Card */
+        .map-metadata {
             position: absolute;
             top: 10px;
             left: 10px;
-            background: rgba(0,0,0,0.7);
+            background: rgba(15, 15, 15, 0.85);
+            backdrop-filter: blur(4px);
             color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.75rem;
+            padding: 8px 12px;
+            border-radius: 6px;
             z-index: 5;
             pointer-events: none;
-            border: 1px solid var(--border);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            max-width: 250px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
         }
 
         /* Components */
@@ -163,7 +253,11 @@
             margin-bottom: 15px;
         }
 
-        h2 { color: var(--primary); margin: 0 0 15px 0; font-size: 1.3rem; }
+        h2 {
+            color: var(--primary);
+            margin: 0 0 15px 0;
+            font-size: 1.3rem;
+        }
 
         label {
             display: block;
@@ -174,7 +268,9 @@
             text-transform: uppercase;
         }
 
-        input, select, textarea {
+        input,
+        select,
+        textarea {
             width: 100%;
             padding: 10px;
             margin-bottom: 10px;
@@ -187,7 +283,9 @@
             transition: border-color 0.2s;
         }
 
-        input:focus, select:focus, textarea:focus {
+        input:focus,
+        select:focus,
+        textarea:focus {
             border-color: var(--primary);
             outline: none;
         }
@@ -204,59 +302,154 @@
             transition: all 0.2s;
         }
 
-        button:hover:not(:disabled) { background: var(--primary-hover); transform: translateY(-1px); }
-        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-        
-        .btn-add { background: var(--accent); padding: 8px; font-size: 0.85rem; }
-        .btn-add:hover:not(:disabled) { background: #27ae60; }
+        button:hover:not(:disabled) {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
 
-        /* Chips */
-        .chip-container { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px; }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-add {
+            background: var(--accent);
+            padding: 8px;
+            font-size: 0.85rem;
+        }
+
+        .btn-add:hover:not(:disabled) {
+            background: #27ae60;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--primary);
+        }
+
+        .btn-outline:hover:not(:disabled) {
+            background: rgba(52, 152, 219, 0.1);
+        }
+
+        .chip-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 5px;
+        }
+
         .chip {
-            background: var(--primary); padding: 4px 10px; border-radius: 15px;
-            font-size: 0.75rem; display: flex; align-items: center; gap: 6px;
+            background: var(--primary);
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
-        .chip span { cursor: pointer; font-weight: bold; }
 
-        /* Color Coding Options */
-        .opt-auto { color: #a29bfe; }
-        .opt-manual { color: #55efc4; }
-        .opt-self { color: #ffeaa7; font-weight: bold; }
+        .chip span {
+            cursor: pointer;
+            font-weight: bold;
+        }
 
-        /* Toast Notifications */
+        .opt-auto {
+            color: #a29bfe;
+        }
+
+        .opt-manual {
+            color: #55efc4;
+        }
+
+        .opt-self {
+            color: #ffeaa7;
+            font-weight: bold;
+        }
+
         #toastContainer {
-            position: fixed; top: 20px; right: 20px; z-index: 9999;
-            display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
         }
+
         .toast {
-            background: var(--card); border-left: 4px solid var(--primary); color: #fff;
-            padding: 12px 20px; border-radius: 4px; font-size: 0.85rem;
+            background: var(--card);
+            border-left: 4px solid var(--primary);
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 4px;
+            font-size: 0.85rem;
             animation: slideIn 0.3s ease forwards;
         }
-        .toast.error { border-left-color: var(--danger); }
-        .toast.success { border-left-color: var(--accent); }
 
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
-
-        /* Admin/Dev Rows */
-        .list-row {
-            background: #0a0a0a; padding: 10px; border-radius: 6px; margin-bottom: 8px;
-            border: 1px solid #222; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: center;
+        .toast.error {
+            border-left-color: var(--danger);
         }
 
-        /* Mobile Adjustments */
+        .toast.success {
+            border-left-color: var(--accent);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0;
+            }
+        }
+
+        .list-row {
+            background: #0a0a0a;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border: 1px solid #222;
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
         @media (max-width: 768px) {
-            body { flex-direction: column; }
+            body {
+                flex-direction: column;
+            }
+
             #sidebar {
                 width: 100%;
                 height: 45vh;
                 border-right: none;
                 border-bottom: 2px solid var(--primary);
             }
-            #map-wrapper { height: 55vh; flex-grow: 0; }
-            #map-wrapper.grid-2, #map-wrapper.grid-4 { 
-                grid-template-columns: 1fr 1fr; 
+
+            #map-wrapper {
+                height: 55vh;
+                flex-grow: 0;
+            }
+
+            #map-wrapper.grid-2,
+            #map-wrapper.grid-4 {
+                grid-template-columns: 1fr 1fr;
                 grid-template-rows: 1fr 1fr;
             }
         }
@@ -268,9 +461,16 @@
 
     <div id="landingPage">
         <div class="landing-container">
-            <h1 style="color: var(--primary); margin-bottom: 5px; font-size: 2.5rem;">ADV-HOCO Pro</h1>
-            <p style="color: #aaa; margin-bottom: 30px; font-size: 0.9rem;">Meteorological Ensemble Engine</p>
-            
+            <h1 style="color: var(--primary); margin-bottom: 5px; font-size: 2.8rem;">ADV-HOCO Pro</h1>
+            <p style="color: #fff; font-weight: bold; margin-bottom: 15px; font-size: 1.1rem;">Meteorological Ensemble
+                Engine</p>
+
+            <p class="intro-text">
+                <strong>What is HOCO?</strong> High-Resolution Convective Outlooks (HOCO) utilizes advanced ensemble
+                forecasting by aggregating and weighting top-tier meteorological models. It dynamically renders 3D risk
+                assessments for severe weather and convective activity across mapped regions.
+            </p>
+
             <div class="role-grid">
                 <div class="role-card guest">
                     <h4>Guest</h4>
@@ -311,19 +511,41 @@
 
             <div style="display: flex; gap: 15px; justify-content: center; margin-top: 20px;">
                 <button onclick="showAuth('login')" style="width: 150px;">Sign In</button>
-                <button onclick="showAuth('register')" style="width: 150px; background: transparent; border: 1px solid var(--primary);">Register (Guest)</button>
+                <button onclick="showAuth('register')" class="btn-outline" style="width: 150px;">Register</button>
+                <button onclick="document.getElementById('tutorialModal').style.display='flex'"
+                    style="width: 150px; background: #333; border: 1px solid #555;">Quick Tutorial</button>
             </div>
         </div>
     </div>
 
-    <div id="authOverlay">
-        <div class="auth-card">
+    <div id="tutorialModal" class="overlay-modal">
+        <div class="modal-card">
+            <h2 style="margin-bottom: 15px;">How to Use HOCO</h2>
+            <div class="tutorial-text">
+                <ol>
+                    <li><strong>Layout:</strong> Use the sidebar to split your view into 1, 2, or 4 maps for easy
+                        comparison.</li>
+                    <li><strong>Archive:</strong> Select a past forecast run from the dropdown and assign it to a
+                        specific map to view the 3D data grid.</li>
+                    <li><strong>Execution (Normal+):</strong> Define a region, time period, and hazards, then generate a
+                        new custom ensemble.</li>
+                    <li><strong>Analysis:</strong> Rotate the map (Right-Click + Drag) to view risk elevation. Click
+                        specific grid zones to see precise risk index data.</li>
+                </ol>
+            </div>
+            <button onclick="document.getElementById('tutorialModal').style.display='none'">Close Tutorial</button>
+        </div>
+    </div>
+
+    <div id="authOverlay" class="overlay-modal">
+        <div class="modal-card">
             <h2 id="authTitle" style="margin-bottom: 5px;">Sign In</h2>
             <p style="color: #888; font-size: 0.8rem; margin-bottom: 20px;">Secure Access Portal</p>
             <input type="email" id="emailIn" placeholder="Email Address" required>
             <input type="password" id="passIn" placeholder="Password" required>
             <button id="authSubmitBtn">Submit</button>
-            <button onclick="document.getElementById('authOverlay').style.display='none'" style="background:transparent; border: 1px solid #555; margin-top: 10px;">Cancel</button>
+            <button onclick="document.getElementById('authOverlay').style.display='none'" class="btn-outline"
+                style="margin-top: 10px;">Cancel</button>
             <p id="authError" style="color:var(--danger); font-size:0.8rem; margin-top:15px; min-height: 16px;"></p>
         </div>
     </div>
@@ -333,24 +555,32 @@
             <div id="mainUI" style="display:none;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h2 style="margin:0;">FORECASTER</h2>
-                    <span id="roleBadge" style="background:var(--accent); font-size: 0.65rem; padding: 4px 8px; border-radius: 4px; color: #000; font-weight: 800; letter-spacing: 1px;">...</span>
+                    <span id="roleBadge"
+                        style="background:var(--accent); font-size: 0.65rem; padding: 4px 8px; border-radius: 4px; color: #000; font-weight: 800; letter-spacing: 1px;">...</span>
                 </div>
 
                 <div class="panel">
-                    <label>Workspace Layout</label>
+                    <label>Workspace Settings</label>
                     <select id="layoutSelect">
                         <option value="1">Single Map Mode</option>
                         <option value="2">Dual Map Comparison</option>
                         <option value="4">Quad Map Comparison</option>
                     </select>
 
+                    <select id="mapStyleSelect">
+                        <option value="mapbox://styles/mapbox/dark-v11">Style: Dark (Default)</option>
+                        <option value="mapbox://styles/mapbox/light-v11">Style: Light</option>
+                        <option value="mapbox://styles/mapbox/satellite-v9">Style: Satellite</option>
+                        <option value="mapbox://styles/mapbox/outdoors-v12">Style: Outdoors</option>
+                    </select>
+
                     <div style="display: flex; gap: 10px; margin-top: 10px;">
                         <div style="flex: 1;">
-                            <label>Opacity</label>
+                            <label>Grid Opacity</label>
                             <input type="range" id="opacitySlider" min="0" max="100" value="75">
                         </div>
                         <div style="flex: 1;">
-                            <label>Scale</label>
+                            <label>3D Scale</label>
                             <input type="range" id="heightSlider" min="0" max="200" step="5" value="50">
                         </div>
                     </div>
@@ -380,7 +610,8 @@
                             <span id="runCapText" style="font-size: 0.7rem; color:#888;"></span>
                         </div>
 
-                        <div id="exclusiveSection" style="display:none; background: #0a0a0a; padding: 10px; border-radius: 6px; margin-bottom: 10px; border: 1px dashed #444;">
+                        <div id="exclusiveSection"
+                            style="display:none; background: #0a0a0a; padding: 10px; border-radius: 6px; margin-bottom: 10px; border: 1px dashed #444;">
                             <label style="color: var(--warning);">Scenario Builder (Custom Weights)</label>
                             <div style="display: flex; gap: 5px;">
                                 <select id="modelSelect" style="flex: 1; margin-bottom: 5px;"></select>
@@ -388,9 +619,10 @@
                             </div>
                             <button type="button" id="addScenarioBtn" class="btn-add">Add to Ensemble</button>
                             <div id="scenarioList" class="chip-container"></div>
-                            
+
                             <label style="margin-top: 10px;">Model Weighting</label>
-                            <div id="weightsContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;"></div>
+                            <div id="weightsContainer"
+                                style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;"></div>
                         </div>
 
                         <label>Region</label>
@@ -400,12 +632,11 @@
                             <option value="Wales">Wales</option>
                         </select>
 
-                        <div style="display: flex; gap: 10px;">
-                            <div style="flex: 1;">
-                                <label>Start Time</label>
+                        <div style="display: flex; gap: 10px; flex-wrap: nowrap;">
+                            <div style="flex: 1; min-width: 0;"> <label>Start Time</label>
                                 <input type="datetime-local" id="startTime" required>
                             </div>
-                            <div style="flex: 1;">
+                            <div style="flex: 1; min-width: 0;">
                                 <label>End Time</label>
                                 <input type="datetime-local" id="endTime" required>
                             </div>
@@ -413,7 +644,8 @@
 
                         <label>Hazards</label>
                         <div style="margin-bottom: 10px; font-size: 0.85rem;">
-                            <input type="checkbox" name="weather" value="lightning" checked style="width:auto; margin-right:5px;"> Lightning
+                            <input type="checkbox" name="weather" value="lightning" checked
+                                style="width:auto; margin-right:5px;"> Lightning
                         </div>
 
                         <button type="submit" id="submitBtn">Execute Run</button>
@@ -422,7 +654,8 @@
 
                 <div id="upgradePanel" class="panel" style="display:none; border-color: #555;">
                     <label>Apply for Role Upgrade</label>
-                    <p style="font-size: 0.75rem; color: #888; margin-top:0;">Want more capabilities? Request a rank upgrade.</p>
+                    <p style="font-size: 0.75rem; color: #888; margin-top:0;">Want more capabilities? Request a rank
+                        upgrade.</p>
                     <select id="reqRole">
                         <option value="normal">Normal Role (Auto-HOCO)</option>
                         <option value="exclusive">Exclusive Role (Custom Models)</option>
@@ -434,18 +667,18 @@
 
                 <div id="adminPanel" class="panel" style="display:none; border-color: var(--danger);">
                     <label style="color:var(--danger)">Developer Console</label>
-                    
-                    <button id="publishBtn" class="btn-add" style="margin-bottom: 15px;">Publish Selected Run to Guests</button>
-                    
+                    <button id="publishBtn" class="btn-add" style="margin-bottom: 15px;">Publish Selected Run to
+                        Guests</button>
                     <label>Pending Upgrade Requests</label>
                     <div id="upgradeRequestsList" style="margin-bottom: 15px;"></div>
-
                     <label>User Management</label>
                     <div id="userList"></div>
                 </div>
 
-                <button id="logoutBtn" style="background: transparent; border: 1px solid var(--danger); color: var(--danger); margin-top: 10px;">Terminate Session</button>
-                
+                <button id="logoutBtn" class="btn-outline"
+                    style="color: var(--danger); border-color: var(--danger); margin-top: 10px;">Terminate
+                    Session</button>
+
                 <div style="text-align: center; margin-top: 15px;">
                     <code id="displayUid" style="font-size: 0.65rem; color: #555;"></code>
                 </div>
@@ -454,10 +687,70 @@
     </div>
 
     <div id="map-wrapper" class="grid-1">
-        <div id="map0" class="map-instance"><div class="map-label">Map 1</div></div>
-        <div id="map1" class="map-instance" style="display:none;"><div class="map-label">Map 2</div></div>
-        <div id="map2" class="map-instance" style="display:none;"><div class="map-label">Map 3</div></div>
-        <div id="map3" class="map-instance" style="display:none;"><div class="map-label">Map 4</div></div>
+        <div id="map0" class="map-instance">
+            <div class="map-metadata">
+                <div id="meta-title-0"
+                    style="font-weight: bold; font-size: 0.8rem; margin-bottom: 4px; color: var(--primary);">Map 1 -
+                    Idle</div>
+                <div id="meta-desc-0" style="font-size: 0.65rem; color: #ccc; line-height: 1.4;">Waiting for data...
+                </div>
+                <div id="meta-scale-0" style="display: none; align-items: center; gap: 5px; margin-top: 6px;">
+                    <span style="font-size: 0.55rem;">Low</span>
+                    <div
+                        style="flex-grow: 1; height: 6px; width: 80px; border-radius: 3px; background: linear-gradient(to right, rgba(255,255,255,0), rgba(102,194,164,0.7) 20%, rgba(255,242,0,0.7) 40%, rgba(255,127,39,0.7) 60%, rgba(236,28,36,0.7) 80%, rgba(184,61,218,0.8) 100%);">
+                    </div>
+                    <span style="font-size: 0.55rem;">High</span>
+                </div>
+            </div>
+        </div>
+        <div id="map1" class="map-instance" style="display:none;">
+            <div class="map-metadata">
+                <div id="meta-title-1"
+                    style="font-weight: bold; font-size: 0.8rem; margin-bottom: 4px; color: var(--primary);">Map 2 -
+                    Idle</div>
+                <div id="meta-desc-1" style="font-size: 0.65rem; color: #ccc; line-height: 1.4;">Waiting for data...
+                </div>
+                <div id="meta-scale-1" style="display: none; align-items: center; gap: 5px; margin-top: 6px;">
+                    <span style="font-size: 0.55rem;">Low</span>
+                    <div
+                        style="flex-grow: 1; height: 6px; width: 80px; border-radius: 3px; background: linear-gradient(to right, rgba(255,255,255,0), rgba(102,194,164,0.7) 20%, rgba(255,242,0,0.7) 40%, rgba(255,127,39,0.7) 60%, rgba(236,28,36,0.7) 80%, rgba(184,61,218,0.8) 100%);">
+                    </div>
+                    <span style="font-size: 0.55rem;">High</span>
+                </div>
+            </div>
+        </div>
+        <div id="map2" class="map-instance" style="display:none;">
+            <div class="map-metadata">
+                <div id="meta-title-2"
+                    style="font-weight: bold; font-size: 0.8rem; margin-bottom: 4px; color: var(--primary);">Map 3 -
+                    Idle</div>
+                <div id="meta-desc-2" style="font-size: 0.65rem; color: #ccc; line-height: 1.4;">Waiting for data...
+                </div>
+                <div id="meta-scale-2" style="display: none; align-items: center; gap: 5px; margin-top: 6px;">
+                    <span style="font-size: 0.55rem;">Low</span>
+                    <div
+                        style="flex-grow: 1; height: 6px; width: 80px; border-radius: 3px; background: linear-gradient(to right, rgba(255,255,255,0), rgba(102,194,164,0.7) 20%, rgba(255,242,0,0.7) 40%, rgba(255,127,39,0.7) 60%, rgba(236,28,36,0.7) 80%, rgba(184,61,218,0.8) 100%);">
+                    </div>
+                    <span style="font-size: 0.55rem;">High</span>
+                </div>
+            </div>
+        </div>
+        <div id="map3" class="map-instance" style="display:none;">
+            <div class="map-metadata">
+                <div id="meta-title-3"
+                    style="font-weight: bold; font-size: 0.8rem; margin-bottom: 4px; color: var(--primary);">Map 4 -
+                    Idle</div>
+                <div id="meta-desc-3" style="font-size: 0.65rem; color: #ccc; line-height: 1.4;">Waiting for data...
+                </div>
+                <div id="meta-scale-3" style="display: none; align-items: center; gap: 5px; margin-top: 6px;">
+                    <span style="font-size: 0.55rem;">Low</span>
+                    <div
+                        style="flex-grow: 1; height: 6px; width: 80px; border-radius: 3px; background: linear-gradient(to right, rgba(255,255,255,0), rgba(102,194,164,0.7) 20%, rgba(255,242,0,0.7) 40%, rgba(255,127,39,0.7) 60%, rgba(236,28,36,0.7) 80%, rgba(184,61,218,0.8) 100%);">
+                    </div>
+                    <span style="font-size: 0.55rem;">High</span>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script type="module">
@@ -478,11 +771,8 @@
             }, 4000);
         }
 
-        // ==========================================
-        // FIREBASE CONFIG
-        // ==========================================
         const firebaseConfig = {
-            apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ", 
+            apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ",
             authDomain: "hoco-3b23e.firebaseapp.com",
             projectId: "hoco-3b23e",
             storageBucket: "hoco-3b23e.firebasestorage.app",
@@ -495,14 +785,12 @@
         const functions = getFunctions(app, "us-central1");
         const triggerHocoRun = httpsCallable(functions, 'triggerHocoRun');
 
-        // ==========================================
-        // STATE & CONSTANTS
-        // ==========================================
-        let userRole = 'guest'; 
+        let userRole = 'guest';
         let runsToday = 0;
         let maps = [];
         let allRuns = [];
         let selectedScenarios = [];
+        let activeMapData = [null, null, null, null]; // Cache GeoJSON data for styling changes
 
         const models = {
             swisseu: { name: "SWISS-EU", freq: 3 }, harmi: { name: "HARMONIE", freq: 3 },
@@ -515,16 +803,15 @@
         // MAPBOX INITIALIZATION & SYNC
         // ==========================================
         mapboxgl.accessToken = 'pk.eyJ1IjoibWV0ZW9ncm91cC1tYXBib3giLCJhIjoiY2pudWJyMWVhMDQ0bjNxdXFsNWJ5M2ZtbSJ9.ANOKYyv5s0VFVbnesnGGUQ';
-        
+
         function initMaps() {
-            for(let i=0; i<4; i++) {
+            for (let i = 0; i < 4; i++) {
                 maps[i] = new mapboxgl.Map({
                     container: `map${i}`, style: 'mapbox://styles/mapbox/dark-v11',
                     center: [-1.5, 52.5], zoom: 5.5, projection: 'mercator'
                 });
                 maps[i].addControl(new mapboxgl.NavigationControl(), 'top-right');
-                
-                // Interactive Popups
+
                 maps[i].on('click', 'hoco-grid', (e) => {
                     if (!e.features || e.features.length === 0) return;
                     const props = e.features[0].properties;
@@ -538,17 +825,16 @@
                 maps[i].on('mouseenter', 'hoco-grid', () => maps[i].getCanvas().style.cursor = 'crosshair');
                 maps[i].on('mouseleave', 'hoco-grid', () => maps[i].getCanvas().style.cursor = '');
 
-                // View Syncing
                 maps[i].on('move', (e) => {
-                    if (e.originalEvent) { 
+                    if (e.originalEvent) {
                         const center = maps[i].getCenter();
                         const zoom = maps[i].getZoom();
                         const pitch = maps[i].getPitch();
                         const bearing = maps[i].getBearing();
-                        
+
                         maps.forEach((m, idx) => {
                             if (idx !== i && document.getElementById(`map${idx}`).style.display !== 'none') {
-                                m.jumpTo({center, zoom, pitch, bearing});
+                                m.jumpTo({ center, zoom, pitch, bearing });
                             }
                         });
                     }
@@ -557,32 +843,39 @@
         }
         initMaps();
 
+        // Style Switcher
+        document.getElementById('mapStyleSelect').addEventListener('change', (e) => {
+            const styleUrl = e.target.value;
+            maps.forEach((m, i) => {
+                m.setStyle(styleUrl);
+                m.once('style.load', () => {
+                    if (activeMapData[i]) {
+                        renderHocoLayers(m, activeMapData[i]); // Re-render if cached
+                    }
+                });
+            });
+        });
+
         // Layout Switcher
         document.getElementById('layoutSelect').addEventListener('change', (e) => {
             const val = parseInt(e.target.value);
             document.getElementById('map-wrapper').className = `grid-${val}`;
-            
-            for(let i=0; i<4; i++) {
+            for (let i = 0; i < 4; i++) {
                 const mapDiv = document.getElementById(`map${i}`);
-                if(i < val) {
-                    mapDiv.style.display = 'block';
-                    maps[i].resize();
-                } else {
-                    mapDiv.style.display = 'none';
-                }
+                if (i < val) { mapDiv.style.display = 'block'; maps[i].resize(); }
+                else { mapDiv.style.display = 'none'; }
             }
         });
 
-        // Sliders applied to all visible maps
         document.getElementById('opacitySlider').addEventListener('input', (e) => {
             const op = parseInt(e.target.value) / 100;
-            maps.forEach(m => { if(m.getLayer('hoco-grid')) m.setPaintProperty('hoco-grid', 'fill-extrusion-opacity', op); });
+            maps.forEach(m => { if (m.getLayer('hoco-grid')) m.setPaintProperty('hoco-grid', 'fill-extrusion-opacity', op); });
         });
 
         document.getElementById('heightSlider').addEventListener('input', (e) => {
             const h = parseInt(e.target.value);
             maps.forEach(m => {
-                if(m.getLayer('hoco-grid')) {
+                if (m.getLayer('hoco-grid')) {
                     m.setPaintProperty('hoco-grid', 'fill-extrusion-height', ['*', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], h]);
                 }
             });
@@ -591,7 +884,7 @@
         // ==========================================
         // AUTHENTICATION & ROLES
         // ==========================================
-        window.showAuth = function(mode) {
+        window.showAuth = function (mode) {
             document.getElementById('authOverlay').style.display = 'flex';
             document.getElementById('authTitle').innerText = mode === 'login' ? 'Sign In' : 'Register Access';
             document.getElementById('authSubmitBtn').dataset.mode = mode;
@@ -604,11 +897,11 @@
             const btn = e.target;
             btn.disabled = true; btn.innerText = "Processing...";
             try {
-                if(mode === 'login') await signInWithEmailAndPassword(auth, email, pass);
+                if (mode === 'login') await signInWithEmailAndPassword(auth, email, pass);
                 else await createUserWithEmailAndPassword(auth, email, pass);
                 document.getElementById('authError').innerText = '';
                 document.getElementById('authOverlay').style.display = 'none';
-            } catch(err) {
+            } catch (err) {
                 document.getElementById('authError').innerText = err.message.replace('Firebase: ', '');
             } finally {
                 btn.disabled = false; btn.innerText = "Submit";
@@ -622,7 +915,7 @@
                 document.getElementById('landingPage').style.display = 'none';
                 document.getElementById('mainUI').style.display = 'block';
                 document.getElementById('displayUid').innerText = `ID: ${user.uid}`;
-                
+
                 const uRef = doc(db, "users", user.uid);
                 const uDoc = await getDoc(uRef);
                 if (!uDoc.exists()) {
@@ -631,13 +924,12 @@
                 } else {
                     userRole = uDoc.data().role || 'guest';
                 }
-                
+
                 await updateRunCap(user.uid);
                 applyRoleLogic();
                 initScenarioLogic();
                 loadArchive();
-                
-                if(userRole === 'developer') loadAdminData();
+                if (userRole === 'developer') loadAdminData();
             } else {
                 document.getElementById('landingPage').style.display = 'flex';
                 document.getElementById('mainUI').style.display = 'none';
@@ -646,11 +938,10 @@
         });
 
         async function updateRunCap(uid) {
-            if(userRole === 'guest' || userRole === 'developer') return;
-            // Calculate runs created today manually from recent archive to save CF complexity
+            if (userRole === 'guest' || userRole === 'developer') return;
             const todayStr = new Date().toISOString().split('T')[0];
             const q = query(collection(db, "hoco_requests"), where("userId", "==", uid), orderBy("createdAt", "desc"), limit(20));
-            const snap = await getDoc(q).catch(()=>null); // Fallback logic below in archive listener
+            const snap = await getDoc(q).catch(() => null);
         }
 
         function applyRoleLogic() {
@@ -665,11 +956,10 @@
             document.getElementById('exclusiveSection').style.display = (isExclusive || isDev) ? 'block' : 'none';
             document.getElementById('adminPanel').style.display = isDev ? 'block' : 'none';
 
-            // Time Restrictions (72h max for Normal/Exclusive)
             const maxDate = new Date();
-            if(!isDev) maxDate.setHours(maxDate.getHours() + 72);
+            if (!isDev) maxDate.setHours(maxDate.getHours() + 72);
             const endInput = document.getElementById('endTime');
-            if(!isDev) endInput.max = maxDate.toISOString().slice(0, 16);
+            if (!isDev) endInput.max = maxDate.toISOString().slice(0, 16);
             else endInput.removeAttribute('max');
         }
 
@@ -678,24 +968,22 @@
         // ==========================================
         function loadArchive() {
             const todayStr = new Date().toISOString().split('T')[0];
-            if(!document.getElementById('calendarFilter').value) document.getElementById('calendarFilter').value = todayStr;
+            if (!document.getElementById('calendarFilter').value) document.getElementById('calendarFilter').value = todayStr;
 
             const q = query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(100));
             onSnapshot(q, (snap) => {
                 allRuns = [];
                 let myRunsTodayCount = 0;
-                
+
                 snap.forEach(d => {
                     const data = d.data();
                     allRuns.push({ id: d.id, ...data });
-                    
-                    // Count runs for cap
-                    if(data.userId === auth.currentUser?.uid) {
+                    if (data.userId === auth.currentUser?.uid) {
                         const runDate = (data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt)).toISOString().split('T')[0];
-                        if(runDate === todayStr) myRunsTodayCount++;
+                        if (runDate === todayStr) myRunsTodayCount++;
                     }
                 });
-                
+
                 runsToday = myRunsTodayCount;
                 updateCapUI();
                 renderArchiveDropdown();
@@ -704,9 +992,9 @@
 
         function updateCapUI() {
             const capText = document.getElementById('runCapText');
-            if(userRole === 'normal') capText.innerText = `(Daily Cap: ${runsToday}/7)`;
-            else if(userRole === 'exclusive') capText.innerText = `(Daily Cap: ${runsToday}/15)`;
-            else if(userRole === 'developer') capText.innerText = `(Unlimited)`;
+            if (userRole === 'normal') capText.innerText = `(Daily Cap: ${runsToday}/7)`;
+            else if (userRole === 'exclusive') capText.innerText = `(Daily Cap: ${runsToday}/15)`;
+            else if (userRole === 'developer') capText.innerText = `(Unlimited)`;
         }
 
         function renderArchiveDropdown() {
@@ -715,25 +1003,25 @@
             sel.innerHTML = '<option value="">Select Run to Load...</option>';
 
             allRuns.filter(r => {
-                if(!r.createdAt) return false;
+                if (!r.createdAt) return false;
                 const rDate = (r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt)).toISOString().split('T')[0];
-                if(rDate !== dateStr) return false;
-                
+                if (rDate !== dateStr) return false;
+
                 const isOwner = r.userId === auth.currentUser.uid;
-                if(userRole === 'guest') return r.public;
-                if(userRole === 'developer') return true;
+                if (userRole === 'guest') return r.public;
+                if (userRole === 'developer') return true;
                 return r.public || isOwner || r.type === 'automated';
             }).forEach(r => {
                 const opt = document.createElement('option');
                 opt.value = r.id;
-                
+
                 let tag = "[PVT]"; let cls = "";
-                if(r.public) { tag = "[PUB]"; cls = "opt-manual"; }
-                if(r.type === 'automated') { tag = "[AUTO]"; cls = "opt-auto"; }
-                if(r.userId === auth.currentUser.uid) { tag = "[YOU]"; cls = "opt-self"; }
+                if (r.public) { tag = "[PUB]"; cls = "opt-manual"; }
+                if (r.type === 'automated') { tag = "[AUTO]"; cls = "opt-auto"; }
+                if (r.userId === auth.currentUser.uid) { tag = "[YOU]"; cls = "opt-self"; }
 
                 opt.className = cls;
-                const timeStr = (r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt)).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                const timeStr = (r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 opt.textContent = `${tag} ${r.startTime || '?'} - ${r.region || 'UK'} (${timeStr})`;
                 sel.appendChild(opt);
             });
@@ -741,27 +1029,43 @@
 
         document.getElementById('calendarFilter').addEventListener('change', renderArchiveDropdown);
 
-        // Load specific run into targeted map
         document.getElementById('idSelector').addEventListener('change', async (e) => {
             const runId = e.target.value;
-            if(!runId) return;
+            if (!runId) return;
 
             const mapIndex = parseInt(document.getElementById('targetMapSelect').value);
             const targetMap = maps[mapIndex];
             const statusUI = document.getElementById('runStatus');
-            
+
             statusUI.innerText = `Fetching data for Map ${mapIndex + 1}...`;
 
             const docSnap = await getDoc(doc(db, "hoco_requests", runId));
             if (docSnap.exists() && docSnap.data().geojsonUrl) {
                 try {
-                    const response = await fetch(docSnap.data().geojsonUrl);
+                    const runData = docSnap.data();
+                    const response = await fetch(runData.geojsonUrl);
                     const rawData = await response.json();
                     const gridData = pointsToGrid(rawData, 0.081);
-                    
+
+                    activeMapData[mapIndex] = gridData; // Cache data for style toggling
                     await renderHocoLayers(targetMap, gridData);
                     statusUI.innerText = "Loaded successfully.";
-                } catch(err) {
+
+                    // Update Metadata UI
+                    const creationDate = runData.createdAt.toDate ? runData.createdAt.toDate() : new Date(runData.createdAt);
+                    const isNormal = runData.type === 'automated';
+
+                    document.getElementById(`meta-title-${mapIndex}`).innerText = `Loaded: ${runData.region}`;
+                    document.getElementById(`meta-desc-${mapIndex}`).innerHTML = `
+                        <strong>Period:</strong> ${runData.startTime} - ${runData.endTime}<br>
+                        <strong>Hazards:</strong> <span style="text-transform: capitalize">${runData.weather}</span><br>
+                        <strong>Mode:</strong> ${isNormal ? 'Normal Mode (Auto)' : 'Custom Weighting'}<br>
+                        <strong>Ran by:</strong> User ${runData.userId.substring(0, 6)}<br>
+                        <strong>Time:</strong> ${creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
+                    `;
+                    document.getElementById(`meta-scale-${mapIndex}`).style.display = 'flex';
+
+                } catch (err) {
                     statusUI.innerText = "Error parsing GeoJSON.";
                 }
             } else {
@@ -790,7 +1094,6 @@
                 }
             });
 
-            // Ensure labels stay on top
             const layers = targetMap.getStyle().layers;
             const labelLayer = layers.find(l => l.type === 'symbol' && l.layout && l.layout['text-field']);
             if (labelLayer) targetMap.moveLayer('hoco-grid', labelLayer.id);
@@ -837,14 +1140,14 @@
             const rSel = document.getElementById('runSelect');
             rSel.innerHTML = '';
             const freq = models[document.getElementById('modelSelect').value].freq;
-            let baseTime = new Date(); baseTime.setUTCMinutes(0,0,0);
+            let baseTime = new Date(); baseTime.setUTCMinutes(0, 0, 0);
             baseTime.setUTCHours(Math.floor(baseTime.getUTCHours() / freq) * freq);
 
             for (let i = 0; i < 20; i++) {
                 let d = new Date(baseTime.getTime() - (i * freq * 3600000));
                 let opt = document.createElement('option');
                 opt.value = d.toISOString();
-                opt.textContent = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth()+1).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}z`;
+                opt.textContent = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}z`;
                 rSel.appendChild(opt);
             }
         }
@@ -873,28 +1176,25 @@
             }
         });
 
-        // Submit Execution Form
         document.getElementById('hocoForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
-            // Limit checks
-            if(userRole === 'normal' && runsToday >= 7) return showToast("Daily Normal limit (7) reached.", "error");
-            if(userRole === 'exclusive' && runsToday >= 15) return showToast("Daily Exclusive limit (15) reached.", "error");
+
+            if (userRole === 'normal' && runsToday >= 7) return showToast("Daily Normal limit (7) reached.", "error");
+            if (userRole === 'exclusive' && runsToday >= 15) return showToast("Daily Exclusive limit (15) reached.", "error");
 
             const btn = document.getElementById('submitBtn');
             btn.disabled = true; btn.innerText = "Triggering...";
 
             const formatDate = (isoStr) => {
                 const d = new Date(isoStr);
-                return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+                return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
             };
 
-            // Enforce constraints for normal role
             let finalScenarios = selectedScenarios;
             let finalWeights = {};
-            
-            if(userRole === 'normal') {
-                finalScenarios = []; // forces Auto
+
+            if (userRole === 'normal') {
+                finalScenarios = [];
                 finalWeights = defaultWeights;
             } else {
                 Object.keys(defaultWeights).forEach(m => {
@@ -922,7 +1222,7 @@
 
                 await triggerHocoRun({ id: docRef.id, ...payload });
                 showToast("Run completely triggered.", "success");
-                
+
                 selectedScenarios = []; renderChips();
                 runsToday++; updateCapUI();
             } catch (err) {
@@ -939,8 +1239,8 @@
             const role = document.getElementById('reqRole').value;
             const social = document.getElementById('reqSocial').value;
             const reason = document.getElementById('reqReason').value;
-            if(!social || !reason) return showToast("Please fill all fields", "error");
-            
+            if (!social || !reason) return showToast("Please fill all fields", "error");
+
             try {
                 await addDoc(collection(db, "role_requests"), {
                     userId: auth.currentUser.uid,
@@ -954,11 +1254,10 @@
                 showToast("Upgrade request submitted.", "success");
                 document.getElementById('reqSocial').value = '';
                 document.getElementById('reqReason').value = '';
-            } catch(e) { showToast("Error submitting request.", "error"); }
+            } catch (e) { showToast("Error submitting request.", "error"); }
         });
 
         function loadAdminData() {
-            // Load Users
             onSnapshot(collection(db, "users"), (snap) => {
                 const list = document.getElementById('userList');
                 list.innerHTML = '';
@@ -977,11 +1276,10 @@
                 });
             });
 
-            // Load Upgrade Requests
             onSnapshot(query(collection(db, "role_requests"), where("status", "==", "pending")), (snap) => {
                 const list = document.getElementById('upgradeRequestsList');
                 list.innerHTML = '';
-                if(snap.empty) list.innerHTML = '<div style="color:#666; font-size:0.8rem;">No pending requests.</div>';
+                if (snap.empty) list.innerHTML = '<div style="color:#666; font-size:0.8rem;">No pending requests.</div>';
                 snap.forEach(d => {
                     const r = d.data();
                     list.innerHTML += `
@@ -999,7 +1297,7 @@
 
         window.updateRole = async (uid, role) => {
             try { await updateDoc(doc(db, "users", uid), { role }); showToast("Role updated.", "success"); }
-            catch(err) { showToast("Update failed.", "error"); }
+            catch (err) { showToast("Update failed.", "error"); }
         };
 
         window.approveRequest = async (reqId, uid, role) => {
@@ -1007,23 +1305,24 @@
                 await updateDoc(doc(db, "users", uid), { role });
                 await updateDoc(doc(db, "role_requests", reqId), { status: 'approved' });
                 showToast("Request approved.", "success");
-            } catch(err) { showToast("Error approving.", "error"); }
+            } catch (err) { showToast("Error approving.", "error"); }
         };
 
         window.rejectRequest = async (reqId) => {
             try { await updateDoc(doc(db, "role_requests", reqId), { status: 'rejected' }); showToast("Request rejected.", "info"); }
-            catch(err) { showToast("Error rejecting.", "error"); }
+            catch (err) { showToast("Error rejecting.", "error"); }
         };
 
         document.getElementById('publishBtn').addEventListener('click', async () => {
             const runId = document.getElementById('idSelector').value;
-            if(!runId) return showToast("Select a run first", "error");
+            if (!runId) return showToast("Select a run first", "error");
             try {
                 await updateDoc(doc(db, "hoco_requests", runId), { public: true });
                 showToast("Run published to Guests.", "success");
-            } catch(err) { showToast("Failed to publish.", "error"); }
+            } catch (err) { showToast("Failed to publish.", "error"); }
         });
 
     </script>
 </body>
+
 </html>
