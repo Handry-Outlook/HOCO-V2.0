@@ -1319,34 +1319,7 @@
             return 'rgba(184,61,218,1)';
         }
 
-        function generateSmoothedContours(pointData) {
-            if (typeof turf === 'undefined') return null;
-
-            let rawZProp = 'risk';
-            if (pointData.features[0].properties.Risk !== undefined) rawZProp = 'Risk';
-
-            const normalized = JSON.parse(JSON.stringify(pointData));
-            normalized.features.forEach(f => {
-                f.properties.risk_normalized = (f.properties[rawZProp] || 0) / 5;
-            });
-
-            const contours = turf.isolines(normalized, {
-                zProperty: 'risk_normalized',
-                breaks: [10,20,30,40,50,60,70,80,90,100]
-            });
-
-            // Bezier spline = buttery smooth curves (SPC/Nadocast feel)
-            const smoothed = {
-                type: 'FeatureCollection',
-                features: contours.features.map(f => {
-                    if (f.geometry.type === 'LineString') {
-                        return turf.bezierSpline(f, { tension: 0.35 });
-                    }
-                    return f;
-                })
-            };
-            return smoothed;
-        }
+        
         function pointsToGrid(geojson, size) {
             if (!geojson || !geojson.features) return geojson;
             const half = size / 2;
