@@ -1052,60 +1052,61 @@
         }
 
         function renderArchiveDropdown() {
-    const dateStr = document.getElementById('calendarFilter').value;
-    const sel = document.getElementById('idSelector');
-    sel.innerHTML = '<option value="">Select Run to Load...</option>';
+            const dateStr = document.getElementById('calendarFilter').value;
+            const sel = document.getElementById('idSelector');
+            sel.innerHTML = '<option value="">Select Run to Load...</option>';
 
-    const currentUid = auth.currentUser ? auth.currentUser.uid : null;
+            const currentUid = auth.currentUser ? auth.currentUser.uid : null;
 
-    allRuns
-        .filter(r => {
-            if (!r.createdAt) return false;
+            allRuns
+                .filter(r => {
+                    if (!r.createdAt) return false;
 
-            // Must match selected date
-            const rDate = (r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt))
-                .toISOString()
-                .split('T')[0];
-            if (rDate !== dateStr) return false;
+                    const rDate = (r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt))
+                        .toISOString()
+                        .split('T')[0];
+                    if (rDate !== dateStr) return false;
 
-            // Developers see everything
-            if (userRole === 'developer') return true;
+                    // 1. Developers see everything
+                    if (userRole === 'developer') return true;
 
-            // Rule 1: Everyone can see automated runs
-            if (r.type === 'automated') return true;
+                    // 2. Everyone sees system-automated runs
+                    if (r.type === 'automated') return true;
 
-            // Rule 2: Everyone can see explicitly published (public) runs
-            if (r.public === true) return true;
+                    // 3. Everyone sees runs explicitly set to public
+                    if (r.public === true) return true;
 
-            // Rule 3: Only the owner can see their own non-public, non-automated runs
-            if (currentUid && r.userId === currentUid) {
-                return true;
-            }
+                    // 4. Users ONLY see their own manual/private runs
+                    if (currentUid && r.userId === currentUid) return true;
 
-            // Otherwise: completely hidden
-            return false;
-        })
-        .forEach(r => {
-            const opt = document.createElement('option');
-            opt.value = r.id;
+                    return false;
+                })
+                .forEach(r => {
+                    const opt = document.createElement('option');
+                    opt.value = r.id;
 
-            let tag = "[PVT]";
-            if (r.type === 'automated') tag = "[AUTO]";
-            else if (r.public === true) tag = "[PUB]";
-            else if (currentUid && r.userId === currentUid) tag = "[MINE]";
+                    let tag = "[PVT]"; // Default tag
 
-            const creationDate = r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
-            const creationTimeStr = creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    if (r.type === 'automated') {
+                        tag = "[AUTO]";
+                    } else if (r.public === true) {
+                        tag = "[PUB]";
+                    } else if (currentUid && r.userId === currentUid) {
+                        tag = "[MINE]";
+                    }
 
-            const fullStart = r.startTime || "??/??/???? ??:??";
-            const validDate = fullStart.split(' ')[0].substring(0, 5);
-            const periodStart = fullStart.split(' ')[1] || "??:??";
-            const periodEnd = r.endTime ? r.endTime.split(' ')[1] : "??:??";
+                    const creationDate = r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
+                    const creationTimeStr = creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-            opt.textContent = `${tag} ${validDate} - ${r.region || 'UK'} (${periodStart} - ${periodEnd}) [Sent: ${creationTimeStr}]`;
-            sel.appendChild(opt);
-        });
-}
+                    const fullStart = r.startTime || "??/??/???? ??:??";
+                    const validDate = fullStart.split(' ')[0].substring(0, 5);
+                    const periodStart = fullStart.split(' ')[1] || "??:??";
+                    const periodEnd = r.endTime ? r.endTime.split(' ')[1] : "??:??";
+
+                    opt.textContent = `${tag} ${validDate} - ${r.region || 'UK'} (${periodStart} - ${periodEnd}) [Sent: ${creationTimeStr}]`;
+                    sel.appendChild(opt);
+                });
+        }
         document.getElementById('calendarFilter').addEventListener('change', renderArchiveDropdown);
 
         document.getElementById('idSelector').addEventListener('change', async (e) => {
@@ -1310,6 +1311,7 @@
             }
 
             try {
+                // Locate this section inside the document.getElementById('hocoForm').addEventListener('submit'...)
                 const payload = {
                     region: document.getElementById('regionSelect').value,
                     scenarios: finalScenarios,
@@ -1320,8 +1322,10 @@
                     userId: auth.currentUser.uid,
                     createdAt: new Date(),
                     status: 'pending',
-                    public: false, // <--- ADD THIS LINE to ensure the run starts as private
-                    type: finalScenarios.length === 0 ? 'automated' : 'manual'
+                    public: false,
+                    // CHANGE: If it's triggered by a user via the form, it is 'manual'
+                    // 'automated' should be reserved for system-cron jobs.
+                    type: 'manual'
                 };
 
                 const docRef = await addDoc(collection(db, "hoco_requests"), payload);
