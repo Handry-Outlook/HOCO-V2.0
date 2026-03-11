@@ -1130,7 +1130,7 @@
                     const response = await fetch(runData.geojsonUrl);
                     const rawData = await response.json();
 
-                    activeMapData[mapIndex] = rawData;  // now stores raw points (needed for contours)
+                    activeMapData[mapIndex] = rawData;
                     await renderHocoLayers(targetMap, rawData);
                     statusUI.innerText = "Loaded successfully.";
 
@@ -1158,7 +1158,119 @@
             }
         });
 
-                        async function renderHocoLayers(targetMap, pointData) {
+        // ====================== HELPER FUNCTIONS (must be BEFORE renderHocoLayers) ======================
+        function generateSmoothRiskRaster(pointData) {
+            const features = pointData.features;
+            if (!features || !features.length) return null;
+
+            let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
+            features.forEach(f => {
+                const [lon, lat] = f.geometry.coordinates;
+                minLon = Math.min(minLon, lon); maxLon = Math.max(maxLon, lon);
+                minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
+            });
+
+            const canvas = document.createElement('canvas');
+            const size = 512;
+            canvas.width = size;
+            canvas.height = Math.round(size * (maxLat - minLat) / (maxLon - minLon));
+
+            const ctx = canvas.getContext('2d');
+            ctx.globalCompositeOperation = 'lighter';
+
+            const radius = Math.max(size / 18, 12);
+
+            features.forEach(f => {
+                const [lon, lat] = f.geometry.coordinates;
+                const rawRisk = f.properties.risk || f.properties.Risk || 0;
+                const norm = Math.min(rawRisk / 500, 1);
+
+                const x = ((lon - minLon) / (maxLon - minLon)) * canvas.width;
+                const y = ((maxLat - lat) / (maxLat - minLat)) * canvas.height;
+
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius * 2.2);
+                const color = getRiskFillColor(rawRisk);
+                gradient.addColorStop(0, color);
+                gradient.addColorStop(1, 'rgba(255,255,255,0)');
+
+                ctx.fillStyle = gradient;
+                ctx.globalAlpha = norm * 0.75 + 0.15;
+                ctx.beginPath();
+                ctx.arc(x, y, radius * 2.2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            return {
+                url: canvas.toDataURL('image/png'),
+                bounds: [minLon, minLat, maxLon, maxLat]
+            };
+        }
+
+        function getRiskFillColor(risk) {
+            const n = Math.min(Math.max(risk / 5, 0), 100);
+            if (n <= 20) return 'rgba(102,194,164,1)';
+            if (n <= 40) return 'rgba(255,242,0,1)';
+            if (n <= 60) return 'rgba(255,127,39,1)';
+            if (n <= 80) return 'rgba(236,28,36,1)';
+            return 'rgba(184,61,218,1)';
+        }
+
+        function generateSmoothedContours(pointData) {
+            if (typeof turf === 'undefined') return null;
+            if (!pointData || !pointData.features || pointData.features.length < 3) return null;
+
+            let rawZProp = 'risk';
+            const sample = pointData.features[0];
+            if (sample.properties.Risk !== undefined) rawZProp = 'Risk';
+
+            const normalized = JSON.parse(JSON.stringify(pointData));
+            let minRisk = Infinity;
+            let maxRisk = -Infinity;
+
+            normalized.features.forEach(f => {
+                if (!f.properties) f.properties = {};
+                const raw = f.properties[rawZProp] || 0;
+                const norm = raw / 5;
+                f.properties.risk_normalized = norm;
+                if (norm > 0) {
+                    minRisk = Math.min(minRisk, norm);
+                    maxRisk = Math.max(maxRisk, norm);
+                }
+            });
+
+            if (minRisk === Infinity || maxRisk - minRisk < 3) return null;
+
+            const contours = turf.isolines(normalized, { zProperty: 'risk_normalized' });
+
+            if (!contours || !contours.features.length) return null;
+
+            const smoothed = {
+                type: 'FeatureCollection',
+                features: contours.features.map(f => {
+                    if (f.geometry?.type === 'LineString') {
+                        return turf.bezierSpline(f, { tension: 0.35 });
+                    }
+                    return f;
+                })
+            };
+            return smoothed;
+        }
+
+        function pointsToGrid(geojson, size) {
+            if (!geojson || !geojson.features) return geojson;
+            const half = size / 2;
+            const features = geojson.features.map(f => {
+                const [lon, lat] = f.geometry.coordinates;
+                return {
+                    type: "Feature", properties: f.properties,
+                    geometry: { type: "Polygon", coordinates: [[[lon - half, lat - half], [lon + half, lat - half], [lon + half, lat + half], [lon - half, lat + half], [lon - half, lat - half]]] }
+                };
+            });
+            return { type: "FeatureCollection", features };
+        }
+
+        // ====================== RENDERING FUNCTION ======================
+        async function renderHocoLayers(targetMap, pointData) {
             if (!pointData || !pointData.features || pointData.features.length === 0) return;
 
             // Clean up old layers
@@ -1170,7 +1282,7 @@
             const visType = document.getElementById('visTypeSelect').value;
             const opacity = parseInt(document.getElementById('opacitySlider').value) / 100;
 
-            // ====================== 1. SMOOTH RASTER FILL (Nadocast-style) ======================
+            // 1. SMOOTH RASTER FILL (2D mode - Nadocast style)
             if (visType === '2d') {
                 const raster = generateSmoothRiskRaster(pointData);
                 if (raster) {
@@ -1178,10 +1290,10 @@
                         type: 'image',
                         url: raster.url,
                         coordinates: [
-                            [raster.bounds[0], raster.bounds[3]], // top-left
-                            [raster.bounds[2], raster.bounds[3]], // top-right
-                            [raster.bounds[2], raster.bounds[1]], // bottom-right
-                            [raster.bounds[0], raster.bounds[1]]  // bottom-left
+                            [raster.bounds[0], raster.bounds[3]],
+                            [raster.bounds[2], raster.bounds[3]],
+                            [raster.bounds[2], raster.bounds[1]],
+                            [raster.bounds[0], raster.bounds[1]]
                         ]
                     });
 
@@ -1189,14 +1301,11 @@
                         id: 'smooth-raster',
                         type: 'raster',
                         source: 'smooth-raster',
-                        paint: {
-                            'raster-opacity': opacity,
-                            'raster-fade-duration': 0
-                        }
+                        paint: { 'raster-opacity': opacity, 'raster-fade-duration': 0 }
                     });
                 }
             } 
-            // ====================== 2. 3D GRID (kept for extrusion) ======================
+            // 2. 3D GRID (kept for extrusion)
             else {
                 const gridData = pointsToGrid(pointData, 0.081);
                 targetMap.addSource('hoco-source', { type: 'geojson', data: gridData });
@@ -1218,7 +1327,7 @@
                 });
             }
 
-            // ====================== 3. SPC-STYLE SMOOTH CONTOURS (always on top) ======================
+            // 3. SPC-STYLE SMOOTH CONTOURS
             const smoothedContours = generateSmoothedContours(pointData);
             if (smoothedContours && smoothedContours.features.length > 0) {
                 targetMap.addSource('contour-source', { type: 'geojson', data: smoothedContours });
@@ -1227,11 +1336,7 @@
                     id: 'contour-layer',
                     type: 'line',
                     source: 'contour-source',
-                    paint: {
-                        'line-color': '#111111',
-                        'line-width': 2.2,
-                        'line-opacity': 0.95
-                    },
+                    paint: { 'line-color': '#111111', 'line-width': 2.2, 'line-opacity': 0.95 },
                     layout: { 'line-join': 'round', 'line-cap': 'round' }
                 });
 
@@ -1254,84 +1359,18 @@
                 });
             }
 
-            // Move everything below map labels
+            // Move layers below map labels
             const layers = targetMap.getStyle().layers;
             const labelLayer = layers.find(l => l.type === 'symbol' && l.layout?.['text-field']);
             if (labelLayer) {
                 if (targetMap.getLayer('smooth-raster')) targetMap.moveLayer('smooth-raster', labelLayer.id);
                 if (targetMap.getLayer('hoco-layer')) targetMap.moveLayer('hoco-layer', labelLayer.id);
-                targetMap.moveLayer('contour-layer', labelLayer.id);
+                if (targetMap.getLayer('contour-layer')) targetMap.moveLayer('contour-layer', labelLayer.id);
             }
-        }
-                        function generateSmoothedContours(pointData) {
-            if (typeof turf === 'undefined') return null;
-            if (!pointData || !pointData.features || pointData.features.length < 3) return null;
-
-            let rawZProp = 'risk';
-            const sample = pointData.features[0];
-            if (!sample || !sample.properties) return null;
-            if (sample.properties.Risk !== undefined) rawZProp = 'Risk';
-
-            const normalized = JSON.parse(JSON.stringify(pointData));
-            let minRisk = Infinity;
-            let maxRisk = -Infinity;
-
-            normalized.features.forEach(f => {
-                if (!f.properties) f.properties = {};
-                const raw = f.properties[rawZProp] || 0;
-                const norm = raw / 5;
-                f.properties.risk_normalized = norm;
-                if (norm > 0) {
-                    minRisk = Math.min(minRisk, norm);
-                    maxRisk = Math.max(maxRisk, norm);
-                }
-            });
-
-            if (minRisk === Infinity || maxRisk - minRisk < 3) return null; // skip if no real variation
-
-            // FIXED: Removed explicit 'breaks' → Turf now auto-generates perfect intervals from YOUR data
-            // This completely eliminates the "breaks must be an Array" error and makes contours adaptive
-            const contours = turf.isolines(normalized, {
-                zProperty: 'risk_normalized'
-            });
-
-            if (!contours || !contours.features.length) return null;
-
-            // Bezier spline = ultra-smooth curved lines (exactly like SPC/Nadocast)
-            const smoothed = {
-                type: 'FeatureCollection',
-                features: contours.features.map(f => {
-                    if (f.geometry?.type === 'LineString') {
-                        return turf.bezierSpline(f, { tension: 0.35 });
-                    }
-                    return f;
-                })
-            };
-            return smoothed;
-        }
-
-        function getRiskFillColor(risk) {
-            const n = Math.min(Math.max(risk / 5, 0), 100);
-            if (n <= 20) return 'rgba(102,194,164,1)';
-            if (n <= 40) return 'rgba(255,242,0,1)';
-            if (n <= 60) return 'rgba(255,127,39,1)';
-            if (n <= 80) return 'rgba(236,28,36,1)';
-            return 'rgba(184,61,218,1)';
         }
 
         
-        function pointsToGrid(geojson, size) {
-            if (!geojson || !geojson.features) return geojson;
-            const half = size / 2;
-            const features = geojson.features.map(f => {
-                const [lon, lat] = f.geometry.coordinates;
-                return {
-                    type: "Feature", properties: f.properties,
-                    geometry: { type: "Polygon", coordinates: [[[lon - half, lat - half], [lon + half, lat - half], [lon + half, lat + half], [lon - half, lat + half], [lon - half, lat - half]]] }
-                };
-            });
-            return { type: "FeatureCollection", features };
-        }
+        
 
         // ==========================================
         // SCENARIO & EXECUTION LOGIC
