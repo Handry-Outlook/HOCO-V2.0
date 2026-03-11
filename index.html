@@ -1058,50 +1058,53 @@
 
     const currentUid = auth.currentUser ? auth.currentUser.uid : null;
 
-    allRuns.filter(r => {
-        if (!r.createdAt) return false;
+    allRuns
+        .filter(r => {
+            if (!r.createdAt) return false;
 
-        // 1. Date Check: Must match selected calendar date
-        const rDate = (r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt)).toISOString().split('T')[0];
-        if (rDate !== dateStr) return false;
+            // Must match selected date
+            const rDate = (r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt))
+                .toISOString()
+                .split('T')[0];
+            if (rDate !== dateStr) return false;
 
-        // 2. Developer Override: Developers see everything for management
-        if (userRole === 'developer') return true;
+            // Developers see everything
+            if (userRole === 'developer') return true;
 
-        // 3. Automated Runs: These are system-wide/public defaults
-        if (r.type === 'automated') return true;
+            // Rule 1: Everyone can see automated runs
+            if (r.type === 'automated') return true;
 
-        // 4. Explicitly Public: Shows if a developer published it
-        if (r.public === true) return true;
+            // Rule 2: Everyone can see explicitly published (public) runs
+            if (r.public === true) return true;
 
-        // 5. Ownership Check: User sees their own runs (Private Runs)
-        // If the run is NOT automated and NOT public, ONLY the owner sees it
-        if (currentUid && r.userId === currentUid) return true;
+            // Rule 3: Only the owner can see their own non-public, non-automated runs
+            if (currentUid && r.userId === currentUid) {
+                return true;
+            }
 
-        // 6. Security Catch-all: If none of the above are met, HIDE it.
-        return false;
+            // Otherwise: completely hidden
+            return false;
+        })
+        .forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r.id;
 
-    }).forEach(r => {
-        const opt = document.createElement('option');
-        opt.value = r.id;
+            let tag = "[PVT]";
+            if (r.type === 'automated') tag = "[AUTO]";
+            else if (r.public === true) tag = "[PUB]";
+            else if (currentUid && r.userId === currentUid) tag = "[MINE]";
 
-        // UI Labeling for clarity
-        let tag = "[PVT]"; // Default tag is Private
-        if (r.type === 'automated') tag = "[AUTO]";
-        else if (r.public === true) tag = "[PUB]";
-        else if (currentUid && r.userId === currentUid) tag = "[MINE]";
+            const creationDate = r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
+            const creationTimeStr = creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        const creationDate = r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
-        const creationTimeStr = creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const fullStart = r.startTime || "??/??/???? ??:??";
+            const validDate = fullStart.split(' ')[0].substring(0, 5);
+            const periodStart = fullStart.split(' ')[1] || "??:??";
+            const periodEnd = r.endTime ? r.endTime.split(' ')[1] : "??:??";
 
-        const fullStart = r.startTime || "??/??/???? ??:??";
-        const validDate = fullStart.split(' ')[0].substring(0, 5);
-        const periodStart = fullStart.split(' ')[1] || "??:??";
-        const periodEnd = r.endTime ? r.endTime.split(' ')[1] : "??:??";
-
-        opt.textContent = `${tag} ${validDate} - ${r.region || 'UK'} (${periodStart} - ${periodEnd}) [Sent: ${creationTimeStr}]`;
-        sel.appendChild(opt);
-    });
+            opt.textContent = `${tag} ${validDate} - ${r.region || 'UK'} (${periodStart} - ${periodEnd}) [Sent: ${creationTimeStr}]`;
+            sel.appendChild(opt);
+        });
 }
         document.getElementById('calendarFilter').addEventListener('change', renderArchiveDropdown);
 
