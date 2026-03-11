@@ -10,13 +10,10 @@
     <style>
         :root {
             --primary: #283673;
-            /* Your requested blue */
             --primary-hover: #3d52ad;
-            /* A much brighter blue for contrast on hover */
             --bg: #0f0f0f;
             --card: #1e1e1e;
             --text: #ffffff;
-            /* Ensure text is pure white for readability */
             --border: #3a4785;
             --accent: #2ecc71;
             --danger: #e74c3c;
@@ -93,7 +90,6 @@
             margin: 30px 0;
         }
 
-        /* Force 4 columns on desktop */
         @media (min-width: 769px) {
             .role-grid {
                 grid-template-columns: repeat(4, 1fr);
@@ -304,15 +300,12 @@
             font-weight: 600;
             transition: all 0.2s;
             box-shadow: 0 0 10px rgba(40, 54, 115, 0.3);
-            /* Subtle glow using your blue */
             border: 1px solid rgba(255, 255, 255, 0.1);
-            /* Thin light border for definition */
         }
 
         button:hover:not(:disabled) {
             background: var(--primary-hover);
             box-shadow: 0 0 15px rgba(61, 82, 173, 0.5);
-            /* Stronger glow on hover */
         }
 
         button:disabled {
@@ -359,19 +352,6 @@
 
         .chip span {
             cursor: pointer;
-            font-weight: bold;
-        }
-
-        .opt-auto {
-            color: #a29bfe;
-        }
-
-        .opt-manual {
-            color: #55efc4;
-        }
-
-        .opt-self {
-            color: #ffeaa7;
             font-weight: bold;
         }
 
@@ -582,6 +562,11 @@
                         <option value="mapbox://styles/mapbox/outdoors-v12">Style: Outdoors</option>
                     </select>
 
+                    <select id="visTypeSelect">
+                        <option value="3d">Visualization: 3D Grid Extrusion</option>
+                        <option value="2d">Visualization: 2D Flat Polygon</option>
+                    </select>
+
                     <div style="display: flex; gap: 10px; margin-top: 10px;">
                         <div style="flex: 1;">
                             <label>Grid Opacity</label>
@@ -636,7 +621,6 @@
                         <label>Region</label>
                         <select id="regionSelect">
                             <option value="England">England (South/Central)</option>
-
                         </select>
 
                         <div style="display: flex; gap: 10px; flex-wrap: nowrap;">
@@ -763,7 +747,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, where, doc, getDoc, setDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, where, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 
         function showToast(message, type = 'info') {
@@ -797,7 +781,7 @@
         let maps = [];
         let allRuns = [];
         let selectedScenarios = [];
-        let activeMapData = [null, null, null, null]; // Cache GeoJSON data for styling changes
+        let activeMapData = [null, null, null, null]; 
 
         const models = {
             swisseu: { name: "SWISS-EU", freq: 3 }, harmi: { name: "HARMONIE", freq: 3 },
@@ -819,7 +803,7 @@
                 });
                 maps[i].addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-                maps[i].on('click', 'hoco-grid', (e) => {
+                maps[i].on('click', 'hoco-layer', (e) => {
                     if (!e.features || e.features.length === 0) return;
                     const props = e.features[0].properties;
                     const risk = ((props.risk || props.Risk || 0) / 5).toFixed(2);
@@ -829,8 +813,8 @@
                         .addTo(maps[i]);
                 });
 
-                maps[i].on('mouseenter', 'hoco-grid', () => maps[i].getCanvas().style.cursor = 'crosshair');
-                maps[i].on('mouseleave', 'hoco-grid', () => maps[i].getCanvas().style.cursor = '');
+                maps[i].on('mouseenter', 'hoco-layer', () => maps[i].getCanvas().style.cursor = 'crosshair');
+                maps[i].on('mouseleave', 'hoco-layer', () => maps[i].getCanvas().style.cursor = '');
 
                 maps[i].on('move', (e) => {
                     if (e.originalEvent) {
@@ -857,9 +841,18 @@
                 m.setStyle(styleUrl);
                 m.once('style.load', () => {
                     if (activeMapData[i]) {
-                        renderHocoLayers(m, activeMapData[i]); // Re-render if cached
+                        renderHocoLayers(m, activeMapData[i]); 
                     }
                 });
+            });
+        });
+
+        // Visualization Type Switcher
+        document.getElementById('visTypeSelect').addEventListener('change', () => {
+            maps.forEach((m, i) => {
+                if (activeMapData[i]) {
+                    renderHocoLayers(m, activeMapData[i]); 
+                }
             });
         });
 
@@ -876,14 +869,23 @@
 
         document.getElementById('opacitySlider').addEventListener('input', (e) => {
             const op = parseInt(e.target.value) / 100;
-            maps.forEach(m => { if (m.getLayer('hoco-grid')) m.setPaintProperty('hoco-grid', 'fill-extrusion-opacity', op); });
+            maps.forEach(m => { 
+                if (m.getLayer('hoco-layer')) {
+                    const type = m.getLayer('hoco-layer').type;
+                    if (type === 'fill-extrusion') {
+                        m.setPaintProperty('hoco-layer', 'fill-extrusion-opacity', op);
+                    } else if (type === 'fill') {
+                        m.setPaintProperty('hoco-layer', 'fill-opacity', op);
+                    }
+                } 
+            });
         });
 
         document.getElementById('heightSlider').addEventListener('input', (e) => {
             const h = parseInt(e.target.value);
             maps.forEach(m => {
-                if (m.getLayer('hoco-grid')) {
-                    m.setPaintProperty('hoco-grid', 'fill-extrusion-height', ['*', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], h]);
+                if (m.getLayer('hoco-layer') && m.getLayer('hoco-layer').type === 'fill-extrusion') {
+                    m.setPaintProperty('hoco-layer', 'fill-extrusion-height', ['*', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], h]);
                 }
             });
         });
@@ -919,7 +921,6 @@
 
         onAuthStateChanged(auth, async (user) => {
             if (user) {
-                // UI Transition
                 document.getElementById('landingPage').style.display = 'none';
                 document.getElementById('mainUI').style.display = 'block';
                 document.getElementById('displayUid').innerText = `ID: ${user.uid}`;
@@ -929,10 +930,9 @@
                     const uDoc = await getDoc(uRef);
 
                     if (!uDoc.exists()) {
-                        // Failsafe: Create the user document if it doesn't exist
                         await setDoc(uRef, {
                             email: user.email,
-                            role: 'normal', // Default to normal so they can run forecasts
+                            role: 'normal',
                             createdAt: new Date().toISOString()
                         });
                         userRole = 'normal';
@@ -940,15 +940,12 @@
                         userRole = uDoc.data().role || 'normal';
                     }
 
-                    // Update the UI Role Badge
                     const badge = document.getElementById('roleBadge');
                     if (badge) {
                         badge.innerText = userRole.toUpperCase();
                         badge.style.background = userRole === 'developer' ? 'var(--accent)' : 'var(--primary)';
                     }
 
-                    // Run application logic
-                    // Note: We use Promise.allSettled so one failure doesn't crash the whole app
                     await Promise.allSettled([
                         updateRunCap(user.uid),
                         applyRoleLogic(),
@@ -956,7 +953,6 @@
                         loadArchive()
                     ]);
 
-                    // Only trigger admin listeners if verified
                     if (userRole === 'developer') {
                         loadAdminData();
                     }
@@ -966,11 +962,9 @@
                     showToast("Error loading profile. Check permissions.", "error");
                 }
             } else {
-                // Logged out state
                 document.getElementById('landingPage').style.display = 'flex';
                 document.getElementById('mainUI').style.display = 'none';
                 userRole = 'guest';
-                // Clear local data
                 allRuns = [];
                 renderArchiveDropdown();
             }
@@ -983,8 +977,7 @@
                     where("userId", "==", uid),
                     orderBy("createdAt", "desc"),
                     limit(20));
-                const snap = await getDocs(q); // Use getDocs for a query
-                // The daily count logic is already handled in the loadArchive listener
+                const snap = await getDocs(q); 
             } catch (err) {
                 console.error("Error updating cap:", err);
             }
@@ -1055,14 +1048,8 @@
                 const rDate = (r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt)).toISOString().split('T')[0];
                 if (rDate !== dateStr) return false;
 
-                // --- VISIBILITY LOGIC ---
-                // 1. Developers see everything
                 if (userRole === 'developer') return true;
-
-                // 2. Public and Automated runs are visible to EVERYONE (including 'normal' and 'guest')
                 if (r.public === true || r.type === 'automated') return true;
-
-                // 3. Logged in users see their own private runs
                 if (currentUid && r.userId === currentUid) return true;
 
                 return false;
@@ -1072,8 +1059,9 @@
 
                 let tag = "[PVT]";
                 if (r.public) tag = "[PUB]";
-                if (r.type === 'automated') tag = "[AUTO]";
-                if (currentUid && r.userId === currentUid && !r.public && r.type !== 'automated') tag = "[YOU]";
+                // Ensures only trues system runs get tagged as AUTO
+                else if (r.type === 'automated' && !r.userId) tag = "[AUTO]";
+                else if (currentUid && r.userId === currentUid) tag = "[YOU]";
 
                 const timeStr = (r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 opt.textContent = `${tag} ${r.startTime || '?'} - ${r.region || 'UK'} (${timeStr})`;
@@ -1101,17 +1089,13 @@
                     const rawData = await response.json();
                     const gridData = pointsToGrid(rawData, 0.081);
 
-                    activeMapData[mapIndex] = gridData; // Cache data for style toggling
+                    activeMapData[mapIndex] = gridData; 
                     await renderHocoLayers(targetMap, gridData);
                     statusUI.innerText = "Loaded successfully.";
 
-                    // Update Metadata UI
-                    // Update Metadata UI
-                    // Safely handle potentially missing dates
                     const creationDate = runData.createdAt ? (runData.createdAt.toDate ? runData.createdAt.toDate() : new Date(runData.createdAt)) : new Date();
                     const isNormal = runData.type === 'automated';
 
-                    // Safely handle missing user IDs for automated runs
                     const displayUser = runData.userId ? runData.userId.substring(0, 6) : 'System';
 
                     document.getElementById(`meta-title-${mapIndex}`).innerText = `Loaded: ${runData.region || 'Unknown'}`;
@@ -1125,7 +1109,7 @@
                     document.getElementById(`meta-scale-${mapIndex}`).style.display = 'flex';
 
                 } catch (err) {
-                    console.error("Map load error:", err); // Logs the real error to your dev tools
+                    console.error("Map load error:", err); 
                     statusUI.innerText = "Error loading run data.";
                 }
             } else {
@@ -1134,29 +1118,50 @@
         });
 
         async function renderHocoLayers(targetMap, gridData) {
-            if (targetMap.getLayer('hoco-grid')) targetMap.removeLayer('hoco-grid');
+            // Remove the unified layer instead of just a 3d one
+            if (targetMap.getLayer('hoco-layer')) targetMap.removeLayer('hoco-layer');
             if (targetMap.getSource('hoco-source')) targetMap.removeSource('hoco-source');
 
             targetMap.addSource('hoco-source', { type: 'geojson', data: gridData });
-            targetMap.addLayer({
-                id: 'hoco-grid',
-                type: 'fill-extrusion',
-                source: 'hoco-source',
-                paint: {
-                    'fill-extrusion-height': ['*', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], parseInt(document.getElementById('heightSlider').value)],
-                    'fill-extrusion-color': [
-                        'interpolate', ['linear'], ['/', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], 5],
-                        0, 'rgba(255, 255, 255, 0)', 20, 'rgba(102, 194, 164, 0.7)',
-                        40, 'rgba(255, 242, 0, 0.7)', 60, 'rgba(255, 127, 39, 0.7)',
-                        80, 'rgba(236, 28, 36, 0.7)', 100, 'rgba(184, 61, 218, 0.8)'
-                    ],
-                    'fill-extrusion-opacity': parseInt(document.getElementById('opacitySlider').value) / 100
-                }
-            });
+
+            const visType = document.getElementById('visTypeSelect').value;
+            const currentOpacity = parseInt(document.getElementById('opacitySlider').value) / 100;
+
+            const colorExpression = [
+                'interpolate', ['linear'], ['/', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], 5],
+                0, 'rgba(255, 255, 255, 0)', 20, 'rgba(102, 194, 164, 0.7)',
+                40, 'rgba(255, 242, 0, 0.7)', 60, 'rgba(255, 127, 39, 0.7)',
+                80, 'rgba(236, 28, 36, 0.7)', 100, 'rgba(184, 61, 218, 0.8)'
+            ];
+
+            if (visType === '3d') {
+                targetMap.addLayer({
+                    id: 'hoco-layer',
+                    type: 'fill-extrusion',
+                    source: 'hoco-source',
+                    paint: {
+                        'fill-extrusion-height': ['*', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], parseInt(document.getElementById('heightSlider').value)],
+                        'fill-extrusion-color': colorExpression,
+                        'fill-extrusion-opacity': currentOpacity
+                    }
+                });
+            } else {
+                // 2D Polygon Layer for a smoother visual feel (no grid outlines, flat styling)
+                targetMap.addLayer({
+                    id: 'hoco-layer',
+                    type: 'fill',
+                    source: 'hoco-source',
+                    paint: {
+                        'fill-color': colorExpression,
+                        'fill-opacity': currentOpacity,
+                        'fill-antialias': false // Prevents faint 1px lines between identical polygons making it look more contiguous
+                    }
+                });
+            }
 
             const layers = targetMap.getStyle().layers;
             const labelLayer = layers.find(l => l.type === 'symbol' && l.layout && l.layout['text-field']);
-            if (labelLayer) targetMap.moveLayer('hoco-grid', labelLayer.id);
+            if (labelLayer) targetMap.moveLayer('hoco-layer', labelLayer.id);
         }
 
         function pointsToGrid(geojson, size) {
