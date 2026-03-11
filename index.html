@@ -7,7 +7,6 @@
     <title>ADV-HOCO Pro Forecaster</title>
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
     <style>
         :root {
             --primary: #283673;
@@ -883,7 +882,7 @@
             }
         });
 
-                document.getElementById('opacitySlider').addEventListener('input', (e) => {
+        document.getElementById('opacitySlider').addEventListener('input', (e) => {
             const op = parseInt(e.target.value) / 100;
             maps.forEach(m => {
                 if (m.getLayer('hoco-layer')) {
@@ -893,9 +892,6 @@
                     } else if (type === 'fill') {
                         m.setPaintProperty('hoco-layer', 'fill-opacity', op);
                     }
-                }
-                if (m.getLayer('smooth-raster')) {
-                    m.setPaintProperty('smooth-raster', 'raster-opacity', op);
                 }
             });
         });
@@ -1129,9 +1125,10 @@
                     const runData = docSnap.data();
                     const response = await fetch(runData.geojsonUrl);
                     const rawData = await response.json();
+                    const gridData = pointsToGrid(rawData, 0.081);
 
-                    activeMapData[mapIndex] = rawData;
-                    await renderHocoLayers(targetMap, rawData);
+                    activeMapData[mapIndex] = gridData;
+                    await renderHocoLayers(targetMap, gridData);
                     statusUI.innerText = "Loaded successfully.";
 
                     const creationDate = runData.createdAt ? (runData.createdAt.toDate ? runData.createdAt.toDate() : new Date(runData.createdAt)) : new Date();
@@ -1158,102 +1155,51 @@
             }
         });
 
-        // ====================== HELPER FUNCTIONS (must be BEFORE renderHocoLayers) ======================
-        function generateSmoothRiskRaster(pointData) {
-            const features = pointData.features;
-            if (!features || !features.length) return null;
+        async function renderHocoLayers(targetMap, gridData) {
+            // Remove the unified layer instead of just a 3d one
+            if (targetMap.getLayer('hoco-layer')) targetMap.removeLayer('hoco-layer');
+            if (targetMap.getSource('hoco-source')) targetMap.removeSource('hoco-source');
 
-            let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
-            features.forEach(f => {
-                const [lon, lat] = f.geometry.coordinates;
-                minLon = Math.min(minLon, lon); maxLon = Math.max(maxLon, lon);
-                minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
-            });
+            targetMap.addSource('hoco-source', { type: 'geojson', data: gridData });
 
-            const canvas = document.createElement('canvas');
-            const size = 512;
-            canvas.width = size;
-            canvas.height = Math.round(size * (maxLat - minLat) / (maxLon - minLon));
+            const visType = document.getElementById('visTypeSelect').value;
+            const currentOpacity = parseInt(document.getElementById('opacitySlider').value) / 100;
 
-            const ctx = canvas.getContext('2d');
-            ctx.globalCompositeOperation = 'lighter';
+            const colorExpression = [
+                'interpolate', ['linear'], ['/', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], 5],
+                0, 'rgba(255, 255, 255, 0)', 20, 'rgba(102, 194, 164, 0.7)',
+                40, 'rgba(255, 242, 0, 0.7)', 60, 'rgba(255, 127, 39, 0.7)',
+                80, 'rgba(236, 28, 36, 0.7)', 100, 'rgba(184, 61, 218, 0.8)'
+            ];
 
-            const radius = Math.max(size / 18, 12);
-
-            features.forEach(f => {
-                const [lon, lat] = f.geometry.coordinates;
-                const rawRisk = f.properties.risk || f.properties.Risk || 0;
-                const norm = Math.min(rawRisk / 500, 1);
-
-                const x = ((lon - minLon) / (maxLon - minLon)) * canvas.width;
-                const y = ((maxLat - lat) / (maxLat - minLat)) * canvas.height;
-
-                const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius * 2.2);
-                const color = getRiskFillColor(rawRisk);
-                gradient.addColorStop(0, color);
-                gradient.addColorStop(1, 'rgba(255,255,255,0)');
-
-                ctx.fillStyle = gradient;
-                ctx.globalAlpha = norm * 0.75 + 0.15;
-                ctx.beginPath();
-                ctx.arc(x, y, radius * 2.2, 0, Math.PI * 2);
-                ctx.fill();
-            });
-
-            return {
-                url: canvas.toDataURL('image/png'),
-                bounds: [minLon, minLat, maxLon, maxLat]
-            };
-        }
-
-        function getRiskFillColor(risk) {
-            const n = Math.min(Math.max(risk / 5, 0), 100);
-            if (n <= 20) return 'rgba(102,194,164,1)';
-            if (n <= 40) return 'rgba(255,242,0,1)';
-            if (n <= 60) return 'rgba(255,127,39,1)';
-            if (n <= 80) return 'rgba(236,28,36,1)';
-            return 'rgba(184,61,218,1)';
-        }
-
-        function generateSmoothedContours(pointData) {
-            if (typeof turf === 'undefined') return null;
-            if (!pointData || !pointData.features || pointData.features.length < 3) return null;
-
-            let rawZProp = 'risk';
-            const sample = pointData.features[0];
-            if (sample.properties.Risk !== undefined) rawZProp = 'Risk';
-
-            const normalized = JSON.parse(JSON.stringify(pointData));
-            let minRisk = Infinity;
-            let maxRisk = -Infinity;
-
-            normalized.features.forEach(f => {
-                if (!f.properties) f.properties = {};
-                const raw = f.properties[rawZProp] || 0;
-                const norm = raw / 5;
-                f.properties.risk_normalized = norm;
-                if (norm > 0) {
-                    minRisk = Math.min(minRisk, norm);
-                    maxRisk = Math.max(maxRisk, norm);
-                }
-            });
-
-            if (minRisk === Infinity || maxRisk - minRisk < 3) return null;
-
-            const contours = turf.isolines(normalized, { zProperty: 'risk_normalized' });
-
-            if (!contours || !contours.features.length) return null;
-
-            const smoothed = {
-                type: 'FeatureCollection',
-                features: contours.features.map(f => {
-                    if (f.geometry?.type === 'LineString') {
-                        return turf.bezierSpline(f, { tension: 0.35 });
+            if (visType === '3d') {
+                targetMap.addLayer({
+                    id: 'hoco-layer',
+                    type: 'fill-extrusion',
+                    source: 'hoco-source',
+                    paint: {
+                        'fill-extrusion-height': ['*', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], parseInt(document.getElementById('heightSlider').value)],
+                        'fill-extrusion-color': colorExpression,
+                        'fill-extrusion-opacity': currentOpacity
                     }
-                    return f;
-                })
-            };
-            return smoothed;
+                });
+            } else {
+                // 2D Polygon Layer for a smoother visual feel (no grid outlines, flat styling)
+                targetMap.addLayer({
+                    id: 'hoco-layer',
+                    type: 'fill',
+                    source: 'hoco-source',
+                    paint: {
+                        'fill-color': colorExpression,
+                        'fill-opacity': currentOpacity,
+                        'fill-antialias': false // Prevents faint 1px lines between identical polygons making it look more contiguous
+                    }
+                });
+            }
+
+            const layers = targetMap.getStyle().layers;
+            const labelLayer = layers.find(l => l.type === 'symbol' && l.layout && l.layout['text-field']);
+            if (labelLayer) targetMap.moveLayer('hoco-layer', labelLayer.id);
         }
 
         function pointsToGrid(geojson, size) {
@@ -1268,109 +1214,6 @@
             });
             return { type: "FeatureCollection", features };
         }
-
-        // ====================== RENDERING FUNCTION ======================
-        async function renderHocoLayers(targetMap, pointData) {
-            if (!pointData || !pointData.features || pointData.features.length === 0) return;
-
-            // Clean up old layers
-            ['hoco-layer', 'contour-layer', 'contour-labels', 'smooth-raster'].forEach(id => {
-                if (targetMap.getLayer(id)) targetMap.removeLayer(id);
-                if (targetMap.getSource(id)) targetMap.removeSource(id);
-            });
-
-            const visType = document.getElementById('visTypeSelect').value;
-            const opacity = parseInt(document.getElementById('opacitySlider').value) / 100;
-
-            // 1. SMOOTH RASTER FILL (2D mode - Nadocast style)
-            if (visType === '2d') {
-                const raster = generateSmoothRiskRaster(pointData);
-                if (raster) {
-                    targetMap.addSource('smooth-raster', {
-                        type: 'image',
-                        url: raster.url,
-                        coordinates: [
-                            [raster.bounds[0], raster.bounds[3]],
-                            [raster.bounds[2], raster.bounds[3]],
-                            [raster.bounds[2], raster.bounds[1]],
-                            [raster.bounds[0], raster.bounds[1]]
-                        ]
-                    });
-
-                    targetMap.addLayer({
-                        id: 'smooth-raster',
-                        type: 'raster',
-                        source: 'smooth-raster',
-                        paint: { 'raster-opacity': opacity, 'raster-fade-duration': 0 }
-                    });
-                }
-            } 
-            // 2. 3D GRID (kept for extrusion)
-            else {
-                const gridData = pointsToGrid(pointData, 0.081);
-                targetMap.addSource('hoco-source', { type: 'geojson', data: gridData });
-
-                targetMap.addLayer({
-                    id: 'hoco-layer',
-                    type: 'fill-extrusion',
-                    source: 'hoco-source',
-                    paint: {
-                        'fill-extrusion-height': ['*', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], parseInt(document.getElementById('heightSlider').value)],
-                        'fill-extrusion-color': [
-                            'interpolate', ['linear'], ['/', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], 5],
-                            0, 'rgba(255,255,255,0)', 20, 'rgba(102,194,164,0.85)',
-                            40, 'rgba(255,242,0,0.85)', 60, 'rgba(255,127,39,0.85)',
-                            80, 'rgba(236,28,36,0.85)', 100, 'rgba(184,61,218,0.9)'
-                        ],
-                        'fill-extrusion-opacity': opacity
-                    }
-                });
-            }
-
-            // 3. SPC-STYLE SMOOTH CONTOURS
-            const smoothedContours = generateSmoothedContours(pointData);
-            if (smoothedContours && smoothedContours.features.length > 0) {
-                targetMap.addSource('contour-source', { type: 'geojson', data: smoothedContours });
-
-                targetMap.addLayer({
-                    id: 'contour-layer',
-                    type: 'line',
-                    source: 'contour-source',
-                    paint: { 'line-color': '#111111', 'line-width': 2.2, 'line-opacity': 0.95 },
-                    layout: { 'line-join': 'round', 'line-cap': 'round' }
-                });
-
-                targetMap.addLayer({
-                    id: 'contour-labels',
-                    type: 'symbol',
-                    source: 'contour-source',
-                    layout: {
-                        'symbol-placement': 'line-center',
-                        'text-field': ['get', 'value'],
-                        'text-font': ['Open Sans Bold'],
-                        'text-size': 11,
-                        'text-keep-upright': true
-                    },
-                    paint: {
-                        'text-color': '#ffffff',
-                        'text-halo-color': '#000000',
-                        'text-halo-width': 2
-                    }
-                });
-            }
-
-            // Move layers below map labels
-            const layers = targetMap.getStyle().layers;
-            const labelLayer = layers.find(l => l.type === 'symbol' && l.layout?.['text-field']);
-            if (labelLayer) {
-                if (targetMap.getLayer('smooth-raster')) targetMap.moveLayer('smooth-raster', labelLayer.id);
-                if (targetMap.getLayer('hoco-layer')) targetMap.moveLayer('hoco-layer', labelLayer.id);
-                if (targetMap.getLayer('contour-layer')) targetMap.moveLayer('contour-layer', labelLayer.id);
-            }
-        }
-
-        
-        
 
         // ==========================================
         // SCENARIO & EXECUTION LOGIC
@@ -1609,6 +1452,6 @@
         };
 
     </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9dae2db86d1594ed',t:'MTc3MzI3MDA2MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 
 </html>
