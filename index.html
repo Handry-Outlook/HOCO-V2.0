@@ -557,9 +557,14 @@
 
                     <select id="mapStyleSelect">
                         <option value="mapbox://styles/mapbox/dark-v11">Style: Dark (Default)</option>
-                        <option value="mapbox://styles/mapbox/light-v11">Style: Light</option>
-                        <option value="mapbox://styles/mapbox/satellite-v9">Style: Satellite</option>
-                        <option value="mapbox://styles/mapbox/outdoors-v12">Style: Outdoors</option>
+                        <option value="mapbox://styles/mapbox/standard">Style: Standard (3D Enhanced)</option>
+                        <option value="mapbox://styles/mapbox/satellite-v9">Style: Satellite (Imagery Only)</option>
+                        <option value="mapbox://styles/mapbox/satellite-streets-v12">Style: Satellite (with Streets)
+                        </option>
+                        <option value="mapbox://styles/mapbox/light-v11">Style: Light (Minimalist)</option>
+                        <option value="mapbox://styles/mapbox/outdoors-v12">Style: Outdoors (Terrain)</option>
+                        <option value="mapbox://styles/mapbox/navigation-night-v1">Style: Navigation (Night)</option>
+                        <option value="mapbox://styles/mapbox/navigation-day-v1">Style: Navigation (Day)</option>
                     </select>
 
                     <select id="visTypeSelect">
@@ -631,19 +636,18 @@
                                 <label>End Time</label>
                                 <input type="datetime-local" id="endTime" required>
                             </div>
-                            <div
-                                style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 5px; margin-bottom: 10px;">
-                                <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem;"
-                                    onclick="setTimeRange(3)">+3h</button>
-                                <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem;"
-                                    onclick="setTimeRange(6)">+6h</button>
-                                <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem;"
-                                    onclick="setTimeRange(12)">+12h</button>
-                                <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem;"
-                                    onclick="setTimeRange(24)">+24h</button>
-                            </div>
                         </div>
-
+                        <div
+                            style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 5px; margin-bottom: 10px;">
+                            <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem;"
+                                onclick="setTimeRange(3)">+3h</button>
+                            <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem;"
+                                onclick="setTimeRange(6)">+6h</button>
+                            <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem;"
+                                onclick="setTimeRange(12)">+12h</button>
+                            <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem;"
+                                onclick="setTimeRange(24)">+24h</button>
+                        </div>
                         <label>Hazards</label>
                         <div style="margin-bottom: 10px; font-size: 0.85rem;">
                             <input type="checkbox" name="weather" value="lightning" checked
@@ -1056,20 +1060,13 @@
 
             allRuns.filter(r => {
                 if (!r.createdAt) return false;
+                // This filters the list based on the day the run was EXECUTED (via the calendar)
                 const rDate = (r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt)).toISOString().split('T')[0];
                 if (rDate !== dateStr) return false;
 
-                // --- UPDATED VISIBILITY LOGIC ---
-                // 1. Developers see everything
+                // --- VISIBILITY LOGIC ---
                 if (userRole === 'developer') return true;
-
-                // 2. Automated runs are visible to EVERYONE
-                if (r.type === 'automated') return true;
-
-                // 3. ANY manual run (Developer or otherwise) that is marked PUBLIC is visible to EVERYONE
-                if (r.public === true) return true;
-
-                // 4. Logged in users see their own private manual runs
+                if (r.public === true || r.type === 'automated') return true;
                 if (currentUid && r.userId === currentUid) return true;
 
                 return false;
@@ -1077,22 +1074,28 @@
                 const opt = document.createElement('option');
                 opt.value = r.id;
 
-                // Prioritize tags: AUTO > PUB > MINE > PVT
+                // Determine the Tag
                 let tag = "[PVT]";
-                if (r.type === 'automated') {
-                    tag = "[AUTO]"; //
-                } else if (r.public === true) {
-                    tag = "[PUB]"; // Specifically tags published manual runs
-                } else if (currentUid && r.userId === currentUid) {
-                    tag = "[MINE]"; //
-                }
+                if (r.type === 'automated') tag = "[AUTO]";
+                else if (r.public === true) tag = "[PUB]";
+                else if (currentUid && r.userId === currentUid) tag = "[MINE]";
 
-                const timeStr = (r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                opt.textContent = `${tag} ${r.region || 'UK'} - ${timeStr}`; //
+                // Get the Creation Time (When the user clicked "Execute")
+                const creationDate = r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
+                const creationTimeStr = creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                // Extract Forecast Period Date & Times (The "Valid For" date)
+                // Format of startTime is "DD/MM/YYYY HH:MM"
+                const fullStart = r.startTime || "??/??/???? ??:??";
+                const validDate = fullStart.split(' ')[0].substring(0, 5); // Gets "DD/MM"
+                const periodStart = fullStart.split(' ')[1] || "??:??";
+                const periodEnd = r.endTime ? r.endTime.split(' ')[1] : "??:??";
+
+                // Set the dropdown text: [TAG] ValidDate - Region (Start - End) [Sent: CreationTime]
+                opt.textContent = `${tag} ${validDate} - ${r.region || 'UK'} (${periodStart} - ${periodEnd}) [Sent: ${creationTimeStr}]`;
                 sel.appendChild(opt);
             });
         }
-
         document.getElementById('calendarFilter').addEventListener('change', renderArchiveDropdown);
 
         document.getElementById('idSelector').addEventListener('change', async (e) => {
@@ -1142,75 +1145,60 @@
         });
 
         async function renderHocoLayers(targetMap, gridData) {
-            if (targetMap.getLayer('hoco-grid')) targetMap.removeLayer('hoco-grid');
+            // Remove the unified layer instead of just a 3d one
+            if (targetMap.getLayer('hoco-layer')) targetMap.removeLayer('hoco-layer');
             if (targetMap.getSource('hoco-source')) targetMap.removeSource('hoco-source');
 
-            targetMap.addSource('hoco-source', {
-                type: 'geojson',
-                data: gridData,
-                // Buffering helps remove gaps between the generated polygons
-                buffer: 0,
-                tolerance: 0.375
-            });
+            targetMap.addSource('hoco-source', { type: 'geojson', data: gridData });
 
-            targetMap.addLayer({
-                id: 'hoco-grid',
-                type: 'fill-extrusion',
-                source: 'hoco-source',
-                paint: {
-                    'fill-extrusion-height': ['*', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], parseInt(document.getElementById('heightSlider').value)],
-                    'fill-extrusion-color': [
-                        'step', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0],
-                        'rgba(255, 255, 255, 0)', 0.5,     // < 10% (Transparent)
-                        'rgba(102, 194, 164, 0.8)', 1.0,  // 10-20%
-                        'rgba(255, 242, 0, 0.8)', 1.5,    // 20-30%
-                        'rgba(255, 127, 39, 0.8)', 2.0,    // 30-40%
-                        'rgba(236, 28, 36, 0.8)', 2.5,    // 40-50%
-                        'rgba(184, 61, 218, 0.9)', 3.0,   // 50%+
-                        '#4b0082'                         // Extreme
-                    ],
-                    // This creates the "Contour Line" effect by adding a slight stroke/glow to each cell
-                    'fill-extrusion-base': 0,
-                    'fill-extrusion-opacity': parseInt(document.getElementById('opacitySlider').value) / 100
-                }
-            });
+            const visType = document.getElementById('visTypeSelect').value;
+            const currentOpacity = parseInt(document.getElementById('opacitySlider').value) / 100;
 
-            // Add a secondary "Contour" layer for the 10% lines
-            if (targetMap.getLayer('hoco-lines')) targetMap.removeLayer('hoco-lines');
-            targetMap.addLayer({
-                id: 'hoco-lines',
-                type: 'line',
-                source: 'hoco-source',
-                paint: {
-                    'line-color': 'rgba(255,255,255,0.3)',
-                    'line-width': 1
-                }
-            });
+            const colorExpression = [
+                'interpolate', ['linear'], ['/', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], 5],
+                0, 'rgba(255, 255, 255, 0)', 20, 'rgba(102, 194, 164, 0.7)',
+                40, 'rgba(255, 242, 0, 0.7)', 60, 'rgba(255, 127, 39, 0.7)',
+                80, 'rgba(236, 28, 36, 0.7)', 100, 'rgba(184, 61, 218, 0.8)'
+            ];
+
+            if (visType === '3d') {
+                targetMap.addLayer({
+                    id: 'hoco-layer',
+                    type: 'fill-extrusion',
+                    source: 'hoco-source',
+                    paint: {
+                        'fill-extrusion-height': ['*', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], parseInt(document.getElementById('heightSlider').value)],
+                        'fill-extrusion-color': colorExpression,
+                        'fill-extrusion-opacity': currentOpacity
+                    }
+                });
+            } else {
+                // 2D Polygon Layer for a smoother visual feel (no grid outlines, flat styling)
+                targetMap.addLayer({
+                    id: 'hoco-layer',
+                    type: 'fill',
+                    source: 'hoco-source',
+                    paint: {
+                        'fill-color': colorExpression,
+                        'fill-opacity': currentOpacity,
+                        'fill-antialias': false // Prevents faint 1px lines between identical polygons making it look more contiguous
+                    }
+                });
+            }
 
             const layers = targetMap.getStyle().layers;
             const labelLayer = layers.find(l => l.type === 'symbol' && l.layout && l.layout['text-field']);
-            if (labelLayer) targetMap.moveLayer('hoco-grid', labelLayer.id);
+            if (labelLayer) targetMap.moveLayer('hoco-layer', labelLayer.id);
         }
 
         function pointsToGrid(geojson, size) {
             if (!geojson || !geojson.features) return geojson;
-            // Increase size slightly (e.g., from 0.081 to 0.085) to force overlap/flush edges
-            const meshSize = 0.083;
-            const half = meshSize / 2;
+            const half = size / 2;
             const features = geojson.features.map(f => {
                 const [lon, lat] = f.geometry.coordinates;
                 return {
                     type: "Feature", properties: f.properties,
-                    geometry: {
-                        type: "Polygon",
-                        coordinates: [[
-                            [lon - half, lat - half],
-                            [lon + half, lat - half],
-                            [lon + half, lat + half],
-                            [lon - half, lat + half],
-                            [lon - half, lat - half]
-                        ]]
-                    }
+                    geometry: { type: "Polygon", coordinates: [[[lon - half, lat - half], [lon + half, lat - half], [lon + half, lat + half], [lon - half, lat + half], [lon - half, lat - half]]] }
                 };
             });
             return { type: "FeatureCollection", features };
@@ -1286,10 +1274,6 @@
             // --- START/END TIME VALIDATION ---
             const startVal = new Date(document.getElementById('startTime').value);
             const endVal = new Date(document.getElementById('endTime').value);
-
-            if (endVal <= startVal) {
-                return showToast("End Time must be after Start Time", "error");
-            }
 
             if (userRole === 'normal' && runsToday >= 7) return showToast("Daily Normal limit (7) reached.", "error");
             if (userRole === 'exclusive' && runsToday >= 15) return showToast("Daily Exclusive limit (15) reached.", "error");
