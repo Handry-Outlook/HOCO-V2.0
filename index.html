@@ -1052,50 +1052,57 @@
         }
 
         function renderArchiveDropdown() {
-            const dateStr = document.getElementById('calendarFilter').value;
-            const sel = document.getElementById('idSelector');
-            sel.innerHTML = '<option value="">Select Run to Load...</option>';
+    const dateStr = document.getElementById('calendarFilter').value;
+    const sel = document.getElementById('idSelector');
+    sel.innerHTML = '<option value="">Select Run to Load...</option>';
 
-            const currentUid = auth.currentUser ? auth.currentUser.uid : null;
+    const currentUid = auth.currentUser ? auth.currentUser.uid : null;
 
-            allRuns.filter(r => {
-                if (!r.createdAt) return false;
-                // This filters the list based on the day the run was EXECUTED (via the calendar)
-                const rDate = (r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt)).toISOString().split('T')[0];
-                if (rDate !== dateStr) return false;
+    allRuns.filter(r => {
+        if (!r.createdAt) return false;
 
-                // --- VISIBILITY LOGIC ---
-                if (userRole === 'developer') return true;
-                if (r.public === true || r.type === 'automated') return true;
-                if (currentUid && r.userId === currentUid) return true;
+        // 1. Date Check: Must match selected calendar date
+        const rDate = (r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt)).toISOString().split('T')[0];
+        if (rDate !== dateStr) return false;
 
-                return false;
-            }).forEach(r => {
-                const opt = document.createElement('option');
-                opt.value = r.id;
+        // 2. Developer Override: Developers see everything for management
+        if (userRole === 'developer') return true;
 
-                // Determine the Tag
-                let tag = "[PVT]";
-                if (r.type === 'automated') tag = "[AUTO]";
-                else if (r.public === true) tag = "[PUB]";
-                else if (currentUid && r.userId === currentUid) tag = "[MINE]";
+        // 3. Automated Runs: These are system-wide/public defaults
+        if (r.type === 'automated') return true;
 
-                // Get the Creation Time (When the user clicked "Execute")
-                const creationDate = r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
-                const creationTimeStr = creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        // 4. Explicitly Public: Shows if a developer published it
+        if (r.public === true) return true;
 
-                // Extract Forecast Period Date & Times (The "Valid For" date)
-                // Format of startTime is "DD/MM/YYYY HH:MM"
-                const fullStart = r.startTime || "??/??/???? ??:??";
-                const validDate = fullStart.split(' ')[0].substring(0, 5); // Gets "DD/MM"
-                const periodStart = fullStart.split(' ')[1] || "??:??";
-                const periodEnd = r.endTime ? r.endTime.split(' ')[1] : "??:??";
+        // 5. Ownership Check: User sees their own runs (Private Runs)
+        // If the run is NOT automated and NOT public, ONLY the owner sees it
+        if (currentUid && r.userId === currentUid) return true;
 
-                // Set the dropdown text: [TAG] ValidDate - Region (Start - End) [Sent: CreationTime]
-                opt.textContent = `${tag} ${validDate} - ${r.region || 'UK'} (${periodStart} - ${periodEnd}) [Sent: ${creationTimeStr}]`;
-                sel.appendChild(opt);
-            });
-        }
+        // 6. Security Catch-all: If none of the above are met, HIDE it.
+        return false;
+
+    }).forEach(r => {
+        const opt = document.createElement('option');
+        opt.value = r.id;
+
+        // UI Labeling for clarity
+        let tag = "[PVT]"; // Default tag is Private
+        if (r.type === 'automated') tag = "[AUTO]";
+        else if (r.public === true) tag = "[PUB]";
+        else if (currentUid && r.userId === currentUid) tag = "[MINE]";
+
+        const creationDate = r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
+        const creationTimeStr = creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        const fullStart = r.startTime || "??/??/???? ??:??";
+        const validDate = fullStart.split(' ')[0].substring(0, 5);
+        const periodStart = fullStart.split(' ')[1] || "??:??";
+        const periodEnd = r.endTime ? r.endTime.split(' ')[1] : "??:??";
+
+        opt.textContent = `${tag} ${validDate} - ${r.region || 'UK'} (${periodStart} - ${periodEnd}) [Sent: ${creationTimeStr}]`;
+        sel.appendChild(opt);
+    });
+}
         document.getElementById('calendarFilter').addEventListener('change', renderArchiveDropdown);
 
         document.getElementById('idSelector').addEventListener('change', async (e) => {
@@ -1310,6 +1317,7 @@
                     userId: auth.currentUser.uid,
                     createdAt: new Date(),
                     status: 'pending',
+                    public: false, // <--- ADD THIS LINE to ensure the run starts as private
                     type: finalScenarios.length === 0 ? 'automated' : 'manual'
                 };
 
