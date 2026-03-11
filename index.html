@@ -7,6 +7,7 @@
     <title>ADV-HOCO Pro Forecaster</title>
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
     <style>
         :root {
             --primary: #283673;
@@ -1125,10 +1126,9 @@
                     const runData = docSnap.data();
                     const response = await fetch(runData.geojsonUrl);
                     const rawData = await response.json();
-                    const gridData = pointsToGrid(rawData, 0.081);
 
-                    activeMapData[mapIndex] = gridData;
-                    await renderHocoLayers(targetMap, gridData);
+                    activeMapData[mapIndex] = rawData;  // now stores raw points (needed for contours)
+                    await renderHocoLayers(targetMap, rawData);
                     statusUI.innerText = "Loaded successfully.";
 
                     const creationDate = runData.createdAt ? (runData.createdAt.toDate ? runData.createdAt.toDate() : new Date(runData.createdAt)) : new Date();
@@ -1155,11 +1155,18 @@
             }
         });
 
-        async function renderHocoLayers(targetMap, gridData) {
-            // Remove the unified layer instead of just a 3d one
+                async function renderHocoLayers(targetMap, pointData) {
+            // Remove old layers/sources
             if (targetMap.getLayer('hoco-layer')) targetMap.removeLayer('hoco-layer');
             if (targetMap.getSource('hoco-source')) targetMap.removeSource('hoco-source');
+            if (targetMap.getLayer('contour-layer')) targetMap.removeLayer('contour-layer');
+            if (targetMap.getSource('contour-source')) targetMap.removeSource('contour-source');
+            if (targetMap.getLayer('contour-labels')) targetMap.removeLayer('contour-labels');
 
+            if (!pointData || !pointData.features || pointData.features.length === 0) return;
+
+            // Generate grid for colored fill/extrusion (unchanged behavior)
+            const gridData = pointsToGrid(pointData, 0.081);
             targetMap.addSource('hoco-source', { type: 'geojson', data: gridData });
 
             const visType = document.getElementById('visTypeSelect').value;
@@ -1184,7 +1191,6 @@
                     }
                 });
             } else {
-                // 2D Polygon Layer for a smoother visual feel (no grid outlines, flat styling)
                 targetMap.addLayer({
                     id: 'hoco-layer',
                     type: 'fill',
@@ -1192,14 +1198,80 @@
                     paint: {
                         'fill-color': colorExpression,
                         'fill-opacity': currentOpacity,
-                        'fill-antialias': false // Prevents faint 1px lines between identical polygons making it look more contiguous
+                        'fill-antialias': false
                     }
                 });
             }
 
+            // ====================== NEW: SPC/NADOCAST-STYLE CONTOURS ======================
+            if (typeof turf !== 'undefined') {
+                // Detect whether data uses 'risk' or 'Risk'
+                let rawZProp = 'risk';
+                const sampleProps = pointData.features[0].properties || {};
+                if (sampleProps.Risk !== undefined && sampleProps.risk === undefined) rawZProp = 'Risk';
+
+                // Normalize risk (matches popup / meta scale: raw / 5)
+                const contourPoints = JSON.parse(JSON.stringify(pointData));
+                contourPoints.features.forEach(f => {
+                    const rawRisk = f.properties[rawZProp] || 0;
+                    f.properties.risk_normalized = rawRisk / 5;
+                });
+
+                const normalizedBreaks = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+
+                const contours = turf.isolines(contourPoints, {
+                    zProperty: 'risk_normalized',
+                    breaks: normalizedBreaks
+                });
+
+                if (contours && contours.features.length > 0) {
+                    targetMap.addSource('contour-source', { type: 'geojson', data: contours });
+
+                    // Smooth contour lines (dashed, black — classic outlook style)
+                    targetMap.addLayer({
+                        id: 'contour-layer',
+                        type: 'line',
+                        source: 'contour-source',
+                        paint: {
+                            'line-color': '#000000',
+                            'line-width': 1.8,
+                            'line-opacity': 0.9,
+                            'line-dasharray': [3, 1.5]
+                        },
+                        layout: {
+                            'line-join': 'round',
+                            'line-cap': 'round'
+                        }
+                    });
+
+                    // Contour labels (Risk Index values placed along lines)
+                    targetMap.addLayer({
+                        id: 'contour-labels',
+                        type: 'symbol',
+                        source: 'contour-source',
+                        layout: {
+                            'symbol-placement': 'line-center',
+                            'text-field': ['get', 'value'],
+                            'text-font': ['Open Sans Bold'],
+                            'text-size': 10,
+                            'text-keep-upright': true,
+                            'text-anchor': 'center'
+                        },
+                        paint: {
+                            'text-color': '#ffffff',
+                            'text-halo-color': '#000000',
+                            'text-halo-width': 1.5
+                        }
+                    });
+                }
+            }
+
+            // Keep original behavior: move fill layer below map labels
             const layers = targetMap.getStyle().layers;
             const labelLayer = layers.find(l => l.type === 'symbol' && l.layout && l.layout['text-field']);
-            if (labelLayer) targetMap.moveLayer('hoco-layer', labelLayer.id);
+            if (labelLayer) {
+                targetMap.moveLayer('hoco-layer', labelLayer.id);
+            }
         }
 
         function pointsToGrid(geojson, size) {
