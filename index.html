@@ -1057,9 +1057,9 @@
             const estEl = document.getElementById(`est-min-${mapIndex}`);
 
             function updateStatus(elapsedSec) {
-                const timeToEnd = estSeconds - elapsedSec;
+                const timeToEnd = timer.estSeconds - elapsedSec;
 
-                if (elapsedSec < estSeconds - FAST_WINDOW) {
+                if (elapsedSec < timer.estSeconds - FAST_WINDOW) {
                     // Normal phase
                     if (titleEl) titleEl.textContent = "⏳ Processing Ensemble...";
                     if (noteEl) noteEl.textContent = "Based on models & forecast duration";
@@ -1075,7 +1075,7 @@
                     // Clearly overdue
                     if (titleEl) titleEl.textContent = "Checking...";
                     if (noteEl) {
-                        if (elapsedSec - estSeconds > OVERDUE_WARN) {
+                        if (elapsedSec - timer.estSeconds > OVERDUE_WARN) {
                             noteEl.innerHTML = `Our server might be experiencing issues.<br>Please standby or <strong>request a new run</strong> if wait continues.`;
                             noteEl.style.color = '#ff9800';
                         } else {
@@ -1086,8 +1086,9 @@
                 }
 
                 if (estEl) {
+                    const estMinutesHere = Math.ceil(timer.estSeconds / 60);
                     const displayMin = Math.max(0, Math.round(timeToEnd / 60));
-                    estEl.textContent = `${estMinutes} min (${timeToEnd > 0 ? '~' + displayMin + ' left' : 'overdue'})`;
+                    estEl.textContent = `${estMinutesHere} min (${timeToEnd > 0 ? '~' + displayMin + ' left' : 'overdue'})`;
                 }
             }
 
