@@ -1289,20 +1289,78 @@
 
         function updateRunTimes() {
             const rSel = document.getElementById('runSelect');
-            rSel.innerHTML = '';
-            const freq = models[document.getElementById('modelSelect').value].freq;
-            let baseTime = new Date(); baseTime.setUTCMinutes(0, 0, 0);
-            baseTime.setUTCHours(Math.floor(baseTime.getUTCHours() / freq) * freq);
+            rSel.innerHTML = '';  // clear old options
 
+            const modelValue = document.getElementById('modelSelect').value;
+            if (!modelValue || !models[modelValue]) {
+                rSel.innerHTML = '<option value="">Select model first</option>';
+                return;
+            }
+
+            const freq = models[modelValue].freq;           // hours between runs
+
+            // Use user-selected start time if available, otherwise fall back to now
+            let referenceTime;
+            const startInput = document.getElementById('startTime').value;
+
+            if (startInput) {
+                referenceTime = new Date(startInput);
+                // Round down to nearest model cycle boundary
+                const minutes = referenceTime.getUTCMinutes();
+                const hours = referenceTime.getUTCHours();
+                referenceTime.setUTCMinutes(0, 0, 0);
+                referenceTime.setUTCHours(Math.floor(hours / freq) * freq);
+            } else {
+                referenceTime = new Date();
+                referenceTime.setUTCMinutes(0, 0, 0);
+                referenceTime.setUTCHours(Math.floor(referenceTime.getUTCHours() / freq) * freq);
+            }
+
+            // Generate last 20 available runs backward from reference time
             for (let i = 0; i < 20; i++) {
-                let d = new Date(baseTime.getTime() - (i * freq * 3600000));
-                let opt = document.createElement('option');
-                opt.value = d.toISOString();
-                opt.textContent = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}z`;
+                const runDate = new Date(referenceTime.getTime() - (i * freq * 3600 * 1000));
+
+                const opt = document.createElement('option');
+                opt.value = runDate.toISOString();
+
+                // Nice readable format (same as before)
+                const day = String(runDate.getUTCDate()).padStart(2, '0');
+                const month = String(runDate.getUTCMonth() + 1).padStart(2, '0');
+                const hour = String(runDate.getUTCHours()).padStart(2, '0');
+                opt.textContent = `${day}/${month} ${hour}z`;
+
                 rSel.appendChild(opt);
             }
+
+            // Optional: auto-select the most recent one (closest to start time)
+            if (rSel.options.length > 0) {
+                rSel.selectedIndex = 0;
+            }
+        }
+        // ────────────────────────────────────────────────
+        // Auto-update run times when start date/time changes
+        // ────────────────────────────────────────────────
+        document.getElementById('startTime').addEventListener('change', () => {
+            const selectedModel = document.getElementById('modelSelect').value;
+
+            // Only proceed if a model is already selected
+            if (!selectedModel || !models[selectedModel]) {
+                return;
+            }
+
+            updateRunTimes();  // ← your existing function — it already uses current model freq
+        });
+        function updateAddButtonState() {
+            const addBtn = document.getElementById('addScenarioBtn');
+            const hasModel = !!document.getElementById('modelSelect').value;
+            const hasStart = !!document.getElementById('startTime').value;
+            addBtn.disabled = !(hasModel && hasStart);
         }
 
+        // Call it initially and on changes
+        document.getElementById('modelSelect').addEventListener('change', updateAddButtonState);
+        document.getElementById('startTime').addEventListener('change', updateAddButtonState);
+        updateAddButtonState();
         document.getElementById('addScenarioBtn').addEventListener('click', () => {
             const m = document.getElementById('modelSelect').value;
             const rSel = document.getElementById('runSelect');
