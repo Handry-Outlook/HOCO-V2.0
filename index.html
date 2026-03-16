@@ -795,6 +795,11 @@
                     </div>
                     <span style="font-size: 0.55rem;">High</span>
                 </div>
+                <button id="lightning-btn-0"
+                    style="margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none;"
+                    onclick="toggleLightningLayer(0)">
+                    ⚡ Show Lightning
+                </button>
             </div>
             <div id="loading-0" class="loading-overlay">
                 <div class="loading-content">
@@ -821,6 +826,11 @@
                     </div>
                     <span style="font-size: 0.55rem;">High</span>
                 </div>
+                <button id="lightning-btn-0"
+                    style="margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none;"
+                    onclick="toggleLightningLayer(0)">
+                    ⚡ Show Lightning
+                </button>
             </div>
             <div id="loading-1" class="loading-overlay">
                 <div class="loading-content">
@@ -847,6 +857,11 @@
                     </div>
                     <span style="font-size: 0.55rem;">High</span>
                 </div>
+                <button id="lightning-btn-0"
+                    style="margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none;"
+                    onclick="toggleLightningLayer(0)">
+                    ⚡ Show Lightning
+                </button>
             </div>
             <div id="loading-2" class="loading-overlay">
                 <div class="loading-content">
@@ -873,6 +888,11 @@
                     </div>
                     <span style="font-size: 0.55rem;">High</span>
                 </div>
+                <button id="lightning-btn-0"
+                    style="margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none;"
+                    onclick="toggleLightningLayer(0)">
+                    ⚡ Show Lightning
+                </button>
             </div>
             <div id="loading-3" class="loading-overlay">
                 <div class="loading-content">
@@ -973,10 +993,293 @@
         const models = {
             swisseu: { name: "SWISS-EU", freq: 3 }, harmi: { name: "HARMONIE", freq: 3 },
             swissnow: { name: "SWISS-NOW", freq: 1 }, ez: { name: "ECMWF EZ", freq: 12 },
-            ukmo2km: { name: "UKMO 2KM", freq: 3 }, rpdid2: { name: "RPDID2", freq: 3 }
+            ukmo2km: { name: "UKMO 2KM", freq: 6 }, rpdid2: { name: "RPDID2", freq: 3 }
         };
         const defaultWeights = { 'rpdid2': 0.8, 'swisseu': 1.1, 'ez': 1.1, 'ukmo2km': 0.9, 'swissnow': 1.0 };
+        // ────────────────────────────────────────────────
+        // Lightning overlay management (updated 2025/2026)
+        // ────────────────────────────────────────────────
 
+        const lightningCache = new Map(); // url → { data, timestamp }
+        const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+        const lightningSources = {};   // mapIndex → { sourceId, layerId, clusterLayerId?, data }
+        let lightningVisible = {};     // mapIndex → boolean
+
+        async function loadAndShowLightning(mapIndex, startTimeStr, endTimeStr) {
+            if (lightningVisible[mapIndex]) {
+                hideLightning(mapIndex);
+                return;
+            }
+
+            const btn = document.getElementById(`lightning-btn-${mapIndex}`);
+            if (!btn) return;
+
+            btn.disabled = true;
+            btn.textContent = "Loading lightning...";
+
+            try {
+                // ─── Parse time range ───────────────────────────────────────
+                const start = robustParseTime(startTimeStr);
+                const end = robustParseTime(endTimeStr || startTimeStr);
+
+                if (!start.isValid || !end.isValid) {
+                    throw new Error("Could not parse forecast time range");
+                }
+
+                const startUnix = Math.floor(start.getTime() / 1000);
+                const endUnix = Math.floor(end.getTime() / 1000);
+
+                // ─── Fetch & combine data ───────────────────────────────────
+                let allStrikes = [];
+
+                for (const url of [
+                    'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new/refs/heads/main/lightning_data.json',
+                    'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new/refs/heads/main/lightning_data_2025_autumn.json'
+                ]) {
+                    let jsonData = lightningCache.get(url);
+
+                    // Cache check
+                    if (!jsonData || (Date.now() - jsonData.timestamp) > CACHE_TTL_MS) {
+                        const resp = await fetch(url, { cache: 'no-cache' });
+                        if (!resp.ok) continue;
+
+                        jsonData = {
+                            data: await resp.json(),
+                            timestamp: Date.now()
+                        };
+                        lightningCache.set(url, jsonData);
+                    }
+
+                    const data = jsonData.data;
+                    if (!Array.isArray(data) && !Array.isArray(data?.strikes)) continue;
+
+                    const strikes = Array.isArray(data) ? data : data.strikes || [];
+
+                    const filtered = strikes.filter(s => {
+                        const t = Number(s.time || s.timestamp || s.strike_time_unix);
+                        return !isNaN(t) && t >= startUnix && t <= endUnix;
+                    });
+
+                    allStrikes.push(...filtered);
+                }
+
+                // ─── Deduplicate ────────────────────────────────────────────
+                const seen = new Map();
+                allStrikes = allStrikes.filter(s => {
+                    if (!s.lat || !s.lon || !s.time) return false;
+
+                    const ts = s.time;
+                    const lat4 = Number(s.lat).toFixed(4);
+                    const lon4 = Number(s.lon).toFixed(4);
+                    const peak = s.peak_current ? `|${s.peak_current}` : '';
+
+                    const key = `${ts}|${lat4}|${lon4}${peak}`;
+
+                    if (seen.has(key)) return false;
+                    seen.set(key, true);
+                    return true;
+                });
+
+                if (allStrikes.length === 0) {
+                    showToast("No lightning strikes found in this period", "info");
+                    resetButton(btn);
+                    return;
+                }
+
+                // ─── Build GeoJSON ──────────────────────────────────────────
+                const geojson = {
+                    type: "FeatureCollection",
+                    features: allStrikes.map(s => ({
+                        type: "Feature",
+                        geometry: {
+                            type: "Point",
+                            coordinates: [Number(s.lon), Number(s.lat)]
+                        },
+                        properties: {
+                            time: s.time,
+                            peak_current: Number(s.peak_current) || null,
+                            cloud: s.cloud_indicator || s.type || "?"
+                        }
+                    }))
+                };
+
+                // ─── Add to map ─────────────────────────────────────────────
+                const map = maps[mapIndex];
+                const sourceId = `lightning-src-${mapIndex}`;
+                const layerId = `lightning-layer-${mapIndex}`;
+                const clusterLayerId = `lightning-clusters-${mapIndex}`;
+
+                // Clean up previous layers/sources
+                [layerId, clusterLayerId].forEach(l => map.getLayer(l) && map.removeLayer(l));
+                [sourceId].forEach(s => map.getSource(s) && map.removeSource(s));
+
+                map.addSource(sourceId, {
+                    type: 'geojson',
+                    data: geojson,
+                    cluster: allStrikes.length > 150,          // enable clustering if many points
+                    clusterMaxZoom: 14,
+                    clusterRadius: 38
+                });
+
+                // Cluster circles
+                if (allStrikes.length > 150) {
+                    map.addLayer({
+                        id: clusterLayerId,
+                        type: 'circle',
+                        source: sourceId,
+                        filter: ['has', 'point_count'],
+                        paint: {
+                            'circle-color': [
+                                'step',
+                                ['get', 'point_count'],
+                                '#8e44ad', 10,
+                                '#c0392b', 50,
+                                '#e74c3c'
+                            ],
+                            'circle-radius': [
+                                'step',
+                                ['get', 'point_count'],
+                                18, 10,
+                                26, 50,
+                                34
+                            ],
+                            'circle-stroke-width': 1,
+                            'circle-stroke-color': '#fff'
+                        }
+                    });
+
+                    // Cluster count labels
+                    map.addLayer({
+                        id: `${clusterLayerId}-count`,
+                        type: 'symbol',
+                        source: sourceId,
+                        filter: ['has', 'point_count'],
+                        layout: {
+                            'text-field': '{point_count_abbreviated}',
+                            'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+                            'text-size': 14
+                        },
+                        paint: {
+                            'text-color': '#ffffff'
+                        }
+                    });
+                }
+
+                // Individual strikes
+                map.addLayer({
+                    id: layerId,
+                    type: 'circle',
+                    source: sourceId,
+                    filter: allStrikes.length > 150 ? ['!', ['has', 'point_count']] : ['all'],
+                    paint: {
+                        'circle-radius': [
+                            'interpolate', ['linear'], ['get', 'peak_current'],
+                            -200, 5,
+                            0, 6,
+                            50, 8,
+                            150, 11,
+                            300, 15
+                        ],
+                        'circle-color': [
+                            'case',
+                            ['>', ['get', 'peak_current'], 0], '#e74c3c',    // positive CG - red
+                            ['<', ['get', 'peak_current'], 0], '#3498db',    // negative CG - blue
+                            '#9b59b6'                                         // IC / unknown - purple
+                        ],
+                        'circle-stroke-color': '#ecf0f1',
+                        'circle-stroke-width': 1.2,
+                        'circle-opacity': 0.88
+                    }
+                }, 'hoco-polygons');
+
+                lightningSources[mapIndex] = { sourceId, layerId, clusterLayerId, data: geojson };
+                lightningVisible[mapIndex] = true;
+
+                btn.textContent = `⚡ Hide (${allStrikes.length})`;
+                btn.style.background = '#c0392b';
+                btn.disabled = false;
+
+                showToast(`Showing ${allStrikes.length} lightning strikes`, "success");
+
+            } catch (err) {
+                console.error("Lightning load error:", err);
+                showToast(err.message.includes("parse") ? "Invalid time format" : "Failed to load lightning data", "error");
+                resetButton(btn);
+            }
+        }
+
+        function hideLightning(mapIndex) {
+            const map = maps[mapIndex];
+            const src = lightningSources[mapIndex];
+            if (!src) return;
+
+            const layers = [src.layerId];
+            if (src.clusterLayerId) layers.push(src.clusterLayerId, `${src.clusterLayerId}-count`);
+
+            layers.forEach(l => map.getLayer(l) && map.removeLayer(l));
+            if (map.getSource(src.sourceId)) map.removeSource(src.sourceId);
+
+            delete lightningSources[mapIndex];
+            lightningVisible[mapIndex] = false;
+
+            const btn = document.getElementById(`lightning-btn-${mapIndex}`);
+            if (btn) resetButton(btn);
+        }
+
+        function resetButton(btn) {
+            btn.textContent = "⚡ Show Lightning";
+            btn.style.background = '#8e44ad';
+            btn.disabled = false;
+        }
+
+        function toggleLightningLayer(mapIndex) {
+            if (!activeMapData[mapIndex]) {
+                showToast("No forecast loaded on this map", "warning");
+                return;
+            }
+
+            const descEl = document.getElementById(`meta-desc-${mapIndex}`);
+            if (!descEl) return;
+
+            const html = descEl.innerHTML;
+            const match = html.match(/Period:<\/strong>\s*([^<]+?)(?:\s*-\s*([^<]+))?/i);
+
+            if (!match || !match[1]) {
+                showToast("Could not read forecast period from UI", "warning");
+                return;
+            }
+
+            const startStr = match[1].trim();
+            const endStr = match[2] ? match[2].trim() : startStr;
+
+            loadAndShowLightning(mapIndex, startStr, endStr);
+        }
+
+        // ─── Helper: more forgiving time parser ────────────────────────────────
+        function robustParseTime(str) {
+            str = (str || "").trim();
+
+            // Already ISO-like?
+            if (/^\d{4}-\d{2}-\d{2}T?/.test(str)) {
+                const d = new Date(str);
+                if (!isNaN(d)) return d;
+            }
+
+            // Common HOCO format: dd/mm/yyyy hh:mm
+            const hocoMatch = str.match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})\s+(\d{1,2}):(\d{2})/);
+            if (hocoMatch) {
+                const [, dd, mm, yyyy, hh, min] = hocoMatch;
+                const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh), Number(min));
+                if (!isNaN(d)) return d;
+            }
+
+            // Fallback: native parse
+            const fallback = new Date(str);
+            if (!isNaN(fallback)) return fallback;
+
+            return { isValid: false };
+        }
         // Helper: Parse HOCO time string "dd/mm/yyyy hh:mm" to Date
         function parseHocoTime(timeStr) {
             if (!timeStr) return new Date();
