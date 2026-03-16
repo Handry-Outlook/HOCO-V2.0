@@ -243,6 +243,63 @@
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
         }
 
+        /* Loading Animation for Pending Runs */
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 15, 15, 0.95);
+            z-index: 20;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: var(--text);
+            text-align: center;
+        }
+
+        .loading-content {
+            max-width: 280px;
+        }
+
+        .loading-title {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            color: var(--warning);
+        }
+
+        .est-time {
+            font-size: 0.95rem;
+            color: var(--accent);
+            margin-bottom: 15px;
+        }
+
+        .loading-bar-container {
+            width: 260px;
+            height: 8px;
+            background: #222;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .loading-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--accent), var(--primary));
+            width: 30%;
+            animation: loadingBar 1.5s linear infinite;
+        }
+
+        @keyframes loadingBar {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(400%); }
+        }
+
+        .loading-note {
+            font-size: 0.75rem;
+            color: #777;
+            margin-top: 12px;
+        }
+
         /* Components */
         .panel {
             background: #151515;
@@ -575,7 +632,7 @@
                     <div style="display: flex; gap: 10px; margin-top: 10px;">
                         <div style="flex: 1;">
                             <label>Grid Opacity</label>
-                            <input type="range" id="opacitySlider" min="0" max="100" value="75">
+                            <input type="range" id="opacitySlider" min="0" max="100" value="50">
                         </div>
                         <div style="flex: 1;">
                             <label>3D Scale</label>
@@ -605,6 +662,7 @@
                     <form id="hocoForm" class="panel" style="border-color: var(--primary);">
                         <div style="display: flex; justify-content: space-between;">
                             <label style="color: var(--primary);">Execute New Ensemble</label>
+                            <label style="color: var(--primary);">This will take around 4 minutes.</label>
                             <span id="runCapText" style="font-size: 0.7rem; color:#888;"></span>
                         </div>
 
@@ -720,6 +778,16 @@
                     <span style="font-size: 0.55rem;">High</span>
                 </div>
             </div>
+            <div id="loading-0" class="loading-overlay">
+                <div class="loading-content">
+                    <div class="loading-title">⏳ Processing Ensemble...</div>
+                    <div id="est-time-0" class="est-time">Estimated time: ~<span id="est-min-0">0</span> minutes</div>
+                    <div class="loading-bar-container">
+                        <div class="loading-bar"></div>
+                    </div>
+                    <div class="loading-note">Based on models & forecast duration</div>
+                </div>
+            </div>
         </div>
         <div id="map1" class="map-instance" style="display:none;">
             <div class="map-metadata">
@@ -734,6 +802,16 @@
                         style="flex-grow: 1; height: 6px; width: 80px; border-radius: 3px; background: linear-gradient(to right, rgba(255,255,255,0), rgba(102,194,164,0.7) 20%, rgba(255,242,0,0.7) 40%, rgba(255,127,39,0.7) 60%, rgba(236,28,36,0.7) 80%, rgba(184,61,218,0.8) 100%);">
                     </div>
                     <span style="font-size: 0.55rem;">High</span>
+                </div>
+            </div>
+            <div id="loading-1" class="loading-overlay">
+                <div class="loading-content">
+                    <div class="loading-title">⏳ Processing Ensemble...</div>
+                    <div id="est-time-1" class="est-time">Estimated time: ~<span id="est-min-1">0</span> minutes</div>
+                    <div class="loading-bar-container">
+                        <div class="loading-bar"></div>
+                    </div>
+                    <div class="loading-note">Based on models & forecast duration</div>
                 </div>
             </div>
         </div>
@@ -752,6 +830,16 @@
                     <span style="font-size: 0.55rem;">High</span>
                 </div>
             </div>
+            <div id="loading-2" class="loading-overlay">
+                <div class="loading-content">
+                    <div class="loading-title">⏳ Processing Ensemble...</div>
+                    <div id="est-time-2" class="est-time">Estimated time: ~<span id="est-min-2">0</span> minutes</div>
+                    <div class="loading-bar-container">
+                        <div class="loading-bar"></div>
+                    </div>
+                    <div class="loading-note">Based on models & forecast duration</div>
+                </div>
+            </div>
         </div>
         <div id="map3" class="map-instance" style="display:none;">
             <div class="map-metadata">
@@ -768,6 +856,16 @@
                     <span style="font-size: 0.55rem;">High</span>
                 </div>
             </div>
+            <div id="loading-3" class="loading-overlay">
+                <div class="loading-content">
+                    <div class="loading-title">⏳ Processing Ensemble...</div>
+                    <div id="est-time-3" class="est-time">Estimated time: ~<span id="est-min-3">0</span> minutes</div>
+                    <div class="loading-bar-container">
+                        <div class="loading-bar"></div>
+                    </div>
+                    <div class="loading-note">Based on models & forecast duration</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -776,8 +874,6 @@
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, where, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
-
-
 
         const accountMap = {
             main: { owner: "Handry-Outlook", repo: "HOCO-BACKEND" },
@@ -790,8 +886,6 @@
             const config = accountMap[selection];
 
             try {
-                // This updates the "Active Pointer" in Firestore.
-                // The actual secret token remains safely stored in your backend/secret manager.
                 await updateDoc(doc(db, "system_config", "github_settings"), {
                     active_owner: config.owner,
                     active_repo: config.repo
@@ -842,6 +936,31 @@
         };
         const defaultWeights = { 'rpdid2': 0.8, 'swisseu': 1.1, 'ez': 1.1, 'ukmo2km': 0.9, 'swissnow': 1.0 };
 
+        // Helper: Parse HOCO time string "dd/mm/yyyy hh:mm" to Date
+        function parseHocoTime(timeStr) {
+            if (!timeStr) return new Date();
+            const [datePart, timePart] = timeStr.split(' ');
+            if (!datePart || !timePart) return new Date();
+            const [dd, mm, yyyy] = datePart.split('/');
+            const [hh, minn] = timePart.split(':');
+            return new Date(parseInt(yyyy), parseInt(mm)-1, parseInt(dd), parseInt(hh), parseInt(minn));
+        }
+
+        // Show loading screen with estimated time
+        function showMapLoading(mapIndex, estMinutes) {
+            const loadingDiv = document.getElementById(`loading-${mapIndex}`);
+            if (!loadingDiv) return;
+            loadingDiv.style.display = 'flex';
+            const estEl = document.getElementById(`est-min-${mapIndex}`);
+            if (estEl) estEl.textContent = estMinutes;
+        }
+
+        // Hide loading screen
+        function hideMapLoading(mapIndex) {
+            const loadingDiv = document.getElementById(`loading-${mapIndex}`);
+            if (loadingDiv) loadingDiv.style.display = 'none';
+        }
+
         // ==========================================
         // MAPBOX INITIALIZATION & SYNC
         // ==========================================
@@ -858,7 +977,6 @@
                 maps[i].on('click', 'hoco-points', (e) => {
                     if (!e.features || e.features.length === 0) return;
 
-                    // Get raw risk from data (0-100)
                     const rawRisk = e.features[0].properties.risk || 0;
                     
                     new mapboxgl.Popup({ closeButton: true })
@@ -872,7 +990,6 @@
                         .addTo(maps[i]);
                 });
 
-                // Update the hover cursors too
                 maps[i].on('mouseenter', 'hoco-points', () => maps[i].getCanvas().style.cursor = 'pointer');
                 maps[i].on('mouseleave', 'hoco-points', () => maps[i].getCanvas().style.cursor = '');
 
@@ -899,7 +1016,6 @@
             const styleUrl = e.target.value;
             maps.forEach((m, i) => {
                 m.setStyle(styleUrl);
-                // Wait for the new style to fully load before trying to add sources/layers
                 m.once('style.load', () => {
                     if (activeMapData[i]) {
                         renderHocoLayers(m, activeMapData[i], i);
@@ -928,7 +1044,6 @@
             }
         });
 
-        // Fix: Ensure Opacity updates both 2D and 3D layer types
         document.getElementById('opacitySlider').addEventListener('input', (e) => {
             const op = parseInt(e.target.value) / 100;
             maps.forEach(m => {
@@ -940,18 +1055,17 @@
             });
         });
 
-        // Fix: Divide raw risk by 5 for 3D height scaling
         document.getElementById('heightSlider').addEventListener('input', (e) => {
             const h = parseInt(e.target.value);
             maps.forEach(m => {
                 if (m.getLayer('hoco-polygons') && m.getLayer('hoco-polygons').type === 'fill-extrusion') {
                     m.setPaintProperty('hoco-polygons', 'fill-extrusion-height',
-                        // Updates the calculation: (Risk / 5) * Slider Value
                         ['*', ['/', ['coalesce', ['get', 'risk'], 0], 5], h]
                     );
                 }
             });
         });
+
         // ==========================================
         // AUTHENTICATION & ROLES
         // ==========================================
@@ -1060,7 +1174,6 @@
             devRunnerUI.style.display = isDev ? 'block' : 'none';
 
             if (isDev) {
-                // Fetch current runner name from Firestore to update the text
                 getDoc(doc(db, "system_config", "github_settings")).then(s => {
                     if (s.exists()) {
                         document.getElementById('currentRunnerText').innerText = `Currently using: ${s.data().active_owner}`;
@@ -1124,16 +1237,9 @@
                         .split('T')[0];
                     if (rDate !== dateStr) return false;
 
-                    // 1. Developers see everything
                     if (userRole === 'developer') return true;
-
-                    // 2. Everyone sees system-automated runs
                     if (r.type === 'automated') return true;
-
-                    // 3. Everyone sees runs explicitly set to public
                     if (r.public === true) return true;
-
-                    // 4. Users ONLY see their own manual/private runs
                     if (currentUid && r.userId === currentUid) return true;
 
                     return false;
@@ -1142,15 +1248,10 @@
                     const opt = document.createElement('option');
                     opt.value = r.id;
 
-                    let tag = "[PVT]"; // Default tag
-
-                    if (r.type === 'automated') {
-                        tag = "[AUTO]";
-                    } else if (r.public === true) {
-                        tag = "[PUB]";
-                    } else if (currentUid && r.userId === currentUid) {
-                        tag = "[MINE]";
-                    }
+                    let tag = "[PVT]";
+                    if (r.type === 'automated') tag = "[AUTO]";
+                    else if (r.public === true) tag = "[PUB]";
+                    else if (currentUid && r.userId === currentUid) tag = "[MINE]";
 
                     const creationDate = r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
                     const creationTimeStr = creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -1171,52 +1272,74 @@
             if (!runId) return;
 
             const mapIndex = parseInt(document.getElementById('targetMapSelect').value);
+            await loadRunIntoMap(runId, mapIndex);
+        });
+
+        async function loadRunIntoMap(runId, mapIndex) {
             const targetMap = maps[mapIndex];
             const statusUI = document.getElementById('runStatus');
-
             statusUI.innerText = `Fetching data for Map ${mapIndex + 1}...`;
 
             const docSnap = await getDoc(doc(db, "hoco_requests", runId));
-            if (docSnap.exists() && docSnap.data().geojsonUrl) {
-                try {
-                    const runData = docSnap.data();
-                    const response = await fetch(runData.geojsonUrl);
-                    const geojsonData = await response.json();
-
-                    // Store the raw GeoJSON for this map index
-                    activeMapData[mapIndex] = geojsonData;
-
-                    // Pass the data to the updated renderer
-                    await renderHocoLayers(targetMap, geojsonData, mapIndex);
-
-                    statusUI.innerText = "Loaded successfully.";
-
-                    // Metadata update (already in your code)
-                    const creationDate = runData.createdAt ? (runData.createdAt.toDate ? runData.createdAt.toDate() : new Date(runData.createdAt)) : new Date();
-                    const isNormal = runData.type === 'automated';
-                    const displayUser = runData.userId ? runData.userId.substring(0, 6) : 'System';
-
-                    document.getElementById(`meta-title-${mapIndex}`).innerText = `Loaded: ${runData.region || 'Unknown'}`;
-                    document.getElementById(`meta-desc-${mapIndex}`).innerHTML = `
-                <strong>Period:</strong> ${runData.startTime || 'N/A'} - ${runData.endTime || 'N/A'}<br>
-                <strong>Hazards:</strong> <span style="text-transform: capitalize">${runData.weather || 'None'}</span><br>
-                <strong>Mode:</strong> ${isNormal ? 'Normal Mode (Auto)' : 'Custom Weighting'}<br>
-                <strong>Ran by:</strong> User ${displayUser}<br>
-                <strong>Time:</strong> ${creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
-            `;
-                    document.getElementById(`meta-scale-${mapIndex}`).style.display = 'flex';
-
-                } catch (err) {
-                    console.error("Map load error:", err);
-                    statusUI.innerText = "Error loading run data.";
-                }
-            } else {
-                statusUI.innerText = "Data pending or missing.";
+            if (!docSnap.exists()) {
+                statusUI.innerText = "Run not found.";
+                return;
             }
-        });
+
+            const runData = docSnap.data();
+            const isPending = (runData.status === 'pending' || !runData.geojsonUrl);
+
+            if (isPending) {
+                let numModels = 6;
+                if (runData.scenarios && Array.isArray(runData.scenarios) && runData.scenarios.length > 0) {
+                    numModels = runData.scenarios.length;
+                }
+
+                const startDate = parseHocoTime(runData.startTime);
+                const endDate = parseHocoTime(runData.endTime || runData.startTime);
+                let durationHours = Math.max(1, (endDate - startDate) / (1000 * 60 * 60));
+
+                const totalSeconds = numModels * 35 * (durationHours / 24);
+                let estMinutes = Math.ceil(totalSeconds / 60);
+                if (estMinutes < 2) estMinutes = 2;
+
+                statusUI.innerText = `Pending processing - Est. ${estMinutes} min`;
+                showMapLoading(mapIndex, estMinutes);
+                return;
+            }
+
+            hideMapLoading(mapIndex);
+            try {
+                const response = await fetch(runData.geojsonUrl);
+                const geojsonData = await response.json();
+
+                activeMapData[mapIndex] = geojsonData;
+                await renderHocoLayers(targetMap, geojsonData, mapIndex);
+
+                statusUI.innerText = "Loaded successfully.";
+
+                const creationDate = runData.createdAt ? (runData.createdAt.toDate ? runData.createdAt.toDate() : new Date(runData.createdAt)) : new Date();
+                const isNormal = runData.type === 'automated';
+                const displayUser = runData.userId ? runData.userId.substring(0, 6) : 'System';
+
+                document.getElementById(`meta-title-${mapIndex}`).innerText = `Loaded: ${runData.region || 'Unknown'}`;
+                document.getElementById(`meta-desc-${mapIndex}`).innerHTML = `
+                    <strong>Period:</strong> ${runData.startTime || 'N/A'} - ${runData.endTime || 'N/A'}<br>
+                    <strong>Hazards:</strong> <span style="text-transform: capitalize">${runData.weather || 'None'}</span><br>
+                    <strong>Mode:</strong> ${isNormal ? 'Normal Mode (Auto)' : 'Custom Weighting'}<br>
+                    <strong>Ran by:</strong> User ${displayUser}<br>
+                    <strong>Time:</strong> ${creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
+                `;
+                document.getElementById(`meta-scale-${mapIndex}`).style.display = 'flex';
+            } catch (err) {
+                console.error("Map load error:", err);
+                statusUI.innerText = "Error loading run data.";
+            }
+        }
 
         async function renderHocoLayers(targetMap, geojsonData, mapIndex) {
-            // 1. Cleanup existing layers/source (Fixes "source not found" errors)
+            hideMapLoading(mapIndex);
+
             if (targetMap.getLayer('hoco-points')) targetMap.removeLayer('hoco-points');
             if (targetMap.getLayer('hoco-polygons')) targetMap.removeLayer('hoco-polygons');
             if (targetMap.getSource('hoco-source')) targetMap.removeSource('hoco-source');
@@ -1233,10 +1356,8 @@
                 'source': 'hoco-source',
                 'filter': ['==', ['get', 'feature_type'], 'polygon'],
                 'paint': is3dMode ? {
-                    // MATCH COLOR TO LEGEND: Use the 'fill' property from your GeoJSON
                     'fill-extrusion-color': ['get', 'fill'],
                     'fill-extrusion-opacity': currentOpacity,
-                    // 3D HEIGHT FIX: (Risk / 5) * Scale Factor
                     'fill-extrusion-height': ['*', ['coalesce', ['get', 'risk'], 0], currentHeightScale]
                 } : {
                     'fill-color': ['get', 'fill'],
@@ -1253,15 +1374,12 @@
                 'paint': { 'circle-radius': 12, 'circle-opacity': 0 }
             });
 
-            // Move layers below labels so city names are visible
             const layers = targetMap.getStyle().layers;
             const labelLayer = layers.find(l => l.type === 'symbol' && l.layout && l.layout['text-field']);
             if (labelLayer) {
                 targetMap.moveLayer('hoco-polygons', labelLayer.id);
             }
         }
-
-
 
         // ==========================================
         // SCENARIO & EXECUTION LOGIC
@@ -1289,7 +1407,7 @@
 
         function updateRunTimes() {
             const rSel = document.getElementById('runSelect');
-            rSel.innerHTML = '';  // clear old options
+            rSel.innerHTML = '';
 
             const modelValue = document.getElementById('modelSelect').value;
             if (!modelValue || !models[modelValue]) {
@@ -1297,15 +1415,13 @@
                 return;
             }
 
-            const freq = models[modelValue].freq;           // hours between runs
+            const freq = models[modelValue].freq;
 
-            // Use user-selected start time if available, otherwise fall back to now
             let referenceTime;
             const startInput = document.getElementById('startTime').value;
 
             if (startInput) {
                 referenceTime = new Date(startInput);
-                // Round down to nearest model cycle boundary
                 const minutes = referenceTime.getUTCMinutes();
                 const hours = referenceTime.getUTCHours();
                 referenceTime.setUTCMinutes(0, 0, 0);
@@ -1316,14 +1432,12 @@
                 referenceTime.setUTCHours(Math.floor(referenceTime.getUTCHours() / freq) * freq);
             }
 
-            // Generate last 20 available runs backward from reference time
             for (let i = 0; i < 20; i++) {
                 const runDate = new Date(referenceTime.getTime() - (i * freq * 3600 * 1000));
 
                 const opt = document.createElement('option');
                 opt.value = runDate.toISOString();
 
-                // Nice readable format (same as before)
                 const day = String(runDate.getUTCDate()).padStart(2, '0');
                 const month = String(runDate.getUTCMonth() + 1).padStart(2, '0');
                 const hour = String(runDate.getUTCHours()).padStart(2, '0');
@@ -1332,24 +1446,17 @@
                 rSel.appendChild(opt);
             }
 
-            // Optional: auto-select the most recent one (closest to start time)
             if (rSel.options.length > 0) {
                 rSel.selectedIndex = 0;
             }
         }
-        // ────────────────────────────────────────────────
-        // Auto-update run times when start date/time changes
-        // ────────────────────────────────────────────────
+
         document.getElementById('startTime').addEventListener('change', () => {
             const selectedModel = document.getElementById('modelSelect').value;
-
-            // Only proceed if a model is already selected
-            if (!selectedModel || !models[selectedModel]) {
-                return;
-            }
-
-            updateRunTimes();  // ← your existing function — it already uses current model freq
+            if (!selectedModel || !models[selectedModel]) return;
+            updateRunTimes();
         });
+
         function updateAddButtonState() {
             const addBtn = document.getElementById('addScenarioBtn');
             const hasModel = !!document.getElementById('modelSelect').value;
@@ -1357,10 +1464,10 @@
             addBtn.disabled = !(hasModel && hasStart);
         }
 
-        // Call it initially and on changes
         document.getElementById('modelSelect').addEventListener('change', updateAddButtonState);
         document.getElementById('startTime').addEventListener('change', updateAddButtonState);
         updateAddButtonState();
+
         document.getElementById('addScenarioBtn').addEventListener('click', () => {
             const m = document.getElementById('modelSelect').value;
             const rSel = document.getElementById('runSelect');
@@ -1373,7 +1480,7 @@
             cont.innerHTML = '';
             selectedScenarios.forEach((s, i) => {
                 const c = document.createElement('div'); c.className = 'chip';
-                c.innerHTML = `${s.label} <span data-idx="${i}" style="color:#000;">&times;</span>`;
+                c.innerHTML = `${s.label} <span data-idx="${i}" style="color:#000;">×</span>`;
                 cont.appendChild(c);
             });
         }
@@ -1388,7 +1495,6 @@
         document.getElementById('hocoForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            // --- START/END TIME VALIDATION ---
             const startVal = new Date(document.getElementById('startTime').value);
             const endVal = new Date(document.getElementById('endTime').value);
 
@@ -1417,7 +1523,6 @@
             }
 
             try {
-                // Locate this section inside the document.getElementById('hocoForm').addEventListener('submit'...)
                 const payload = {
                     region: document.getElementById('regionSelect').value,
                     scenarios: finalScenarios,
@@ -1429,8 +1534,6 @@
                     createdAt: new Date(),
                     status: 'pending',
                     public: false,
-                    // CHANGE: If it's triggered by a user via the form, it is 'manual'
-                    // 'automated' should be reserved for system-cron jobs.
                     type: 'manual'
                 };
 
@@ -1438,6 +1541,29 @@
                 showToast("Request queued. Processing...", "info");
 
                 await triggerHocoRun({ id: docRef.id, ...payload });
+
+                // === AUTO-LOAD NEW RUN WITH LOADING SCREEN ===
+                let targetIndex = 0;
+                const currentLayoutVal = parseInt(document.getElementById('layoutSelect').value);
+                const hasPlotted = activeMapData.some(data => data !== null);
+
+                if (hasPlotted && currentLayoutVal === 1) {
+                    document.getElementById('layoutSelect').value = "2";
+                    document.getElementById('layoutSelect').dispatchEvent(new Event('change'));
+                    targetIndex = 1;
+                } else if (currentLayoutVal > 1) {
+                    for (let i = 0; i < currentLayoutVal; i++) {
+                        if (!activeMapData[i]) {
+                            targetIndex = i;
+                            break;
+                        }
+                    }
+                }
+
+                document.getElementById('targetMapSelect').value = targetIndex.toString();
+                await loadRunIntoMap(docRef.id, targetIndex);
+                // === END AUTO-LOAD ===
+
                 showToast("Run completely triggered.", "success");
 
                 selectedScenarios = []; renderChips();
@@ -1538,6 +1664,7 @@
                 showToast("Run published to Guests.", "success");
             } catch (err) { showToast("Failed to publish.", "error"); }
         });
+
         window.setTimeRange = (hours) => {
             const startInput = document.getElementById('startTime');
             const endInput = document.getElementById('endTime');
@@ -1550,7 +1677,6 @@
             const startDate = new Date(startInput.value);
             const endDate = new Date(startDate.getTime() + (hours * 60 * 60 * 1000));
 
-            // Format to YYYY-MM-DDTHH:MM for datetime-local input
             const offset = endDate.getTimezoneOffset() * 60000;
             const localISOTime = new Date(endDate - offset).toISOString().slice(0, 16);
 
