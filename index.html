@@ -899,9 +899,10 @@
             const styleUrl = e.target.value;
             maps.forEach((m, i) => {
                 m.setStyle(styleUrl);
+                // Wait for the new style to fully load before trying to add sources/layers
                 m.once('style.load', () => {
                     if (activeMapData[i]) {
-                        renderHocoLayers(m, activeMapData[i]);
+                        renderHocoLayers(m, activeMapData[i], i);
                     }
                 });
             });
@@ -911,7 +912,7 @@
         document.getElementById('visTypeSelect').addEventListener('change', () => {
             maps.forEach((m, i) => {
                 if (activeMapData[i]) {
-                    renderHocoLayers(m, activeMapData[i]);
+                    renderHocoLayers(m, activeMapData[i], i);
                 }
             });
         });
@@ -1215,11 +1216,22 @@
         });
 
         async function renderHocoLayers(targetMap, geojsonData, mapIndex) {
-            // ... cleanup logic ...
+            // 1. Clean up existing layers and source if they exist
+            if (targetMap.getLayer('hoco-points')) targetMap.removeLayer('hoco-points');
+            if (targetMap.getLayer('hoco-polygons')) targetMap.removeLayer('hoco-polygons');
+            if (targetMap.getSource('hoco-source')) targetMap.removeSource('hoco-source');
+
+            // 2. Add the source back with the new data
+            targetMap.addSource('hoco-source', {
+                'type': 'geojson',
+                'data': geojsonData
+            });
+
             const is3dMode = document.getElementById('visTypeSelect').value === '3d';
             const currentOpacity = parseInt(document.getElementById('opacitySlider').value) / 100;
             const currentHeight = parseInt(document.getElementById('heightSlider').value);
 
+            // 3. Add Polygons (3D Extrusion or 2D Fill)
             targetMap.addLayer({
                 'id': 'hoco-polygons',
                 'type': is3dMode ? 'fill-extrusion' : 'fill',
@@ -1228,6 +1240,7 @@
                 'paint': is3dMode ? {
                     'fill-extrusion-color': ['get', 'fill'],
                     'fill-extrusion-opacity': currentOpacity,
+                    // Updated: Divide raw risk by 5 for the base height
                     'fill-extrusion-height': ['*', ['/', ['coalesce', ['get', 'risk'], 0], 5], currentHeight]
                 } : {
                     'fill-color': ['get', 'fill'],
@@ -1236,7 +1249,7 @@
                 }
             });
 
-            // 4. Add Clickable Points (The "Interactivity" Layer)
+            // 4. Add Clickable Points
             targetMap.addLayer({
                 'id': 'hoco-points',
                 'type': 'circle',
@@ -1244,16 +1257,15 @@
                 'filter': ['==', ['get', 'feature_type'], 'point'],
                 'paint': {
                     'circle-radius': 12,
-                    'circle-opacity': 0 // Invisible but clickable
+                    'circle-opacity': 0
                 }
             });
 
-            // Move labels above the weather data
+            // 5. Move layers below labels for better visibility
             const layers = targetMap.getStyle().layers;
             const labelLayer = layers.find(l => l.type === 'symbol' && l.layout && l.layout['text-field']);
             if (labelLayer) {
                 targetMap.moveLayer('hoco-polygons', labelLayer.id);
-                targetMap.moveLayer('hoco-points', labelLayer.id);
             }
         }
 
