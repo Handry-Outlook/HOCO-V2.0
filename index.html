@@ -657,14 +657,18 @@
                         <button type="submit" id="submitBtn">Execute Run</button>
                     </form>
                 </div>
-                <div class="card bg-dark border-secondary p-3 mt-4">
-                    <h6 class="text-warning mb-3">Global Runner Settings</h6>
-                    <select id="globalAccountSelector" class="form-select bg-dark text-white border-secondary mb-2">
+                <div id="devRunnerSettings" class="card bg-dark border-secondary p-3 mt-4" style="display:none;">
+                    <h6 class="text-warning mb-1">Global Runner Settings</h6>
+                    <p id="currentRunnerText" style="font-size: 0.7rem; color: #888; margin-bottom: 10px;">Currently
+                        using: Loading...</p>
+                    <select id="globalAccountSelector" class="form-select bg-dark text-white border-secondary mb-2"
+                        style="width: 100%; padding: 5px; background: #222; border: 1px solid #444; color: white;">
                         <option value="main">Account 1 (Handry-Outlook)</option>
-                        <option value="alt1">Account 2 (Secondary)</option>
-                        <option value="alt2">Account 3 (Third Account)</option>
+                        <option value="alt1">Account 2 (Handry66)</option>
+                        <option value="alt2">Account 3 (Handry6)</option>
                     </select>
-                    <button id="setGlobalAccountBtn" class="btn btn-warning btn-sm w-100">Apply New Runner</button>
+                    <button id="setGlobalAccountBtn" class="btn btn-warning btn-sm w-100"
+                        style="background: var(--warning); color: black;">Apply New Runner</button>
                 </div>
                 <div id="upgradePanel" class="panel" style="display:none; border-color: #555;">
                     <label>Apply for Role Upgrade</label>
@@ -773,7 +777,7 @@
         import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, where, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 
-        
+
 
         const accountMap = {
             main: { owner: "Handry-Outlook", repo: "HOCO-BACKEND" },
@@ -923,25 +927,26 @@
             }
         });
 
+        // Fix: Ensure Opacity updates both 2D and 3D layer types
         document.getElementById('opacitySlider').addEventListener('input', (e) => {
             const op = parseInt(e.target.value) / 100;
             maps.forEach(m => {
-                if (m.getLayer('hoco-layer')) {
-                    const type = m.getLayer('hoco-layer').type;
-                    if (type === 'fill-extrusion') {
-                        m.setPaintProperty('hoco-layer', 'fill-extrusion-opacity', op);
-                    } else if (type === 'fill') {
-                        m.setPaintProperty('hoco-layer', 'fill-opacity', op);
-                    }
+                if (m.getLayer('hoco-polygons')) {
+                    const type = m.getLayer('hoco-polygons').type;
+                    const prop = (type === 'fill-extrusion') ? 'fill-extrusion-opacity' : 'fill-opacity';
+                    m.setPaintProperty('hoco-polygons', prop, op);
                 }
             });
         });
 
+        // Fix: Divide raw risk by 5 for 3D height scaling
         document.getElementById('heightSlider').addEventListener('input', (e) => {
             const h = parseInt(e.target.value);
             maps.forEach(m => {
-                if (m.getLayer('hoco-layer') && m.getLayer('hoco-layer').type === 'fill-extrusion') {
-                    m.setPaintProperty('hoco-layer', 'fill-extrusion-height', ['*', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], h]);
+                if (m.getLayer('hoco-polygons') && m.getLayer('hoco-polygons').type === 'fill-extrusion') {
+                    m.setPaintProperty('hoco-polygons', 'fill-extrusion-height',
+                        ['*', ['/', ['coalesce', ['get', 'risk'], 0], 5], h]
+                    );
                 }
             });
         });
@@ -1050,7 +1055,17 @@
             document.getElementById('executionPanel').style.display = isGuest ? 'none' : 'block';
             document.getElementById('exclusiveSection').style.display = (isExclusive || isDev) ? 'block' : 'none';
             document.getElementById('adminPanel').style.display = isDev ? 'block' : 'none';
+            const devRunnerUI = document.getElementById('devRunnerSettings');
+            devRunnerUI.style.display = isDev ? 'block' : 'none';
 
+            if (isDev) {
+                // Fetch current runner name from Firestore to update the text
+                getDoc(doc(db, "system_config", "github_settings")).then(s => {
+                    if (s.exists()) {
+                        document.getElementById('currentRunnerText').innerText = `Currently using: ${s.data().active_owner}`;
+                    }
+                });
+            }
             const maxDate = new Date();
             if (!isDev) maxDate.setHours(maxDate.getHours() + 72);
             const endInput = document.getElementById('endTime');
@@ -1200,28 +1215,21 @@
         });
 
         async function renderHocoLayers(targetMap, geojsonData, mapIndex) {
-            // 1. Clean up existing layers and sources
-            const layerIds = ['hoco-polygons', 'hoco-points'];
-            layerIds.forEach(id => {
-                if (targetMap.getLayer(id)) targetMap.removeLayer(id);
-            });
-            if (targetMap.getSource('hoco-source')) targetMap.removeSource('hoco-source');
-
-            // 2. Add the source
-            targetMap.addSource('hoco-source', {
-                type: 'geojson',
-                data: geojsonData
-            });
-
+            // ... cleanup logic ...
+            const is3dMode = document.getElementById('visTypeSelect').value === '3d';
             const currentOpacity = parseInt(document.getElementById('opacitySlider').value) / 100;
+            const currentHeight = parseInt(document.getElementById('heightSlider').value);
 
-            // 3. Add SPC-Style Polygons (The "Beautiful" Visuals)
             targetMap.addLayer({
                 'id': 'hoco-polygons',
-                'type': 'fill',
+                'type': is3dMode ? 'fill-extrusion' : 'fill',
                 'source': 'hoco-source',
                 'filter': ['==', ['get', 'feature_type'], 'polygon'],
-                'paint': {
+                'paint': is3dMode ? {
+                    'fill-extrusion-color': ['get', 'fill'],
+                    'fill-extrusion-opacity': currentOpacity,
+                    'fill-extrusion-height': ['*', ['/', ['coalesce', ['get', 'risk'], 0], 5], currentHeight]
+                } : {
                     'fill-color': ['get', 'fill'],
                     'fill-opacity': currentOpacity,
                     'fill-outline-color': ['get', 'stroke']
