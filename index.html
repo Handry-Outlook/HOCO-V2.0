@@ -579,7 +579,7 @@
                         </div>
                         <div style="flex: 1;">
                             <label>3D Scale</label>
-                            <input type="range" id="heightSlider" min="0" max="200" step="5" value="50">
+                            <input type="range" id="heightSlider" min="0" max="200" step="5" value="150">
                         </div>
                     </div>
                 </div>
@@ -860,13 +860,13 @@
 
                     // Get raw risk from data (0-100)
                     const rawRisk = e.features[0].properties.risk || 0;
-
+                    const displayRisk = Math.round(rawRisk / 5);
                     new mapboxgl.Popup({ closeButton: true })
                         .setLngLat(e.lngLat)
                         .setHTML(`
             <div style="color:#000; font-family: sans-serif; padding: 10px; min-width: 120px;">
                 <div style="font-weight: bold; border-bottom: 1px solid #ccc; margin-bottom: 5px;">HOCO Analysis</div>
-                <strong>Risk Level:</strong> ${rawRisk}%
+                <strong>Risk Level:</strong> ${displayRisk}%
             </div>
         `)
                         .addTo(maps[i]);
@@ -1237,7 +1237,7 @@
                     'fill-extrusion-color': ['get', 'fill'],
                     'fill-extrusion-opacity': currentOpacity,
                     // 3D HEIGHT FIX: (Risk / 5) * Scale Factor
-                    'fill-extrusion-height': ['*', ['/', ['coalesce', ['get', 'risk'], 0], 5], currentHeightScale]
+                    'fill-extrusion-height': ['*', ['coalesce', ['get', 'risk'], 0], currentHeightScale]
                 } : {
                     'fill-color': ['get', 'fill'],
                     'fill-opacity': currentOpacity,
