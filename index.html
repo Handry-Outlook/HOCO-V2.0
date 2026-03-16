@@ -796,7 +796,7 @@
                     <span style="font-size: 0.55rem;">High</span>
                 </div>
                 <button id="lightning-btn-0"
-                    style="margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none;"
+                    style="margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
                     onclick="toggleLightningLayer(0)">
                     ⚡ Show Lightning
                 </button>
@@ -827,7 +827,7 @@
                     <span style="font-size: 0.55rem;">High</span>
                 </div>
                 <button id="lightning-btn-1"
-                    style="margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none;"
+                    style="margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
                     onclick="toggleLightningLayer(1)">
                     ⚡ Show Lightning
                 </button>
@@ -858,7 +858,7 @@
                     <span style="font-size: 0.55rem;">High</span>
                 </div>
                 <button id="lightning-btn-2"
-                    style="margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none;"
+                    style="margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
                     onclick="toggleLightningLayer(2)">
                     ⚡ Show Lightning
                 </button>
@@ -889,7 +889,7 @@
                     <span style="font-size: 0.55rem;">High</span>
                 </div>
                 <button id="lightning-btn-3"
-                    style="margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none;"
+                    style="margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
                     onclick="toggleLightningLayer(3)">
                     ⚡ Show Lightning
                 </button>
@@ -1478,6 +1478,10 @@
         function hideMapLoading(mapIndex) {
             const loadingDiv = document.getElementById(`loading-${mapIndex}`);
             if (loadingDiv) loadingDiv.style.display = 'none';
+
+            // ─── NEW: Hide lightning button when loading screen appears ───
+            const lightningBtn = document.getElementById(`lightning-btn-${mapIndex}`);
+            if (lightningBtn) lightningBtn.style.display = 'none';
         }
 
         // ==========================================
@@ -1846,14 +1850,18 @@
 
                 statusUI.innerText = `Pending processing - Est. ${estMinutes} min`;
 
-                // Pass createdAt to showMapLoading
                 const createdAt = runData.createdAt?.toDate?.() || new Date(runData.createdAt || Date.now());
                 showMapLoading(mapIndex, estMinutes, runId, createdAt);
+
+                // ─── NEW: Hide lightning button while run is pending ───
+                const lightningBtn = document.getElementById(`lightning-btn-${mapIndex}`);
+                if (lightningBtn) lightningBtn.style.display = 'none';
 
                 return;
             }
 
             hideMapLoading(mapIndex);
+
             try {
                 const response = await fetch(runData.geojsonUrl);
                 const geojsonData = await response.json();
@@ -1869,19 +1877,27 @@
 
                 document.getElementById(`meta-title-${mapIndex}`).innerText = `Loaded: ${runData.region || 'Unknown'}`;
                 document.getElementById(`meta-desc-${mapIndex}`).innerHTML = `
-                    <strong>Period:</strong> ${runData.startTime || 'N/A'} - ${runData.endTime || 'N/A'}<br>
-                    <strong>Hazards:</strong> <span style="text-transform: capitalize">${runData.weather || 'None'}</span><br>
-                    <strong>Mode:</strong> ${isNormal ? 'Normal Mode (Auto)' : 'Custom Weighting'}<br>
-                    <strong>Ran by:</strong> User ${displayUser}<br>
-                    <strong>Time:</strong> ${creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
-                `;
+            <strong>Period:</strong> ${runData.startTime || 'N/A'} - ${runData.endTime || 'N/A'}<br>
+            <strong>Hazards:</strong> <span style="text-transform: capitalize">${runData.weather || 'None'}</span><br>
+            <strong>Mode:</strong> ${isNormal ? 'Normal Mode (Auto)' : 'Custom Weighting'}<br>
+            <strong>Ran by:</strong> User ${displayUser}<br>
+            <strong>Time:</strong> ${creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
+        `;
                 document.getElementById(`meta-scale-${mapIndex}`).style.display = 'flex';
+
+                // ─── NEW: Show lightning button when run loads successfully ───
+                const lightningBtn = document.getElementById(`lightning-btn-${mapIndex}`);
+                if (lightningBtn) lightningBtn.style.display = 'block';
+
             } catch (err) {
                 console.error("Map load error:", err);
                 statusUI.innerText = "Error loading run data.";
+
+                // ─── NEW: Hide button on error ───
+                const lightningBtn = document.getElementById(`lightning-btn-${mapIndex}`);
+                if (lightningBtn) lightningBtn.style.display = 'none';
             }
         }
-
         async function renderHocoLayers(targetMap, geojsonData, mapIndex) {
             hideMapLoading(mapIndex);
 
