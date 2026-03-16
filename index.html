@@ -1019,13 +1019,11 @@
             btn.textContent = "Loading lightning...";
 
             try {
-                // ─── Use the proven HOCO parser (this fixes the parse error) ───────────────────────────────────────
+                // ─── Parse forecast period (your existing reliable parser) ───
                 const start = parseHocoTime(startTimeStr);
                 const end = parseHocoTime(endTimeStr || startTimeStr);
 
-                // Safety check
                 if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-                    console.error("Parse failed for:", startTimeStr, "→", endTimeStr);
                     throw new Error("Could not parse forecast time range");
                 }
 
@@ -1052,14 +1050,15 @@
                         lightningCache.set(url, jsonData);
                     }
 
-                    const data = jsonData.data;
-                    if (!Array.isArray(data) && !Array.isArray(data?.strikes)) continue;
-
-                    const strikes = Array.isArray(data) ? data : data.strikes || [];
+                    const raw = jsonData.data;
+                    const strikes = Array.isArray(raw) ? raw : (raw?.lightning_strikes || []);
 
                     const filtered = strikes.filter(s => {
-                        const t = Number(s.time || s.timestamp || s.strike_time_unix);
-                        return !isNaN(t) && t >= startUnix && t <= endUnix;
+                        if (!s.strike_time) return false;
+                        const strikeDate = new Date(s.strike_time);
+                        if (isNaN(strikeDate.getTime())) return false;
+                        const t = Math.floor(strikeDate.getTime() / 1000);
+                        return t >= startUnix && t <= endUnix;
                     });
 
                     allStrikes.push(...filtered);
@@ -1068,14 +1067,12 @@
                 // ─── Deduplicate ────────────────────────────────────────────
                 const seen = new Map();
                 allStrikes = allStrikes.filter(s => {
-                    if (!s.lat || !s.lon || !s.time) return false;
+                    if (!s.strike_time || !s.coordinates || s.coordinates.length < 2) return false;
 
-                    const ts = s.time;
-                    const lat4 = Number(s.lat).toFixed(4);
-                    const lon4 = Number(s.lon).toFixed(4);
-                    const peak = s.peak_current ? `|${s.peak_current}` : '';
-
-                    const key = `${ts}|${lat4}|${lon4}${peak}`;
+                    const ts = s.strike_time;
+                    const lon = Number(s.coordinates[0]).toFixed(4);
+                    const lat = Number(s.coordinates[1]).toFixed(4);
+                    const key = `${ts}|${lon}|${lat}`;
 
                     if (seen.has(key)) return false;
                     seen.set(key, true);
@@ -1095,23 +1092,22 @@
                         type: "Feature",
                         geometry: {
                             type: "Point",
-                            coordinates: [Number(s.lon), Number(s.lat)]
+                            coordinates: [Number(s.coordinates[0]), Number(s.coordinates[1])]
                         },
                         properties: {
-                            time: s.time,
-                            peak_current: Number(s.peak_current) || null,
-                            cloud: s.cloud_indicator || s.type || "?"
+                            time: s.strike_time,
+                            peak_current: null,           // your files don't have this yet
+                            cloud: "?"
                         }
                     }))
                 };
 
-                // ─── Add to map ─────────────────────────────────────────────
+                // ─── Add to map (same as before) ────────────────────────────
                 const map = maps[mapIndex];
                 const sourceId = `lightning-src-${mapIndex}`;
                 const layerId = `lightning-layer-${mapIndex}`;
                 const clusterLayerId = `lightning-clusters-${mapIndex}`;
 
-                // Clean up previous layers/sources
                 [layerId, clusterLayerId].forEach(l => map.getLayer(l) && map.removeLayer(l));
                 [sourceId].forEach(s => map.getSource(s) && map.removeSource(s));
 
@@ -1123,52 +1119,34 @@
                     clusterRadius: 38
                 });
 
-                // Cluster circles + labels
                 if (allStrikes.length > 150) {
                     map.addLayer({
-                        id: clusterLayerId,
-                        type: 'circle',
-                        source: sourceId,
-                        filter: ['has', 'point_count'],
+                        id: clusterLayerId, type: 'circle', source: sourceId, filter: ['has', 'point_count'],
                         paint: {
                             'circle-color': ['step', ['get', 'point_count'], '#8e44ad', 10, '#c0392b', 50, '#e74c3c'],
                             'circle-radius': ['step', ['get', 'point_count'], 18, 10, 26, 50, 34],
-                            'circle-stroke-width': 1,
-                            'circle-stroke-color': '#fff'
+                            'circle-stroke-width': 1, 'circle-stroke-color': '#fff'
                         }
                     });
 
                     map.addLayer({
-                        id: `${clusterLayerId}-count`,
-                        type: 'symbol',
-                        source: sourceId,
-                        filter: ['has', 'point_count'],
-                        layout: {
-                            'text-field': '{point_count_abbreviated}',
-                            'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-                            'text-size': 14
-                        },
+                        id: `${clusterLayerId}-count`, type: 'symbol', source: sourceId, filter: ['has', 'point_count'],
+                        layout: { 'text-field': '{point_count_abbreviated}', 'text-size': 14 },
                         paint: { 'text-color': '#ffffff' }
                     });
                 }
 
-                // Individual strikes
                 map.addLayer({
                     id: layerId,
                     type: 'circle',
                     source: sourceId,
                     filter: allStrikes.length > 150 ? ['!', ['has', 'point_count']] : ['all'],
                     paint: {
-                        'circle-radius': ['interpolate', ['linear'], ['get', 'peak_current'], -200, 5, 0, 6, 50, 8, 150, 11, 300, 15],
-                        'circle-color': [
-                            'case',
-                            ['>', ['get', 'peak_current'], 0], '#e74c3c',
-                            ['<', ['get', 'peak_current'], 0], '#3498db',
-                            '#9b59b6'
-                        ],
-                        'circle-stroke-color': '#ecf0f1',
-                        'circle-stroke-width': 1.2,
-                        'circle-opacity': 0.88
+                        'circle-radius': 7,
+                        'circle-color': '#d63031',
+                        'circle-stroke-color': '#fff',
+                        'circle-stroke-width': 1.5,
+                        'circle-opacity': 0.9
                     }
                 }, 'hoco-polygons');
 
@@ -1183,7 +1161,7 @@
 
             } catch (err) {
                 console.error("Lightning load error:", err);
-                showToast(err.message.includes("parse") ? "Invalid time format in metadata" : "Failed to load lightning data", "error");
+                showToast("Failed to load lightning data", "error");
                 resetButton(btn);
             }
         }
