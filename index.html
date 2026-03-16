@@ -857,16 +857,16 @@
 
                 maps[i].on('click', 'hoco-points', (e) => {
                     if (!e.features || e.features.length === 0) return;
-                    const props = e.features[0].properties;
 
-                    // Use the 'risk' property we defined in the Python script
-                    const risk = props.risk || 0;
+                    // Get raw risk from data (0-100)
+                    const rawRisk = e.features[0].properties.risk || 0;
 
                     new mapboxgl.Popup({ closeButton: true })
                         .setLngLat(e.lngLat)
                         .setHTML(`
-            <div style="color:#000; font-family: sans-serif; padding: 5px;">
-                <strong>Risk Level:</strong> ${risk}%
+            <div style="color:#000; font-family: sans-serif; padding: 10px; min-width: 120px;">
+                <div style="font-weight: bold; border-bottom: 1px solid #ccc; margin-bottom: 5px;">HOCO Analysis</div>
+                <strong>Risk Level:</strong> ${rawRisk}%
             </div>
         `)
                         .addTo(maps[i]);
@@ -946,12 +946,12 @@
             maps.forEach(m => {
                 if (m.getLayer('hoco-polygons') && m.getLayer('hoco-polygons').type === 'fill-extrusion') {
                     m.setPaintProperty('hoco-polygons', 'fill-extrusion-height',
+                        // Updates the calculation: (Risk / 5) * Slider Value
                         ['*', ['/', ['coalesce', ['get', 'risk'], 0], 5], h]
                     );
                 }
             });
         });
-
         // ==========================================
         // AUTHENTICATION & ROLES
         // ==========================================
@@ -1216,31 +1216,27 @@
         });
 
         async function renderHocoLayers(targetMap, geojsonData, mapIndex) {
-            // 1. Clear existing layers/source to prevent "source not found" or "already exists" errors
+            // 1. Cleanup existing layers/source (Fixes "source not found" errors)
             if (targetMap.getLayer('hoco-points')) targetMap.removeLayer('hoco-points');
             if (targetMap.getLayer('hoco-polygons')) targetMap.removeLayer('hoco-polygons');
             if (targetMap.getSource('hoco-source')) targetMap.removeSource('hoco-source');
 
-            // 2. Add the source
-            targetMap.addSource('hoco-source', {
-                'type': 'geojson',
-                'data': geojsonData
-            });
+            targetMap.addSource('hoco-source', { 'type': 'geojson', 'data': geojsonData });
 
             const is3dMode = document.getElementById('visTypeSelect').value === '3d';
             const currentOpacity = parseInt(document.getElementById('opacitySlider').value) / 100;
             const currentHeightScale = parseInt(document.getElementById('heightSlider').value);
 
-            // 3. Add the Polygons (The "3D" or "2D" Layer)
             targetMap.addLayer({
                 'id': 'hoco-polygons',
-                'type': is3dMode ? 'fill-extrusion' : 'fill', // This creates the 3D effect
+                'type': is3dMode ? 'fill-extrusion' : 'fill',
                 'source': 'hoco-source',
                 'filter': ['==', ['get', 'feature_type'], 'polygon'],
                 'paint': is3dMode ? {
+                    // MATCH COLOR TO LEGEND: Use the 'fill' property from your GeoJSON
                     'fill-extrusion-color': ['get', 'fill'],
                     'fill-extrusion-opacity': currentOpacity,
-                    // Updated Bit: Divide raw risk by 5, then multiply by slider scale
+                    // 3D HEIGHT FIX: (Risk / 5) * Scale Factor
                     'fill-extrusion-height': ['*', ['/', ['coalesce', ['get', 'risk'], 0], 5], currentHeightScale]
                 } : {
                     'fill-color': ['get', 'fill'],
@@ -1249,16 +1245,12 @@
                 }
             });
 
-            // 4. Add the Interaction Layer (Points)
             targetMap.addLayer({
                 'id': 'hoco-points',
                 'type': 'circle',
                 'source': 'hoco-source',
                 'filter': ['==', ['get', 'feature_type'], 'point'],
-                'paint': {
-                    'circle-radius': 12,
-                    'circle-opacity': 0
-                }
+                'paint': { 'circle-radius': 12, 'circle-opacity': 0 }
             });
 
             // Move layers below labels so city names are visible
