@@ -285,13 +285,21 @@
         .loading-bar {
             height: 100%;
             background: linear-gradient(90deg, var(--primary), var(--accent), var(--primary));
-            width: 30%;
-            animation: loadingBar 1.5s linear infinite;
+            width: 0%;
+            /* ← changed */
+            /* remove: animation: loadingBar 1.5s linear infinite; */
+            transition: width 0.6s linear;
+            /* ← add this */
         }
 
         @keyframes loadingBar {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(400%); }
+            0% {
+                transform: translateX(-100%);
+            }
+
+            100% {
+                transform: translateX(400%);
+            }
         }
 
         .loading-note {
@@ -643,8 +651,17 @@
 
                 <div class="panel">
                     <label>Load Run Archive</label>
+
+                    <div class="date-filter-row" style="display: flex; gap: 10px; margin-bottom: 8px;">
+                        <select id="dateFilterMode" style="flex: 1;">
+                            <option value="created">Filter by Creation Date</option>
+                            <option value="valid">Filter by Valid Date (forecast period)</option>
+                        </select>
+
+                        <input type="date" id="calendarFilter" style="flex: 1;">
+                    </div>
+
                     <div style="display: flex; gap: 10px;">
-                        <input type="date" id="calendarFilter" style="flex: 1; margin-bottom: 0;">
                         <select id="targetMapSelect" style="flex: 1; margin-bottom: 0;">
                             <option value="0">Load into Map 1</option>
                             <option value="1">Load into Map 2</option>
@@ -652,6 +669,7 @@
                             <option value="3">Load into Map 4</option>
                         </select>
                     </div>
+
                     <select id="idSelector" style="margin-top: 10px;">
                         <option value="">Select Run...</option>
                     </select>
@@ -662,7 +680,7 @@
                     <form id="hocoForm" class="panel" style="border-color: var(--primary);">
                         <div style="display: flex; justify-content: space-between;">
                             <label style="color: var(--primary);">Execute New Ensemble</label>
-                            <label style="color: var(--primary);">This will take around 4 minutes.</label>
+
                             <span id="runCapText" style="font-size: 0.7rem; color:#888;"></span>
                         </div>
 
@@ -895,7 +913,29 @@
                 console.error("Switch failed:", err);
             }
         });
+        let currentDateFilterMode = 'created';  // default
 
+        // After loadArchive() definition, add this helper
+        function getFilterDate(run) {
+            if (currentDateFilterMode === 'valid') {
+                // Try to use startTime's date (format: dd/mm/yyyy hh:mm)
+                if (run.startTime) {
+                    const datePart = run.startTime.split(' ')[0];
+                    const [dd, mm, yyyy] = datePart.split('/');
+                    if (dd && mm && yyyy) {
+                        return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+                    }
+                }
+                // Fallback to creation date if valid date is missing
+                return getCreationDateString(run);
+            }
+            return getCreationDateString(run);
+        }
+        function getCreationDateString(run) {
+            if (!run.createdAt) return null;
+            const date = run.createdAt.toDate ? run.createdAt.toDate() : new Date(run.createdAt);
+            return date.toISOString().split('T')[0];
+        }
         function showToast(message, type = 'info') {
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
@@ -928,7 +968,8 @@
         let allRuns = [];
         let selectedScenarios = [];
         let activeMapData = [null, null, null, null];
-
+        let pendingRunTimers = {};      // { mapIndex: { runId, createdAtMs, estSeconds, intervalId, timeoutId, ... } }
+        let progressIntervals = {};
         const models = {
             swisseu: { name: "SWISS-EU", freq: 3 }, harmi: { name: "HARMONIE", freq: 3 },
             swissnow: { name: "SWISS-NOW", freq: 1 }, ez: { name: "ECMWF EZ", freq: 12 },
@@ -943,18 +984,192 @@
             if (!datePart || !timePart) return new Date();
             const [dd, mm, yyyy] = datePart.split('/');
             const [hh, minn] = timePart.split(':');
-            return new Date(parseInt(yyyy), parseInt(mm)-1, parseInt(dd), parseInt(hh), parseInt(minn));
+            return new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd), parseInt(hh), parseInt(minn));
         }
 
         // Show loading screen with estimated time
-        function showMapLoading(mapIndex, estMinutes) {
+        function showMapLoading(mapIndex, estMinutes, runId, createdAt) {
             const loadingDiv = document.getElementById(`loading-${mapIndex}`);
             if (!loadingDiv) return;
-            loadingDiv.style.display = 'flex';
-            const estEl = document.getElementById(`est-min-${mapIndex}`);
-            if (estEl) estEl.textContent = estMinutes;
-        }
 
+            loadingDiv.style.display = 'flex';
+
+            const titleEl = loadingDiv.querySelector('.loading-title');
+            const estEl = document.getElementById(`est-min-${mapIndex}`);
+            const noteEl = loadingDiv.querySelector('.loading-note');
+
+            if (estEl) estEl.textContent = estMinutes;
+
+            // Reset progress bar
+            const bar = loadingDiv.querySelector('.loading-bar');
+            if (bar) {
+                bar.style.transition = 'none';
+                bar.style.width = '0%';
+            }
+
+            const createdAtMs = createdAt instanceof Date ? createdAt.getTime() : Date.now();
+            const estSeconds = estMinutes * 60;
+
+            pendingRunTimers[mapIndex] = {
+                runId,
+                createdAtMs,
+                estSeconds,
+                intervalId: null,
+                timeoutId: null,
+                lastStatus: 'processing'
+            };
+
+            // Smooth progress animation based on real time since creation
+            const progressStart = createdAtMs;
+            function animateProgress() {
+                const now = Date.now();
+                const elapsed = now - progressStart;
+                let progress = (elapsed / (estSeconds * 1000)) * 100;
+                if (progress > 100) progress = 100;
+
+                if (bar) {
+                    bar.style.transition = 'width 0.6s linear';
+                    bar.style.width = `${Math.min(progress, 100)}%`;
+                }
+
+                if (progress < 100 && pendingRunTimers[mapIndex]) {
+                    progressIntervals[mapIndex] = requestAnimationFrame(animateProgress);
+                }
+            }
+            progressIntervals[mapIndex] = requestAnimationFrame(animateProgress);
+
+            // Start polling with dynamic messages
+            startPollingForRun(mapIndex, runId, estSeconds, createdAtMs);
+        }
+        function startPollingForRun(mapIndex, runId, estSeconds, createdAtMs) {
+            const POLL_NORMAL = 10000;   // 10s
+            const POLL_FAST = 5000;    // 5s
+            const FAST_WINDOW = 45;      // seconds before/after estimated end to go fast
+            const OVERDUE_WARN = 180;    // 3 minutes after estimated → show warning
+
+            const timer = pendingRunTimers[mapIndex];
+            if (!timer) return;
+
+            if (timer.intervalId) clearInterval(timer.intervalId);
+
+            const titleEl = document.querySelector(`#loading-${mapIndex} .loading-title`);
+            const noteEl = document.querySelector(`#loading-${mapIndex} .loading-note`);
+            const estEl = document.getElementById(`est-min-${mapIndex}`);
+
+            function updateStatus(elapsedSec) {
+                const timeToEnd = estSeconds - elapsedSec;
+
+                if (elapsedSec < estSeconds - FAST_WINDOW) {
+                    // Normal phase
+                    if (titleEl) titleEl.textContent = "⏳ Processing Ensemble...";
+                    if (noteEl) noteEl.textContent = "Based on models & forecast duration";
+                    timer.lastStatus = 'processing';
+                }
+                else if (timeToEnd > -FAST_WINDOW) {
+                    // Close to / just past estimated time
+                    if (titleEl) titleEl.textContent = "Almost there...";
+                    if (noteEl) noteEl.textContent = "Finalizing data – checking soon";
+                    timer.lastStatus = 'almost';
+                }
+                else {
+                    // Clearly overdue
+                    if (titleEl) titleEl.textContent = "Checking...";
+                    if (noteEl) {
+                        if (elapsedSec - estSeconds > OVERDUE_WARN) {
+                            noteEl.innerHTML = `Our server might be experiencing issues.<br>Please standby or <strong>request a new run</strong> if wait continues.`;
+                            noteEl.style.color = '#ff9800';
+                        } else {
+                            noteEl.textContent = "Still working – thank you for your patience";
+                        }
+                    }
+                    timer.lastStatus = 'checking';
+                }
+
+                if (estEl) {
+                    const displayMin = Math.max(0, Math.round(timeToEnd / 60));
+                    estEl.textContent = `${estMinutes} min (${timeToEnd > 0 ? '~' + displayMin + ' left' : 'overdue'})`;
+                }
+            }
+
+            function checkRun() {
+                getDoc(doc(db, "hoco_requests", runId)).then(docSnap => {
+                    if (!docSnap.exists()) return;
+
+                    const data = docSnap.data();
+                    const now = Date.now();
+                    const elapsedMs = now - createdAtMs;
+                    const elapsedSec = elapsedMs / 1000;
+
+                    updateStatus(elapsedSec);
+
+                    if (data.status !== 'pending' && data.geojsonUrl) {
+                        stopPollingAndProgress(mapIndex);
+                        loadRunIntoMap(runId, mapIndex);
+                    }
+                }).catch(err => console.warn("Polling error:", err));
+            }
+
+            // Initial check + status update
+            checkRun();
+            function stopPollingAndProgress(mapIndex) {
+                const timer = pendingRunTimers[mapIndex];
+                if (timer) {
+                    if (timer.intervalId) clearInterval(timer.intervalId);
+                    if (timer.timeoutId) clearTimeout(timer.timeoutId);
+                    if (progressIntervals[mapIndex]) {
+                        cancelAnimationFrame(progressIntervals[mapIndex]);
+                    }
+                    delete pendingRunTimers[mapIndex];
+                    delete progressIntervals[mapIndex];
+                }
+
+                // Force bar to 100% briefly then hide
+                const bar = document.querySelector(`#loading-${mapIndex} .loading-bar`);
+                if (bar) {
+                    bar.style.width = '100%';
+                    setTimeout(() => hideMapLoading(mapIndex), 600);
+                } else {
+                    hideMapLoading(mapIndex);
+                }
+                const titleEl = document.querySelector(`#loading-${mapIndex} .loading-title`);
+                const noteEl = document.querySelector(`#loading-${mapIndex} .loading-note`);
+                if (titleEl) titleEl.textContent = "Loading complete";
+                if (noteEl) noteEl.textContent = "Rendering forecast...";
+            }
+            // Polling interval logic
+            function getCurrentInterval() {
+                const elapsedSec = (Date.now() - createdAtMs) / 1000;
+                const timeToEnd = estSeconds - elapsedSec;
+
+                if (Math.abs(timeToEnd) <= FAST_WINDOW || elapsedSec > estSeconds) {
+                    return POLL_FAST;
+                }
+                return POLL_NORMAL;
+            }
+
+            timer.intervalId = setInterval(() => {
+                checkRun();
+
+                // Dynamically adjust polling speed
+                const desiredInterval = getCurrentInterval();
+                if (desiredInterval !== timer.currentInterval) {
+                    clearInterval(timer.intervalId);
+                    timer.intervalId = setInterval(checkRun, desiredInterval);
+                    timer.currentInterval = desiredInterval;
+                }
+            }, getCurrentInterval());
+
+            timer.currentInterval = getCurrentInterval();
+
+            // Hard timeout (e.g. 4× estimated + 10 min)
+            timer.timeoutId = setTimeout(() => {
+                stopPollingAndProgress(mapIndex);
+                if (noteEl) {
+                    noteEl.innerHTML = `Long delay detected.<br>Please try refreshing the page or <strong>request a new run</strong>.`;
+                    noteEl.style.color = 'var(--danger)';
+                }
+            }, (estSeconds * 4 + 600) * 1000);
+        }
         // Hide loading screen
         function hideMapLoading(mapIndex) {
             const loadingDiv = document.getElementById(`loading-${mapIndex}`);
@@ -978,7 +1193,7 @@
                     if (!e.features || e.features.length === 0) return;
 
                     const rawRisk = e.features[0].properties.risk || 0;
-                    
+
                     new mapboxgl.Popup({ closeButton: true })
                         .setLngLat(e.lngLat)
                         .setHTML(`
@@ -1192,7 +1407,10 @@
         // ==========================================
         function loadArchive() {
             const todayStr = new Date().toISOString().split('T')[0];
-            if (!document.getElementById('calendarFilter').value) document.getElementById('calendarFilter').value = todayStr;
+            const calendar = document.getElementById('calendarFilter');
+            if (!calendar.value) {
+                calendar.value = todayStr;
+            }
 
             const q = query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(100));
             onSnapshot(q, (snap) => {
@@ -1203,7 +1421,7 @@
                     const data = d.data();
                     allRuns.push({ id: d.id, ...data });
                     if (data.userId === auth.currentUser?.uid) {
-                        const runDate = (data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt)).toISOString().split('T')[0];
+                        const runDate = getCreationDateString(data);
                         if (runDate === todayStr) myRunsTodayCount++;
                     }
                 });
@@ -1223,6 +1441,8 @@
 
         function renderArchiveDropdown() {
             const dateStr = document.getElementById('calendarFilter').value;
+            if (!dateStr) return;
+
             const sel = document.getElementById('idSelector');
             sel.innerHTML = '<option value="">Select Run to Load...</option>';
 
@@ -1232,11 +1452,10 @@
                 .filter(r => {
                     if (!r.createdAt) return false;
 
-                    const rDate = (r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt))
-                        .toISOString()
-                        .split('T')[0];
-                    if (rDate !== dateStr) return false;
+                    const filterDate = getFilterDate(r);
+                    if (filterDate !== dateStr) return false;
 
+                    // Visibility rules remain the same
                     if (userRole === 'developer') return true;
                     if (r.type === 'automated') return true;
                     if (r.public === true) return true;
@@ -1256,15 +1475,33 @@
                     const creationDate = r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
                     const creationTimeStr = creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-                    const fullStart = r.startTime || "??/??/???? ??:??";
-                    const validDate = fullStart.split(' ')[0].substring(0, 5);
-                    const periodStart = fullStart.split(' ')[1] || "??:??";
-                    const periodEnd = r.endTime ? r.endTime.split(' ')[1] : "??:??";
+                    const displayDate = currentDateFilterMode === 'valid' && r.startTime
+                        ? r.startTime.split(' ')[0]
+                        : creationDate.toLocaleDateString([], { day: '2-digit', month: 'short' });
 
-                    opt.textContent = `${tag} ${validDate} - ${r.region || 'UK'} (${periodStart} - ${periodEnd}) [Sent: ${creationTimeStr}]`;
+                    const periodStart = r.startTime ? r.startTime.split(' ')[1] || "??:??" : "??:??";
+                    const periodEnd = r.endTime ? r.endTime.split(' ')[1] || "??:??" : "??:??";
+
+                    opt.textContent = `${tag} ${displayDate} – ${r.region || 'UK'} (${periodStart}–${periodEnd}) [Sent: ${creationTimeStr}]`;
                     sel.appendChild(opt);
                 });
         }
+
+        // Add listener for mode change + sync calendar default
+        document.getElementById('dateFilterMode').addEventListener('change', (e) => {
+            currentDateFilterMode = e.target.value;
+
+            // Update calendar label or tooltip if you want (optional)
+            const calendar = document.getElementById('calendarFilter');
+            calendar.title = currentDateFilterMode === 'valid'
+                ? "Filter by forecast valid date (start of period)"
+                : "Filter by when the run was created/queued";
+
+            // Re-render with current date (or reset to today)
+            const today = new Date().toISOString().split('T')[0];
+            calendar.value = today;
+            renderArchiveDropdown();
+        });
         document.getElementById('calendarFilter').addEventListener('change', renderArchiveDropdown);
 
         document.getElementById('idSelector').addEventListener('change', async (e) => {
@@ -1304,7 +1541,11 @@
                 if (estMinutes < 2) estMinutes = 2;
 
                 statusUI.innerText = `Pending processing - Est. ${estMinutes} min`;
-                showMapLoading(mapIndex, estMinutes);
+
+                // Pass createdAt to showMapLoading
+                const createdAt = runData.createdAt?.toDate?.() || new Date(runData.createdAt || Date.now());
+                showMapLoading(mapIndex, estMinutes, runId, createdAt);
+
                 return;
             }
 
