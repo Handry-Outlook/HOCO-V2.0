@@ -657,7 +657,15 @@
                         <button type="submit" id="submitBtn">Execute Run</button>
                     </form>
                 </div>
-
+                <div class="card bg-dark border-secondary p-3 mt-4">
+                    <h6 class="text-warning mb-3">Global Runner Settings</h6>
+                    <select id="globalAccountSelector" class="form-select bg-dark text-white border-secondary mb-2">
+                        <option value="main">Account 1 (Handry-Outlook)</option>
+                        <option value="alt1">Account 2 (Secondary)</option>
+                        <option value="alt2">Account 3 (Third Account)</option>
+                    </select>
+                    <button id="setGlobalAccountBtn" class="btn btn-warning btn-sm w-100">Apply New Runner</button>
+                </div>
                 <div id="upgradePanel" class="panel" style="display:none; border-color: #555;">
                     <label>Apply for Role Upgrade</label>
                     <p style="font-size: 0.75rem; color: #888; margin-top:0;">Want more capabilities? Request a rank
@@ -765,6 +773,31 @@
         import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, where, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 
+        import { doc, updateDoc } from "firebase/firestore";
+
+        const accountMap = {
+            main: { owner: "Handry-Outlook", repo: "HOCO-BACKEND" },
+            alt1: { owner: "handry66", repo: "HOCO-BACKEND-ALT1" },
+            alt2: { owner: "Handry6", repo: "HOCO-BACKEND-ALT2" }
+        };
+
+        document.getElementById('setGlobalAccountBtn').addEventListener('click', async () => {
+            const selection = document.getElementById('globalAccountSelector').value;
+            const config = accountMap[selection];
+
+            try {
+                // This updates the "Active Pointer" in Firestore.
+                // The actual secret token remains safely stored in your backend/secret manager.
+                await updateDoc(doc(db, "system_config", "github_settings"), {
+                    active_owner: config.owner,
+                    active_repo: config.repo
+                });
+                alert("Runner switched to " + config.owner);
+            } catch (err) {
+                console.error("Switch failed:", err);
+            }
+        });
+
         function showToast(message, type = 'info') {
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
@@ -818,18 +851,26 @@
                 });
                 maps[i].addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-                maps[i].on('click', 'hoco-layer', (e) => {
+                maps[i].on('click', 'hoco-points', (e) => {
                     if (!e.features || e.features.length === 0) return;
                     const props = e.features[0].properties;
-                    const risk = ((props.risk || props.Risk || 0) / 5).toFixed(2);
+
+                    // Use the 'risk' property we defined in the Python script
+                    const risk = props.risk || 0;
+
                     new mapboxgl.Popup({ closeButton: true })
                         .setLngLat(e.lngLat)
-                        .setHTML(`<div style="color:#000;"><strong>Risk Index: ${risk}</strong></div>`)
+                        .setHTML(`
+            <div style="color:#000; font-family: sans-serif; padding: 5px;">
+                <strong>Risk Level:</strong> ${risk}%
+            </div>
+        `)
                         .addTo(maps[i]);
                 });
 
-                maps[i].on('mouseenter', 'hoco-layer', () => maps[i].getCanvas().style.cursor = 'crosshair');
-                maps[i].on('mouseleave', 'hoco-layer', () => maps[i].getCanvas().style.cursor = '');
+                // Update the hover cursors too
+                maps[i].on('mouseenter', 'hoco-points', () => maps[i].getCanvas().style.cursor = 'pointer');
+                maps[i].on('mouseleave', 'hoco-points', () => maps[i].getCanvas().style.cursor = '');
 
                 maps[i].on('move', (e) => {
                     if (e.originalEvent) {
@@ -902,556 +943,4 @@
                 if (m.getLayer('hoco-layer') && m.getLayer('hoco-layer').type === 'fill-extrusion') {
                     m.setPaintProperty('hoco-layer', 'fill-extrusion-height', ['*', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], h]);
                 }
-            });
-        });
-
-        // ==========================================
-        // AUTHENTICATION & ROLES
-        // ==========================================
-        window.showAuth = function (mode) {
-            document.getElementById('authOverlay').style.display = 'flex';
-            document.getElementById('authTitle').innerText = mode === 'login' ? 'Sign In' : 'Register Access';
-            document.getElementById('authSubmitBtn').dataset.mode = mode;
-        }
-
-        document.getElementById('authSubmitBtn').addEventListener('click', async (e) => {
-            const mode = e.target.dataset.mode;
-            const email = document.getElementById('emailIn').value;
-            const pass = document.getElementById('passIn').value;
-            const btn = e.target;
-            btn.disabled = true; btn.innerText = "Processing...";
-            try {
-                if (mode === 'login') await signInWithEmailAndPassword(auth, email, pass);
-                else await createUserWithEmailAndPassword(auth, email, pass);
-                document.getElementById('authError').innerText = '';
-                document.getElementById('authOverlay').style.display = 'none';
-            } catch (err) {
-                document.getElementById('authError').innerText = err.message.replace('Firebase: ', '');
-            } finally {
-                btn.disabled = false; btn.innerText = "Submit";
-            }
-        });
-
-        document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
-
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                document.getElementById('landingPage').style.display = 'none';
-                document.getElementById('mainUI').style.display = 'block';
-                document.getElementById('displayUid').innerText = `ID: ${user.uid}`;
-
-                try {
-                    const uRef = doc(db, "users", user.uid);
-                    const uDoc = await getDoc(uRef);
-
-                    if (!uDoc.exists()) {
-                        await setDoc(uRef, {
-                            email: user.email,
-                            role: 'normal',
-                            createdAt: new Date().toISOString()
-                        });
-                        userRole = 'normal';
-                    } else {
-                        userRole = uDoc.data().role || 'normal';
-                    }
-
-                    const badge = document.getElementById('roleBadge');
-                    if (badge) {
-                        badge.innerText = userRole.toUpperCase();
-                        badge.style.background = userRole === 'developer' ? 'var(--accent)' : 'var(--primary)';
-                    }
-
-                    await Promise.allSettled([
-                        updateRunCap(user.uid),
-                        applyRoleLogic(),
-                        initScenarioLogic(),
-                        loadArchive()
-                    ]);
-
-                    if (userRole === 'developer') {
-                        loadAdminData();
-                    }
-
-                } catch (error) {
-                    console.error("Error in Auth State Transition:", error);
-                    showToast("Error loading profile. Check permissions.", "error");
-                }
-            } else {
-                document.getElementById('landingPage').style.display = 'flex';
-                document.getElementById('mainUI').style.display = 'none';
-                userRole = 'guest';
-                allRuns = [];
-                renderArchiveDropdown();
-            }
-        });
-
-        async function updateRunCap(uid) {
-            if (userRole === 'guest' || userRole === 'developer') return;
-            try {
-                const q = query(collection(db, "hoco_requests"),
-                    where("userId", "==", uid),
-                    orderBy("createdAt", "desc"),
-                    limit(20));
-                const snap = await getDocs(q);
-            } catch (err) {
-                console.error("Error updating cap:", err);
-            }
-        }
-
-        function applyRoleLogic() {
-            document.getElementById('roleBadge').innerText = userRole.toUpperCase();
-            const isGuest = userRole === 'guest';
-            const isNormal = userRole === 'normal';
-            const isExclusive = userRole === 'exclusive';
-            const isDev = userRole === 'developer';
-
-            document.getElementById('upgradePanel').style.display = (isGuest || isNormal) ? 'block' : 'none';
-            document.getElementById('executionPanel').style.display = isGuest ? 'none' : 'block';
-            document.getElementById('exclusiveSection').style.display = (isExclusive || isDev) ? 'block' : 'none';
-            document.getElementById('adminPanel').style.display = isDev ? 'block' : 'none';
-
-            const maxDate = new Date();
-            if (!isDev) maxDate.setHours(maxDate.getHours() + 72);
-            const endInput = document.getElementById('endTime');
-            if (!isDev) endInput.max = maxDate.toISOString().slice(0, 16);
-            else endInput.removeAttribute('max');
-        }
-
-        // ==========================================
-        // ARCHIVE & RENDERING
-        // ==========================================
-        function loadArchive() {
-            const todayStr = new Date().toISOString().split('T')[0];
-            if (!document.getElementById('calendarFilter').value) document.getElementById('calendarFilter').value = todayStr;
-
-            const q = query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(100));
-            onSnapshot(q, (snap) => {
-                allRuns = [];
-                let myRunsTodayCount = 0;
-
-                snap.forEach(d => {
-                    const data = d.data();
-                    allRuns.push({ id: d.id, ...data });
-                    if (data.userId === auth.currentUser?.uid) {
-                        const runDate = (data.createdAt.toDate ? data.createdAt.toDate() : new Date(data.createdAt)).toISOString().split('T')[0];
-                        if (runDate === todayStr) myRunsTodayCount++;
-                    }
-                });
-
-                runsToday = myRunsTodayCount;
-                updateCapUI();
-                renderArchiveDropdown();
-            });
-        }
-
-        function updateCapUI() {
-            const capText = document.getElementById('runCapText');
-            if (userRole === 'normal') capText.innerText = `(Daily Cap: ${runsToday}/7)`;
-            else if (userRole === 'exclusive') capText.innerText = `(Daily Cap: ${runsToday}/15)`;
-            else if (userRole === 'developer') capText.innerText = `(Unlimited)`;
-        }
-
-        function renderArchiveDropdown() {
-            const dateStr = document.getElementById('calendarFilter').value;
-            const sel = document.getElementById('idSelector');
-            sel.innerHTML = '<option value="">Select Run to Load...</option>';
-
-            const currentUid = auth.currentUser ? auth.currentUser.uid : null;
-
-            allRuns
-                .filter(r => {
-                    if (!r.createdAt) return false;
-
-                    const rDate = (r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt))
-                        .toISOString()
-                        .split('T')[0];
-                    if (rDate !== dateStr) return false;
-
-                    // 1. Developers see everything
-                    if (userRole === 'developer') return true;
-
-                    // 2. Everyone sees system-automated runs
-                    if (r.type === 'automated') return true;
-
-                    // 3. Everyone sees runs explicitly set to public
-                    if (r.public === true) return true;
-
-                    // 4. Users ONLY see their own manual/private runs
-                    if (currentUid && r.userId === currentUid) return true;
-
-                    return false;
-                })
-                .forEach(r => {
-                    const opt = document.createElement('option');
-                    opt.value = r.id;
-
-                    let tag = "[PVT]"; // Default tag
-
-                    if (r.type === 'automated') {
-                        tag = "[AUTO]";
-                    } else if (r.public === true) {
-                        tag = "[PUB]";
-                    } else if (currentUid && r.userId === currentUid) {
-                        tag = "[MINE]";
-                    }
-
-                    const creationDate = r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
-                    const creationTimeStr = creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                    const fullStart = r.startTime || "??/??/???? ??:??";
-                    const validDate = fullStart.split(' ')[0].substring(0, 5);
-                    const periodStart = fullStart.split(' ')[1] || "??:??";
-                    const periodEnd = r.endTime ? r.endTime.split(' ')[1] : "??:??";
-
-                    opt.textContent = `${tag} ${validDate} - ${r.region || 'UK'} (${periodStart} - ${periodEnd}) [Sent: ${creationTimeStr}]`;
-                    sel.appendChild(opt);
-                });
-        }
-        document.getElementById('calendarFilter').addEventListener('change', renderArchiveDropdown);
-
-        document.getElementById('idSelector').addEventListener('change', async (e) => {
-            const runId = e.target.value;
-            if (!runId) return;
-
-            const mapIndex = parseInt(document.getElementById('targetMapSelect').value);
-            const targetMap = maps[mapIndex];
-            const statusUI = document.getElementById('runStatus');
-
-            statusUI.innerText = `Fetching data for Map ${mapIndex + 1}...`;
-
-            const docSnap = await getDoc(doc(db, "hoco_requests", runId));
-            if (docSnap.exists() && docSnap.data().geojsonUrl) {
-                try {
-                    const runData = docSnap.data();
-                    const response = await fetch(runData.geojsonUrl);
-                    const rawData = await response.json();
-                    const gridData = pointsToGrid(rawData, 0.081);
-
-                    activeMapData[mapIndex] = gridData;
-                    await renderHocoLayers(targetMap, gridData);
-                    statusUI.innerText = "Loaded successfully.";
-
-                    const creationDate = runData.createdAt ? (runData.createdAt.toDate ? runData.createdAt.toDate() : new Date(runData.createdAt)) : new Date();
-                    const isNormal = runData.type === 'automated';
-
-                    const displayUser = runData.userId ? runData.userId.substring(0, 6) : 'System';
-
-                    document.getElementById(`meta-title-${mapIndex}`).innerText = `Loaded: ${runData.region || 'Unknown'}`;
-                    document.getElementById(`meta-desc-${mapIndex}`).innerHTML = `
-                    <strong>Period:</strong> ${runData.startTime || 'N/A'} - ${runData.endTime || 'N/A'}<br>
-                    <strong>Hazards:</strong> <span style="text-transform: capitalize">${runData.weather || 'None'}</span><br>
-                    <strong>Mode:</strong> ${isNormal ? 'Normal Mode (Auto)' : 'Custom Weighting'}<br>
-                    <strong>Ran by:</strong> User ${displayUser}<br>
-                    <strong>Time:</strong> ${creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
-                `;
-                    document.getElementById(`meta-scale-${mapIndex}`).style.display = 'flex';
-
-                } catch (err) {
-                    console.error("Map load error:", err);
-                    statusUI.innerText = "Error loading run data.";
-                }
-            } else {
-                statusUI.innerText = "Data pending or missing.";
-            }
-        });
-
-        async function renderHocoLayers(targetMap, gridData) {
-            // Remove the unified layer instead of just a 3d one
-            if (targetMap.getLayer('hoco-layer')) targetMap.removeLayer('hoco-layer');
-            if (targetMap.getSource('hoco-source')) targetMap.removeSource('hoco-source');
-
-            targetMap.addSource('hoco-source', { type: 'geojson', data: gridData });
-
-            const visType = document.getElementById('visTypeSelect').value;
-            const currentOpacity = parseInt(document.getElementById('opacitySlider').value) / 100;
-
-            const colorExpression = [
-                'interpolate', ['linear'], ['/', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], 5],
-                0, 'rgba(255, 255, 255, 0)', 20, 'rgba(102, 194, 164, 0.7)',
-                40, 'rgba(255, 242, 0, 0.7)', 60, 'rgba(255, 127, 39, 0.7)',
-                80, 'rgba(236, 28, 36, 0.7)', 100, 'rgba(184, 61, 218, 0.8)'
-            ];
-
-            if (visType === '3d') {
-                targetMap.addLayer({
-                    id: 'hoco-layer',
-                    type: 'fill-extrusion',
-                    source: 'hoco-source',
-                    paint: {
-                        'fill-extrusion-height': ['*', ['coalesce', ['get', 'risk'], ['get', 'Risk'], 0], parseInt(document.getElementById('heightSlider').value)],
-                        'fill-extrusion-color': colorExpression,
-                        'fill-extrusion-opacity': currentOpacity
-                    }
-                });
-            } else {
-                // 2D Polygon Layer for a smoother visual feel (no grid outlines, flat styling)
-                targetMap.addLayer({
-                    id: 'hoco-layer',
-                    type: 'fill',
-                    source: 'hoco-source',
-                    paint: {
-                        'fill-color': colorExpression,
-                        'fill-opacity': currentOpacity,
-                        'fill-antialias': false // Prevents faint 1px lines between identical polygons making it look more contiguous
-                    }
-                });
-            }
-
-            const layers = targetMap.getStyle().layers;
-            const labelLayer = layers.find(l => l.type === 'symbol' && l.layout && l.layout['text-field']);
-            if (labelLayer) targetMap.moveLayer('hoco-layer', labelLayer.id);
-        }
-
-        function pointsToGrid(geojson, size) {
-            if (!geojson || !geojson.features) return geojson;
-            const half = size / 2;
-            const features = geojson.features.map(f => {
-                const [lon, lat] = f.geometry.coordinates;
-                return {
-                    type: "Feature", properties: f.properties,
-                    geometry: { type: "Polygon", coordinates: [[[lon - half, lat - half], [lon + half, lat - half], [lon + half, lat + half], [lon - half, lat + half], [lon - half, lat - half]]] }
-                };
-            });
-            return { type: "FeatureCollection", features };
-        }
-
-        // ==========================================
-        // SCENARIO & EXECUTION LOGIC
-        // ==========================================
-        function initScenarioLogic() {
-            const mSel = document.getElementById('modelSelect');
-            mSel.innerHTML = '';
-            Object.keys(models).forEach(k => {
-                const opt = document.createElement('option');
-                opt.value = k; opt.textContent = models[k].name;
-                mSel.appendChild(opt);
-            });
-            updateRunTimes();
-            mSel.addEventListener('change', updateRunTimes);
-
-            const wCont = document.getElementById('weightsContainer');
-            wCont.innerHTML = '';
-            Object.keys(defaultWeights).forEach(m => {
-                const div = document.createElement('div');
-                div.innerHTML = `<span style="font-size:10px; color:#aaa;">${m.toUpperCase()}</span>
-                                 <input type="number" step="0.1" id="w-${m}" value="${defaultWeights[m]}" style="padding:6px; margin:0;">`;
-                wCont.appendChild(div);
-            });
-        }
-
-        function updateRunTimes() {
-            const rSel = document.getElementById('runSelect');
-            rSel.innerHTML = '';
-            const freq = models[document.getElementById('modelSelect').value].freq;
-            let baseTime = new Date(); baseTime.setUTCMinutes(0, 0, 0);
-            baseTime.setUTCHours(Math.floor(baseTime.getUTCHours() / freq) * freq);
-
-            for (let i = 0; i < 20; i++) {
-                let d = new Date(baseTime.getTime() - (i * freq * 3600000));
-                let opt = document.createElement('option');
-                opt.value = d.toISOString();
-                opt.textContent = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')} ${String(d.getUTCHours()).padStart(2, '0')}z`;
-                rSel.appendChild(opt);
-            }
-        }
-
-        document.getElementById('addScenarioBtn').addEventListener('click', () => {
-            const m = document.getElementById('modelSelect').value;
-            const rSel = document.getElementById('runSelect');
-            selectedScenarios.push({ model: m, run: rSel.value, label: `${models[m].name} (${rSel.options[rSel.selectedIndex].text})` });
-            renderChips();
-        });
-
-        function renderChips() {
-            const cont = document.getElementById('scenarioList');
-            cont.innerHTML = '';
-            selectedScenarios.forEach((s, i) => {
-                const c = document.createElement('div'); c.className = 'chip';
-                c.innerHTML = `${s.label} <span data-idx="${i}" style="color:#000;">&times;</span>`;
-                cont.appendChild(c);
-            });
-        }
-
-        document.getElementById('scenarioList').addEventListener('click', (e) => {
-            if (e.target.tagName === 'SPAN') {
-                selectedScenarios.splice(e.target.getAttribute('data-idx'), 1);
-                renderChips();
-            }
-        });
-
-        document.getElementById('hocoForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            // --- START/END TIME VALIDATION ---
-            const startVal = new Date(document.getElementById('startTime').value);
-            const endVal = new Date(document.getElementById('endTime').value);
-
-            if (userRole === 'normal' && runsToday >= 7) return showToast("Daily Normal limit (7) reached.", "error");
-            if (userRole === 'exclusive' && runsToday >= 15) return showToast("Daily Exclusive limit (15) reached.", "error");
-
-            const btn = document.getElementById('submitBtn');
-            btn.disabled = true; btn.innerText = "Triggering...";
-
-            const formatDate = (isoStr) => {
-                const d = new Date(isoStr);
-                return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-            };
-
-            let finalScenarios = selectedScenarios;
-            let finalWeights = {};
-
-            if (userRole === 'normal') {
-                finalScenarios = [];
-                finalWeights = defaultWeights;
-            } else {
-                Object.keys(defaultWeights).forEach(m => {
-                    const el = document.getElementById(`w-${m}`);
-                    finalWeights[m] = el ? parseFloat(el.value) : defaultWeights[m];
-                });
-            }
-
-            try {
-                // Locate this section inside the document.getElementById('hocoForm').addEventListener('submit'...)
-                const payload = {
-                    region: document.getElementById('regionSelect').value,
-                    scenarios: finalScenarios,
-                    startTime: formatDate(document.getElementById('startTime').value),
-                    endTime: formatDate(document.getElementById('endTime').value),
-                    weather: Array.from(document.querySelectorAll('input[name="weather"]:checked')).map(cb => cb.value).join(','),
-                    weights: JSON.stringify(finalWeights),
-                    userId: auth.currentUser.uid,
-                    createdAt: new Date(),
-                    status: 'pending',
-                    public: false,
-                    // CHANGE: If it's triggered by a user via the form, it is 'manual'
-                    // 'automated' should be reserved for system-cron jobs.
-                    type: 'manual'
-                };
-
-                const docRef = await addDoc(collection(db, "hoco_requests"), payload);
-                showToast("Request queued. Processing...", "info");
-
-                await triggerHocoRun({ id: docRef.id, ...payload });
-                showToast("Run completely triggered.", "success");
-
-                selectedScenarios = []; renderChips();
-                runsToday++; updateCapUI();
-            } catch (err) {
-                showToast("Execution failed: " + err.message, "error");
-            } finally {
-                btn.disabled = false; btn.innerText = "Execute Run";
-            }
-        });
-
-        // ==========================================
-        // UPGRADE REQUEST & ADMIN
-        // ==========================================
-        document.getElementById('submitUpgradeBtn').addEventListener('click', async () => {
-            const role = document.getElementById('reqRole').value;
-            const social = document.getElementById('reqSocial').value;
-            const reason = document.getElementById('reqReason').value;
-            if (!social || !reason) return showToast("Please fill all fields", "error");
-
-            try {
-                await addDoc(collection(db, "role_requests"), {
-                    userId: auth.currentUser.uid,
-                    email: auth.currentUser.email,
-                    requestedRole: role,
-                    social: social,
-                    reason: reason,
-                    status: 'pending',
-                    createdAt: new Date()
-                });
-                showToast("Upgrade request submitted.", "success");
-                document.getElementById('reqSocial').value = '';
-                document.getElementById('reqReason').value = '';
-            } catch (e) { showToast("Error submitting request.", "error"); }
-        });
-
-        function loadAdminData() {
-            onSnapshot(collection(db, "users"), (snap) => {
-                const list = document.getElementById('userList');
-                list.innerHTML = '';
-                snap.forEach(d => {
-                    const u = d.data();
-                    list.innerHTML += `
-                        <div class="list-row">
-                            <div>${u.email}<br><span style="color:var(--primary)">${u.role}</span></div>
-                            <div style="display:flex; gap:4px;">
-                                <button onclick="updateRole('${d.id}', 'guest')" style="padding:4px 8px; font-size:10px; background:#444;">G</button>
-                                <button onclick="updateRole('${d.id}', 'normal')" style="padding:4px 8px; font-size:10px; background:var(--primary);">N</button>
-                                <button onclick="updateRole('${d.id}', 'exclusive')" style="padding:4px 8px; font-size:10px; background:var(--warning);">E</button>
-                                <button onclick="updateRole('${d.id}', 'developer')" style="padding:4px 8px; font-size:10px; background:var(--danger);">D</button>
-                            </div>
-                        </div>`;
-                });
-            });
-
-            onSnapshot(query(collection(db, "role_requests"), where("status", "==", "pending")), (snap) => {
-                const list = document.getElementById('upgradeRequestsList');
-                list.innerHTML = '';
-                if (snap.empty) list.innerHTML = '<div style="color:#666; font-size:0.8rem;">No pending requests.</div>';
-                snap.forEach(d => {
-                    const r = d.data();
-                    list.innerHTML += `
-                        <div class="list-row" style="flex-direction: column; align-items: flex-start;">
-                            <div style="margin-bottom: 5px;"><strong>${r.email}</strong> wants <span style="color:var(--warning)">${r.requestedRole}</span></div>
-                            <div style="color:#aaa; font-size:0.75rem; margin-bottom:5px;">Social: ${r.social}<br>Reason: ${r.reason}</div>
-                            <div style="display:flex; gap:5px; width:100%;">
-                                <button onclick="approveRequest('${d.id}', '${r.userId}', '${r.requestedRole}')" style="padding:6px; font-size:0.75rem; background:var(--accent);">Approve</button>
-                                <button onclick="rejectRequest('${d.id}')" style="padding:6px; font-size:0.75rem; background:#444;">Reject</button>
-                            </div>
-                        </div>`;
-                });
-            });
-        }
-
-        window.updateRole = async (uid, role) => {
-            try { await updateDoc(doc(db, "users", uid), { role }); showToast("Role updated.", "success"); }
-            catch (err) { showToast("Update failed.", "error"); }
-        };
-
-        window.approveRequest = async (reqId, uid, role) => {
-            try {
-                await updateDoc(doc(db, "users", uid), { role });
-                await updateDoc(doc(db, "role_requests", reqId), { status: 'approved' });
-                showToast("Request approved.", "success");
-            } catch (err) { showToast("Error approving.", "error"); }
-        };
-
-        window.rejectRequest = async (reqId) => {
-            try { await updateDoc(doc(db, "role_requests", reqId), { status: 'rejected' }); showToast("Request rejected.", "info"); }
-            catch (err) { showToast("Error rejecting.", "error"); }
-        };
-
-        document.getElementById('publishBtn').addEventListener('click', async () => {
-            const runId = document.getElementById('idSelector').value;
-            if (!runId) return showToast("Select a run first", "error");
-            try {
-                await updateDoc(doc(db, "hoco_requests", runId), { public: true });
-                showToast("Run published to Guests.", "success");
-            } catch (err) { showToast("Failed to publish.", "error"); }
-        });
-        window.setTimeRange = (hours) => {
-            const startInput = document.getElementById('startTime');
-            const endInput = document.getElementById('endTime');
-
-            if (!startInput.value) {
-                showToast("Please select a Start Time first", "info");
-                return;
-            }
-
-            const startDate = new Date(startInput.value);
-            const endDate = new Date(startDate.getTime() + (hours * 60 * 60 * 1000));
-
-            // Format to YYYY-MM-DDTHH:MM for datetime-local input
-            const offset = endDate.getTimezoneOffset() * 60000;
-            const localISOTime = new Date(endDate - offset).toISOString().slice(0, 16);
-
-            endInput.value = localISOTime;
-        };
-
-    </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9dae2db86d1594ed',t:'MTc3MzI3MDA2MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
-
-</html>
+           
