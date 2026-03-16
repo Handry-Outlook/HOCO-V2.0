@@ -1020,10 +1020,12 @@
 
             try {
                 // ─── Parse the exact HOCO period ───
-                const start = parseHocoTime(startTimeStr);
-                const end = parseHocoTime(endTimeStr || startTimeStr);
+                // ─── Parse the exact HOCO period ───
+                const start = robustParseTime(startTimeStr);
+                const end = robustParseTime(endTimeStr || startTimeStr);
 
-                if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+                // robustParseTime returns { isValid: false } on failure, so we check for getTime
+                if (!start || !start.getTime || isNaN(start.getTime()) || !end || !end.getTime || isNaN(end.getTime())) {
                     throw new Error("Could not parse forecast time range");
                 }
 
@@ -1174,17 +1176,20 @@
 
             const html = descEl.innerHTML;
 
-            // Much more forgiving regex
-            const match = html.match(/Period:<\/strong>\s*([^<]+?)(?:\s*-\s*([^<]+))?/i);
+            // Grab everything after the label until the next HTML tag (<br>)
+            const match = html.match(/Period:<\/strong>\s*([^<]+)/i);
 
             if (!match || !match[1]) {
                 showToast("Could not read forecast period from UI", "warning");
-                console.log("Raw HTML was:", html); // for debugging
+                console.log("Raw HTML was:", html);
                 return;
             }
 
-            const startStr = match[1].trim();
-            const endStr = match[2] ? match[2].trim() : startStr;
+            // Safely split the start and end times
+            const periodText = match[1].trim();
+            const timeParts = periodText.split('-');
+            const startStr = timeParts[0].trim();
+            const endStr = timeParts.length > 1 ? timeParts[1].trim() : startStr;
 
             loadAndShowLightning(mapIndex, startStr, endStr);
         }
