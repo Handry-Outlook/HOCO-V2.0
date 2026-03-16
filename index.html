@@ -1216,12 +1216,12 @@
         });
 
         async function renderHocoLayers(targetMap, geojsonData, mapIndex) {
-            // 1. Clean up existing layers and source if they exist
+            // 1. Clear existing layers/source to prevent "source not found" or "already exists" errors
             if (targetMap.getLayer('hoco-points')) targetMap.removeLayer('hoco-points');
             if (targetMap.getLayer('hoco-polygons')) targetMap.removeLayer('hoco-polygons');
             if (targetMap.getSource('hoco-source')) targetMap.removeSource('hoco-source');
 
-            // 2. Add the source back with the new data
+            // 2. Add the source
             targetMap.addSource('hoco-source', {
                 'type': 'geojson',
                 'data': geojsonData
@@ -1229,19 +1229,19 @@
 
             const is3dMode = document.getElementById('visTypeSelect').value === '3d';
             const currentOpacity = parseInt(document.getElementById('opacitySlider').value) / 100;
-            const currentHeight = parseInt(document.getElementById('heightSlider').value);
+            const currentHeightScale = parseInt(document.getElementById('heightSlider').value);
 
-            // 3. Add Polygons (3D Extrusion or 2D Fill)
+            // 3. Add the Polygons (The "3D" or "2D" Layer)
             targetMap.addLayer({
                 'id': 'hoco-polygons',
-                'type': is3dMode ? 'fill-extrusion' : 'fill',
+                'type': is3dMode ? 'fill-extrusion' : 'fill', // This creates the 3D effect
                 'source': 'hoco-source',
                 'filter': ['==', ['get', 'feature_type'], 'polygon'],
                 'paint': is3dMode ? {
                     'fill-extrusion-color': ['get', 'fill'],
                     'fill-extrusion-opacity': currentOpacity,
-                    // Updated: Divide raw risk by 5 for the base height
-                    'fill-extrusion-height': ['*', ['/', ['coalesce', ['get', 'risk'], 0], 5], currentHeight]
+                    // Updated Bit: Divide raw risk by 5, then multiply by slider scale
+                    'fill-extrusion-height': ['*', ['/', ['coalesce', ['get', 'risk'], 0], 5], currentHeightScale]
                 } : {
                     'fill-color': ['get', 'fill'],
                     'fill-opacity': currentOpacity,
@@ -1249,7 +1249,7 @@
                 }
             });
 
-            // 4. Add Clickable Points
+            // 4. Add the Interaction Layer (Points)
             targetMap.addLayer({
                 'id': 'hoco-points',
                 'type': 'circle',
@@ -1261,7 +1261,7 @@
                 }
             });
 
-            // 5. Move layers below labels for better visibility
+            // Move layers below labels so city names are visible
             const layers = targetMap.getStyle().layers;
             const labelLayer = layers.find(l => l.type === 'symbol' && l.layout && l.layout['text-field']);
             if (labelLayer) {
