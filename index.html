@@ -1019,12 +1019,9 @@
             btn.textContent = "Loading lightning...";
 
             try {
-                // ─── Parse the exact HOCO period ───
-                // ─── Parse the exact HOCO period ───
                 const start = robustParseTime(startTimeStr);
                 const end = robustParseTime(endTimeStr || startTimeStr);
 
-                // robustParseTime returns { isValid: false } on failure, so we check for getTime
                 if (!start || !start.getTime || isNaN(start.getTime()) || !end || !end.getTime || isNaN(end.getTime())) {
                     throw new Error("Could not parse forecast time range");
                 }
@@ -1032,10 +1029,6 @@
                 const startUnix = Math.floor(start.getTime() / 1000);
                 const endUnix = Math.floor(end.getTime() / 1000);
 
-                // Debug: show what time range we are looking for
-                console.log(`Looking for lightning between ${start.toISOString()} → ${end.toISOString()}`);
-
-                // ─── Fetch both files ───
                 let allStrikes = [];
 
                 for (const url of [
@@ -1064,7 +1057,6 @@
                     allStrikes.push(...filtered);
                 }
 
-                // ─── Deduplicate ───
                 const seen = new Map();
                 allStrikes = allStrikes.filter(s => {
                     if (!s.coordinates || s.coordinates.length < 2) return false;
@@ -1074,15 +1066,12 @@
                     return true;
                 });
 
-                // ─── Final check ───
                 if (allStrikes.length === 0) {
                     showToast(`No strikes in ${start.toLocaleDateString()} ${start.getHours()}:${start.getMinutes()} – ${end.toLocaleDateString()} ${end.getHours()}:${end.getMinutes()}`, "info");
-                    console.log("Total strikes found before time filter:", allStrikes.length); // for debugging
                     resetButton(btn);
                     return;
                 }
 
-                // ─── Build GeoJSON & add layers (unchanged) ───
                 const geojson = {
                     type: "FeatureCollection",
                     features: allStrikes.map(s => ({
@@ -1095,37 +1084,35 @@
                 const map = maps[mapIndex];
                 const sourceId = `lightning-src-${mapIndex}`;
                 const layerId = `lightning-layer-${mapIndex}`;
-                const clusterLayerId = `lightning-clusters-${mapIndex}`;
 
-                [layerId, clusterLayerId].forEach(l => map.getLayer(l) && map.removeLayer(l));
+                // Cleanup previous layers/sources
+                if (map.getLayer(layerId)) map.removeLayer(layerId);
+                if (map.getLayer(`lightning-clusters-${mapIndex}`)) map.removeLayer(`lightning-clusters-${mapIndex}`);
+                if (map.getLayer(`lightning-clusters-${mapIndex}-count`)) map.removeLayer(`lightning-clusters-${mapIndex}-count`);
                 if (map.getSource(sourceId)) map.removeSource(sourceId);
 
-                map.addSource(sourceId, { type: 'geojson', data: geojson, cluster: allStrikes.length > 150, clusterMaxZoom: 14, clusterRadius: 38 });
+                // Add source with cluster: false to force render all points
+                map.addSource(sourceId, {
+                    type: 'geojson',
+                    data: geojson,
+                    cluster: false
+                });
 
-                if (allStrikes.length > 150) {
-                    map.addLayer({
-                        id: clusterLayerId, type: 'circle', source: sourceId, filter: ['has', 'point_count'],
-                        paint: {
-                            'circle-color': ['step', ['get', 'point_count'], '#8e44ad', 10, '#c0392b', 50, '#e74c3c'],
-                            'circle-radius': ['step', ['get', 'point_count'], 18, 10, 26, 50, 34],
-                            'circle-stroke-width': 1, 'circle-stroke-color': '#fff'
-                        }
-                    });
-                    map.addLayer({
-                        id: `${clusterLayerId}-count`, type: 'symbol', source: sourceId, filter: ['has', 'point_count'],
-                        layout: { 'text-field': '{point_count_abbreviated}', 'text-size': 14 }, paint: { 'text-color': '#fff' }
-                    });
-                }
-
+                // Add the single, unclustered layer
                 map.addLayer({
                     id: layerId,
                     type: 'circle',
                     source: sourceId,
-                    filter: allStrikes.length > 150 ? ['!', ['has', 'point_count']] : ['all'],
-                    paint: { 'circle-radius': 7, 'circle-color': '#d63031', 'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5, 'circle-opacity': 0.9 }
+                    paint: {
+                        'circle-radius': 7,
+                        'circle-color': '#d63031',
+                        'circle-stroke-color': '#fff',
+                        'circle-stroke-width': 1.5,
+                        'circle-opacity': 0.9
+                    }
                 }, 'hoco-polygons');
 
-                lightningSources[mapIndex] = { sourceId, layerId, clusterLayerId, data: geojson };
+                lightningSources[mapIndex] = { sourceId, layerId, data: geojson };
                 lightningVisible[mapIndex] = true;
 
                 btn.textContent = `⚡ Hide (${allStrikes.length})`;
