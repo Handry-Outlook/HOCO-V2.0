@@ -1438,24 +1438,47 @@
 
                 // --- ADD IMAGE OVERLAY LOGIC ---
                 maps[i].on('style.load', () => {
-                    maps[i].addSource('overlay-image', {
-                        'type': 'image',
-                        'url': 'https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png', // Put your link here
-                        'coordinates': [
-                            [-10.234, 50.788], // Top Left [Lng, Lat]
-                            [-8.234, 50.788], // Top Right
-                            [-8.234, 48.788], // Bottom Right
-                            [-10.234, 48.788]  // Bottom Left
-                        ]
-                    });
+                    const imageUrl = 'https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png';
 
-                    maps[i].addLayer({
-                        'id': 'overlay-layer',
-                        'type': 'raster',
-                        'source': 'overlay-image',
-                        'paint': {
-                            'raster-opacity': 1 // Set transparency so you can see map under it
+                    // 1. Load the image into the map's memory
+                    maps[i].loadImage(imageUrl, (error, image) => {
+                        if (error) throw error;
+
+                        // Add the image to the style's sprite list
+                        if (!maps[i].hasImage('my-logo')) {
+                            maps[i].addImage('my-logo', image);
                         }
+
+                        // 2. Add a GeoJSON source for the location
+                        maps[i].addSource('logo-point', {
+                            'type': 'geojson',
+                            'data': {
+                                'type': 'FeatureCollection',
+                                'features': [{
+                                    'type': 'Feature',
+                                    'geometry': {
+                                        'type': 'Point',
+                                        'coordinates': [-9.234, 49.788] // Center point of your logo
+                                    }
+                                }]
+                            }
+                        });
+
+                        // 3. Add the layer using 'icon-image'
+                        maps[i].addLayer({
+                            'id': 'logo-layer',
+                            'type': 'symbol',
+                            'source': 'logo-point',
+                            'layout': {
+                                'icon-image': 'my-logo',
+                                'icon-size': 0.5, // Adjust this to change the logo size
+                                'icon-allow-overlap': true,
+                                'icon-ignore-placement': true
+                            },
+                            'paint': {
+                                'icon-opacity': 1
+                            }
+                        });
                     });
                 });
                 // -------------------------------
