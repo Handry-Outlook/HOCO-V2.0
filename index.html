@@ -1431,7 +1431,9 @@
                     zoom: 5.5,
                     projection: 'mercator'
                 });
-
+                maps[i].on('style.load', () => {
+                    maps[i].setProjection('mercator');
+                });
                 maps[i].addControl(new mapboxgl.NavigationControl(), 'top-right');
 
                 // --- ADD IMAGE OVERLAY LOGIC ---
