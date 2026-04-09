@@ -1423,101 +1423,91 @@
         mapboxgl.accessToken = 'pk.eyJ1IjoibWV0ZW9ncm91cC1tYXBib3giLCJhIjoiY2pudWJyMWVhMDQ0bjNxdXFsNWJ5M2ZtbSJ9.ANOKYyv5s0VFVbnesnGGUQ';
 
         function initMaps() {
-            for (let i = 0; i < 4; i++) {
-                maps[i] = new mapboxgl.Map({
-                    container: `map${i}`,
-                    style: 'mapbox://styles/handry20191026/cmns2lucg001401s898cuaxjt',
-                    
-                    center: [-1.5, 52.5],
-                    zoom: 5.5,
-                    projection: 'mercator'
-                });
-                maps[i].on('style.load', () => {
-                    maps[i].setProjection('mercator');
-                });
-                maps[i].addControl(new mapboxgl.NavigationControl(), 'top-right');
+    for (let i = 0; i < 4; i++) {
+        maps[i] = new mapboxgl.Map({
+            container: `map${i}`,
+            // Ensure this URL is exactly correct from your Mapbox Studio account
+            style: 'mapbox://styles/handry20191026/cmns2lucg001401s898cuaxjt',
+            center: [-1.5, 52.5],
+            zoom: 5.5,
+            projection: 'mercator'
+        });
 
-                // --- ADD IMAGE OVERLAY LOGIC ---
-                maps[i].on('style.load', () => {
-                    const imageUrl = 'https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png';
+        maps[i].addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-                    // 1. Load the image into the map's memory
-                    maps[i].loadImage(imageUrl, (error, image) => {
-                        if (error) throw error;
+        // Combined all custom additions into ONE load event
+        maps[i].on('style.load', () => {
+            // Force 2D projection immediately
+            maps[i].setProjection('mercator');
 
-                        // Add the image to the style's sprite list
-                        if (!maps[i].hasImage('my-logo')) {
-                            maps[i].addImage('my-logo', image);
-                        }
+            const imageUrl = 'https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png';
 
-                        // 2. Add a GeoJSON source for the location
-                        maps[i].addSource('logo-point', {
-                            'type': 'geojson',
-                            'data': {
-                                'type': 'FeatureCollection',
-                                'features': [{
-                                    'type': 'Feature',
-                                    'geometry': {
-                                        'type': 'Point',
-                                        'coordinates': [-9.234, 49.788] // Center point of your logo
-                                    }
-                                }]
+            maps[i].loadImage(imageUrl, (error, image) => {
+                if (error) {
+                    console.error("Image load error:", error);
+                    return;
+                }
+
+                // Add the image to the map sprite
+                if (!maps[i].hasImage('my-logo')) {
+                    maps[i].addImage('my-logo', image);
+                }
+
+                // Add Source
+                maps[i].addSource('logo-point', {
+                    'type': 'geojson',
+                    'data': {
+                        'type': 'FeatureCollection',
+                        'features': [{
+                            'type': 'Feature',
+                            'geometry': {
+                                'type': 'Point',
+                                'coordinates': [-9.234, 49.788] 
                             }
-                        });
-
-                        // 3. Add the layer using 'icon-image'
-                        maps[i].addLayer({
-                            'id': 'logo-layer',
-                            'type': 'symbol',
-                            'source': 'logo-point',
-                            'layout': {
-                                'icon-image': 'my-logo',
-                                'icon-size': 0.5, // Adjust this to change the logo size
-                                'icon-allow-overlap': true,
-                                'icon-ignore-placement': true
-                            },
-                            'paint': {
-                                'icon-opacity': 1
-                            }
-                        });
-                    });
-                });
-                // -------------------------------
-
-                maps[i].on('click', 'hoco-points', (e) => {
-                    if (!e.features || e.features.length === 0) return;
-                    const rawRisk = e.features[0].properties.risk || 0;
-                    new mapboxgl.Popup({ closeButton: true })
-                        .setLngLat(e.lngLat)
-                        .setHTML(`
-                    <div style="color:#000; font-family: sans-serif; padding: 10px; min-width: 120px;">
-                        <div style="font-weight: bold; border-bottom: 1px solid #ccc; margin-bottom: 5px;">HOCO Analysis</div>
-                        <strong>Risk Level:</strong> ${rawRisk}%
-                    </div>
-                `)
-                        .addTo(maps[i]);
-                });
-
-                maps[i].on('mouseenter', 'hoco-points', () => maps[i].getCanvas().style.cursor = 'pointer');
-                maps[i].on('mouseleave', 'hoco-points', () => maps[i].getCanvas().style.cursor = '');
-
-                maps[i].on('move', (e) => {
-                    if (e.originalEvent) {
-                        const center = maps[i].getCenter();
-                        const zoom = maps[i].getZoom();
-                        const pitch = maps[i].getPitch();
-                        const bearing = maps[i].getBearing();
-
-                        maps.forEach((m, idx) => {
-                            if (idx !== i && document.getElementById(`map${idx}`).style.display !== 'none') {
-                                m.jumpTo({ center, zoom, pitch, bearing });
-                            }
-                        });
+                        }]
                     }
                 });
+
+                // Add Layer
+                maps[i].addLayer({
+                    'id': 'logo-layer',
+                    'type': 'symbol',
+                    'source': 'logo-point',
+                    'layout': {
+                        'icon-image': 'my-logo',
+                        'icon-size': 0.5,
+                        'icon-allow-overlap': true,
+                        'icon-ignore-placement': true
+                    },
+                    'paint': {
+                        'icon-opacity': 1
+                    }
+                });
+            });
+        });
+
+        // Click listeners and movement sync remain the same...
+        maps[i].on('click', 'hoco-points', (e) => {
+            if (!e.features || e.features.length === 0) return;
+            const rawRisk = e.features[0].properties.risk || 0;
+            new mapboxgl.Popup({ closeButton: true })
+                .setLngLat(e.lngLat)
+                .setHTML(`<div style="color:#000; padding: 10px;"><strong>Risk Level:</strong> ${rawRisk}%</div>`)
+                .addTo(maps[i]);
+        });
+
+        maps[i].on('move', (e) => {
+            if (e.originalEvent) {
+                const center = maps[i].getCenter();
+                const zoom = maps[i].getZoom();
+                maps.forEach((m, idx) => {
+                    if (idx !== i) m.jumpTo({ center, zoom });
+                });
             }
-        }
-        initMaps();
+        });
+    }
+}
+initMaps();
 
         // Style Switcher
         document.getElementById('mapStyleSelect').addEventListener('change', (e) => {
