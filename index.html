@@ -1425,24 +1425,50 @@
         function initMaps() {
             for (let i = 0; i < 4; i++) {
                 maps[i] = new mapboxgl.Map({
-                    container: `map${i}`, style: 'mapbox://styles/handry20191026/cme6xzxoi00rs01scgnx3b19c',
-                    center: [-1.5, 52.5], zoom: 5.5, projection: 'mercator'
+                    container: `map${i}`,
+                    style: 'mapbox://styles/handry20191026/cme6xzxoi00rs01scgnx3b19c',
+                    center: [-1.5, 52.5],
+                    zoom: 5.5,
+                    projection: 'mercator'
                 });
+
                 maps[i].addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+                // --- ADD IMAGE OVERLAY LOGIC ---
+                maps[i].on('style.load', () => {
+                    maps[i].addSource('overlay-image', {
+                        'type': 'image',
+                        'url': 'https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png', // Put your link here
+                        'coordinates': [
+                            [-10.234, 50.788], // Top Left [Lng, Lat]
+                            [-8.234, 50.788], // Top Right
+                            [-8.234, 48.788], // Bottom Right
+                            [-10.234, 48.788]  // Bottom Left
+                        ]
+                    });
+
+                    maps[i].addLayer({
+                        'id': 'overlay-layer',
+                        'type': 'raster',
+                        'source': 'overlay-image',
+                        'paint': {
+                            'raster-opacity': 1 // Set transparency so you can see map under it
+                        }
+                    });
+                });
+                // -------------------------------
 
                 maps[i].on('click', 'hoco-points', (e) => {
                     if (!e.features || e.features.length === 0) return;
-
                     const rawRisk = e.features[0].properties.risk || 0;
-
                     new mapboxgl.Popup({ closeButton: true })
                         .setLngLat(e.lngLat)
                         .setHTML(`
-            <div style="color:#000; font-family: sans-serif; padding: 10px; min-width: 120px;">
-                <div style="font-weight: bold; border-bottom: 1px solid #ccc; margin-bottom: 5px;">HOCO Analysis</div>
-                <strong>Risk Level:</strong> ${rawRisk}%
-            </div>
-        `)
+                    <div style="color:#000; font-family: sans-serif; padding: 10px; min-width: 120px;">
+                        <div style="font-weight: bold; border-bottom: 1px solid #ccc; margin-bottom: 5px;">HOCO Analysis</div>
+                        <strong>Risk Level:</strong> ${rawRisk}%
+                    </div>
+                `)
                         .addTo(maps[i]);
                 });
 
