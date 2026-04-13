@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ADV-HOCO Pro Forecaster</title>
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-TKT4GTFBNM"></script>
@@ -622,6 +623,10 @@
                 </div>
 
                 <div class="panel">
+                    <button id="exportMapBtn" class="btn-outline"
+                        style="margin-top: 15px; border-color: var(--accent); color: var(--accent);">
+                        📸 Export Maps to PNG
+                    </button>
                     <label>Workspace Settings</label>
                     <select id="layoutSelect">
                         <option value="1">Single Map Mode</option>
@@ -921,7 +926,158 @@
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, where, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
+        document.getElementById('exportMapBtn').addEventListener('click', async () => {
+            // 1. Get current layout (1, 2, or 4 maps)
+            const activeLayout = parseInt(document.getElementById('layoutSelect').value);
 
+            // The exact bounding box you requested
+            const bounds = [
+                [-10.234, 48.788], // SW Corner
+                [5.471, 56.578]    // NE Corner
+            ];
+
+            showToast("Preparing map alignment. Please wait...", "info");
+            const mapWrapper = document.getElementById('map-wrapper');
+
+            // --- A. PREPARE DOM FOR EXPORT ---
+
+            // Hide inactive maps entirely so they don't leave blank spaces
+            const instances = document.querySelectorAll('.map-instance');
+            instances.forEach((inst, index) => {
+                if (index >= activeLayout) {
+                    inst.style.display = 'none';
+                } else {
+                    inst.style.display = 'flex';
+                    inst.style.flexDirection = 'column';
+                }
+            });
+
+            // Hide Mapbox UI controls (+, -, arrows, compass, logos)
+            const mapControls = document.querySelectorAll('.mapboxgl-ctrl, .mapboxgl-ctrl-top-right, .mapboxgl-ctrl-bottom-left, .mapboxgl-ctrl-bottom-right');
+            const originalControlDisplays = [];
+            mapControls.forEach(ctrl => {
+                originalControlDisplays.push(ctrl.style.display);
+                ctrl.style.display = 'none';
+            });
+
+            // Style the legends exactly as requested
+            const metadatas = document.querySelectorAll('.map-metadata');
+            metadatas.forEach(meta => {
+                meta.style.position = 'relative';
+                meta.style.top = '0';
+                meta.style.left = '0';
+                meta.style.maxWidth = '100%';
+                meta.style.borderRadius = '0';
+                meta.style.border = 'none';
+                meta.style.background = '#283673'; // Dark blue background
+                meta.style.color = '#ffffff';      // White text
+            });
+
+            // Inject Main Title at the top
+            const titleDiv = document.createElement('div');
+            titleDiv.id = 'export-main-title';
+            titleDiv.style.width = '100%';
+            titleDiv.innerHTML = '<h1 style="margin:0; padding: 15px; font-family: Arial, sans-serif; font-size: 28px; color: white; background: #283673; text-align: center; border-bottom: 2px solid white;">HOCO Thunderstorm Forecast</h1>';
+            mapWrapper.insertBefore(titleDiv, mapWrapper.firstChild);
+
+            // Inject Watermarks, Links, and Logo at the bottom
+            const footerDiv = document.createElement('div');
+            footerDiv.id = 'export-footer-overlay';
+            footerDiv.style.position = 'absolute';
+            footerDiv.style.bottom = '15px';
+            footerDiv.style.left = '0';
+            footerDiv.style.width = '100%';
+            footerDiv.style.display = 'flex';
+            footerDiv.style.justifyContent = 'space-between';
+            footerDiv.style.alignItems = 'flex-end';
+            footerDiv.style.padding = '0 20px';
+            footerDiv.style.boxSizing = 'border-box';
+            footerDiv.style.zIndex = '9999'; // Ensure it sits on top of everything
+            footerDiv.innerHTML = `
+        <div style="background: rgba(40, 54, 115, 0.9); padding: 8px 12px; border-radius: 6px; color: white; font-family: Arial, sans-serif; font-size: 14px; border: 1px solid white;">
+            <b>X:</b> @Handry_Outlook<br>
+            <b>App:</b> https://handry-outlook.github.io/HOCO-V2.0/index.html
+        </div>
+        <div style="background: white; padding: 8px 12px; border-radius: 6px; border: 2px solid #283673;">
+            <span style="color: #283673; font-weight: 900; font-size: 20px; font-family: Arial, sans-serif;">HANDRY OUTLOOK</span>
+        </div>
+    `;
+            mapWrapper.appendChild(footerDiv);
+
+
+            // --- B. ALIGN & ZOOM MAPS ---
+            const movePromises = [];
+            for (let i = 0; i < activeLayout; i++) {
+                if (maps[i]) {
+                    maps[i].resize();      // Force Mapbox to adapt to the flex layout
+                    maps[i].setPitch(0);   // Flatten to 2D
+                    maps[i].setBearing(0); // Face North
+
+                    const promise = new Promise(resolve => {
+                        maps[i].once('idle', resolve);
+                    });
+                    movePromises.push(promise);
+
+                    // padding: 0 prevents zooming out too much. It crops tightly to the bounds.
+                    maps[i].fitBounds(bounds, { padding: 0, duration: 1200 });
+                }
+            }
+
+            // Wait for all maps to finish moving and rendering
+            await Promise.all(movePromises);
+            await new Promise(r => setTimeout(r, 600)); // Extra buffer for DOM repaints
+
+
+            // --- C. CAPTURE PNG ---
+            try {
+                const canvas = await html2canvas(mapWrapper, {
+                    useCORS: true,
+                    backgroundColor: '#0f0f0f',
+                    scale: window.devicePixelRatio || 2 // High Resolution
+                });
+
+                const link = document.createElement('a');
+                link.download = `HOCO_Forecast_${new Date().toISOString().split('T')[0]}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+
+                showToast("Export Complete!", "success");
+
+            } catch (err) {
+                console.error("Export Error:", err);
+                showToast("Failed to generate export.", "error");
+            } finally {
+
+                // --- D. CLEANUP & REVERT (Return app to normal) ---
+                titleDiv.remove();
+                footerDiv.remove();
+
+                instances.forEach((inst, index) => {
+                    if (index < activeLayout) inst.style.display = 'block'; // Unhide active maps
+                });
+
+                metadatas.forEach(meta => {
+                    // Revert styles to your CSS defaults
+                    meta.style.position = 'absolute';
+                    meta.style.maxWidth = '250px';
+                    meta.style.borderRadius = '6px';
+                    meta.style.border = '1px solid rgba(255, 255, 255, 0.15)';
+                    meta.style.top = '10px';
+                    meta.style.left = '10px';
+                    meta.style.background = 'rgba(15, 15, 15, 0.85)';
+                    meta.style.color = ''; // Revert text color
+                });
+
+                mapControls.forEach((ctrl, i) => {
+                    ctrl.style.display = originalControlDisplays[i]; // Bring back zoom/arrows
+                });
+
+                // Trigger resize again so Maps settle back into standard view
+                for (let i = 0; i < activeLayout; i++) {
+                    if (maps[i]) maps[i].resize();
+                }
+            }
+        });
         const accountMap = {
             main: { owner: "Handry-Outlook", repo: "HOCO-BACKEND" },
             alt1: { owner: "handry66", repo: "HOCO-BACKEND-ALT1" },
@@ -1423,91 +1579,92 @@
         mapboxgl.accessToken = 'pk.eyJ1IjoiaGFuZHJ5MjAxOTEwMjYiLCJhIjoiY21jYWg2eG1lMDNkYTJxczVyOWM5bW9mciJ9.bA-qxiByTB_RseY1fgU4rg';
 
         function initMaps() {
-    for (let i = 0; i < 4; i++) {
-        maps[i] = new mapboxgl.Map({
-            container: `map${i}`,
-            // Ensure this URL is exactly correct from your Mapbox Studio account
-            style: 'mapbox://styles/handry20191026/cmns2lucg001401s898cuaxjt',
-            center: [-1.5, 52.5],
-            zoom: 5.5,
-            projection: 'mercator'
-        });
+            for (let i = 0; i < 4; i++) {
+                maps[i] = new mapboxgl.Map({
+                    container: `map${i}`,
+                    // Ensure this URL is exactly correct from your Mapbox Studio account
+                    style: 'mapbox://styles/handry20191026/cmns2lucg001401s898cuaxjt',
+                    center: [-1.5, 52.5],
+                    zoom: 5.5,
+                    projection: 'mercator',
+                    preserveDrawingBuffer: true
+                });
 
-        maps[i].addControl(new mapboxgl.NavigationControl(), 'top-right');
+                maps[i].addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-        // Combined all custom additions into ONE load event
-        maps[i].on('style.load', () => {
-            // Force 2D projection immediately
-            maps[i].setProjection('mercator');
+                // Combined all custom additions into ONE load event
+                maps[i].on('style.load', () => {
+                    // Force 2D projection immediately
+                    maps[i].setProjection('mercator');
 
-            const imageUrl = 'https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png';
+                    const imageUrl = 'https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png';
 
-            maps[i].loadImage(imageUrl, (error, image) => {
-                if (error) {
-                    console.error("Image load error:", error);
-                    return;
-                }
+                    maps[i].loadImage(imageUrl, (error, image) => {
+                        if (error) {
+                            console.error("Image load error:", error);
+                            return;
+                        }
 
-                // Add the image to the map sprite
-                if (!maps[i].hasImage('my-logo')) {
-                    maps[i].addImage('my-logo', image);
-                }
+                        // Add the image to the map sprite
+                        if (!maps[i].hasImage('my-logo')) {
+                            maps[i].addImage('my-logo', image);
+                        }
 
-                // Add Source
-                maps[i].addSource('logo-point', {
-                    'type': 'geojson',
-                    'data': {
-                        'type': 'FeatureCollection',
-                        'features': [{
-                            'type': 'Feature',
-                            'geometry': {
-                                'type': 'Point',
-                                'coordinates': [-9.234, 49.788] 
+                        // Add Source
+                        maps[i].addSource('logo-point', {
+                            'type': 'geojson',
+                            'data': {
+                                'type': 'FeatureCollection',
+                                'features': [{
+                                    'type': 'Feature',
+                                    'geometry': {
+                                        'type': 'Point',
+                                        'coordinates': [-9.234, 49.788]
+                                    }
+                                }]
                             }
-                        }]
-                    }
+                        });
+
+                        // Add Layer
+                        maps[i].addLayer({
+                            'id': 'logo-layer',
+                            'type': 'symbol',
+                            'source': 'logo-point',
+                            'layout': {
+                                'icon-image': 'my-logo',
+                                'icon-size': 0.5,
+                                'icon-allow-overlap': true,
+                                'icon-ignore-placement': true
+                            },
+                            'paint': {
+                                'icon-opacity': 1
+                            }
+                        });
+                    });
                 });
 
-                // Add Layer
-                maps[i].addLayer({
-                    'id': 'logo-layer',
-                    'type': 'symbol',
-                    'source': 'logo-point',
-                    'layout': {
-                        'icon-image': 'my-logo',
-                        'icon-size': 0.5,
-                        'icon-allow-overlap': true,
-                        'icon-ignore-placement': true
-                    },
-                    'paint': {
-                        'icon-opacity': 1
-                    }
+                // Click listeners and movement sync remain the same...
+                maps[i].on('click', 'hoco-points', (e) => {
+                    if (!e.features || e.features.length === 0) return;
+                    const rawRisk = e.features[0].properties.risk || 0;
+                    new mapboxgl.Popup({ closeButton: true })
+                        .setLngLat(e.lngLat)
+                        .setHTML(`<div style="color:#000; padding: 10px;"><strong>Risk Level:</strong> ${rawRisk}%</div>`)
+                        .addTo(maps[i]);
                 });
-            });
-        });
 
-        // Click listeners and movement sync remain the same...
-        maps[i].on('click', 'hoco-points', (e) => {
-            if (!e.features || e.features.length === 0) return;
-            const rawRisk = e.features[0].properties.risk || 0;
-            new mapboxgl.Popup({ closeButton: true })
-                .setLngLat(e.lngLat)
-                .setHTML(`<div style="color:#000; padding: 10px;"><strong>Risk Level:</strong> ${rawRisk}%</div>`)
-                .addTo(maps[i]);
-        });
-
-        maps[i].on('move', (e) => {
-            if (e.originalEvent) {
-                const center = maps[i].getCenter();
-                const zoom = maps[i].getZoom();
-                maps.forEach((m, idx) => {
-                    if (idx !== i) m.jumpTo({ center, zoom });
+                maps[i].on('move', (e) => {
+                    if (e.originalEvent) {
+                        const center = maps[i].getCenter();
+                        const zoom = maps[i].getZoom();
+                        maps.forEach((m, idx) => {
+                            if (idx !== i) m.jumpTo({ center, zoom });
+                        });
+                    }
                 });
             }
-        });
-    }
-}
-initMaps();
+        }
+        initMaps();
 
         // Style Switcher
         document.getElementById('mapStyleSelect').addEventListener('change', (e) => {
@@ -1876,7 +2033,9 @@ initMaps();
         async function renderHocoLayers(targetMap, geojsonData, mapIndex) {
             hideMapLoading(mapIndex);
 
+            // 1. Clean up existing layers (Added outline cleanup here)
             if (targetMap.getLayer('hoco-points')) targetMap.removeLayer('hoco-points');
+            if (targetMap.getLayer('hoco-polygons-outline')) targetMap.removeLayer('hoco-polygons-outline');
             if (targetMap.getLayer('hoco-polygons')) targetMap.removeLayer('hoco-polygons');
             if (targetMap.getSource('hoco-source')) targetMap.removeSource('hoco-source');
 
@@ -1886,6 +2045,7 @@ initMaps();
             const currentOpacity = parseInt(document.getElementById('opacitySlider').value) / 100;
             const currentHeightScale = parseInt(document.getElementById('heightSlider').value);
 
+            // 2. Add the base fill layer
             targetMap.addLayer({
                 'id': 'hoco-polygons',
                 'type': is3dMode ? 'fill-extrusion' : 'fill',
@@ -1897,11 +2057,25 @@ initMaps();
                     'fill-extrusion-height': ['*', ['coalesce', ['get', 'risk'], 0], currentHeightScale]
                 } : {
                     'fill-color': ['get', 'fill'],
-                    'fill-opacity': currentOpacity,
-                    'fill-outline-color': ['get', 'stroke']
+                    'fill-opacity': currentOpacity
                 }
             });
 
+            // 3. ADD THIS: The White Contour layer
+            targetMap.addLayer({
+                'id': 'hoco-polygons-outline',
+                'type': 'line',
+                'source': 'hoco-source',
+                'filter': ['==', ['get', 'feature_type'], 'polygon'],
+                'paint': {
+                    'line-color': '#ffffff',
+                    'line-width': 1.2,
+                    // Doubles opacity for the border, maxing out at 1.0
+                    'line-opacity': Math.min(currentOpacity * 2, 1.0)
+                }
+            });
+
+            // 4. Add the points layer
             targetMap.addLayer({
                 'id': 'hoco-points',
                 'type': 'circle',
@@ -1914,6 +2088,7 @@ initMaps();
             const labelLayer = layers.find(l => l.type === 'symbol' && l.layout && l.layout['text-field']);
             if (labelLayer) {
                 targetMap.moveLayer('hoco-polygons', labelLayer.id);
+                targetMap.moveLayer('hoco-polygons-outline', labelLayer.id);
             }
         }
 
