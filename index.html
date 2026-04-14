@@ -1,1054 +1,2247 @@
-import cv2
-import numpy as np
-import random
-import matplotlib.pyplot as plt
-import os
-import imageio.v2 as imageio
-from matplotlib.colors import LinearSegmentedColormap
-from matplotlib.patches import Polygon
-from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-from matplotlib.transforms import Bbox
-from matplotlib.path import Path
-from matplotlib.patches import Rectangle
-from matplotlib import image
-import json
-import requests
-import boto3
-import argparse
-import uuid
-from datetime import datetime, timedelta, timezone
-import time
-import base64
-from dotenv import load_dotenv
+<!DOCTYPE html>
+<html lang="en">
 
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.options import Options
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ADV-HOCO Pro Forecaster</title>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-TKT4GTFBNM"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
 
-
-import firebase_admin
-from firebase_admin import credentials, storage, firestore
-# --- Environment Setup ---
-load_dotenv()
-# --- Correct lines 31-32 ---
-#MAPBOX_ACCESS_TOKEN = os.getenv("MAPBOX_ACCESS_TOKEN")
-#MAPBOX_USERNAME = os.getenv("MAPBOX_USERNAME")
-
-# --- Constants & Colors ---
-reflectivity_colors = [
-    (0x00, 0xb4, 0xe7), (0x00, 0xa4, 0xed), (0x00, 0x94, 0xf3), (0x00, 0x84, 0xf9),
-    (0x00, 0x74, 0xff), (0x00, 0x84, 0xf9), (0x00, 0x50, 0xff), (0x00, 0x3c, 0xff),
-    (0x00, 0x28, 0xff), (0x00, 0x14, 0xff), (0x00, 0x00, 0xff), (0x00, 0x00, 0xff),
-    (0x00, 0x00, 0xeb), (0x00, 0x00, 0xe1), (0x00, 0x00, 0xd7), (0x00, 0x00, 0xcd),
-    (0x00, 0x00, 0xc2), (0x00, 0x00, 0xb7), (0x00, 0x00, 0xab), (0x00, 0x00, 0x9e),
-    (0xff, 0xc8, 0xff), (0xf4, 0xb4, 0xf4), (0xe8, 0xa0, 0xe8), (0xdd, 0x8c, 0xdd),
-    (0xd1, 0x78, 0xd1), (0xc6, 0x64, 0xc6), (0xba, 0x50, 0xba), (0xaf, 0x3c, 0xaf),
-    (0xa3, 0x28, 0xa3), (0x98, 0x14, 0x98), (0x8c, 0x00, 0x8c)
-]
-
-lightning_colors2 = [
-    "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff",
-    "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff",
-    "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff",
-    "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff",
-    "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff",
-    "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff",
-    "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff",
-    "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff",
-    "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff",
-    "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff", "#ffffff"
-]
-
-lightning_colors = [
-    "#ffffff", "#d0cece", "#d0cece", "#d0cece", "#d0cece", "#bea497", "#bea497", "#bea497", "#bea497", "#bea497",
-    "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4",
-    "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4",
-    "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200",
-    "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200",
-    "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27",
-    "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27",
-    "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24",
-    "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba",
-    "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba"
-]
-
-supercell_colors = [
-    "#ffffff", "#a5f7f7", "#a5f7f7", "#00ffff", "#00ffff", "#00ffff", "#00d6ce", "#00d6ce", "#00d6ce", "#00d6ce",
-    "#00bd18", "#00bd18", "#00bd18", "#00bd18", "#00bd18", "#4ad621", "#4ad621", "#4ad621", "#4ad621", "#4ad621",
-    "#a5e700", "#a5e700", "#a5e700", "#a5e700", "#a5e700", "#ffde00", "#ffde00", "#ffde00", "#ffde00", "#ffde00",
-    "#ffad00", "#ffad00", "#ffad00", "#ffad00", "#ffad00", "#ff6300", "#ff6300", "#ff6300", "#ff6300", "#ff6300",
-    "#ce3100", "#ce3100", "#ce3100", "#ce3100", "#ce3100", "#990066", "#990066", "#990066", "#990066", "#990066",
-    "#dd01b6", "#dd01b6", "#dd01b6", "#dd01b6", "#dd01b6", "#ff15d6", "#ff15d6", "#ff15d6", "#ff15d6", "#ff15d6",
-    "#ff91ec", "#ff91ec", "#ff91ec", "#ff91ec", "#ff91ec", "#ff91ec", "#ff91ec", "#ff91ec", "#ff91ec", "#ff91ec",
-    "#ff91ec", "#ff91ec", "#ff91ec", "#ff91ec", "#ff91ec", "#ff91ec", "#ff91ec", "#ff91ec", "#ff91ec", "#ff91ec",
-    "#ffe6ff", "#ffe6ff", "#ffe6ff", "#ffe6ff", "#ffe6ff", "#ffe6ff", "#ffe6ff", "#ffe6ff", "#ffe6ff", "#ffe6ff",
-    "#ffe6ff", "#ffe6ff", "#ffe6ff", "#ffe6ff", "#ffe6ff", "#ffe6ff", "#ffe6ff", "#ffe6ff", "#ffe6ff", "#ffe6ff"
-]
-
-tor_colors = supercell_colors.copy()
-
-snow_colors = [
-    "#ffffff", "#fcfeff", "#f9fcff", "#f6fbff", "#f3f9ff", "#f0f8ff", "#f0f8ff", "#edf9ff", "#eafbff", "#e6fcff",
-    "#e3feff", "#e0ffff", "#e0ffff", "#d6f9fa", "#cdf3f5", "#c3ecf0", "#bae6eb", "#b0e0e6", "#b0e0e6", "#afdee6",
-    "#afdde6", "#aedbe6", "#aedae6", "#add8e6", "#add8e6", "#a5d6ea", "#9ed4ee", "#96d2f2", "#8fd0f6", "#87cefa",
-    "#87cefa", "#87cef6", "#87cef2", "#87ceef", "#87ceeb", "#87ceeb", "#65caf0", "#44c6f5", "#22c3fa", "#00bfff",
-    "#00bfff", "#08b3ff", "#0fa8ff", "#169cff", "#1e90ff", "#1e90ff", "#3091fb", "#4192f6", "#5294f2", "#6495ed",
-    "#6495ed", "#5b8aea", "#527fe7", "#4a74e4", "#4169e1", "#4169e1", "#314fe8", "#2034f0", "#101af8", "#0000ff",
-    "#0000ff", "#0000e2", "#0000c5", "#0000a8", "#00008b", "#00008b", "#000088", "#000085", "#000083", "#000080",
-    "#000080", "#06067c", "#0c0c78", "#131374", "#191970", "#191970", "#252277", "#302b7e", "#3c3484", "#483d8b",
-    "#483d8b", "#50449c", "#594cac", "#6253bc", "#6a5acd", "#6a5acd", "#6e5ed5", "#7261de", "#7765e6", "#7b68ee",
-    "#7b68ee", "#6e6ee0", "#6075d1", "#537bc2", "#4682b4"
-]
-
-MODELS = ['frahd', 'rpdid2', 'swisseu', 'ez', 'swissnow', 'ezswiss', 'ukmo2km', 'swissmrf', 'hardmi', 'deuhd', 'gfs-hd', 'multiceur']
-WEATHER_TYPES = {'lightning': 275, 'tornado': 549, 'supercell': 242, 'reflectivity': 241, 'snow': 319}
-REGIONS = {'UK': '18', 'England': '4855', 'Zoom-in England': '7523','Ireland and Northern Ireland': '949', 'Wales':'4858', 'Isle of Man' : '7433', 'Scotland':'7267'}
-
-reflectivity_model_parameters = {
-    'rpdid2': (2, 0.0007), 'swisseu': (5, 0.0035), 'ez': (3, 0.0005), 'swissnow': (5, 0.0035),
-    'ezswiss': (5, 0.0035), 'ukmo2km': (2, 0.00025), 'swissmrf': (3, 0.001), 'frahd': (2, 0.0007)
-}
-lightning_model_parameters = {
-    'rpdid2': (2, 0.001), 'swisseu': (5, 0.003), 'ez': (3, 0.00025), 'swissnow': (5, 0.003),
-    'ezswiss': (5, 0.003), 'ukmo2km': (1, 0.00025), 'swissmrf': (3, 0.001), 'hardmi': (3, 0.002)
-}
-supercell_model_parameters = {
-    'rpdid2': (2, 0.0007), 'swisseu': (5, 0.0035), 'ez': (3, 0.0005), 'swissnow': (5, 0.0035),
-    'ezswiss': (5, 0.0035), 'ukmo2km': (2, 0.00025), 'swissmrf': (3, 0.001)
-}
-tor_model_parameters = supercell_model_parameters.copy()
-snow_model_parameters = {
-    'rpdid2': (5, 0.05), 'swisseu': (5, 0.05), 'ez': (5, 0.05), 'swissnow': (5, 0.05),
-    'ezswiss': (5, 0.05), 'ukmo2km': (5, 0.05), 'swissmrf': (5, 0.05), 'frahd': (5, 0.05), 'hardmi': (5, 0.05),
-    'deuhd': (5, 0.05), 'gfs-hd': (2, 0.05), 'multiceur': (4, 0.05)
-}
-
-model_weights = {
-    'rpdid2': 0.8, 'swisseu': 1.1, 'ez': 1.1, 'swissnow': 0.9, 'ezswiss': 1,
-    'ukmo2km': 0.9, 'swissmrf': 0.5, 'frahd': 0.8, 'hardmi': 1,
-    'deuhd': 1, 'gfs-hd': 1, 'multiceur': 1
-}
-
-active_weights = {
-    "rpdid2": 0.8, "swisseu": 1.1, "ez": 1.1, 
-    "swissnow": 1.0, "ukmo2km": 1.0, "hardmi": 1.0
-}
-AUTO_MODELS = list(active_weights.keys())
-model_colors = {
-    'rpdid2': (1.0, 0.0, 0.0), 'swisseu': (0.0, 1.0, 0.0), 'ez': (0.0, 0.0, 1.0),
-    'swissnow': (1.0, 1.0, 0.0), 'ezswiss': (1.0, 0.0, 1.0), 'ukmo2km': (0.0, 1.0, 1.0),
-    'swissmrf': (0.5, 0.0, 0.5), 'frahd': (1.0, 0.5, 0.0),
-    'hardmi': (0.2, 0.8, 0.2), 'deuhd': (0.5, 0.5, 0.0), 'gfs-hd': (0.5, 0.5, 0.5), 'multiceur': (0.0, 0.5, 0.5)
-}
-
-lightning_custom_cmap = LinearSegmentedColormap.from_list("custom_lightning_cmap", lightning_colors, N=100)
-lightning_custom_cmap2 = LinearSegmentedColormap.from_list("custom_lightning_cmap2", lightning_colors2, N=100)
-supercell_custom_cmap = LinearSegmentedColormap.from_list("custom_supercell_cmap", supercell_colors, N=100)
-tor_custom_cmap = LinearSegmentedColormap.from_list("custom_tor_cmap", tor_colors, N=100)
-snow_custom_cmap = LinearSegmentedColormap.from_list("custom_snow_cmap", snow_colors, N=100)
-
-# --- Core Math & Accumulation Logic ---
-def extract_reflectivity_rate(image):
-    mask = np.zeros(image.shape[:2], dtype=np.uint8)
-    for color in reflectivity_colors:
-        lower_bound = np.array([max(0, c - 5) for c in color], dtype=np.uint8)
-        upper_bound = np.array([min(255, c + 5) for c in color], dtype=np.uint8)
-        color_mask = cv2.inRange(image, lower_bound, upper_bound)
-        mask = cv2.bitwise_or(mask, color_mask)
-    return cv2.bitwise_and(image, image, mask=mask)
-
-def accumulate_reflectivity_rates(image_paths, model_parameters, weights):
-    model_data = {model: None for model in MODELS}
-    total_frames = 0
-    model_radius = {}
-    for path in image_paths:
-        model_match = next((m for m in sorted(model_parameters.keys(), key=len, reverse=True) if m.lower() in path.lower()), None)
-        if not model_match: continue
-        radius, risk_factor = model_parameters[model_match]
-        if model_match not in model_radius: model_radius[model_match] = radius
-        frames = [cv2.cvtColor(f, cv2.COLOR_RGB2BGR) for f in imageio.get_reader(path)] if path.endswith('.gif') else [cv2.imread(path)]
-        for frame_bgr in frames:
-            total_frames += 1
-            gray_reflectivity_rate = cv2.cvtColor(extract_reflectivity_rate(frame_bgr[:620, :]), cv2.COLOR_BGR2GRAY)
-            weighted_data = gray_reflectivity_rate * risk_factor * weights[model_match]
-            if model_data[model_match] is None: model_data[model_match] = np.zeros_like(gray_reflectivity_rate, dtype=np.float32)
-            model_data[model_match] += weighted_data
-    for model in model_data:
-        if model_data[model] is not None and total_frames > 0: model_data[model] /= total_frames
-    return model_data, total_frames, model_radius
-
-def calculate_reflectivity_risk(model_data):
-    return {model: (data > 0).astype(np.uint8) * 255 if data is not None else None for model, data in model_data.items()}
-
-def extract_lightning_rate(image):
-    mask = cv2.inRange(cv2.cvtColor(image, cv2.COLOR_BGR2HSV), np.array([0, 50, 50]), np.array([255, 255, 255]))
-    return cv2.bitwise_and(image, image, mask=mask)
-
-def extract_hardmi_lightning_rate(image):
-    tol = 5
-    lightning_rate = np.zeros(image.shape[:2], dtype=np.uint8)
-    lightning_rate[cv2.inRange(image, np.array([255, 95, 253]) - tol, np.array([255, 95, 253]) + tol) > 0] = 15
-    lightning_rate[cv2.inRange(image, np.array([188, 26, 186]) - tol, np.array([188, 26, 186]) + tol) > 0] = 100
-    return lightning_rate
-
-def accumulate_lightning_rates(image_paths, model_parameters, weights):
-    print(f"DEBUG: Processing started. Received {len(image_paths)} image paths.")
-    
-    if len(image_paths) == 0:
-        print("DEBUG: ERROR - No image paths were passed to the accumulator!")
-        return {}
-
-    # Initialize model_data based on the models defined in model_parameters
-    model_data = {model: {'data': None, 'frames': 0, 'radius': None} for model in model_parameters.keys()}
-    
-    # Track how many runs we've seen for swisseu to apply temporal decay
-    swisseu_run_count = 0
-    seen_swisseu_runs = []
-
-    # Sort paths in reverse order so the newest file/run is processed first
-    sorted_paths = sorted(image_paths, reverse=True)
-    
-    for path in sorted_paths:
-        filename = os.path.basename(path)
-        
-        # 1. Identify which model this file belongs to BEFORE printing
-        model_match = next((m for m in sorted(model_parameters.keys(), key=len, reverse=True) if m.lower() in filename.lower()), None)
-        
-        # 2. Now it is safe to print
-        print(f"DEBUG: Checking file {filename} | Matched Model: {model_match}")
-        
-        if not model_match: 
-            print(f"⚠️ DEBUG: No model match found for {filename}. Skipping.")
-            continue
-            
-        radius, risk_factor = model_parameters[model_match]
-        model_data[model_match]['radius'] = radius
-
-       # --- TEMPORAL DECAY LOGIC ---
-        current_weight = weights.get(model_match, 1.0)
-        
-        if model_match == 'swisseu':
-            # Extract the run timestamp (e.g., '2025032018') from the filename 
-            # Assuming format: model_YYYYMMDDHH_hour_weather_region.png
-            try:
-                run_timestamp = filename.split('_')[1]
-            except IndexError:
-                # Fallback just in case the filename format is unexpected
-                run_timestamp = "unknown"
-
-            # If we haven't seen this specific run time yet, add it to our list
-            if run_timestamp not in seen_swisseu_runs:
-                seen_swisseu_runs.append(run_timestamp)
-                
-            # If this image belongs to the newest run we've seen (which will be at index 0 because we reverse-sorted the paths)
-            if seen_swisseu_runs.index(run_timestamp) == 0:
-                decay_multiplier = 0.6
-                print(f"DEBUG: Applying 0.6x decay to NEWEST {model_match} run ({run_timestamp}): {filename}")
-            else:
-                decay_multiplier = 0.4
-                print(f"DEBUG: Applying 0.4x decay to OLDER {model_match} run ({run_timestamp}): {filename}")
-            
-            # Apply the decay to the active weight
-            current_weight *= decay_multiplier
-        # ----------------------------
-        
-        # Load frames (Handle GIF vs PNG)
-        try:
-            frames = [cv2.cvtColor(f, cv2.COLOR_RGB2BGR) for f in imageio.get_reader(path)] if path.endswith('.gif') else [cv2.imread(path)]
-        except Exception as e:
-            print(f"❌ DEBUG: Error reading {filename}: {e}")
-            continue
-
-        for i, frame_bgr in enumerate(frames):
-            if frame_bgr is None: continue
-            
-            model_data[model_match]['frames'] += 1
-            # Crop to remove UI/attribution elements if necessary
-            cropped_frame = frame_bgr[:620, :]
-            
-            # Extract lightning rates
-            if model_match == 'hardmi':
-                gray_lightning_rate = extract_hardmi_lightning_rate(cropped_frame)
-            else:
-                # Assuming extract_lightning_rate is defined elsewhere in your script
-                extracted = extract_lightning_rate(cropped_frame)
-                gray_lightning_rate = cv2.cvtColor(extracted, cv2.COLOR_BGR2GRAY)
-            
-            captured_pixels = np.count_nonzero(gray_lightning_rate)
-            print(f"DEBUG: Path {filename} | Frame {i} | Captured Pixels: {captured_pixels}")
-
-            # Apply Risk Factor and Model Weights (using current_weight which includes decay)
-            weighted_data = gray_lightning_rate.astype(np.float32) * risk_factor * current_weight
-            
-            if model_data[model_match]['data'] is None: 
-                model_data[model_match]['data'] = np.zeros_like(gray_lightning_rate, dtype=np.float32)
-            
-            model_data[model_match]['data'] += weighted_data
-            
-    return model_data
-
-def calculate_thunderstorm_risk(data, model_radius, total_frames, region, ppm=5):
-    if region.lower() == "uk": ppm = 4
-    if total_frames > 0: data = data / (total_frames ** 0.425)
-    smoothed_data = cv2.GaussianBlur(data, (21, 21) if region.lower() == "uk" else (29, 29), 150)
-    risk_spread = np.zeros_like(smoothed_data, dtype=np.float32)
-    for model, radius in model_radius.items():
-        kernel = np.zeros((2 * radius * ppm + 1, 2 * radius * ppm + 1), np.float32)
-        cv2.circle(kernel, (radius * ppm, radius * ppm), radius * ppm, 1, thickness=-1)
-        model_risk_spread = np.log1p(cv2.filter2D(smoothed_data, -1, kernel))
-        risk_spread = np.maximum(risk_spread, model_risk_spread)
-    return risk_spread
-
-def extract_supercell_rate(image, color_ranges):
-    hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    return {rl: cv2.bitwise_and(image, image, mask=cv2.inRange(hsv_image, lb, ub)) for rl, (lb, ub) in color_ranges.items()}
-
-def accumulate_supercell_rates(image_paths, model_parameters, weights):
-    accumulated_data, total_frames, model_radius = None, 0, {}
-    color_ranges = {
-        '0.2': (np.array([117, 186, 255]), np.array([117, 186, 255])),
-        '0.5': (np.array([0, 105, 210]), np.array([0, 105, 210])),
-        '1': (np.array([20, 143, 127]), np.array([20, 143, 127])),
-        '2': (np.array([99, 237, 7]), np.array([99, 237, 7])),
-        '3': (np.array([255, 244, 43]), np.array([255, 244, 43])),
-        '4': (np.array([232, 220, 0]), np.array([232, 220, 0])),
-        '6': (np.array([255, 127, 39]), np.array([255, 127, 39])),
-        '8': (np.array([247, 30, 84]), np.array([247, 30, 84])),
-        '10': (np.array([136, 0, 0]), np.array([136, 0, 0])),
-        '15': (np.array([100, 0, 127]), np.array([100, 0, 127])),
-        '20': (np.array([194, 0, 251]), np.array([194, 0, 251])),
-        '25': (np.array([221, 102, 255]), np.array([221, 102, 255])),
-        '30': (np.array([235, 166, 255]), np.array([235, 166, 255])),
-        '40': (np.array([185, 122, 87]), np.array([185, 122, 87])),
-    }
-    for path in image_paths:
-        model_match = next((m for m in sorted(model_parameters.keys(), key=len, reverse=True) if m.lower() in path.lower()), None)
-        if not model_match: continue
-        radius, risk_factor = model_parameters[model_match]
-        model_radius[model_match] = radius
-        frames = [cv2.cvtColor(f, cv2.COLOR_RGB2BGR) for f in imageio.get_reader(path)] if path.endswith('.gif') else [cv2.imread(path)]
-        for frame_bgr in frames:
-            total_frames += 1
-            if accumulated_data is None: accumulated_data = np.zeros_like(frame_bgr[:620, :, 0], dtype=np.float32)
-            for rl, rate in extract_supercell_rate(frame_bgr[:620, :], color_ranges).items():
-                accumulated_data += cv2.cvtColor(rate, cv2.COLOR_BGR2GRAY) * risk_factor * weights[model_match]
-    return accumulated_data, total_frames, model_radius
-
-def calculate_supercell_risk(data, model_radius, total_frames, region, ppm=1):
-    if region.lower() == "uk": ppm = 4
-    if total_frames > 0: data = data / (total_frames ** 0.425) / 3000 / 17.5
-    smoothed_data = cv2.GaussianBlur(data, (21, 21) if region.lower() == "uk" else (29, 29), 150)
-    risk_spread = np.zeros_like(smoothed_data, dtype=np.float32)
-    for model, radius in model_radius.items():
-        kernel = np.zeros((2 * radius * ppm + 1, 2 * radius * ppm + 1), np.float32)
-        cv2.circle(kernel, (radius * ppm, radius * ppm), radius * ppm, 1, thickness=-1)
-        model_risk_spread = np.log1p(cv2.filter2D(smoothed_data, -1, kernel))
-        risk_spread = np.maximum(risk_spread, model_risk_spread)
-    return np.log1p(risk_spread * 0.6) * 6
-
-def extract_tor_rate(image, color_ranges): return extract_supercell_rate(image, color_ranges)
-
-def accumulate_tor_rates(image_paths, model_parameters, weights):
-    accumulated_data, total_frames, model_radius = None, 0, {}
-    color_ranges = {
-        '0.1': (np.array([10, 10, 10]), np.array([255, 255, 255])), '0.2': (np.array([117, 186, 255]), np.array([117, 186, 255])),
-        '0.3': (np.array([4, 130, 255]), np.array([4, 130, 255])), '0.4': (np.array([0, 105, 210]), np.array([0, 105, 210])),
-        '0.5': (np.array([0, 54, 127]), np.array([0, 54, 127])), '0.6': (np.array([20, 143, 127]), np.array([20, 143, 127])),
-        '0.8': (np.array([99, 237, 7]), np.array([99, 237, 7])), '1': (np.array([255, 244, 43]), np.array([255, 244, 43])),
-        '1.25': (np.array([232, 220, 0]), np.array([232, 220, 0])), '1.5': (np.array([255, 127, 39]), np.array([255, 127, 39])),
-        '1.75': (np.array([247, 30, 84]), np.array([247, 30, 84])), '2': (np.array([136, 0, 0]), np.array([136, 0, 0])),
-        '2.5': (np.array([100, 0, 127]), np.array([100, 0, 127])), '3': (np.array([194, 0, 251]), np.array([194, 0, 251])),
-        '4': (np.array([221, 102, 255]), np.array([221, 102, 255])), '6': (np.array([235, 166, 255]), np.array([235, 166, 255])),
-        '8': (np.array([185, 122, 87]), np.array([185, 122, 87]))
-    }
-    for path in image_paths:
-        model_match = next((m for m in sorted(model_parameters.keys(), key=len, reverse=True) if m.lower() in path.lower()), None)
-        if not model_match: continue
-        radius, risk_factor = model_parameters[model_match]
-        model_radius[model_match] = radius
-        frames = [cv2.cvtColor(f, cv2.COLOR_RGB2BGR) for f in imageio.get_reader(path)] if path.endswith('.gif') else [cv2.imread(path)]
-        for frame_bgr in frames:
-            total_frames += 1
-            if accumulated_data is None: accumulated_data = np.zeros_like(frame_bgr[:620, :, 0], dtype=np.float32)
-            for rl, rate in extract_tor_rate(frame_bgr[:620, :], color_ranges).items():
-                accumulated_data += cv2.cvtColor(rate, cv2.COLOR_BGR2GRAY) * risk_factor * weights[model_match]
-    return accumulated_data, total_frames, model_radius
-
-def calculate_tor_risk(data, model_radius, total_frames, region, ppm=1):
-    if region.lower() == "uk": ppm = 4
-    if total_frames > 0: data = data / (total_frames ** 0.425) / 3000 / 15
-    smoothed_data = cv2.GaussianBlur(data, (21, 21) if region.lower() == "uk" else (29, 29), 150)
-    risk_spread = np.zeros_like(smoothed_data, dtype=np.float32)
-    for model, radius in model_radius.items():
-        kernel = np.zeros((2 * radius * ppm + 1, 2 * radius * ppm + 1), np.float32)
-        cv2.circle(kernel, (radius * ppm, radius * ppm), radius * ppm, 1, thickness=-1)
-        model_risk_spread = np.log1p(cv2.filter2D(smoothed_data, -1, kernel))
-        risk_spread = np.maximum(risk_spread, model_risk_spread)
-    return np.log1p(risk_spread * 0.3) * 3
-
-def extract_snow_rate(image):
-    color_ranges = {
-        '0.1': (np.array([10, 10, 10]), np.array([255, 255, 255])), '0.2': (np.array([117, 186, 255]), np.array([117, 186, 255])),
-        '0.3': (np.array([4, 130, 255]), np.array([4, 130, 255])), '0.4': (np.array([0, 105, 210]), np.array([0, 105, 210])),
-        '0.5': (np.array([0, 54, 127]), np.array([0, 54, 127])), '0.6': (np.array([20, 143, 127]), np.array([20, 143, 127])),
-        '0.8': (np.array([99, 237, 7]), np.array([99, 237, 7])), '1': (np.array([255, 244, 43]), np.array([255, 244, 43])),
-        '1.25': (np.array([232, 220, 0]), np.array([232, 220, 0])), '1.5': (np.array([255, 127, 39]), np.array([255, 127, 39])),
-        '1.75': (np.array([247, 30, 84]), np.array([247, 30, 84])), '2': (np.array([136, 0, 0]), np.array([136, 0, 0])),
-        '2.5': (np.array([100, 0, 127]), np.array([100, 0, 127])), '3': (np.array([194, 0, 251]), np.array([194, 0, 251])),
-        '4': (np.array([221, 102, 255]), np.array([221, 102, 255])), '6': (np.array([235, 166, 255]), np.array([235, 166, 255])),
-        '8': (np.array([185, 122, 87]), np.array([185, 122, 87]))
-    }
-    return extract_supercell_rate(image, color_ranges)
-
-def accumulate_snow_rates(image_paths, model_parameters, weights):
-    accumulated_data, total_frames, model_radius = None, 0, {}
-    for path in image_paths:
-        model_match = next((m for m in sorted(model_parameters.keys(), key=len, reverse=True) if m.lower() in path.lower()), None)
-        if not model_match: continue
-        radius, risk_factor = model_parameters[model_match]
-        model_radius[model_match] = radius
-        frames = [cv2.cvtColor(f, cv2.COLOR_RGB2BGR) for f in imageio.get_reader(path)] if path.endswith('.gif') else [cv2.imread(path)]
-        for frame_bgr in frames:
-            total_frames += 1
-            if accumulated_data is None: accumulated_data = np.zeros_like(frame_bgr[:620, :, 0], dtype=np.float32)
-            for rl, rate in extract_snow_rate(frame_bgr[:620, :]).items():
-                accumulated_data += cv2.cvtColor(rate, cv2.COLOR_BGR2GRAY) * risk_factor * weights[model_match]
-    return accumulated_data, total_frames, model_radius
-
-def calculate_snow_risk(data, model_radius, total_frames, region, ppm=0.5):
-    import math
-    if region == "uk": ppm = 0.4
-    if total_frames > 0: data = (data / (total_frames ** 0.425)) / 10
-    smoothed_data = cv2.GaussianBlur(data, (21, 21) if region == "uk" else (15, 15), 150 if region == "uk" else 20)
-    risk_spread = np.zeros_like(smoothed_data, dtype=np.float32)
-    for model, radius in model_radius.items():
-        kernel_radius = radius * ppm
-        kernel_size = 2 * math.ceil(kernel_radius) + 1
-        kernel = np.zeros((kernel_size, kernel_size), np.float32)
-        center = kernel_size // 2
-        cv2.circle(kernel, (center, center), math.ceil(kernel_radius), 1, thickness=-1)
-        model_risk_spread = np.log1p(cv2.filter2D(smoothed_data, -1, kernel))
-        risk_spread = np.maximum(risk_spread, model_risk_spread)
-    return risk_spread
-
-# --- Mapbox GeoJSON Export ---
-def export_risk_to_geojson(data_array, calc_factor, output_filepath, bounds=None):
-    """Exports the raw numpy risk data array to a GeoJSON format suitable for Mapbox."""
-    percentage_data = (data_array * calc_factor) * 100
-    y_indices, x_indices = np.where(percentage_data >= 1.0)
-    height, width = data_array.shape
-    features = []
-    
-    if bounds:
-        min_lon, min_lat, max_lon, max_lat = bounds
-        lon_step = (max_lon - min_lon) / width
-        lat_step = (max_lat - min_lat) / height
-        
-    for y, x in zip(y_indices, x_indices):
-        val = float(percentage_data[y, x])
-        if bounds:
-            lon = min_lon + (x * lon_step)
-            lat = max_lat - (y * lat_step)
-            features.append({
-                "type": "Feature",
-                "geometry": {"type": "Point", "coordinates": [lon, lat]},
-                "properties": {"risk_pct": round(val, 2)}
-            })
-        else:
-            features.append({
-                "type": "Feature",
-                "geometry": {"type": "Point", "coordinates": [float(x), float(y)]},
-                "properties": {"risk_pct": round(val, 2), "pixel_x": int(x), "pixel_y": int(y)}
-            })
-            
-    with open(output_filepath, 'w') as f:
-        json.dump({"type": "FeatureCollection", "features": features}, f)
-    return output_filepath
-
-def upload_to_mapbox(filepath, tileset_name):
-    """
-    VERBOSE UPLOAD: Requests credentials, uploads to S3, and notifies Mapbox.
-    Includes time-stamped logs to track progress in GitHub Actions.
-    """
-    token = os.getenv("MAPBOX_ACCESS_TOKEN")
-    user = os.getenv("MAPBOX_USERNAME")
-
-    print(f"\n[{datetime.now().strftime('%H:%M:%S')}] --- MAPBOX UPLOAD ATTEMPT ---")
-    print(f"Target Tileset: {tileset_name}")
-    print(f"Local File: {filepath}")
-
-    # 1. Validation
-    if not token or not user:
-        print("CRITICAL ERROR: MAPBOX_ACCESS_TOKEN or MAPBOX_USERNAME is missing!")
-        print(f"DEBUG: Token starts with 'sk.': {str(token).startswith('sk.')}")
-        return None
-
-    if not os.path.exists(filepath):
-        print(f"ERROR: File not found at {filepath}. Skipping upload.")
-        return None
-
-    # Step 1: Get S3 Credentials
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] Step 1/3: Requesting S3 staging credentials...")
-    creds_url = f"https://api.mapbox.com/uploads/v1/{user}/credentials?access_token={token}"
-    
-    try:
-        resp = requests.get(creds_url)
-        if resp.status_code != 200:
-            print(f"FAILED Step 1: {resp.status_code} - {resp.text}")
-            return None
-        
-        creds = resp.json()
-        print("Step 1 Success: Temporary S3 credentials received.")
-
-        # Step 2: S3 Upload
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] Step 2/3: Uploading to Mapbox S3 staging...")
-        s3_client = boto3.client(
-            's3',
-            aws_access_key_id=creds['accessKeyId'],
-            aws_secret_access_key=creds['secretAccessKey'],
-            aws_session_token=creds['sessionToken']
-        )
-        s3_client.upload_file(filepath, creds['bucket'], creds['key'])
-        print("Step 2 Success: File successfully staged on S3.")
-
-        # Step 3: Trigger Mapbox Processing
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] Step 3/3: Notifying Mapbox to create Tileset...")
-        upload_url = f"https://api.mapbox.com/uploads/v1/{user}?access_token={token}"
-        payload = {
-            "tileset": f"{user}.{tileset_name}",
-            "url": f"http://{creds['bucket']}.s3.amazonaws.com/{creds['key']}"
+        gtag('config', 'G-TKT4GTFBNM');
+    </script>
+    <style>
+        :root {
+            --primary: #283673;
+            --primary-hover: #3d52ad;
+            --bg: #0f0f0f;
+            --card: #1e1e1e;
+            --text: #ffffff;
+            --border: #3a4785;
+            --accent: #2ecc71;
+            --danger: #e74c3c;
+            --warning: #f39c12;
+            --guest: #95a5a6;
+            --sidebar-width: 420px;
         }
-        
-        final_resp = requests.post(upload_url, json=payload)
-        if final_resp.status_code == 201:
-            job_id = final_resp.json().get('id')
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] SUCCESS! Mapbox Job Created.")
-            print(f"Final Tileset ID: {user}.{tileset_name}")
-            print(f"Mapbox Upload ID: {job_id}")
-            return final_resp.json()
-        else:
-            print(f"FAILED Step 3: {final_resp.status_code} - {final_resp.text}")
-            return None
 
-    except Exception as e:
-        print(f"UNEXPECTED ERROR: {str(e)}")
-        return None
-# --- Orchestration & Headless Selenium Execution ---
-def get_available_runs(model, start_time):
-    # 1. Define Publication Offsets (Hours to look back to find available data)
-    # Adjust these based on when the provider actually uploads the images
-    PUBLICATION_OFFSETS = {
-        'ez': 6,        # ECMWF usually takes 6-7 hours to publish
-        'ukmo2km': 3,   # Example: UKMO high-res delay
-        'rpdid2': 3,    # Example: GFS delay
-        'hardmi': 3,    # Example: Harmonie delay
-        'swisseu': 3,
-        'swissnow': 1,
-        # Models not listed here will default to 0 (no offset)
-    }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', system-ui, sans-serif;
+            display: flex;
+            height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+        }
 
-    # 2. Set the Model Interval
-    if model in ['rpdid2', 'frahd', 'hardmi', 'swisseu']:
-        interval = 3
-    elif model == 'swissnow':
-        interval = 1
-    elif model == 'ez':
-        interval = 12  # Your fix for EZ 12-hour cycles
-    else:
-        interval = 6   # Default for other models
-        
-    run_times = []
-    current_time = datetime.now()
-    
-    # 3. Apply the Offset
-    # reference_time is the "latest" time the system thinks it can find data for
-    base_time = start_time if start_time < current_time else current_time
-    offset_hours = PUBLICATION_OFFSETS.get(model, 0)
-    reference_time = base_time - timedelta(hours=offset_hours)
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
 
-    for i in range(30):
-        # Calculate time based on interval
-        run_time = reference_time - timedelta(hours=i * interval)
-        
-        # 4. Rounding Logic to hit standard run times (00, 03, 06, 12 etc)
-        if model in ['rpdid2', 'frahd', 'hardmi', 'swisseu']:
-            run_time = run_time.replace(hour=(run_time.hour // 3) * 3, minute=0, second=0, microsecond=0)
-        elif model == 'ez':
-            run_time = run_time.replace(hour=(run_time.hour // 12) * 12, minute=0, second=0, microsecond=0)
-        elif model != 'swissnow':
-            run_time = run_time.replace(hour=(run_time.hour // 6) * 6, minute=0, second=0, microsecond=0)
-        else:
-            # Swissnow is hourly
-            run_time = run_time.replace(minute=0, second=0, microsecond=0)
-            
-        if run_time not in run_times:
-            run_times.append(run_time)
-            
-    sorted_runs = sorted(run_times, reverse=True)
-    if model == 'swisseu':
-        return sorted_runs[:2] # Return latest 2 runs for SWISSEU
-    return sorted_runs[:1]     # Return latest 1 run for all others
+        ::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
 
-def process_weather_data(start_dt, end_dt, region, weights, weather_params, job_uuid, models_dict):
-    print(f"Starting Job {job_uuid} | Region: {region} | Times: {start_dt} to {end_dt}, models_dict")
-    base_url = "https://img5.meteologix.com/images/data/cache/model/model_mod{model_name}_{runtime}_{hours}_{region_code}_{weather_type}.png"
-    
-    #models_dict = {model: get_available_runs(model, start_dt) for model in MODELS}
-    image_paths = {param: [] for param in WEATHER_TYPES.keys()}
-    
-    # 1. Setup Headless WebDriver
-    print("Initializing headless Chrome...")
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--window-size=1920,1080")
-    chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
-    print("Initializing base session at meteologix.com/uk...")
-    try:
-        driver.get("https://meteologix.com/uk")
-        time.sleep(5) # Give it plenty of time to resolve Cloudflare/DDOS checks
-    except Exception as e:
-        print(f"Initial warm-up failed: {e}")
-    # Simplified Map of URLs
-    model_chart_urls = {
-        "ez": {"lightning": "https://meteologix.com/uk/model-charts/euro/united-kingdom/lightning-density/20250320-1800z.html", "snow": "https://meteologix.com/uk/model-charts/euro/united-kingdom/precipitation-snow-1h--en/20250320-1800z.html", "reflectivity": "https://meteologix.com/uk/model-charts/euro/united-kingdom/reflectivity/20250320-1800z.html"},
-        "swisseu": {"lightning": "https://meteologix.com/uk/model-charts/swisshd-eu/united-kingdom/lightning-flash-rate/20250320-1800z.html", "supercell": "https://meteologix.com/uk/model-charts/swisshd-eu/united-kingdom/supercell-composite/20250320-1800z.html", "tornado": "https://meteologix.com/uk/model-charts/swisshd-eu/united-kingdom/sign-tornado-param/20250320-1800z.html", "snow": "https://meteologix.com/uk/model-charts/swisshd-eu/united-kingdom/precipitation-snow-1h--en/20250320-1800z.html", "reflectivity": "https://meteologix.com/uk/model-charts/swisshd-eu/united-kingdom/base-reflectivity/20250320-1800z.html"},
-        "swissnow": {"lightning": "https://meteologix.com/uk/model-charts/swisshd-nowcast/united-kingdom/lightning-flash-rate/20250320-1800z.html", "supercell": "https://meteologix.com/uk/model-charts/swisshd-nowcast/united-kingdom/supercell-composite/20250320-1800z.html", "tornado": "https://meteologix.com/uk/model-charts/swisshd-nowcast/united-kingdom/sign-tornado-param/20250320-1800z.html", "snow": "https://meteologix.com/uk/model-charts/swisshd-nowcast/united-kingdom/precipitation-snow-1h--en/20250320-1800z.html", "reflectivity": "https://meteologix.com/uk/model-charts/swisshd-nowcast/united-kingdom/base-reflectivity/20250320-1800z.html"},
-        "ezswiss": {"lightning": "https://meteologix.com/uk/model-charts/swisshd-ecmwf/united-kingdom/lightning-flash-rate/20250320-1800z.html", "supercell": "https://meteologix.com/uk/model-charts/swisshd-ecmwf/united-kingdom/supercell-composite/20250320-1800z.html", "tornado": "https://meteologix.com/uk/model-charts/swisshd-ecmwf/united-kingdom/sign-tornado-param/20250320-1800z.html", "snow": "https://meteologix.com/uk/model-charts/swisshd-ecmwf/united-kingdom/precipitation-snow-1h--en/20250320-1800z.html", "reflectivity": "https://meteologix.com/uk/model-charts/swisshd-ecmwf/united-kingdom/base-reflectivity/20250320-1800z.html"},
-        "ukmo2km": {"lightning": "https://meteologix.com/uk/model-charts/ukmo-2km/united-kingdom/lightning-flash-rate/20250320-2200z.html", "snow": "https://meteologix.com/uk/model-charts/ukmo-2km/united-kingdom/precipitation-snow-1h--en/20250320-2200z.html"},
-        "swissmrf": {"lightning": "https://meteologix.com/uk/model-charts/swiss-mrf/united-kingdom/lightning-flash-rate/20250320-1800z.html", "tornado": "https://meteologix.com/uk/model-charts/swiss-mrf/united-kingdom/sign-tornado-param/20250320-1800z.html", "snow": "https://meteologix.com/uk/model-charts/swiss-mrf/united-kingdom/precipitation-snow-1h--en/20250320-1800z.html", "reflectivity": "https://meteologix.com/uk/model-charts/swiss-mrf/united-kingdom/base-reflectivity/20250320-1800z.html"},
-        "rpdid2": {"lightning": "https://meteologix.com/uk/model-charts/rapid-id2/england/lightning-flash-rate/20250320-2200z.html", "snow": "https://meteologix.com/uk/model-charts/rapid-id2/england/precipitation-snow-1h--en/20250320-2200z.html", "reflectivity": "https://meteologix.com/uk/model-charts/rapid-id2/england/base-reflectivity/20250320-2200z.html"},
-        "frahd": {"snow": "https://meteologix.com/uk/model-charts/french-hd/england/precipitation-snow-1h--en/20250320-2200z.html", "reflectivity": "https://meteologix.com/uk/model-charts/french-hd/england/base-reflectivity/20250320-2200z.html"},
-        "hardmi": {"lightning": "https://meteologix.com/uk/model-charts/harmonie-dmi/united-kingdom/lightning-flash-rate/20250320-1800z.html", "snow": "https://meteologix.com/uk/model-charts/harmonie-dmi/united-kingdom/precipitation-snow-1h--en/20250320-1800z.html"},
-        "deuhd": {"snow": "https://meteologix.com/uk/model-charts/deu-hd/united-kingdom/precipitation-snow-1h--en/20250320-1800z.html"},
-        "gfs-hd": {"snow": "https://meteologix.com/uk/model-charts/gfs-hd/united-kingdom/precipitation-snow-1h--en/20250320-1800z.html"},
-        "multiceur": {"snow": "https://meteologix.com/uk/model-charts/multimodel-eur/united-kingdom/precipitation-snow-1h--en/20250320-1800z.html"}
-    }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
 
-    print("Fetching images...")
-    # 1. Initialize a base session at the start with human-like headers
-    session = requests.Session()
-    session.headers.update({
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://meteologix.com/",
-        "Origin": "https://meteologix.com",
-        "Sec-Fetch-Dest": "image",
-        "Sec-Fetch-Mode": "cors",  # Changed from no-cors to cors
-        "Sec-Fetch-Site": "same-site",
-        "Pragma": "no-cache",
-        "Cache-Control": "no-cache",
-    })
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
 
-    for model, run_times in models_dict.items():
-        for weather in weather_params:
-            chart_url = model_chart_urls.get(model, {}).get(weather)
-            if not chart_url: continue
-            
-            try:
-                print(f"DEBUG: Opening Model Page for cookies: {chart_url}")
-                driver.get(chart_url)
-                
-                # Wait for the page and its security cookies to fully load
-                time.sleep(random.uniform(4.0, 6.0)) 
-                
-                # --- ADD THE COOKIE SYNC BLOCK HERE ---
-                selenium_cookies = driver.get_cookies()
-                for cookie in selenium_cookies:
-                    # Force the domain to .meteologix.com so the image server (img5) accepts them
-                    domain = cookie.get('domain')
-                    if not domain:
-                        domain = '.meteologix.com'
+        /* Landing Page Enhancements */
+        #landingPage {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at center, #1a252f 0%, #000 100%);
+            z-index: 5000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .landing-container {
+            max-width: 900px;
+            width: 100%;
+            text-align: center;
+            background: rgba(15, 15, 15, 0.85);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+        }
+
+        .intro-text {
+            color: #aaa;
+            margin: 0 auto 30px auto;
+            font-size: 0.95rem;
+            max-width: 600px;
+            line-height: 1.5;
+        }
+
+        .role-grid {
+            display: grid;
+            gap: 15px;
+            margin: 30px 0;
+        }
+
+        @media (min-width: 769px) {
+            .role-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        .role-card {
+            background: rgba(17, 17, 17, 0.9);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            text-align: left;
+            transition: transform 0.2s;
+        }
+
+        .role-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .role-card h4 {
+            margin: 0 0 10px 0;
+            font-size: 1.1rem;
+        }
+
+        .role-card.guest h4 {
+            color: var(--guest);
+        }
+
+        .role-card.normal h4 {
+            color: #5c70c7
+        }
+
+        .role-card.exclusive h4 {
+            color: var(--warning);
+        }
+
+        .role-card.dev h4 {
+            color: var(--danger);
+        }
+
+        .role-card ul {
+            padding-left: 20px;
+            font-size: 0.8rem;
+            color: #ccc;
+            margin: 0;
+            line-height: 1.6;
+        }
+
+        /* Modals (Auth & Tutorial) */
+        .overlay-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 6000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-card {
+            background: #111;
+            padding: 40px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 400px;
+            border: 1px solid var(--border);
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+            box-sizing: border-box;
+        }
+
+        .tutorial-text {
+            text-align: left;
+            color: #ccc;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .tutorial-text ol {
+            padding-left: 20px;
+        }
+
+        .tutorial-text li {
+            margin-bottom: 10px;
+        }
+
+        /* Sidebar Layout */
+        #sidebar {
+            width: var(--sidebar-width);
+            background: var(--card);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            box-shadow: 5px 0 20px rgba(0, 0, 0, 0.7);
+            box-sizing: border-box;
+        }
+
+        #scroll-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        /* Map Wrapper */
+        #map-wrapper {
+            flex-grow: 1;
+            position: relative;
+            display: grid;
+            gap: 2px;
+            background: #222;
+        }
+
+        #map-wrapper.grid-1 {
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr;
+        }
+
+        #map-wrapper.grid-2 {
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr;
+        }
+
+        #map-wrapper.grid-4 {
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+        }
+
+        .map-instance {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        /* Map Metadata Card */
+        .map-metadata {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(15, 15, 15, 0.85);
+            backdrop-filter: blur(4px);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            z-index: 5;
+            pointer-events: auto;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            max-width: 250px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Loading Animation for Pending Runs */
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 15, 15, 0.95);
+            z-index: 20;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: var(--text);
+            text-align: center;
+        }
+
+        .loading-content {
+            max-width: 280px;
+        }
+
+        .loading-title {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            color: var(--warning);
+        }
+
+        .est-time {
+            font-size: 0.95rem;
+            color: var(--accent);
+            margin-bottom: 15px;
+        }
+
+        .loading-bar-container {
+            width: 260px;
+            height: 8px;
+            background: #222;
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .loading-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--accent), var(--primary));
+            width: 0%;
+            /* ← changed */
+            /* remove: animation: loadingBar 1.5s linear infinite; */
+            transition: width 0.6s linear;
+            /* ← add this */
+        }
+
+        @keyframes loadingBar {
+            0% {
+                transform: translateX(-100%);
+            }
+
+            100% {
+                transform: translateX(400%);
+            }
+        }
+
+        .loading-note {
+            font-size: 0.75rem;
+            color: #777;
+            margin-top: 12px;
+        }
+
+        /* Components */
+        .panel {
+            background: #151515;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin-bottom: 15px;
+        }
+
+        h2 {
+            color: var(--primary);
+            margin: 0 0 15px 0;
+            font-size: 1.3rem;
+        }
+
+        label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: #aaa;
+            text-transform: uppercase;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: #252525;
+            color: #fff;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            border-color: var(--primary);
+            outline: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            box-shadow: 0 0 10px rgba(40, 54, 115, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        button:hover:not(:disabled) {
+            background: var(--primary-hover);
+            box-shadow: 0 0 15px rgba(61, 82, 173, 0.5);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-add {
+            background: var(--accent);
+            padding: 8px;
+            font-size: 0.85rem;
+        }
+
+        .btn-add:hover:not(:disabled) {
+            background: #27ae60;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--primary);
+        }
+
+        .btn-outline:hover:not(:disabled) {
+            background: rgba(52, 152, 219, 0.1);
+        }
+
+        .chip-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 5px;
+        }
+
+        .chip {
+            background: var(--primary);
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .chip span {
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        #toastContainer {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: var(--card);
+            border-left: 4px solid var(--primary);
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            animation: slideIn 0.3s ease forwards;
+        }
+
+        .toast.error {
+            border-left-color: var(--danger);
+        }
+
+        .toast.success {
+            border-left-color: var(--accent);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0;
+            }
+        }
+
+        .list-row {
+            background: #0a0a0a;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border: 1px solid #222;
+            font-size: 0.8rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+
+            #sidebar {
+                width: 100%;
+                height: 45vh;
+                border-right: none;
+                border-bottom: 2px solid var(--primary);
+            }
+
+            #map-wrapper {
+                height: 55vh;
+                flex-grow: 0;
+            }
+
+            #map-wrapper.grid-2,
+            #map-wrapper.grid-4 {
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="toastContainer"></div>
+
+    <div id="landingPage">
+        <div class="landing-container">
+            <h1 style="color: #FFFFFF; margin-bottom: 5px; font-size: 2.8rem;">HOCO 2.0</h1>
+            <p style="color: #fff; font-weight: bold; margin-bottom: 15px; font-size: 1.1rem;">Meteorological Ensemble
+                Engine By Handry Outlook</p>
+
+            <p class="intro-text">
+                <strong>What is HOCO?</strong> High-Resolution Convective Outlooks (HOCO) utilizes advanced ensemble
+                forecasting by aggregating and weighting top-tier meteorological models. It dynamically renders 3D risk
+                assessments for severe weather and convective activity across mapped regions.
+            </p>
+
+            <div class="role-grid">
+                <div class="role-card guest">
+                    <h4>Guest</h4>
+                    <ul>
+                        <li>View Public HOCO Runs</li>
+                        <li>Multi-Map Visualizations</li>
+                        <li>Cannot Execute Runs</li>
+                    </ul>
+                </div>
+                <div class="role-card normal">
+                    <h4>Normal</h4>
+                    <ul>
+                        <li>Execute Auto-HOCO</li>
+                        <li>72-Hour Forecast Limit</li>
+                        <li>7 Runs / Day Cap</li>
+                        <li>Standard Models Only</li>
+                    </ul>
+                </div>
+                <div class="role-card exclusive">
+                    <h4>Exclusive</h4>
+                    <ul>
+                        <li>Custom Scenario Builder</li>
+                        <li>Custom Model Weighting</li>
+                        <li>72-Hour Forecast Limit</li>
+                        <li>15 Runs / Day Cap</li>
+                    </ul>
+                </div>
+                <div class="role-card dev">
+                    <h4>Developer</h4>
+                    <ul>
+                        <li>Unrestricted Access</li>
+                        <li>Publish Public Runs</li>
+                        <li>Manage User Roles</li>
+                        <li>Unlimited Range & Runs</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 15px; justify-content: center; margin-top: 20px;">
+                <button onclick="showAuth('login')" style="width: 150px;">Sign In</button>
+                <button onclick="showAuth('register')" class="btn-outline" style="width: 150px;">Register</button>
+                <button onclick="document.getElementById('tutorialModal').style.display='flex'"
+                    style="width: 150px; background: #333; border: 1px solid #555;">Quick Tutorial</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="tutorialModal" class="overlay-modal">
+        <div class="modal-card">
+            <h2 style="margin-bottom: 15px;">How to Use HOCO</h2>
+            <div class="tutorial-text">
+                <ol>
+                    <li><strong>Layout:</strong> Use the sidebar to split your view into 1, 2, or 4 maps for easy
+                        comparison.</li>
+                    <li><strong>Archive:</strong> Select a past forecast run from the dropdown and assign it to a
+                        specific map to view the 3D data grid.</li>
+                    <li><strong>Execution (Normal+):</strong> Define a region, time period, and hazards, then generate a
+                        new custom ensemble.</li>
+                    <li><strong>Analysis:</strong> Rotate the map (Right-Click + Drag) to view risk elevation. Click
+                        specific grid zones to see precise risk index data.</li>
+                </ol>
+            </div>
+            <button onclick="document.getElementById('tutorialModal').style.display='none'">Close Tutorial</button>
+        </div>
+    </div>
+
+    <div id="authOverlay" class="overlay-modal">
+        <div class="modal-card">
+            <h2 id="authTitle" style="margin-bottom: 5px;">Sign In</h2>
+            <p style="color: #888; font-size: 0.8rem; margin-bottom: 20px;">Secure Access Portal</p>
+            <input type="email" id="emailIn" placeholder="Email Address" required>
+            <input type="password" id="passIn" placeholder="Password" required>
+            <button id="authSubmitBtn">Submit</button>
+            <button onclick="document.getElementById('authOverlay').style.display='none'" class="btn-outline"
+                style="margin-top: 10px;">Cancel</button>
+            <p id="authError" style="color:var(--danger); font-size:0.8rem; margin-top:15px; min-height: 16px;"></p>
+        </div>
+    </div>
+
+    <div id="sidebar">
+        <div id="scroll-area">
+            <div id="mainUI" style="display:none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="margin:0; color: #ffffff;">HOCO 2.O</h2>
+                    <span id="roleBadge"
+                        style="background:var(--accent); font-size: 0.65rem; padding: 4px 8px; border-radius: 4px; color: #000; font-weight: 800; letter-spacing: 1px;">...</span>
+                </div>
+
+                <div class="panel">
                     
-                    session.cookies.set(
-                        cookie['name'], 
-                        cookie['value'], 
-                        domain=domain
-                    )
-                print(f"✅ Cookies synced for {model} - {weather}")
-                # --------------------------------------
+                    <label>Workspace Settings</label>
+                    <select id="layoutSelect">
+                        <option value="1">Single Map Mode</option>
+                        <option value="2">Dual Map Comparison</option>
+                        <option value="4">Quad Map Comparison</option>
+                    </select>
 
-            except Exception as e:
-                print(f"Failed loading driver for {model}: {str(e)}")
-                continue
+                    <select id="mapStyleSelect">
+                        <option value="mapbox://styles/handry20191026/cmns2lucg001401s898cuaxjt">Style: Default</option>
+                        <option value="mapbox://styles/mapbox/standard">Style: Standard (3D Enhanced)</option>
+                        <option value="mapbox://styles/mapbox/satellite-v9">Style: Satellite (Imagery Only)</option>
+                        <option value="mapbox://styles/mapbox/satellite-streets-v12">Style: Satellite (with Streets)
+                        </option>
+                        <option value="mapbox://styles/mapbox/light-v11">Style: Light (Minimalist)</option>
+                        <option value="mapbox://styles/mapbox/outdoors-v12">Style: Outdoors (Terrain)</option>
+                        <option value="mapbox://styles/mapbox/navigation-night-v1">Style: Navigation (Night)</option>
+                        <option value="mapbox://styles/mapbox/navigation-day-v1">Style: Navigation (Day)</option>
+                    </select>
 
-            # Now start the image download loop using the session with updated cookies
-            for run_time in run_times:
-                # ... (rest of your image download logic) ...
-                # ... rest of your code ...
-                for hour in range(max(0, int((start_dt - run_time).total_seconds() / 3600)), int((end_dt - run_time).total_seconds() / 3600) + 1):
-                    weather_type = 547 if (model == 'ez' and weather == 'lightning') else 155 if (model == 'hardmi' and weather == 'lightning') else WEATHER_TYPES[weather]
-                    url = base_url.format(model_name=model, runtime=run_time.strftime("%Y%m%d%H"), hours=f"{hour:02d}", region_code=REGIONS[region], weather_type=weather_type)
-                    
-                    # --- ADD THIS LINE HERE ---
-                    print(f"DEBUG: Attempting to fetch URL: {url}")
-                    
-                    temp_output_dir = f"{weather}_images"
-                    os.makedirs(temp_output_dir, exist_ok=True)
-                    filename = f"{model}_{run_time.strftime('%Y%m%d%H')}_{hour:02d}_{weather}_{region}.png"
-                    output_path = os.path.join(temp_output_dir, filename)
-                    
-                    # ... inside your model/weather loop ...
-                    if not os.path.exists(output_path):
-                        try:
-                            # 1. LOG THE ATTEMPT
-                            print(f"DEBUG: Attempting to fetch URL: {url}")
-                            
-                            # 2. USE ONLY SELENIUM (DO NOT use session.get here anymore)
-                            script = f"""
-                                var xhr = new XMLHttpRequest();
-                                xhr.open('GET', '{url}', false);
-                                xhr.overrideMimeType('text/plain; charset=x-user-defined');
-                                xhr.send(null);
-                                if (xhr.status === 200) {{
-                                    var binStr = xhr.responseText;
-                                    var byteArr = new Uint8Array(binStr.length);
-                                    for (var i = 0; i < binStr.length; ++i) {{
-                                        byteArr[i] = binStr.charCodeAt(i) & 0xFF;
-                                    }}
-                                    return btoa(String.fromCharCode.apply(null, byteArr));
-                                }} else {{
-                                    return "ERROR:" + xhr.status;
-                                }}
-                            """
-                            
-                            result = driver.execute_script(script)
-                            
-                            if result.startswith("ERROR:"):
-                                # Check for 403 here specifically
-                                if "403" in result:
-                                    print(f"❌ 403 Forbidden for {filename}")
-                                else:
-                                    print(f"⚠️ Failed: {filename} (Status: {result})")
-                            else:
-                                # 3. SAVE THE FILE
-                                with open(output_path, 'wb') as f:
-                                    f.write(base64.b64decode(result))
-                                image_paths[weather].append(output_path)
-                                print(f"✅ Saved via Selenium: {filename}")
-                                
-                        except Exception as e:
-                            print(f"❌ Error downloading {filename}: {e}")
-                    else:
-                        print(f"ℹ️ Skipping (Exists): {filename}")
-                        image_paths[weather].append(output_path)
-    
-    driver.quit()
-    
-    # NEW DEBUG BLOCK: Verify the final list before processing starts
-    print("--- FETCH SUMMARY ---")
-    for w_type, paths in image_paths.items():
-        print(f"Weather '{w_type}': Found {len(paths)} images.")
-    print("---------------------")
-    
-    print("Image fetching complete. Starting Processing...")
+                    <select id="visTypeSelect">
+                        <option value="3d">Visualization: 3D Grid Extrusion</option>
+                        <option value="2d">Visualization: 2D Flat Polygon</option>
+                    </select>
 
-    # 2. Setup processing vars
-    output_dir = os.path.join("HOCO_Backend_Out", start_dt.strftime("%d%m%Y"))
-    os.makedirs(output_dir, exist_ok=True)
-    bounds_map = {"UK": [-11.0, 49.0, 3.0, 61.0]} # Extent map for GeoJSON alignment
-    region_bounds = bounds_map.get(region, [-11.0, 49.0, 3.0, 61.0])
-    lightning_risk = None
-    supercell_risk = None
-    tor_risk = None
-    snow_risk = None    
-    # 3. Processing routines
-    if 'lightning' in weather_params and image_paths['lightning']:
-        model_data = accumulate_lightning_rates(image_paths['lightning'], lightning_model_parameters, weights)
-        acc_lightning, total_frames, model_radius = None, 0, {}
-        for model, data in model_data.items():
-            if data['data'] is not None:
-                if acc_lightning is None: acc_lightning = np.zeros_like(data['data'], dtype=np.float32)
-                acc_lightning += data['data']
-                total_frames += int(data['frames'])
-                model_radius[model] = data['radius']
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <div style="flex: 1;">
+                            <label>Grid Opacity</label>
+                            <input type="range" id="opacitySlider" min="0" max="100" value="50">
+                        </div>
+                        <div style="flex: 1;">
+                            <label>3D Scale</label>
+                            <input type="range" id="heightSlider" min="10" max="1000" step="5" value="500">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <label>Load Run Archive</label>
+
+                    <div class="date-filter-row" style="display: flex; gap: 10px; margin-bottom: 8px;">
+                        <select id="dateFilterMode" style="flex: 1;">
+                            <option value="created">Filter by Creation Date</option>
+                            <option value="valid">Filter by Valid Date (forecast period)</option>
+                        </select>
+
+                        <input type="date" id="calendarFilter" style="flex: 1;">
+                    </div>
+
+                    <div style="display: flex; gap: 10px;">
+                        <select id="targetMapSelect" style="flex: 1; margin-bottom: 0;">
+                            <option value="0">Load into Map 1</option>
+                            <option value="1">Load into Map 2</option>
+                            <option value="2">Load into Map 3</option>
+                            <option value="3">Load into Map 4</option>
+                        </select>
+                    </div>
+
+                    <select id="idSelector" style="margin-top: 10px;">
+                        <option value="">Select Run...</option>
+                    </select>
+                    <div id="runStatus" style="font-size: 0.75rem; color: var(--accent); margin-top: 5px;"></div>
+                </div>
+
+                <div id="executionPanel" style="display:none;">
+                    <form id="hocoForm" class="panel" style="border-color: var(--primary);">
+                        <div style="display: flex; justify-content: space-between;">
+                            <label style="color: var(--primary);">Execute New Ensemble</label>
+
+                            <span id="runCapText" style="font-size: 0.7rem; color:#888;"></span>
+                        </div>
+
+                        <div id="exclusiveSection"
+                            style="display:none; background: #0a0a0a; padding: 10px; border-radius: 6px; margin-bottom: 10px; border: 1px dashed #444;">
+                            <label style="color: var(--warning);">Scenario Builder (Custom Weights)</label>
+                            <div style="display: flex; gap: 5px;">
+                                <select id="modelSelect" style="flex: 1; margin-bottom: 5px;"></select>
+                                <select id="runSelect" style="flex: 1; margin-bottom: 5px;"></select>
+                            </div>
+                            <button type="button" id="addScenarioBtn" class="btn-add">Add to Ensemble</button>
+                            <div id="scenarioList" class="chip-container"></div>
+
+                            <label style="margin-top: 10px;">Model Weighting</label>
+                            <div id="weightsContainer"
+                                style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;"></div>
+                        </div>
+
+                        <label>Region</label>
+                        <select id="regionSelect">
+                            <option value="England">England (South/Central)</option>
+                        </select>
+
+                        <div style="display: flex; gap: 10px; flex-wrap: nowrap;">
+                            <div style="flex: 1; min-width: 0;"> <label>Start Time</label>
+                                <input type="datetime-local" id="startTime" required>
+                            </div>
+                            <div style="flex: 1; min-width: 0;">
+                                <label>End Time</label>
+                                <input type="datetime-local" id="endTime" required>
+                            </div>
+                        </div>
+                        <div
+                            style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 5px; margin-bottom: 10px;">
+                            <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem;"
+                                onclick="setTimeRange(3)">+3h</button>
+                            <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem;"
+                                onclick="setTimeRange(6)">+6h</button>
+                            <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem;"
+                                onclick="setTimeRange(12)">+12h</button>
+                            <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem;"
+                                onclick="setTimeRange(24)">+24h</button>
+                        </div>
+                        <label>Hazards</label>
+                        <div style="margin-bottom: 10px; font-size: 0.85rem;">
+                            <input type="checkbox" name="weather" value="lightning" checked
+                                style="width:auto; margin-right:5px;"> Lightning
+                        </div>
+
+                        <button type="submit" id="submitBtn">Execute Run</button>
+                    </form>
+                </div>
+                <div id="devRunnerSettings" class="card bg-dark border-secondary p-3 mt-4" style="display:none;">
+                    <h6 class="text-warning mb-1">Global Runner Settings</h6>
+                    <p id="currentRunnerText" style="font-size: 0.7rem; color: #888; margin-bottom: 10px;">Currently
+                        using: Loading...</p>
+                    <select id="globalAccountSelector" class="form-select bg-dark text-white border-secondary mb-2"
+                        style="width: 100%; padding: 5px; background: #222; border: 1px solid #444; color: white;">
+                        <option value="main">Account 1 (Handry-Outlook)</option>
+                        <option value="alt1">Account 2 (Handry66)</option>
+                        <option value="alt2">Account 3 (Handry6)</option>
+                    </select>
+                    <button id="setGlobalAccountBtn" class="btn btn-warning btn-sm w-100"
+                        style="background: var(--warning); color: black;">Apply New Runner</button>
+                </div>
+                <div id="upgradePanel" class="panel" style="display:none; border-color: #555;">
+                    <label>Apply for Role Upgrade</label>
+                    <p style="font-size: 0.75rem; color: #888; margin-top:0;">Want more capabilities? Request a rank
+                        upgrade.</p>
+                    <select id="reqRole">
+                        <option value="normal">Normal Role (Auto-HOCO)</option>
+                        <option value="exclusive">Exclusive Role (Custom Models)</option>
+                    </select>
+                    <input type="text" id="reqSocial" placeholder="Social Media Handle (@username)">
+                    <textarea id="reqReason" placeholder="Why do you need this role?" rows="2"></textarea>
+                    <button id="submitUpgradeBtn" style="background: #444;">Submit Request</button>
+                </div>
+
+                <div id="adminPanel" class="panel" style="display:none; border-color: var(--danger);">
+                    <label style="color:var(--danger)">Developer Console</label>
+                    <button id="publishBtn" class="btn-add" style="margin-bottom: 15px;">Publish Selected Run to
+                        Guests</button>
+                    <label>Pending Upgrade Requests</label>
+                    <div id="upgradeRequestsList" style="margin-bottom: 15px;"></div>
+                    <label>User Management</label>
+                    <div id="userList"></div>
+                </div>
+
+                <button id="logoutBtn" class="btn-outline"
+                    style="color: var(--danger); border-color: var(--danger); margin-top: 10px;">Terminate
+                    Session</button>
+
+                <div style="text-align: center; margin-top: 15px;">
+                    <code id="displayUid" style="font-size: 0.65rem; color: #555;"></code>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="map-wrapper" class="grid-1">
+        <div id="map0" class="map-instance">
+            <div class="map-metadata">
+                <div id="meta-title-0"
+                    style="font-weight: bold; font-size: 0.8rem; margin-bottom: 4px; color: var(--primary);">Map 1 -
+                    Idle</div>
+                <div id="meta-desc-0" style="font-size: 0.65rem; color: #ccc; line-height: 1.4;">Waiting for data...
+                </div>
+                <div id="meta-scale-0" style="display: none; align-items: center; gap: 5px; margin-top: 6px;">
+                    <span style="font-size: 0.55rem;">Low</span>
+                    <div
+                        style="flex-grow: 1; height: 6px; width: 80px; border-radius: 3px; background: linear-gradient(to right, rgba(255,255,255,0), rgba(102,194,164,0.7) 20%, rgba(255,242,0,0.7) 40%, rgba(255,127,39,0.7) 60%, rgba(236,28,36,0.7) 80%, rgba(184,61,218,0.8) 100%);">
+                    </div>
+                    <span style="font-size: 0.55rem;">High</span>
+                </div>
+                <button id="lightning-btn-0"
+                    style="margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                    onclick="toggleLightningLayer(0)">
+                    ⚡ Show Lightning
+                </button>
+            </div>
+            <div id="loading-0" class="loading-overlay">
+                <div class="loading-content">
+                    <div class="loading-title">⏳ Processing Ensemble...</div>
+                    <div id="est-time-0" class="est-time">Estimated time: ~<span id="est-min-0">0</span> minutes</div>
+                    <div class="loading-bar-container">
+                        <div class="loading-bar"></div>
+                    </div>
+                    <div class="loading-note">Based on models & forecast duration</div>
+                </div>
+            </div>
+        </div>
+        <div id="map1" class="map-instance" style="display:none;">
+            <div class="map-metadata">
+                <div id="meta-title-1"
+                    style="font-weight: bold; font-size: 0.8rem; margin-bottom: 4px; color: var(--primary);">Map 2 -
+                    Idle</div>
+                <div id="meta-desc-1" style="font-size: 0.65rem; color: #ccc; line-height: 1.4;">Waiting for data...
+                </div>
+                <div id="meta-scale-1" style="display: none; align-items: center; gap: 5px; margin-top: 6px;">
+                    <span style="font-size: 0.55rem;">Low</span>
+                    <div
+                        style="flex-grow: 1; height: 6px; width: 80px; border-radius: 3px; background: linear-gradient(to right, rgba(255,255,255,0), rgba(102,194,164,0.7) 20%, rgba(255,242,0,0.7) 40%, rgba(255,127,39,0.7) 60%, rgba(236,28,36,0.7) 80%, rgba(184,61,218,0.8) 100%);">
+                    </div>
+                    <span style="font-size: 0.55rem;">High</span>
+                </div>
+                <button id="lightning-btn-1"
+                    style="margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                    onclick="toggleLightningLayer(1)">
+                    ⚡ Show Lightning
+                </button>
+            </div>
+            <div id="loading-1" class="loading-overlay">
+                <div class="loading-content">
+                    <div class="loading-title">⏳ Processing Ensemble...</div>
+                    <div id="est-time-1" class="est-time">Estimated time: ~<span id="est-min-1">0</span> minutes</div>
+                    <div class="loading-bar-container">
+                        <div class="loading-bar"></div>
+                    </div>
+                    <div class="loading-note">Based on models & forecast duration</div>
+                </div>
+            </div>
+        </div>
+        <div id="map2" class="map-instance" style="display:none;">
+            <div class="map-metadata">
+                <div id="meta-title-2"
+                    style="font-weight: bold; font-size: 0.8rem; margin-bottom: 4px; color: var(--primary);">Map 3 -
+                    Idle</div>
+                <div id="meta-desc-2" style="font-size: 0.65rem; color: #ccc; line-height: 1.4;">Waiting for data...
+                </div>
+                <div id="meta-scale-2" style="display: none; align-items: center; gap: 5px; margin-top: 6px;">
+                    <span style="font-size: 0.55rem;">Low</span>
+                    <div
+                        style="flex-grow: 1; height: 6px; width: 80px; border-radius: 3px; background: linear-gradient(to right, rgba(255,255,255,0), rgba(102,194,164,0.7) 20%, rgba(255,242,0,0.7) 40%, rgba(255,127,39,0.7) 60%, rgba(236,28,36,0.7) 80%, rgba(184,61,218,0.8) 100%);">
+                    </div>
+                    <span style="font-size: 0.55rem;">High</span>
+                </div>
+                <button id="lightning-btn-2"
+                    style="margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                    onclick="toggleLightningLayer(2)">
+                    ⚡ Show Lightning
+                </button>
+            </div>
+            <div id="loading-2" class="loading-overlay">
+                <div class="loading-content">
+                    <div class="loading-title">⏳ Processing Ensemble...</div>
+                    <div id="est-time-2" class="est-time">Estimated time: ~<span id="est-min-2">0</span> minutes</div>
+                    <div class="loading-bar-container">
+                        <div class="loading-bar"></div>
+                    </div>
+                    <div class="loading-note">Based on models & forecast duration</div>
+                </div>
+            </div>
+        </div>
+        <div id="map3" class="map-instance" style="display:none;">
+            <div class="map-metadata">
+                <div id="meta-title-3"
+                    style="font-weight: bold; font-size: 0.8rem; margin-bottom: 4px; color: var(--primary);">Map 4 -
+                    Idle</div>
+                <div id="meta-desc-3" style="font-size: 0.65rem; color: #ccc; line-height: 1.4;">Waiting for data...
+                </div>
+                <div id="meta-scale-3" style="display: none; align-items: center; gap: 5px; margin-top: 6px;">
+                    <span style="font-size: 0.55rem;">Low</span>
+                    <div
+                        style="flex-grow: 1; height: 6px; width: 80px; border-radius: 3px; background: linear-gradient(to right, rgba(255,255,255,0), rgba(102,194,164,0.7) 20%, rgba(255,242,0,0.7) 40%, rgba(255,127,39,0.7) 60%, rgba(236,28,36,0.7) 80%, rgba(184,61,218,0.8) 100%);">
+                    </div>
+                    <span style="font-size: 0.55rem;">High</span>
+                </div>
+                <button id="lightning-btn-3"
+                    style="margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                    onclick="toggleLightningLayer(3)">
+                    ⚡ Show Lightning
+                </button>
+            </div>
+            <div id="loading-3" class="loading-overlay">
+                <div class="loading-content">
+                    <div class="loading-title">⏳ Processing Ensemble...</div>
+                    <div id="est-time-3" class="est-time">Estimated time: ~<span id="est-min-3">0</span> minutes</div>
+                    <div class="loading-bar-container">
+                        <div class="loading-bar"></div>
+                    </div>
+                    <div class="loading-note">Based on models & forecast duration</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, where, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
         
-        if acc_lightning is not None:
-            lightning_risk = calculate_thunderstorm_risk(acc_lightning, model_radius, total_frames, region)
-            geojson_path = os.path.join(output_dir, f"{job_uuid}_lightning.geojson")
-            export_risk_to_geojson(lightning_risk, 0.2, geojson_path, region_bounds)
-            #upload_to_mapbox(geojson_path, f"lightning_{job_uuid}")
-            print(f"Processed Lightning: {geojson_path}")
+        const accountMap = {
+            main: { owner: "Handry-Outlook", repo: "HOCO-BACKEND" },
+            alt1: { owner: "handry66", repo: "HOCO-BACKEND-ALT1" },
+            alt2: { owner: "Handry6", repo: "HOCO-BACKEND-ALT2" }
+        };
 
-    if 'supercell' in weather_params and image_paths['supercell']:
-        acc_supercell, total_frames, model_radius = accumulate_supercell_rates(image_paths['supercell'], supercell_model_parameters, weights)
-        if acc_supercell is not None:
-            supercell_risk = calculate_supercell_risk(acc_supercell, model_radius, total_frames, region)
-            geojson_path = os.path.join(output_dir, f"{job_uuid}_supercell.geojson")
-            export_risk_to_geojson(supercell_risk, 12.5, geojson_path, region_bounds)
-            #upload_to_mapbox(geojson_path, f"supercell_{job_uuid}")
-            print(f"Processed Supercell: {geojson_path}")
+        document.getElementById('setGlobalAccountBtn').addEventListener('click', async () => {
+            const selection = document.getElementById('globalAccountSelector').value;
+            const config = accountMap[selection];
 
-    if 'tornado' in weather_params and image_paths['tornado']:
-        acc_tor, total_frames, model_radius = accumulate_tor_rates(image_paths['tornado'], tor_model_parameters, weights)
-        if acc_tor is not None:
-            tor_risk = calculate_tor_risk(acc_tor, model_radius, total_frames, region)
-            geojson_path = os.path.join(output_dir, f"{job_uuid}_tornado.geojson")
-            export_risk_to_geojson(tor_risk, 25.0, geojson_path, region_bounds)
-            #upload_to_mapbox(geojson_path, f"tornado_{job_uuid}")
-            print(f"Processed Tornado: {geojson_path}")
+            try {
+                await updateDoc(doc(db, "system_config", "github_settings"), {
+                    active_owner: config.owner,
+                    active_repo: config.repo
+                });
+                alert("Runner switched to " + config.owner);
+            } catch (err) {
+                console.error("Switch failed:", err);
+            }
+        });
+        let currentDateFilterMode = 'created';  // default
 
-    if 'snow' in weather_params and image_paths['snow']:
-        acc_snow, total_frames, model_radius = accumulate_snow_rates(image_paths['snow'], snow_model_parameters, weights)
-        if acc_snow is not None:
-            snow_risk = calculate_snow_risk(acc_snow, model_radius, total_frames, region)
-            geojson_path = os.path.join(output_dir, f"{job_uuid}_snow.geojson")
-            export_risk_to_geojson(snow_risk, 0.2, geojson_path, region_bounds)
-            #upload_to_mapbox(geojson_path, f"snow_{job_uuid}")
-            print(f"Processed Snow: {geojson_path}")
-
-    print(f"Job {job_uuid} complete!")
-    
-    # Decide which risk matrix to send to the GeoJSON generator
-    # We prioritize lightning, then tornado, then supercell
-    primary_matrix = None
-    if 'lightning' in weather_params and lightning_risk is not None: 
-        primary_matrix = lightning_risk
-    elif 'tornado' in weather_params and tor_risk is not None: 
-        primary_matrix = tor_risk
-    elif 'supercell' in weather_params and supercell_risk is not None: 
-        primary_matrix = supercell_risk
-    elif 'snow' in weather_params and snow_risk is not None:
-        primary_matrix = snow_risk
-    if primary_matrix is not None:
-        print(f"DEBUG: Primary Matrix Max Value: {np.max(primary_matrix)}")
-    # Final safety check before returning
-    if primary_matrix is None:
-        print("Warning: No risk data was generated. Returning empty matrix.")
-        primary_matrix = np.zeros((620, 800), dtype=np.float32) # Default empty size
-
-    return primary_matrix 
-def get_geojson_from_matrix(matrix, region, request_id):
-    boundaries = {
-        "England": {"top": 56.578, "bottom": 48.788, "left": -10.234, "right": 5.471},
-        "UK": {"top": 61.0, "bottom": 49.0, "left": -11.0, "right": 3.0}
-    }
-    b = boundaries.get(region, boundaries["England"])
-    h, w = matrix.shape
-    features = []
-
-    # Your exact color list — 100 colors
-    lightning_colors = [
-        "#ffffff", "#d0cece", "#d0cece", "#d0cece", "#d0cece", "#bea497", "#bea497", "#bea497", "#bea497", "#bea497",
-        "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4", "#66c2a4",
-        "#b3ff00", "#b3ff00", "#b3ff00", "#b3ff00", "#b3ff00", "#b3ff00", "#b3ff00", "#b3ff00", "#b3ff00", "#b3ff00",
-        "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200", "#fff200",
-        "#ffb327", "#ffb327", "#ffb327", "#ffb327", "#ffb327", "#ffb327", "#ffb327", "#ffb327", "#ffb327", "#ffb327",
-        "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27", "#ff7f27",
-        "#ff5227", "#ff5227", "#ff5227", "#ff5227", "#ff5227", "#ff2e27", "#ff2e27", "#ff2e27", "#ff2e27", "#ff2e27",
-        "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c24", "#ec1c5a", "#ec1c5a", "#ec1c5a", "#ec1c5a", "#ec1c5a",
-        "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#b83dba", "#5a099c", "#5a099c", "#5a099c", "#5a099c", "#5a099c",
-        "#3e00e9", "#3e00e9", "#3e00e9", "#3e00e9", "#3e00e9", "#2600ff", "#2600ff", "#2600ff", "#2600ff", "#2600ff",
-    ]
-
-    # ── Smooth slightly for nicer polygon shapes ──
-    smoothed = cv2.GaussianBlur(matrix, (11, 11), 0)
-
-    # We no longer use min/max stretch — instead we use fixed reference scaling
-    # 5.0 raw ≈ 100% displayed risk ≈ index 99 (purple)
-    REFERENCE = 5.0
-
-    # ── Polygon generation using iso-levels ──
-    levels = [0.25, 0.50, 1, 1.50, 2, 2.50, 3, 3.25, 3.50, 3.75, 4, 4.25, 4.50, 4.75]  # unchanged
-
-    # ── Replace the whole contour loop with this ──
-    for level in levels:
-        mask = (smoothed >= level).astype(np.uint8) * 255
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)  # ← CHANGE 1
-        
-        for cnt in contours:
-            if cv2.contourArea(cnt) < 20:          # lowered from 40
-                continue
-
-            # Much gentler simplification (or remove it completely)
-            epsilon = 0.0008 * cv2.arcLength(cnt, True)   # ← CHANGE 2 (was 0.0018)
-            approx = cv2.approxPolyDP(cnt, epsilon, True)
-            
-            if len(approx) < 4:
-                continue
-
-            coords = []
-            for pt in approx:                      # ← now has 3–5× more points
-                x, y = pt[0]
-                lon = b["left"] + (x / w) * (b["right"] - b["left"])
-                lat = b["top"] - (y / h) * (b["top"] - b["bottom"])
-                coords.append([round(lon, 5), round(lat, 5)])  # more decimal places
-            
-            coords.append(coords[0])
-
-        # ... rest of your color logic stays exactly the same ...
-
-            # ── FIXED REFERENCE SCALING (no min/max stretch) ──
-            scaled = level / REFERENCE
-            color_index = min(99, max(0, int(scaled * 100)))
-            fill_color = lightning_colors[color_index]
-
-            features.append({
-                "type": "Feature",
-                "geometry": {"type": "Polygon", "coordinates": [coords]},
-                "properties": {
-                    "feature_type": "polygon",
-                    "risk": float(round(level * 20, 1)),   # 5.0 raw → 100%, 1.0 raw → 20%
-                    "fill": fill_color,
-                    "fill-opacity": 0.45,
-                    "stroke": fill_color,
-                    "stroke-width": 1.2
+        // After loadArchive() definition, add this helper
+        function getFilterDate(run) {
+            if (currentDateFilterMode === 'valid') {
+                // Try to use startTime's date (format: dd/mm/yyyy hh:mm)
+                if (run.startTime) {
+                    const datePart = run.startTime.split(' ')[0];
+                    const [dd, mm, yyyy] = datePart.split('/');
+                    if (dd && mm && yyyy) {
+                        return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+                    }
                 }
-            })
+                // Fallback to creation date if valid date is missing
+                return getCreationDateString(run);
+            }
+            return getCreationDateString(run);
+        }
+        function getCreationDateString(run) {
+            if (!run.createdAt) return null;
+            const date = run.createdAt.toDate ? run.createdAt.toDate() : new Date(run.createdAt);
+            return date.toISOString().split('T')[0];
+        }
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerText = message;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.animation = 'fadeOut 0.3s ease forwards';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
 
-    # ── Point grid for precise hover/click values ──
-    step = 7
-    for y in range(0, h, step):
-        for x in range(0, w, step):
-            raw_risk = float(smoothed[y, x])
-            if raw_risk < 0.05:
-                continue
+        const firebaseConfig = {
+            apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ",
+            authDomain: "hoco-3b23e.firebaseapp.com",
+            projectId: "hoco-3b23e",
+            storageBucket: "hoco-3b23e.firebasestorage.app",
+            messagingSenderId: "409513272369",
+            appId: "1:409513272369:web:a857d9b039d53710f8a110"
+        };
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const functions = getFunctions(app, "us-central1");
+        const triggerHocoRun = httpsCallable(functions, 'triggerHocoRun');
 
-            # Same fixed scaling
-            scaled = raw_risk / REFERENCE
-            color_index = min(99, max(0, int(scaled * 99)))
-            fill_color = lightning_colors[color_index]
+        let userRole = 'guest';
+        let runsToday = 0;
+        let maps = [];
+        let allRuns = [];
+        let selectedScenarios = [];
+        let activeMapData = [null, null, null, null];
+        let pendingRunTimers = {};      // { mapIndex: { runId, createdAtMs, estSeconds, intervalId, timeoutId, ... } }
+        let progressIntervals = {};
+        const models = {
+            swisseu: { name: "SWISS-EU", freq: 3 }, harmi: { name: "HARMONIE", freq: 3 },
+            swissnow: { name: "SWISS-NOW", freq: 1 }, ez: { name: "ECMWF EZ", freq: 12 },
+            ukmo2km: { name: "UKMO 2KM", freq: 6 }, rpdid2: { name: "RPDID2", freq: 3 }
+        };
+        const defaultWeights = { 'harmi': 1.0, 'rpdid2': 0.8, 'swisseu': 1.1, 'ez': 1.1, 'ukmo2km': 0.9, 'swissnow': 1.0 };
+        // ────────────────────────────────────────────────
+        // Lightning overlay management (updated 2025/2026)
+        // ────────────────────────────────────────────────
 
-            lat = b["top"] - (y / h) * (b["top"] - b["bottom"])
-            lon = b["left"] + (x / w) * (b["right"] - b["left"])
+        const lightningCache = new Map(); // url → { data, timestamp }
+        const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
-            features.append({
-                "type": "Feature",
-                "geometry": {"type": "Point", "coordinates": [round(lon, 4), round(lat, 4)]},
-                "properties": {
-                    "feature_type": "point",
-                    "risk": float(round(raw_risk * 20, 1)),   # consistent with polygons
-                    # optional: "fill": fill_color
+        const lightningSources = {};   // mapIndex → { sourceId, layerId, clusterLayerId?, data }
+        let lightningVisible = {};     // mapIndex → boolean
+
+        async function loadAndShowLightning(mapIndex, startTimeStr, endTimeStr) {
+            if (lightningVisible[mapIndex]) {
+                hideLightning(mapIndex);
+                return;
+            }
+
+            const btn = document.getElementById(`lightning-btn-${mapIndex}`);
+            if (!btn) return;
+
+            btn.disabled = true;
+            btn.textContent = "Loading lightning...";
+
+            try {
+                const start = robustParseTime(startTimeStr);
+                const end = robustParseTime(endTimeStr || startTimeStr);
+
+                if (!start || !start.getTime || isNaN(start.getTime()) || !end || !end.getTime || isNaN(end.getTime())) {
+                    throw new Error("Could not parse forecast time range");
                 }
-            })
 
-    geojson = {"type": "FeatureCollection", "features": features}
-    fname = f"{request_id}.geojson"
-    with open(fname, "w") as f:
-        json.dump(geojson, f, indent=2)
+                const startUnix = Math.floor(start.getTime() / 1000);
+                const endUnix = Math.floor(end.getTime() / 1000);
 
-    return fname
+                let allStrikes = [];
 
-def upload_to_firebase(file_path, job_uuid):
-    # 1. Initialize Firebase (If not already initialized)
-    if not firebase_admin._apps:
-        try:
-            service_account_info = json.loads(os.getenv("FIREBASE_SERVICE_ACCOUNT"))
-            cred = credentials.Certificate(service_account_info)
-            firebase_admin.initialize_app(cred, {
-                'storageBucket': "hoco-3b23e.firebasestorage.app"
-            })
-        except Exception as e:
-            print(f"DEBUG: Failed to initialize Firebase Admin: {e}")
-            raise
+                for (const url of [
+                    'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new/refs/heads/main/lightning_data.json',
+                    'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new/refs/heads/main/lightning_data_2025_autumn.json'
+                ]) {
+                    let jsonData = lightningCache.get(url);
 
-    db = firestore.client()
-    bucket = storage.bucket()
+                    if (!jsonData || (Date.now() - jsonData.timestamp) > CACHE_TTL_MS) {
+                        const resp = await fetch(url, { cache: 'no-cache' });
+                        if (!resp.ok) continue;
 
-    # 2. Upload the GeoJSON to Storage
-    blob_name = f"forecasts/{job_uuid}.geojson"
-    blob = bucket.blob(blob_name)
-    blob.upload_from_filename(file_path)
-    
-    # 3. Generate a Signed URL instead of make_public()
-    # This bypasses Public Access Prevention settings
-    public_url = blob.generate_signed_url(expiration=timedelta(days=7), method='GET')
-    print(f"File uploaded to Firebase Storage. Access URL: {public_url}")
+                        jsonData = { data: await resp.json(), timestamp: Date.now() };
+                        lightningCache.set(url, jsonData);
+                    }
 
-    # 4. Update the Firestore Document
-    doc_ref = db.collection("hoco_requests").document(job_uuid)
-    
-    # Use set with merge=True to ensure it doesn't fail if document doesn't exist
-    doc_ref.set({
-        "status": "completed",
-        "geojsonUrl": public_url,
-        "completedAt": firestore.SERVER_TIMESTAMP
-    }, merge=True)
-    
-    print(f"Firestore successfully updated for ID: {job_uuid}")
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Headless Weather Risk Processor")
-    parser.add_argument("--uuid", type=str, default=str(uuid.uuid4()), help="Unique job identifier")
-    parser.add_argument("--start", type=str, required=True, help="Start time (DD/MM/YYYY HH:MM)")
-    parser.add_argument("--end", type=str, required=True, help="End time (DD/MM/YYYY HH:MM)")
-    parser.add_argument("--region", type=str, default="UK", choices=REGIONS.keys(), help="Target region")
-    parser.add_argument("--weather", nargs='+', required=True, choices=WEATHER_TYPES.keys(), help="Weather parameters")
-    parser.add_argument("--weights", type=str, default="{}", help="JSON string of model weights")
-    parser.add_argument("--scenarios", type=str, default="[]", help="JSON string of selected model runs")
+                    const raw = jsonData.data;
+                    const strikes = Array.isArray(raw) ? raw : (raw?.lightning_strikes || []);
 
-    args = parser.parse_args()
-    
-    # 1. Merge Weights
-    try:
-        user_input = json.loads(args.weights)
-        active_weights = {**model_weights, **user_input} 
-    except Exception as e:
-        print(f"Error merging weights: {e}. Using defaults.")
-        active_weights = model_weights
+                    const filtered = strikes.filter(s => {
+                        if (!s.strike_time) return false;
+                        const t = Math.floor(new Date(s.strike_time).getTime() / 1000);
+                        return t >= startUnix && t <= endUnix;
+                    });
 
-    # 2. Parse Forecast Window Dates
-    try:
-        start_dt = datetime.strptime(args.start, "%d/%m/%Y %H:%M")
-        end_dt = datetime.strptime(args.end, "%d/%m/%Y %H:%M")
-    except ValueError as e:
-        print(f"Error parsing dates: {e}")
-        exit(1)
+                    allStrikes.push(...filtered);
+                }
 
-    # 3. Parse Scenarios with ISO Support
-    try:
-        selected_scenarios = json.loads(args.scenarios)
-        models_dict = {}
-        
-        if not selected_scenarios:
-            print(f"No scenarios selected. Falling back to default run logic using AUTO_MODELS.")
-            # Changed from MODELS to AUTO_MODELS
-            models_dict = {model: get_available_runs(model, start_dt) for model in AUTO_MODELS}
+                const seen = new Map();
+                allStrikes = allStrikes.filter(s => {
+                    if (!s.coordinates || s.coordinates.length < 2) return false;
+                    const key = `${s.strike_time}|${s.coordinates[0].toFixed(4)}|${s.coordinates[1].toFixed(4)}`;
+                    if (seen.has(key)) return false;
+                    seen.set(key, true);
+                    return true;
+                });
 
-            if 'swisseu' in active_weights:
-                active_weights['swisseu'] /= 1.0
-                print("DEBUG: Halved SWISSEU weight for Auto Hoco balance.")
-        else:
-            for item in selected_scenarios:
-                m_name = item['model']
-    
-                # Replace the Z with +00:00 so Python recognizes it as UTC offset
-                iso_str = item['run'].replace('Z', '+00:00')
-                run_dt = datetime.fromisoformat(iso_str)
-                
-                # Force it to UTC if it isn't already (safety check)
-                run_dt = run_dt.astimezone(timezone.utc).replace(tzinfo=None)
-                
-                if m_name not in models_dict:
-                    models_dict[m_name] = []
-                models_dict[m_name].append(run_dt)
-                
-            print(f"DEBUG: Processing scenarios (ISO Parsed): {models_dict}")
-            
-    except Exception as e:
-        print(f"Critical error parsing scenarios: {e}")
-        exit(1)
+                if (allStrikes.length === 0) {
+                    showToast(`No strikes in ${start.toLocaleDateString()} ${start.getHours()}:${start.getMinutes()} – ${end.toLocaleDateString()} ${end.getHours()}:${end.getMinutes()}`, "info");
+                    resetButton(btn);
+                    return;
+                }
 
-    # 4. RUN THE PROCESS (Now passing 7 arguments)
-    final_risk_matrix = process_weather_data(
-        start_dt, 
-        end_dt, 
-        args.region, 
-        active_weights, 
-        args.weather,
-        args.uuid,
-        models_dict
-    )
-    
-    # 5. Export and Upload
-    geojson_file = get_geojson_from_matrix(final_risk_matrix, args.region, args.uuid)
-    
-    try:
-        upload_to_firebase(geojson_file, args.uuid)
-        print(f"✅ Workflow Complete for ID: {args.uuid}")
-    except Exception as e:
-        print(f"❌ Failed to upload to Firebase: {e}")
+                const geojson = {
+                    type: "FeatureCollection",
+                    features: allStrikes.map(s => ({
+                        type: "Feature",
+                        geometry: { type: "Point", coordinates: [s.coordinates[0], s.coordinates[1]] },
+                        properties: { time: s.strike_time, peak_current: null, cloud: "?" }
+                    }))
+                };
+
+                const map = maps[mapIndex];
+                const sourceId = `lightning-src-${mapIndex}`;
+                const layerId = `lightning-layer-${mapIndex}`;
+
+                // Cleanup previous layers/sources
+                if (map.getLayer(layerId)) map.removeLayer(layerId);
+                if (map.getLayer(`lightning-clusters-${mapIndex}`)) map.removeLayer(`lightning-clusters-${mapIndex}`);
+                if (map.getLayer(`lightning-clusters-${mapIndex}-count`)) map.removeLayer(`lightning-clusters-${mapIndex}-count`);
+                if (map.getSource(sourceId)) map.removeSource(sourceId);
+
+                // Add source with cluster: false to force render all points
+                map.addSource(sourceId, {
+                    type: 'geojson',
+                    data: geojson,
+                    cluster: false
+                });
+
+                // Add the single, unclustered layer
+                map.addLayer({
+                    id: layerId,
+                    type: 'circle',
+                    source: sourceId,
+                    paint: {
+                        'circle-radius': 7,
+                        'circle-color': '#d63031',
+                        'circle-stroke-color': '#fff',
+                        'circle-stroke-width': 1.5,
+                        'circle-opacity': 0.9
+                    }
+                }, 'hoco-polygons');
+
+                lightningSources[mapIndex] = { sourceId, layerId, data: geojson };
+                lightningVisible[mapIndex] = true;
+
+                btn.textContent = `⚡ Hide (${allStrikes.length})`;
+                btn.style.background = '#c0392b';
+                btn.disabled = false;
+
+                showToast(`✅ Showing ${allStrikes.length} lightning strikes`, "success");
+
+            } catch (err) {
+                console.error("Lightning load error:", err);
+                showToast("Failed to load lightning data", "error");
+                resetButton(btn);
+            }
+        }
+
+        function hideLightning(mapIndex) {
+            const map = maps[mapIndex];
+            const src = lightningSources[mapIndex];
+            if (!src) return;
+
+            const layers = [src.layerId];
+            if (src.clusterLayerId) layers.push(src.clusterLayerId, `${src.clusterLayerId}-count`);
+
+            layers.forEach(l => map.getLayer(l) && map.removeLayer(l));
+            if (map.getSource(src.sourceId)) map.removeSource(src.sourceId);
+
+            delete lightningSources[mapIndex];
+            lightningVisible[mapIndex] = false;
+
+            const btn = document.getElementById(`lightning-btn-${mapIndex}`);
+            if (btn) resetButton(btn);
+        }
+
+        function resetButton(btn) {
+            btn.textContent = "⚡ Show Lightning";
+            btn.style.background = '#8e44ad';
+            btn.disabled = false;
+        }
+
+        function toggleLightningLayer(mapIndex) {
+            if (!activeMapData[mapIndex]) {
+                showToast("No forecast loaded on this map", "warning");
+                return;
+            }
+
+            const descEl = document.getElementById(`meta-desc-${mapIndex}`);
+            if (!descEl) return;
+
+            const html = descEl.innerHTML;
+
+            // Grab everything after the label until the next HTML tag (<br>)
+            const match = html.match(/Period:<\/strong>\s*([^<]+)/i);
+
+            if (!match || !match[1]) {
+                showToast("Could not read forecast period from UI", "warning");
+                console.log("Raw HTML was:", html);
+                return;
+            }
+
+            // Safely split the start and end times
+            const periodText = match[1].trim();
+            const timeParts = periodText.split('-');
+            const startStr = timeParts[0].trim();
+            const endStr = timeParts.length > 1 ? timeParts[1].trim() : startStr;
+
+            loadAndShowLightning(mapIndex, startStr, endStr);
+        }
+        // ─── Helper: more forgiving time parser ────────────────────────────────
+        function robustParseTime(str) {
+            str = (str || "").trim();
+
+            // Already ISO-like?
+            if (/^\d{4}-\d{2}-\d{2}T?/.test(str)) {
+                const d = new Date(str);
+                if (!isNaN(d)) return d;
+            }
+
+            // Common HOCO format: dd/mm/yyyy hh:mm
+            const hocoMatch = str.match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})\s+(\d{1,2}):(\d{2})/);
+            if (hocoMatch) {
+                const [, dd, mm, yyyy, hh, min] = hocoMatch;
+                const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh), Number(min));
+                if (!isNaN(d)) return d;
+            }
+
+            // Fallback: native parse
+            const fallback = new Date(str);
+            if (!isNaN(fallback)) return fallback;
+
+            return { isValid: false };
+        }
+        // Helper: Parse HOCO time string "dd/mm/yyyy hh:mm" to Date
+        function parseHocoTime(timeStr) {
+            if (!timeStr) return new Date();
+            const [datePart, timePart] = timeStr.split(' ');
+            if (!datePart || !timePart) return new Date();
+            const [dd, mm, yyyy] = datePart.split('/');
+            const [hh, minn] = timePart.split(':');
+            return new Date(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd), parseInt(hh), parseInt(minn));
+        }
+
+        // Show loading screen with estimated time
+        function showMapLoading(mapIndex, estMinutes, runId, createdAt) {
+            const loadingDiv = document.getElementById(`loading-${mapIndex}`);
+            if (!loadingDiv) return;
+
+            loadingDiv.style.display = 'flex';
+
+            const titleEl = loadingDiv.querySelector('.loading-title');
+            const estEl = document.getElementById(`est-min-${mapIndex}`);
+            const noteEl = loadingDiv.querySelector('.loading-note');
+
+            if (estEl) estEl.textContent = estMinutes;
+
+            // Reset progress bar
+            const bar = loadingDiv.querySelector('.loading-bar');
+            if (bar) {
+                bar.style.transition = 'none';
+                bar.style.width = '0%';
+            }
+
+            const createdAtMs = createdAt instanceof Date ? createdAt.getTime() : Date.now();
+            const estSeconds = estMinutes * 60;
+
+            pendingRunTimers[mapIndex] = {
+                runId,
+                createdAtMs,
+                estSeconds,
+                intervalId: null,
+                timeoutId: null,
+                lastStatus: 'processing'
+            };
+
+            // Smooth progress animation based on real time since creation
+            const progressStart = createdAtMs;
+            function animateProgress() {
+                const now = Date.now();
+                const elapsed = now - progressStart;
+                let progress = (elapsed / (estSeconds * 1000)) * 100;
+                if (progress > 100) progress = 100;
+
+                if (bar) {
+                    bar.style.transition = 'width 0.6s linear';
+                    bar.style.width = `${Math.min(progress, 100)}%`;
+                }
+
+                if (progress < 100 && pendingRunTimers[mapIndex]) {
+                    progressIntervals[mapIndex] = requestAnimationFrame(animateProgress);
+                }
+            }
+            progressIntervals[mapIndex] = requestAnimationFrame(animateProgress);
+
+            // Start polling with dynamic messages
+            startPollingForRun(mapIndex, runId, estSeconds, createdAtMs);
+        }
+        function startPollingForRun(mapIndex, runId, estSeconds, createdAtMs) {
+            const POLL_NORMAL = 10000;   // 10s
+            const POLL_FAST = 5000;    // 5s
+            const FAST_WINDOW = 45;      // seconds before/after estimated end to go fast
+            const OVERDUE_WARN = 180;    // 3 minutes after estimated → show warning
+
+            const timer = pendingRunTimers[mapIndex];
+            if (!timer) return;
+
+            if (timer.intervalId) clearInterval(timer.intervalId);
+
+            const titleEl = document.querySelector(`#loading-${mapIndex} .loading-title`);
+            const noteEl = document.querySelector(`#loading-${mapIndex} .loading-note`);
+            const estEl = document.getElementById(`est-min-${mapIndex}`);
+
+            function updateStatus(elapsedSec) {
+                const timeToEnd = timer.estSeconds - elapsedSec;
+
+                if (elapsedSec < timer.estSeconds - FAST_WINDOW) {
+                    // Normal phase
+                    if (titleEl) titleEl.textContent = "⏳ Processing Ensemble...";
+                    if (noteEl) noteEl.textContent = "Based on models & forecast duration";
+                    timer.lastStatus = 'processing';
+                }
+                else if (timeToEnd > -FAST_WINDOW) {
+                    // Close to / just past estimated time
+                    if (titleEl) titleEl.textContent = "Almost there...";
+                    if (noteEl) noteEl.textContent = "Finalizing data – checking soon";
+                    timer.lastStatus = 'almost';
+                }
+                else {
+                    // Clearly overdue
+                    if (titleEl) titleEl.textContent = "Checking...";
+                    if (noteEl) {
+                        if (elapsedSec - timer.estSeconds > OVERDUE_WARN) {
+                            noteEl.innerHTML = `Our server might be experiencing issues.<br>Please standby or <strong>request a new run</strong> if wait continues.`;
+                            noteEl.style.color = '#ff9800';
+                        } else {
+                            noteEl.textContent = "Still working – thank you for your patience";
+                        }
+                    }
+                    timer.lastStatus = 'checking';
+                }
+
+                if (estEl) {
+                    const estMinutesHere = Math.ceil(timer.estSeconds / 60);
+                    const displayMin = Math.max(0, Math.round(timeToEnd / 60));
+                    estEl.textContent = `${estMinutesHere} min (${timeToEnd > 0 ? '~' + displayMin + ' left' : 'overdue'})`;
+                }
+            }
+
+            function checkRun() {
+                getDoc(doc(db, "hoco_requests", runId)).then(docSnap => {
+                    if (!docSnap.exists()) return;
+
+                    const data = docSnap.data();
+                    const now = Date.now();
+                    const elapsedMs = now - createdAtMs;
+                    const elapsedSec = elapsedMs / 1000;
+
+                    updateStatus(elapsedSec);
+
+                    if (data.status !== 'pending' && data.geojsonUrl) {
+                        stopPollingAndProgress(mapIndex);
+                        loadRunIntoMap(runId, mapIndex);
+                    }
+                }).catch(err => console.warn("Polling error:", err));
+            }
+
+            // Initial check + status update
+            checkRun();
+            function stopPollingAndProgress(mapIndex) {
+                const timer = pendingRunTimers[mapIndex];
+                if (timer) {
+                    if (timer.intervalId) clearInterval(timer.intervalId);
+                    if (timer.timeoutId) clearTimeout(timer.timeoutId);
+                    if (progressIntervals[mapIndex]) {
+                        cancelAnimationFrame(progressIntervals[mapIndex]);
+                    }
+                    delete pendingRunTimers[mapIndex];
+                    delete progressIntervals[mapIndex];
+                }
+
+                // Force bar to 100% briefly then hide
+                const bar = document.querySelector(`#loading-${mapIndex} .loading-bar`);
+                if (bar) {
+                    bar.style.width = '100%';
+                    setTimeout(() => hideMapLoading(mapIndex), 600);
+                } else {
+                    hideMapLoading(mapIndex);
+                }
+                const titleEl = document.querySelector(`#loading-${mapIndex} .loading-title`);
+                const noteEl = document.querySelector(`#loading-${mapIndex} .loading-note`);
+                if (titleEl) titleEl.textContent = "Loading complete";
+                if (noteEl) noteEl.textContent = "Rendering forecast...";
+            }
+            // Polling interval logic
+            function getCurrentInterval() {
+                const elapsedSec = (Date.now() - createdAtMs) / 1000;
+                const timeToEnd = estSeconds - elapsedSec;
+
+                if (Math.abs(timeToEnd) <= FAST_WINDOW || elapsedSec > estSeconds) {
+                    return POLL_FAST;
+                }
+                return POLL_NORMAL;
+            }
+
+            timer.intervalId = setInterval(() => {
+                checkRun();
+
+                // Dynamically adjust polling speed
+                const desiredInterval = getCurrentInterval();
+                if (desiredInterval !== timer.currentInterval) {
+                    clearInterval(timer.intervalId);
+                    timer.intervalId = setInterval(checkRun, desiredInterval);
+                    timer.currentInterval = desiredInterval;
+                }
+            }, getCurrentInterval());
+
+            timer.currentInterval = getCurrentInterval();
+
+            // Hard timeout (e.g. 4× estimated + 10 min)
+            timer.timeoutId = setTimeout(() => {
+                stopPollingAndProgress(mapIndex);
+                if (noteEl) {
+                    noteEl.innerHTML = `Long delay detected.<br>Please try refreshing the page or <strong>request a new run</strong>.`;
+                    noteEl.style.color = 'var(--danger)';
+                }
+            }, (estSeconds * 4 + 600) * 1000);
+        }
+        // Hide loading screen
+        function hideMapLoading(mapIndex) {
+            const loadingDiv = document.getElementById(`loading-${mapIndex}`);
+            if (loadingDiv) loadingDiv.style.display = 'none';
+
+            // ─── NEW: Hide lightning button when loading screen appears ───
+            const lightningBtn = document.getElementById(`lightning-btn-${mapIndex}`);
+            if (lightningBtn) lightningBtn.style.display = 'none';
+        }
+
+        // ==========================================
+        // MAPBOX INITIALIZATION & SYNC
+        // ==========================================
+        mapboxgl.accessToken = 'pk.eyJ1IjoiaGFuZHJ5MjAxOTEwMjYiLCJhIjoiY21jYWg2eG1lMDNkYTJxczVyOWM5bW9mciJ9.bA-qxiByTB_RseY1fgU4rg';
+
+        function initMaps() {
+            for (let i = 0; i < 4; i++) {
+                maps[i] = new mapboxgl.Map({
+                    container: `map${i}`,
+                    // Ensure this URL is exactly correct from your Mapbox Studio account
+                    style: 'mapbox://styles/handry20191026/cmns2lucg001401s898cuaxjt',
+                    center: [-1.5, 52.5],
+                    zoom: 5.5,
+                    projection: 'mercator',
+                    preserveDrawingBuffer: true
+                });
+
+                maps[i].addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+                // Combined all custom additions into ONE load event
+                maps[i].on('style.load', () => {
+                    // Force 2D projection immediately
+                    maps[i].setProjection('mercator');
+
+                    const imageUrl = 'https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png';
+
+                    maps[i].loadImage(imageUrl, (error, image) => {
+                        if (error) {
+                            console.error("Image load error:", error);
+                            return;
+                        }
+
+                        // Add the image to the map sprite
+                        if (!maps[i].hasImage('my-logo')) {
+                            maps[i].addImage('my-logo', image);
+                        }
+
+                        // Add Source
+                        maps[i].addSource('logo-point', {
+                            'type': 'geojson',
+                            'data': {
+                                'type': 'FeatureCollection',
+                                'features': [{
+                                    'type': 'Feature',
+                                    'geometry': {
+                                        'type': 'Point',
+                                        'coordinates': [-9.234, 49.788]
+                                    }
+                                }]
+                            }
+                        });
+
+                        // Add Layer
+                        maps[i].addLayer({
+                            'id': 'logo-layer',
+                            'type': 'symbol',
+                            'source': 'logo-point',
+                            'layout': {
+                                'icon-image': 'my-logo',
+                                'icon-size': 0.5,
+                                'icon-allow-overlap': true,
+                                'icon-ignore-placement': true
+                            },
+                            'paint': {
+                                'icon-opacity': 1
+                            }
+                        });
+                    });
+                });
+
+                // Click listeners and movement sync remain the same...
+                maps[i].on('click', 'hoco-points', (e) => {
+                    if (!e.features || e.features.length === 0) return;
+                    const rawRisk = e.features[0].properties.risk || 0;
+                    new mapboxgl.Popup({ closeButton: true })
+                        .setLngLat(e.lngLat)
+                        .setHTML(`<div style="color:#000; padding: 10px;"><strong>Risk Level:</strong> ${rawRisk}%</div>`)
+                        .addTo(maps[i]);
+                });
+
+                maps[i].on('move', (e) => {
+                    if (e.originalEvent) {
+                        const center = maps[i].getCenter();
+                        const zoom = maps[i].getZoom();
+                        maps.forEach((m, idx) => {
+                            if (idx !== i) m.jumpTo({ center, zoom });
+                        });
+                    }
+                });
+            }
+        }
+        initMaps();
+
+        // Style Switcher
+        document.getElementById('mapStyleSelect').addEventListener('change', (e) => {
+            const styleUrl = e.target.value;
+            maps.forEach((m, i) => {
+                m.setStyle(styleUrl);
+                m.once('style.load', () => {
+                    if (activeMapData[i]) {
+                        renderHocoLayers(m, activeMapData[i], i);
+                    }
+                });
+            });
+        });
+
+        // Visualization Type Switcher
+        document.getElementById('visTypeSelect').addEventListener('change', () => {
+            maps.forEach((m, i) => {
+                if (activeMapData[i]) {
+                    renderHocoLayers(m, activeMapData[i], i);
+                }
+            });
+        });
+
+        // Layout Switcher
+        document.getElementById('layoutSelect').addEventListener('change', (e) => {
+            const val = parseInt(e.target.value);
+            document.getElementById('map-wrapper').className = `grid-${val}`;
+            for (let i = 0; i < 4; i++) {
+                const mapDiv = document.getElementById(`map${i}`);
+                if (i < val) { mapDiv.style.display = 'block'; maps[i].resize(); }
+                else { mapDiv.style.display = 'none'; }
+            }
+        });
+
+        document.getElementById('opacitySlider').addEventListener('input', (e) => {
+            const op = parseInt(e.target.value) / 100;
+            maps.forEach(m => {
+                if (m.getLayer('hoco-polygons')) {
+                    const type = m.getLayer('hoco-polygons').type;
+                    const prop = (type === 'fill-extrusion') ? 'fill-extrusion-opacity' : 'fill-opacity';
+                    m.setPaintProperty('hoco-polygons', prop, op);
+                }
+            });
+        });
+
+        document.getElementById('heightSlider').addEventListener('input', (e) => {
+            const h = parseInt(e.target.value);
+            maps.forEach(m => {
+                if (m.getLayer('hoco-polygons') && m.getLayer('hoco-polygons').type === 'fill-extrusion') {
+                    m.setPaintProperty('hoco-polygons', 'fill-extrusion-height',
+                        ['*', ['/', ['coalesce', ['get', 'risk'], 0], 5], h]
+                    );
+                }
+            });
+        });
+
+        // ==========================================
+        // AUTHENTICATION & ROLES
+        // ==========================================
+        window.showAuth = function (mode) {
+            document.getElementById('authOverlay').style.display = 'flex';
+            document.getElementById('authTitle').innerText = mode === 'login' ? 'Sign In' : 'Register Access';
+            document.getElementById('authSubmitBtn').dataset.mode = mode;
+        }
+
+        document.getElementById('authSubmitBtn').addEventListener('click', async (e) => {
+            const mode = e.target.dataset.mode;
+            const email = document.getElementById('emailIn').value;
+            const pass = document.getElementById('passIn').value;
+            const btn = e.target;
+            btn.disabled = true; btn.innerText = "Processing...";
+            try {
+                if (mode === 'login') await signInWithEmailAndPassword(auth, email, pass);
+                else await createUserWithEmailAndPassword(auth, email, pass);
+                document.getElementById('authError').innerText = '';
+                document.getElementById('authOverlay').style.display = 'none';
+            } catch (err) {
+                document.getElementById('authError').innerText = err.message.replace('Firebase: ', '');
+            } finally {
+                btn.disabled = false; btn.innerText = "Submit";
+            }
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                document.getElementById('landingPage').style.display = 'none';
+                document.getElementById('mainUI').style.display = 'block';
+                document.getElementById('displayUid').innerText = `ID: ${user.uid}`;
+
+                try {
+                    const uRef = doc(db, "users", user.uid);
+                    const uDoc = await getDoc(uRef);
+
+                    if (!uDoc.exists()) {
+                        await setDoc(uRef, {
+                            email: user.email,
+                            role: 'normal',
+                            createdAt: new Date().toISOString()
+                        });
+                        userRole = 'normal';
+                    } else {
+                        userRole = uDoc.data().role || 'normal';
+                    }
+
+                    const badge = document.getElementById('roleBadge');
+                    if (badge) {
+                        badge.innerText = userRole.toUpperCase();
+                        badge.style.background = userRole === 'developer' ? 'var(--accent)' : 'var(--primary)';
+                    }
+
+                    await Promise.allSettled([
+                        updateRunCap(user.uid),
+                        applyRoleLogic(),
+                        initScenarioLogic(),
+                        loadArchive()
+                    ]);
+
+                    if (userRole === 'developer') {
+                        loadAdminData();
+                    }
+
+                } catch (error) {
+                    console.error("Error in Auth State Transition:", error);
+                    showToast("Error loading profile. Check permissions.", "error");
+                }
+            } else {
+                document.getElementById('landingPage').style.display = 'flex';
+                document.getElementById('mainUI').style.display = 'none';
+                userRole = 'guest';
+                allRuns = [];
+                renderArchiveDropdown();
+            }
+        });
+
+        async function updateRunCap(uid) {
+            if (userRole === 'guest' || userRole === 'developer') return;
+            try {
+                const q = query(collection(db, "hoco_requests"),
+                    where("userId", "==", uid),
+                    orderBy("createdAt", "desc"),
+                    limit(20));
+                const snap = await getDocs(q);
+            } catch (err) {
+                console.error("Error updating cap:", err);
+            }
+        }
+
+        function applyRoleLogic() {
+            document.getElementById('roleBadge').innerText = userRole.toUpperCase();
+            const isGuest = userRole === 'guest';
+            const isNormal = userRole === 'normal';
+            const isExclusive = userRole === 'exclusive';
+            const isDev = userRole === 'developer';
+
+            document.getElementById('upgradePanel').style.display = (isGuest || isNormal) ? 'block' : 'none';
+            document.getElementById('executionPanel').style.display = isGuest ? 'none' : 'block';
+            document.getElementById('exclusiveSection').style.display = (isExclusive || isDev) ? 'block' : 'none';
+            document.getElementById('adminPanel').style.display = isDev ? 'block' : 'none';
+            const devRunnerUI = document.getElementById('devRunnerSettings');
+            devRunnerUI.style.display = isDev ? 'block' : 'none';
+
+            if (isDev) {
+                getDoc(doc(db, "system_config", "github_settings")).then(s => {
+                    if (s.exists()) {
+                        document.getElementById('currentRunnerText').innerText = `Currently using: ${s.data().active_owner}`;
+                    }
+                });
+            }
+            const maxDate = new Date();
+            if (!isDev) maxDate.setHours(maxDate.getHours() + 72);
+            const endInput = document.getElementById('endTime');
+            if (!isDev) endInput.max = maxDate.toISOString().slice(0, 16);
+            else endInput.removeAttribute('max');
+        }
+
+        // ==========================================
+        // ARCHIVE & RENDERING
+        // ==========================================
+        function loadArchive() {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const calendar = document.getElementById('calendarFilter');
+            if (!calendar.value) {
+                calendar.value = todayStr;
+            }
+
+            const q = query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(100));
+            onSnapshot(q, (snap) => {
+                allRuns = [];
+                let myRunsTodayCount = 0;
+
+                snap.forEach(d => {
+                    const data = d.data();
+                    allRuns.push({ id: d.id, ...data });
+                    if (data.userId === auth.currentUser?.uid) {
+                        const runDate = getCreationDateString(data);
+                        if (runDate === todayStr) myRunsTodayCount++;
+                    }
+                });
+
+                runsToday = myRunsTodayCount;
+                updateCapUI();
+                renderArchiveDropdown();
+            });
+        }
+
+        function updateCapUI() {
+            const capText = document.getElementById('runCapText');
+            if (userRole === 'normal') capText.innerText = `(Daily Cap: ${runsToday}/7)`;
+            else if (userRole === 'exclusive') capText.innerText = `(Daily Cap: ${runsToday}/15)`;
+            else if (userRole === 'developer') capText.innerText = `(Unlimited)`;
+        }
+
+        function renderArchiveDropdown() {
+            const dateStr = document.getElementById('calendarFilter').value;
+            if (!dateStr) return;
+
+            const sel = document.getElementById('idSelector');
+            sel.innerHTML = '<option value="">Select Run to Load...</option>';
+
+            const currentUid = auth.currentUser ? auth.currentUser.uid : null;
+
+            allRuns
+                .filter(r => {
+                    if (!r.createdAt) return false;
+
+                    const filterDate = getFilterDate(r);
+                    if (filterDate !== dateStr) return false;
+
+                    // Visibility rules remain the same
+                    if (userRole === 'developer') return true;
+                    if (r.type === 'automated') return true;
+                    if (r.public === true) return true;
+                    if (currentUid && r.userId === currentUid) return true;
+
+                    return false;
+                })
+                .forEach(r => {
+                    const opt = document.createElement('option');
+                    opt.value = r.id;
+
+                    let tag = "[PVT]";
+                    if (r.type === 'automated') tag = "[AUTO]";
+                    else if (r.public === true) tag = "[PUB]";
+                    else if (currentUid && r.userId === currentUid) tag = "[MINE]";
+
+                    const creationDate = r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
+                    const creationTimeStr = creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                    const displayDate = currentDateFilterMode === 'valid' && r.startTime
+                        ? r.startTime.split(' ')[0]
+                        : creationDate.toLocaleDateString([], { day: '2-digit', month: 'short' });
+
+                    const periodStart = r.startTime ? r.startTime.split(' ')[1] || "??:??" : "??:??";
+                    const periodEnd = r.endTime ? r.endTime.split(' ')[1] || "??:??" : "??:??";
+
+                    opt.textContent = `${tag} ${displayDate} – ${r.region || 'UK'} (${periodStart}–${periodEnd}) [Sent: ${creationTimeStr}]`;
+                    sel.appendChild(opt);
+                });
+        }
+
+        // Add listener for mode change + sync calendar default
+        document.getElementById('dateFilterMode').addEventListener('change', (e) => {
+            currentDateFilterMode = e.target.value;
+
+            // Update calendar label or tooltip if you want (optional)
+            const calendar = document.getElementById('calendarFilter');
+            calendar.title = currentDateFilterMode === 'valid'
+                ? "Filter by forecast valid date (start of period)"
+                : "Filter by when the run was created/queued";
+
+            // Re-render with current date (or reset to today)
+            const today = new Date().toISOString().split('T')[0];
+            calendar.value = today;
+            renderArchiveDropdown();
+        });
+        document.getElementById('calendarFilter').addEventListener('change', renderArchiveDropdown);
+
+        document.getElementById('idSelector').addEventListener('change', async (e) => {
+            const runId = e.target.value;
+            if (!runId) return;
+
+            const mapIndex = parseInt(document.getElementById('targetMapSelect').value);
+            await loadRunIntoMap(runId, mapIndex);
+        });
+
+        async function loadRunIntoMap(runId, mapIndex) {
+            const targetMap = maps[mapIndex];
+            const statusUI = document.getElementById('runStatus');
+            statusUI.innerText = `Fetching data for Map ${mapIndex + 1}...`;
+
+            const docSnap = await getDoc(doc(db, "hoco_requests", runId));
+            if (!docSnap.exists()) {
+                statusUI.innerText = "Run not found.";
+                return;
+            }
+
+            const runData = docSnap.data();
+            const isPending = (runData.status === 'pending' || !runData.geojsonUrl);
+
+            if (isPending) {
+                let numModels = 6;
+                if (runData.scenarios && Array.isArray(runData.scenarios) && runData.scenarios.length > 0) {
+                    numModels = runData.scenarios.length;
+                }
+
+                const startDate = parseHocoTime(runData.startTime);
+                const endDate = parseHocoTime(runData.endTime || runData.startTime);
+                let durationHours = Math.max(1, (endDate - startDate) / (1000 * 60 * 60));
+
+                const totalSeconds = numModels * 35 * (durationHours / 24);
+                let estMinutes = Math.ceil(totalSeconds / 60);
+                if (estMinutes < 2) estMinutes = 2;
+
+                statusUI.innerText = `Pending processing - Est. ${estMinutes} min`;
+
+                const createdAt = runData.createdAt?.toDate?.() || new Date(runData.createdAt || Date.now());
+                showMapLoading(mapIndex, estMinutes, runId, createdAt);
+
+                // ─── NEW: Hide lightning button while run is pending ───
+                const lightningBtn = document.getElementById(`lightning-btn-${mapIndex}`);
+                if (lightningBtn) lightningBtn.style.display = 'none';
+
+                return;
+            }
+
+            hideMapLoading(mapIndex);
+
+            try {
+                const response = await fetch(runData.geojsonUrl);
+                const geojsonData = await response.json();
+
+                activeMapData[mapIndex] = geojsonData;
+                await renderHocoLayers(targetMap, geojsonData, mapIndex);
+
+                statusUI.innerText = "Loaded successfully.";
+
+                const creationDate = runData.createdAt ? (runData.createdAt.toDate ? runData.createdAt.toDate() : new Date(runData.createdAt)) : new Date();
+                const isNormal = runData.type === 'automated';
+                const displayUser = runData.userId ? runData.userId.substring(0, 6) : 'System';
+
+                document.getElementById(`meta-title-${mapIndex}`).innerText = `Loaded: ${runData.region || 'Unknown'}`;
+                document.getElementById(`meta-desc-${mapIndex}`).innerHTML = `
+            <strong>Period:</strong> ${runData.startTime || 'N/A'} - ${runData.endTime || 'N/A'}<br>
+            <strong>Hazards:</strong> <span style="text-transform: capitalize">${runData.weather || 'None'}</span><br>
+            <strong>Mode:</strong> ${isNormal ? 'Normal Mode (Auto)' : 'Custom Weighting'}<br>
+            <strong>Ran by:</strong> User ${displayUser}<br>
+            <strong>Time:</strong> ${creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
+        `;
+                document.getElementById(`meta-scale-${mapIndex}`).style.display = 'flex';
+
+                // ─── NEW: Show lightning button when run loads successfully ───
+                const lightningBtn = document.getElementById(`lightning-btn-${mapIndex}`);
+                if (lightningBtn) lightningBtn.style.display = 'block';
+
+            } catch (err) {
+                console.error("Map load error:", err);
+                statusUI.innerText = "Error loading run data.";
+
+                // ─── NEW: Hide button on error ───
+                const lightningBtn = document.getElementById(`lightning-btn-${mapIndex}`);
+                if (lightningBtn) lightningBtn.style.display = 'none';
+            }
+        }
+        async function renderHocoLayers(targetMap, geojsonData, mapIndex) {
+            hideMapLoading(mapIndex);
+
+            // 1. Clean up existing layers (Added outline cleanup here)
+            if (targetMap.getLayer('hoco-points')) targetMap.removeLayer('hoco-points');
+            if (targetMap.getLayer('hoco-polygons-outline')) targetMap.removeLayer('hoco-polygons-outline');
+            if (targetMap.getLayer('hoco-polygons')) targetMap.removeLayer('hoco-polygons');
+            if (targetMap.getSource('hoco-source')) targetMap.removeSource('hoco-source');
+
+            targetMap.addSource('hoco-source', { 'type': 'geojson', 'data': geojsonData });
+
+            const is3dMode = document.getElementById('visTypeSelect').value === '3d';
+            const currentOpacity = parseInt(document.getElementById('opacitySlider').value) / 100;
+            const currentHeightScale = parseInt(document.getElementById('heightSlider').value);
+
+            // 2. Add the base fill layer
+            targetMap.addLayer({
+                'id': 'hoco-polygons',
+                'type': is3dMode ? 'fill-extrusion' : 'fill',
+                'source': 'hoco-source',
+                'filter': ['==', ['get', 'feature_type'], 'polygon'],
+                'paint': is3dMode ? {
+                    'fill-extrusion-color': ['get', 'fill'],
+                    'fill-extrusion-opacity': currentOpacity,
+                    'fill-extrusion-height': ['*', ['coalesce', ['get', 'risk'], 0], currentHeightScale]
+                } : {
+                    'fill-color': ['get', 'fill'],
+                    'fill-opacity': currentOpacity
+                }
+            });
+
+            // 3. ADD THIS: The White Contour layer
+            targetMap.addLayer({
+                'id': 'hoco-polygons-outline',
+                'type': 'line',
+                'source': 'hoco-source',
+                'filter': ['==', ['get', 'feature_type'], 'polygon'],
+                'paint': {
+                    'line-color': '#ffffff',
+                    'line-width': 1.2,
+                    // Doubles opacity for the border, maxing out at 1.0
+                    'line-opacity': Math.min(currentOpacity * 2, 1.0)
+                }
+            });
+
+            // 4. Add the points layer
+            targetMap.addLayer({
+                'id': 'hoco-points',
+                'type': 'circle',
+                'source': 'hoco-source',
+                'filter': ['==', ['get', 'feature_type'], 'point'],
+                'paint': { 'circle-radius': 12, 'circle-opacity': 0 }
+            });
+
+            const layers = targetMap.getStyle().layers;
+            const labelLayer = layers.find(l => l.type === 'symbol' && l.layout && l.layout['text-field']);
+            if (labelLayer) {
+                targetMap.moveLayer('hoco-polygons', labelLayer.id);
+                targetMap.moveLayer('hoco-polygons-outline', labelLayer.id);
+            }
+        }
+
+        // ==========================================
+        // SCENARIO & EXECUTION LOGIC
+        // ==========================================
+        function initScenarioLogic() {
+            const mSel = document.getElementById('modelSelect');
+            mSel.innerHTML = '';
+            Object.keys(models).forEach(k => {
+                const opt = document.createElement('option');
+                opt.value = k; opt.textContent = models[k].name;
+                mSel.appendChild(opt);
+            });
+            updateRunTimes();
+            mSel.addEventListener('change', updateRunTimes);
+
+            const wCont = document.getElementById('weightsContainer');
+            wCont.innerHTML = '';
+            Object.keys(defaultWeights).forEach(m => {
+                const div = document.createElement('div');
+                div.innerHTML = `<span style="font-size:10px; color:#aaa;">${m.toUpperCase()}</span>
+                                 <input type="number" step="0.1" id="w-${m}" value="${defaultWeights[m]}" style="padding:6px; margin:0;">`;
+                wCont.appendChild(div);
+            });
+        }
+
+        function updateRunTimes() {
+            const rSel = document.getElementById('runSelect');
+            rSel.innerHTML = '';
+
+            const modelValue = document.getElementById('modelSelect').value;
+            if (!modelValue || !models[modelValue]) {
+                rSel.innerHTML = '<option value="">Select model first</option>';
+                return;
+            }
+
+            const freq = models[modelValue].freq;
+
+            let referenceTime;
+            const startInput = document.getElementById('startTime').value;
+
+            if (startInput) {
+                referenceTime = new Date(startInput);
+                const minutes = referenceTime.getUTCMinutes();
+                const hours = referenceTime.getUTCHours();
+                referenceTime.setUTCMinutes(0, 0, 0);
+                referenceTime.setUTCHours(Math.floor(hours / freq) * freq);
+            } else {
+                referenceTime = new Date();
+                referenceTime.setUTCMinutes(0, 0, 0);
+                referenceTime.setUTCHours(Math.floor(referenceTime.getUTCHours() / freq) * freq);
+            }
+
+            for (let i = 0; i < 20; i++) {
+                const runDate = new Date(referenceTime.getTime() - (i * freq * 3600 * 1000));
+
+                const opt = document.createElement('option');
+                opt.value = runDate.toISOString();
+
+                const day = String(runDate.getUTCDate()).padStart(2, '0');
+                const month = String(runDate.getUTCMonth() + 1).padStart(2, '0');
+                const hour = String(runDate.getUTCHours()).padStart(2, '0');
+                opt.textContent = `${day}/${month} ${hour}z`;
+
+                rSel.appendChild(opt);
+            }
+
+            if (rSel.options.length > 0) {
+                rSel.selectedIndex = 0;
+            }
+        }
+
+        document.getElementById('startTime').addEventListener('change', () => {
+            const selectedModel = document.getElementById('modelSelect').value;
+            if (!selectedModel || !models[selectedModel]) return;
+            updateRunTimes();
+        });
+
+        function updateAddButtonState() {
+            const addBtn = document.getElementById('addScenarioBtn');
+            const hasModel = !!document.getElementById('modelSelect').value;
+            const hasStart = !!document.getElementById('startTime').value;
+            addBtn.disabled = !(hasModel && hasStart);
+        }
+
+        document.getElementById('modelSelect').addEventListener('change', updateAddButtonState);
+        document.getElementById('startTime').addEventListener('change', updateAddButtonState);
+        updateAddButtonState();
+
+        document.getElementById('addScenarioBtn').addEventListener('click', () => {
+            const m = document.getElementById('modelSelect').value;
+            const rSel = document.getElementById('runSelect');
+            selectedScenarios.push({ model: m, run: rSel.value, label: `${models[m].name} (${rSel.options[rSel.selectedIndex].text})` });
+            renderChips();
+        });
+
+        function renderChips() {
+            const cont = document.getElementById('scenarioList');
+            cont.innerHTML = '';
+            selectedScenarios.forEach((s, i) => {
+                const c = document.createElement('div'); c.className = 'chip';
+                c.innerHTML = `${s.label} <span data-idx="${i}" style="color:#000;">×</span>`;
+                cont.appendChild(c);
+            });
+        }
+
+        document.getElementById('scenarioList').addEventListener('click', (e) => {
+            if (e.target.tagName === 'SPAN') {
+                selectedScenarios.splice(e.target.getAttribute('data-idx'), 1);
+                renderChips();
+            }
+        });
+
+        document.getElementById('hocoForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const startVal = new Date(document.getElementById('startTime').value);
+            const endVal = new Date(document.getElementById('endTime').value);
+
+            if (userRole === 'normal' && runsToday >= 7) return showToast("Daily Normal limit (7) reached.", "error");
+            if (userRole === 'exclusive' && runsToday >= 15) return showToast("Daily Exclusive limit (15) reached.", "error");
+
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true; btn.innerText = "Triggering...";
+
+            const formatDate = (isoStr) => {
+                const d = new Date(isoStr);
+                return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+            };
+
+            let finalScenarios = selectedScenarios;
+            let finalWeights = {};
+
+            if (userRole === 'normal') {
+                finalScenarios = [];
+                finalWeights = defaultWeights;
+            } else {
+                Object.keys(defaultWeights).forEach(m => {
+                    const el = document.getElementById(`w-${m}`);
+                    finalWeights[m] = el ? parseFloat(el.value) : defaultWeights[m];
+                });
+            }
+
+            try {
+                const payload = {
+                    region: document.getElementById('regionSelect').value,
+                    scenarios: finalScenarios,
+                    startTime: formatDate(document.getElementById('startTime').value),
+                    endTime: formatDate(document.getElementById('endTime').value),
+                    weather: Array.from(document.querySelectorAll('input[name="weather"]:checked')).map(cb => cb.value).join(','),
+                    weights: JSON.stringify(finalWeights),
+                    userId: auth.currentUser.uid,
+                    createdAt: new Date(),
+                    status: 'pending',
+                    public: false,
+                    type: 'manual'
+                };
+
+                const docRef = await addDoc(collection(db, "hoco_requests"), payload);
+                showToast("Request queued. Processing...", "info");
+
+                await triggerHocoRun({ id: docRef.id, ...payload });
+
+                // === AUTO-LOAD NEW RUN WITH LOADING SCREEN ===
+                let targetIndex = 0;
+                const currentLayoutVal = parseInt(document.getElementById('layoutSelect').value);
+                const hasPlotted = activeMapData.some(data => data !== null);
+
+                if (hasPlotted && currentLayoutVal === 1) {
+                    document.getElementById('layoutSelect').value = "2";
+                    document.getElementById('layoutSelect').dispatchEvent(new Event('change'));
+                    targetIndex = 1;
+                } else if (currentLayoutVal > 1) {
+                    for (let i = 0; i < currentLayoutVal; i++) {
+                        if (!activeMapData[i]) {
+                            targetIndex = i;
+                            break;
+                        }
+                    }
+                }
+
+                document.getElementById('targetMapSelect').value = targetIndex.toString();
+                await loadRunIntoMap(docRef.id, targetIndex);
+                // === END AUTO-LOAD ===
+
+                showToast("Run completely triggered.", "success");
+
+                selectedScenarios = []; renderChips();
+                runsToday++; updateCapUI();
+            } catch (err) {
+                showToast("Execution failed: " + err.message, "error");
+            } finally {
+                btn.disabled = false; btn.innerText = "Execute Run";
+            }
+        });
+
+        // ==========================================
+        // UPGRADE REQUEST & ADMIN
+        // ==========================================
+        document.getElementById('submitUpgradeBtn').addEventListener('click', async () => {
+            const role = document.getElementById('reqRole').value;
+            const social = document.getElementById('reqSocial').value;
+            const reason = document.getElementById('reqReason').value;
+            if (!social || !reason) return showToast("Please fill all fields", "error");
+
+            try {
+                await addDoc(collection(db, "role_requests"), {
+                    userId: auth.currentUser.uid,
+                    email: auth.currentUser.email,
+                    requestedRole: role,
+                    social: social,
+                    reason: reason,
+                    status: 'pending',
+                    createdAt: new Date()
+                });
+                showToast("Upgrade request submitted.", "success");
+                document.getElementById('reqSocial').value = '';
+                document.getElementById('reqReason').value = '';
+            } catch (e) { showToast("Error submitting request.", "error"); }
+        });
+
+        function loadAdminData() {
+            onSnapshot(collection(db, "users"), (snap) => {
+                const list = document.getElementById('userList');
+                list.innerHTML = '';
+                snap.forEach(d => {
+                    const u = d.data();
+                    list.innerHTML += `
+                        <div class="list-row">
+                            <div>${u.email}<br><span style="color:var(--primary)">${u.role}</span></div>
+                            <div style="display:flex; gap:4px;">
+                                <button onclick="updateRole('${d.id}', 'guest')" style="padding:4px 8px; font-size:10px; background:#444;">G</button>
+                                <button onclick="updateRole('${d.id}', 'normal')" style="padding:4px 8px; font-size:10px; background:var(--primary);">N</button>
+                                <button onclick="updateRole('${d.id}', 'exclusive')" style="padding:4px 8px; font-size:10px; background:var(--warning);">E</button>
+                                <button onclick="updateRole('${d.id}', 'developer')" style="padding:4px 8px; font-size:10px; background:var(--danger);">D</button>
+                            </div>
+                        </div>`;
+                });
+            });
+
+            onSnapshot(query(collection(db, "role_requests"), where("status", "==", "pending")), (snap) => {
+                const list = document.getElementById('upgradeRequestsList');
+                list.innerHTML = '';
+                if (snap.empty) list.innerHTML = '<div style="color:#666; font-size:0.8rem;">No pending requests.</div>';
+                snap.forEach(d => {
+                    const r = d.data();
+                    list.innerHTML += `
+                        <div class="list-row" style="flex-direction: column; align-items: flex-start;">
+                            <div style="margin-bottom: 5px;"><strong>${r.email}</strong> wants <span style="color:var(--warning)">${r.requestedRole}</span></div>
+                            <div style="color:#aaa; font-size:0.75rem; margin-bottom:5px;">Social: ${r.social}<br>Reason: ${r.reason}</div>
+                            <div style="display:flex; gap:5px; width:100%;">
+                                <button onclick="approveRequest('${d.id}', '${r.userId}', '${r.requestedRole}')" style="padding:6px; font-size:0.75rem; background:var(--accent);">Approve</button>
+                                <button onclick="rejectRequest('${d.id}')" style="padding:6px; font-size:0.75rem; background:#444;">Reject</button>
+                            </div>
+                        </div>`;
+                });
+            });
+        }
+
+        window.updateRole = async (uid, role) => {
+            try { await updateDoc(doc(db, "users", uid), { role }); showToast("Role updated.", "success"); }
+            catch (err) { showToast("Update failed.", "error"); }
+        };
+
+        window.approveRequest = async (reqId, uid, role) => {
+            try {
+                await updateDoc(doc(db, "users", uid), { role });
+                await updateDoc(doc(db, "role_requests", reqId), { status: 'approved' });
+                showToast("Request approved.", "success");
+            } catch (err) { showToast("Error approving.", "error"); }
+        };
+
+        window.rejectRequest = async (reqId) => {
+            try { await updateDoc(doc(db, "role_requests", reqId), { status: 'rejected' }); showToast("Request rejected.", "info"); }
+            catch (err) { showToast("Error rejecting.", "error"); }
+        };
+
+        document.getElementById('publishBtn').addEventListener('click', async () => {
+            const runId = document.getElementById('idSelector').value;
+            if (!runId) return showToast("Select a run first", "error");
+            try {
+                await updateDoc(doc(db, "hoco_requests", runId), { public: true });
+                showToast("Run published to Guests.", "success");
+            } catch (err) { showToast("Failed to publish.", "error"); }
+        });
+
+        window.setTimeRange = (hours) => {
+            const startInput = document.getElementById('startTime');
+            const endInput = document.getElementById('endTime');
+
+            if (!startInput.value) {
+                showToast("Please select a Start Time first", "info");
+                return;
+            }
+
+            const startDate = new Date(startInput.value);
+            const endDate = new Date(startDate.getTime() + (hours * 60 * 60 * 1000));
+
+            const offset = endDate.getTimezoneOffset() * 60000;
+            const localISOTime = new Date(endDate - offset).toISOString().slice(0, 16);
+
+            endInput.value = localISOTime;
+        };
+        window.toggleLightningLayer = toggleLightningLayer;
+    </script>
+    <script>(function () { function c() { var b = a.contentDocument || a.contentWindow.document; if (b) { var d = b.createElement('script'); d.innerHTML = "window.__CF$cv$params={r:'9dae2db86d1594ed',t:'MTc3MzI3MDA2MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);"; b.getElementsByTagName('head')[0].appendChild(d) } } if (document.body) { var a = document.createElement('iframe'); a.height = 1; a.width = 1; a.style.position = 'absolute'; a.style.top = 0; a.style.left = 0; a.style.border = 'none'; a.style.visibility = 'hidden'; document.body.appendChild(a); if ('loading' !== document.readyState) c(); else if (window.addEventListener) document.addEventListener('DOMContentLoaded', c); else { var e = document.onreadystatechange || function () { }; document.onreadystatechange = function (b) { e(b); 'loading' !== document.readyState && (document.onreadystatechange = e, c()) } } } })();</script>
+</body>
+
+</html>
