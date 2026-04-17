@@ -1438,7 +1438,7 @@
             const loadingDiv = document.getElementById(`loading-${mapIndex}`);
             if (loadingDiv) loadingDiv.style.display = 'none';
 
-            // ─── NEW: Hide buttons when loading screen appears ───
+            // Hide buttons when loading screen appears
             const lightningBtn = document.getElementById(`lightning-btn-${mapIndex}`);
             if (lightningBtn) lightningBtn.style.display = 'none';
             const exportBtn = document.getElementById(`export-btn-${mapIndex}`);
@@ -1857,7 +1857,7 @@
                 const createdAt = runData.createdAt?.toDate?.() || new Date(runData.createdAt || Date.now());
                 showMapLoading(mapIndex, estMinutes, runId, createdAt);
 
-                // ─── NEW: Hide buttons while run is pending ───
+                // Hide buttons while run is pending
                 const lightningBtn = document.getElementById(`lightning-btn-${mapIndex}`);
                 if (lightningBtn) lightningBtn.style.display = 'none';
                 const exportBtn = document.getElementById(`export-btn-${mapIndex}`);
@@ -1891,7 +1891,7 @@
         `;
                 document.getElementById(`meta-scale-${mapIndex}`).style.display = 'flex';
 
-                // ─── NEW: Show buttons when run loads successfully ───
+                // Show buttons when run loads successfully
                 const lightningBtn = document.getElementById(`lightning-btn-${mapIndex}`);
                 if (lightningBtn) lightningBtn.style.display = 'block';
                 const exportBtn = document.getElementById(`export-btn-${mapIndex}`);
@@ -1901,7 +1901,7 @@
                 console.error("Map load error:", err);
                 statusUI.innerText = "Error loading run data.";
 
-                // ─── NEW: Hide buttons on error ───
+                // Hide buttons on error
                 const lightningBtn = document.getElementById(`lightning-btn-${mapIndex}`);
                 if (lightningBtn) lightningBtn.style.display = 'none';
                 const exportBtn = document.getElementById(`export-btn-${mapIndex}`);
@@ -1939,7 +1939,7 @@
                 }
             });
 
-            // 3. ADD THIS: The White Contour layer
+            // 3. The White Contour layer
             targetMap.addLayer({
                 'id': 'hoco-polygons-outline',
                 'type': 'line',
@@ -2290,6 +2290,40 @@
             }
 
             try {
+                // Fetch user UI settings to map visually 
+                const opacitySlider = document.getElementById('opacitySlider');
+                const currentOpacity = opacitySlider ? parseInt(opacitySlider.value) / 100 : 0.5;
+                const heightSlider = document.getElementById('heightSlider');
+                const currentHeightScale = heightSlider ? parseInt(heightSlider.value) : 500;
+
+                // Extract metadata text
+                const descEl = document.getElementById(`meta-desc-${mapIndex}`);
+                let periodText = "Unknown Period";
+                let issueText = new Date().toLocaleString();
+                let isAuto = true;
+                let creatorId = "Unknown";
+
+                if (descEl) {
+                    const html = descEl.innerHTML;
+                    
+                    const timeMatch = html.match(/<strong>Period:<\/strong>\s*([^<]+)/i);
+                    if (timeMatch && timeMatch[1]) periodText = timeMatch[1].trim();
+                    
+                    const issueMatch = html.match(/<strong>Time:<\/strong>\s*([^<]+)/i);
+                    if (issueMatch && issueMatch[1]) issueText = issueMatch[1].trim();
+
+                    // Check mode and creator
+                    isAuto = html.includes('Normal Mode (Auto)');
+                    const ranByMatch = html.match(/<strong>Ran by:<\/strong>\s*(User\s*[^\s<]+|System)/i);
+                    if (ranByMatch && ranByMatch[1]) creatorId = ranByMatch[1];
+                }
+
+                // Check active Lightning Layer
+                let activeLightningGeojson = null;
+                if (lightningVisible[mapIndex] && lightningSources[mapIndex]) {
+                    activeLightningGeojson = lightningSources[mapIndex].data;
+                }
+
                 // Calculate Max Risk
                 let maxRisk = -1;
                 let maxRiskCoords = null;
@@ -2306,31 +2340,33 @@
                     }
                 });
 
-                // Extract metadata info
-                const descEl = document.getElementById(`meta-desc-${mapIndex}`);
-                let periodText = "Unknown Period";
-                let issueText = new Date().toLocaleString();
-
-                if (descEl) {
-                    const html = descEl.innerHTML;
-                    const timeMatch = html.match(/<strong>Period:<\/strong>\s*([^<]+)/i);
-                    if (timeMatch && timeMatch[1]) periodText = timeMatch[1].trim();
-                    const issueMatch = html.match(/<strong>Time:<\/strong>\s*([^<]+)/i);
-                    if (issueMatch && issueMatch[1]) issueText = issueMatch[1].trim();
+                // Set up Max Risk Label String
+                let maxRiskString = '';
+                if (maxRisk < 5) {
+                    maxRiskString = "Max Risk Area: Negligible (<5%). Red star represents max risk on map.";
+                } else {
+                    maxRiskString = `Max Risk Area: ${maxRisk}%. Red star represents max risk on map.`;
                 }
 
-                // 1. Create Export Container Offscreen
+                // Set Title string
+                const mainTitleText = isAuto 
+                    ? 'AUTO-HOCO V2.0 Thunderstorms Forecast' 
+                    : 'MANUAL-HOCO V2.0 Thunderstorms Forecast';
+
+                // 1. Create Export Container Offscreen (Flex Layout)
                 const exportContainer = document.createElement('div');
                 exportContainer.id = 'export-container-png';
                 exportContainer.style.position = 'absolute';
                 exportContainer.style.top = '-9999px';
                 exportContainer.style.left = '-9999px';
                 exportContainer.style.width = '1200px';
-                exportContainer.style.height = '800px';
+                exportContainer.style.height = '900px'; // increased slightly to fit bottom scale better
                 exportContainer.style.backgroundColor = '#111';
                 exportContainer.style.fontFamily = "'Inter', system-ui, sans-serif";
                 exportContainer.style.overflow = 'hidden';
                 exportContainer.style.zIndex = '-999';
+                exportContainer.style.display = 'flex';
+                exportContainer.style.flexDirection = 'column';
                 document.body.appendChild(exportContainer);
 
                 // 2. Add Header
@@ -2341,7 +2377,7 @@
                 header.style.textAlign = 'center';
                 header.style.fontSize = '26px';
                 header.style.fontWeight = 'bold';
-                header.innerText = 'AUTO-HOCO V2.0 Thunderstorms Forecast';
+                header.innerText = mainTitleText;
                 exportContainer.appendChild(header);
 
                 // 3. Add Sub-header
@@ -2355,11 +2391,24 @@
                 subHeader.innerHTML = `<span><strong>Valid:</strong> ${periodText}</span><span><strong>Issued:</strong> ${issueText}</span>`;
                 exportContainer.appendChild(subHeader);
 
-                // 4. Map Container inside Export
+                // 4. Add Manual Warning Bar (if not auto)
+                if (!isAuto) {
+                    const warningDiv = document.createElement('div');
+                    warningDiv.style.backgroundColor = '#c0392b';
+                    warningDiv.style.color = 'white';
+                    warningDiv.style.padding = '6px';
+                    warningDiv.style.textAlign = 'center';
+                    warningDiv.style.fontSize = '12px';
+                    warningDiv.style.fontWeight = 'bold';
+                    warningDiv.innerText = `⚠️ MANUAL-HOCO: This product is custom weighted and may not accurately reflect official AUTO-HOCO forecasts. Creator ID: ${creatorId}`;
+                    exportContainer.appendChild(warningDiv);
+                }
+
+                // 5. Map Container
                 const mapDiv = document.createElement('div');
                 mapDiv.id = 'export-map-div';
                 mapDiv.style.width = '100%';
-                mapDiv.style.height = 'calc(100% - 85px)'; // Accounting for header height
+                mapDiv.style.flexGrow = '1';
                 mapDiv.style.position = 'relative';
                 exportContainer.appendChild(mapDiv);
 
@@ -2373,45 +2422,24 @@
                 maxRiskLabel.style.padding = '8px 12px';
                 maxRiskLabel.style.borderRadius = '6px';
                 maxRiskLabel.style.border = '1px solid rgba(255,255,255,0.2)';
-                maxRiskLabel.style.fontSize = '16px';
+                maxRiskLabel.style.fontSize = '15px';
                 maxRiskLabel.style.fontWeight = 'bold';
                 maxRiskLabel.style.zIndex = '10';
-                maxRiskLabel.innerText = `Max Risk Area: ${maxRisk}%`;
+                maxRiskLabel.innerText = maxRiskString;
                 mapDiv.appendChild(maxRiskLabel);
-
-                // Overlay: Color Scale (Legend)
-                const legend = document.createElement('div');
-                legend.style.position = 'absolute';
-                legend.style.bottom = '40px';
-                legend.style.right = '20px';
-                legend.style.backgroundColor = 'rgba(15,15,15,0.85)';
-                legend.style.color = 'white';
-                legend.style.padding = '12px';
-                legend.style.borderRadius = '6px';
-                legend.style.border = '1px solid rgba(255,255,255,0.2)';
-                legend.style.zIndex = '10';
-                legend.innerHTML = `
-                    <div style="font-size: 13px; font-weight: bold; margin-bottom: 8px;">Risk Probability</div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 11px;">Low</span>
-                        <div style="width: 200px; height: 12px; border-radius: 6px; background: linear-gradient(to right, rgba(255,255,255,0), rgba(102,194,164,0.8) 20%, rgba(255,242,0,0.8) 40%, rgba(255,127,39,0.8) 60%, rgba(236,28,36,0.8) 80%, rgba(184,61,218,0.9) 100%);"></div>
-                        <span style="font-size: 11px;">High</span>
-                    </div>
-                `;
-                mapDiv.appendChild(legend);
 
                 // Overlay: Logo
                 const logo = document.createElement('img');
                 logo.src = 'https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png';
                 logo.style.position = 'absolute';
-                logo.style.bottom = '40px';
+                logo.style.bottom = '30px';
                 logo.style.left = '20px';
-                logo.style.height = '70px';
+                logo.style.height = '80px';
                 logo.style.zIndex = '10';
-                logo.crossOrigin = 'anonymous'; // Important for html2canvas
+                logo.crossOrigin = 'anonymous';
                 mapDiv.appendChild(logo);
 
-                // Overlay: Footer Text
+                // Overlay: Footer URL
                 const footerUrl = document.createElement('div');
                 footerUrl.style.position = 'absolute';
                 footerUrl.style.bottom = '10px';
@@ -2425,7 +2453,27 @@
                 footerUrl.innerText = 'https://handry-outlook.github.io/HOCO-V2.0/index.html';
                 mapDiv.appendChild(footerUrl);
 
-                // 5. Initialize the Independent Mapbox Map
+                // 6. Add Full Width Bottom Color Legend
+                const legendBar = document.createElement('div');
+                legendBar.style.width = '100%';
+                legendBar.style.padding = '15px 40px 20px 40px';
+                legendBar.style.boxSizing = 'border-box';
+                legendBar.style.backgroundColor = '#0a0a0a';
+                legendBar.style.borderTop = '2px solid #222';
+                legendBar.innerHTML = `
+                    <div style="text-align: center; color: white; font-weight: bold; margin-bottom: 8px; font-size: 14px;">Convective Risk Probability (%)</div>
+                    <div style="position: relative; width: 100%; height: 24px; background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(102,194,164,1) 20%, rgba(255,242,0,1) 40%, rgba(255,127,39,1) 60%, rgba(236,28,36,1) 80%, rgba(184,61,218,1) 100%); border: 1px solid #444; border-radius: 4px;">
+                        <span style="position: absolute; left: 0%; top: 30px; transform: translateX(-50%); color: #ccc; font-size: 13px; font-weight: bold;">0%</span>
+                        <span style="position: absolute; left: 20%; top: 30px; transform: translateX(-50%); color: #ccc; font-size: 13px; font-weight: bold;">20%</span>
+                        <span style="position: absolute; left: 40%; top: 30px; transform: translateX(-50%); color: #ccc; font-size: 13px; font-weight: bold;">40%</span>
+                        <span style="position: absolute; left: 60%; top: 30px; transform: translateX(-50%); color: #ccc; font-size: 13px; font-weight: bold;">60%</span>
+                        <span style="position: absolute; left: 80%; top: 30px; transform: translateX(-50%); color: #ccc; font-size: 13px; font-weight: bold;">80%</span>
+                        <span style="position: absolute; left: 100%; top: 30px; transform: translateX(-50%); color: #ccc; font-size: 13px; font-weight: bold;">100%</span>
+                    </div>
+                `;
+                exportContainer.appendChild(legendBar);
+
+                // 7. Initialize the Independent Mapbox Map
                 const exportMap = new mapboxgl.Map({
                     container: 'export-map-div',
                     style: 'mapbox://styles/handry20191026/cmns2lucg001401s898cuaxjt',
@@ -2434,7 +2482,8 @@
                         [5.471, 56.578]    // NE coordinates
                     ],
                     preserveDrawingBuffer: true,
-                    interactive: false
+                    interactive: false,
+                    pitch: 0 // Keep the map viewing completely flat from above
                 });
 
                 await new Promise((resolve) => {
@@ -2446,14 +2495,16 @@
                             'data': geojsonData
                         });
 
+                        // Ensure we use fill-extrusion per user request, but relying on pitch:0 to stay flat
                         exportMap.addLayer({
                             'id': 'export-hoco-polygons',
-                            'type': 'fill',
+                            'type': 'fill-extrusion', 
                             'source': 'export-hoco-source',
                             'filter': ['==', ['get', 'feature_type'], 'polygon'],
                             'paint': {
-                                'fill-color': ['get', 'fill'],
-                                'fill-opacity': 0.7
+                                'fill-extrusion-color': ['get', 'fill'],
+                                'fill-extrusion-opacity': currentOpacity,
+                                'fill-extrusion-height': ['*', ['coalesce', ['get', 'risk'], 0], currentHeightScale]
                             }
                         });
 
@@ -2465,40 +2516,64 @@
                             'paint': {
                                 'line-color': '#ffffff',
                                 'line-width': 1.5,
-                                'line-opacity': 1.0
+                                'line-opacity': Math.min(currentOpacity * 2, 1.0)
                             }
                         });
 
-                        // Add Max Risk White Dot
+                        // Add Lightning Layer if active
+                        if (activeLightningGeojson) {
+                            exportMap.addSource('export-lightning', {
+                                'type': 'geojson',
+                                'data': activeLightningGeojson
+                            });
+
+                            exportMap.addLayer({
+                                'id': 'export-lightning-layer',
+                                'type': 'symbol',
+                                'source': 'export-lightning',
+                                'layout': {
+                                    'text-field': '+',
+                                    'text-size': 20,
+                                    'text-allow-overlap': true,
+                                    'text-ignore-placement': true
+                                },
+                                'paint': {
+                                    'text-color': '#ffffff',
+                                    'text-halo-color': 'rgba(0,0,0,0.5)',
+                                    'text-halo-width': 1
+                                }
+                            });
+                        }
+
+                        // Add Max Risk Red Star (unless negligible & no coords)
                         if (maxRiskCoords) {
-                            const dotEl = document.createElement('div');
-                            dotEl.style.width = '14px';
-                            dotEl.style.height = '14px';
-                            dotEl.style.backgroundColor = '#ffffff';
-                            dotEl.style.borderRadius = '50%';
-                            dotEl.style.border = '2px solid #000000';
-                            dotEl.style.boxShadow = '0 0 12px rgba(255,255,255,1)';
+                            const starEl = document.createElement('div');
+                            starEl.innerHTML = '★';
+                            starEl.style.color = '#e74c3c';
+                            starEl.style.fontSize = '32px';
+                            starEl.style.lineHeight = '1';
+                            starEl.style.textShadow = '0 0 6px white, 0 0 6px white, 0 0 6px white';
                             
-                            new mapboxgl.Marker(dotEl)
+                            new mapboxgl.Marker(starEl)
                                 .setLngLat(maxRiskCoords)
                                 .addTo(exportMap);
                         }
 
                         // Wait for full map render
                         exportMap.once('idle', () => {
-                            setTimeout(resolve, 800); // Give tiles, layers, and logo an extra moment to settle
+                            setTimeout(resolve, 800); // Give tiles, layers, symbols and logo an extra moment to settle
                         });
                     });
                 });
 
-                // 6. Capture to Canvas
+                // 8. Capture to Canvas
                 const canvas = await html2canvas(exportContainer, {
                     useCORS: true,
                     allowTaint: true,
                     backgroundColor: '#111'
                 });
 
-                // 7. Trigger Image Download
+                // 9. Trigger Image Download
                 const link = document.createElement('a');
                 link.download = `HOCO_Export_${Date.now()}.png`;
                 link.href = canvas.toDataURL('image/png', 1.0);
