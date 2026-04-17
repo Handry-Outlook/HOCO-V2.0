@@ -1889,28 +1889,28 @@
         // ARCHIVE & RENDERING
         // ==========================================
         function loadArchive() {
+            const todayStr = new Date().toISOString().split('T')[0];
             const calendar = document.getElementById('calendarFilter');
-            const selectedDate = calendar.value; // e.g., "2026-04-13"
+            if (!calendar.value) {
+                calendar.value = todayStr;
+            }
 
-            // Convert "YYYY-MM-DD" to "DD/MM/YYYY" to match your startTime format
-            const [y, m, d] = selectedDate.split('-');
-            const formattedDate = `${d}/${m}/${y}`;
-
-            // Query for runs that START on the selected date
-            const q = query(
-                collection(db, "hoco_requests"),
-                where("type", "==", "automated"),
-                // This looks for any startTime that begins with the selected date
-                where("startTime", ">=", formattedDate),
-                where("startTime", "<=", formattedDate + " 23:59"),
-                orderBy("startTime", "desc")
-            );
-
+            const q = query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(100));
             onSnapshot(q, (snap) => {
                 allRuns = [];
-                snap.forEach(doc => {
-                    allRuns.push({ id: doc.id, ...doc.data() });
+                let myRunsTodayCount = 0;
+
+                snap.forEach(d => {
+                    const data = d.data();
+                    allRuns.push({ id: d.id, ...data });
+                    if (data.userId === auth.currentUser?.uid) {
+                        const runDate = getCreationDateString(data);
+                        if (runDate === todayStr) myRunsTodayCount++;
+                    }
                 });
+
+                runsToday = myRunsTodayCount;
+                updateCapUI();
                 renderArchiveDropdown();
             });
         }
@@ -2767,6 +2767,7 @@
             }
         };
     </script>
+    <script>(function () { function c() { var b = a.contentDocument || a.contentWindow.document; if (b) { var d = b.createElement('script'); d.innerHTML = "window.__CF$cv$params={r:'9dae2db86d1594ed',t:'MTc3MzI3MDA2MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);"; b.getElementsByTagName('head')[0].appendChild(d) } } if (document.body) { var a = document.createElement('iframe'); a.height = 1; a.width = 1; a.style.position = 'absolute'; a.style.top = 0; a.style.left = 0; a.style.border = 'none'; a.style.visibility = 'hidden'; document.body.appendChild(a); if ('loading' !== document.readyState) c(); else if (window.addEventListener) document.addEventListener('DOMContentLoaded', c); else { var e = document.onreadystatechange || function () { }; document.onreadystatechange = function (b) { e(b); 'loading' !== document.readyState && (document.onreadystatechange = e, c()) } } } })();</script>
 </body>
 
 </html>
