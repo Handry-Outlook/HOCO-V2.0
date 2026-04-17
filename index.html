@@ -806,9 +806,12 @@
             style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid var(--border); margin-top: 20px;">
             <div id="aucDisplay"
                 style="display: flex; justify-content: space-around; font-size: 1.2rem; font-weight: bold; margin: 0 0 20px 0;">
-                <span style="color: #2ecc71;">Day 0 AUC: <span id="auc-day0">...</span></span>
-                <span style="color: #f39c12;">Day 1 AUC: <span id="auc-day1">...</span></span>
-                <span style="color: #e74c3c;">Day 2 AUC: <span id="auc-day2">...</span></span>
+                <span style="color: #2ecc71;">Day 0 AUC: <span id="auc-day0">...</span> <span
+                        style="font-size: 0.8rem; color: #888;">(n=<span id="count-day0">0</span>)</span></span>
+                <span style="color: #f39c12;">Day 1 AUC: <span id="auc-day1">...</span> <span
+                        style="font-size: 0.8rem; color: #888;">(n=<span id="count-day1">0</span>)</span></span>
+                <span style="color: #e74c3c;">Day 2 AUC: <span id="auc-day2">...</span> <span
+                        style="font-size: 0.8rem; color: #888;">(n=<span id="count-day2">0</span>)</span></span>
             </div>
             <div style="position: relative; height: 50vh; width: 100%;">
                 <canvas id="rocChart"></canvas>
@@ -1004,13 +1007,17 @@
                         document.getElementById('auc-day0').innerText = data.day0.auc.toFixed(2);
                         document.getElementById('auc-day1').innerText = data.day1.auc.toFixed(2);
                         document.getElementById('auc-day2').innerText = data.day2.auc.toFixed(2);
-                        
+
+                        document.getElementById('count-day0').innerText = data.day0.count || 0;
+                        document.getElementById('count-day1').innerText = data.day1.count || 0;
+                        document.getElementById('count-day2').innerText = data.day2.count || 0;
+
                         renderRocChart(data.day0, data.day1, data.day2);
                     } else {
                         // Fallback message just in case the backend hasn't run the new function yet
                         document.getElementById('aucDisplay').innerHTML = `<span style="color:#aaa;">Legacy AUC: ${data.auc ? data.auc.toFixed(2) : 'N/A'} (Recalculate to update)</span>`;
                     }
-                    
+
                     document.getElementById('lastUpdatedText').innerText = `Last calculated: ${new Date(data.timestamp.toDate()).toLocaleString()}`;
                 } else {
                     document.getElementById('auc-day0').innerText = "N/A";
