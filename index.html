@@ -8,6 +8,7 @@
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-TKT4GTFBNM"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
@@ -617,9 +618,11 @@
                     <span id="roleBadge"
                         style="background:var(--accent); font-size: 0.65rem; padding: 4px 8px; border-radius: 4px; color: #000; font-weight: 800; letter-spacing: 1px;">...</span>
                 </div>
-
+                <button id="showAccuracyBtn" style="margin-bottom: 15px; background: #8e44ad;">
+                    📊 View AUTO-HOCO Accuracy
+                </button>
                 <div class="panel">
-                    
+
                     <label>Workspace Settings</label>
                     <select id="layoutSelect">
                         <option value="1">Single Map Mode</option>
@@ -786,7 +789,29 @@
             </div>
         </div>
     </div>
+    <div id="accuracy-wrapper"
+        style="display: none; flex-grow: 1; background: #111; padding: 30px; box-sizing: border-box; overflow-y: auto;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="color: #fff;">Model Accuracy (AUTO Forecasts)</h2>
+            <div>
+                <button id="manualUpdateBtn" class="btn-add"
+                    style="width: auto; padding: 8px 15px; margin-right: 10px;">↻ Recalculate Now</button>
+                <button id="closeAccuracyBtn" class="btn-outline" style="width: auto; padding: 8px 15px;">Return to
+                    Map</button>
+            </div>
+        </div>
+        <p style="color: #ccc; font-size: 0.9rem;">Evaluation: Will there be lightning given any environment?</p>
 
+        <div
+            style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid var(--border); margin-top: 20px;">
+            <h3 id="aucDisplay" style="text-align: center; font-size: 2rem; color: var(--accent); margin: 0 0 20px 0;">
+                AUC: Loading...</h3>
+            <div style="position: relative; height: 50vh; width: 100%;">
+                <canvas id="rocChart"></canvas>
+            </div>
+            <p id="lastUpdatedText" style="text-align: center; color: #888; font-size: 0.8rem; margin-top: 15px;"></p>
+        </div>
+    </div>
     <div id="map-wrapper" class="grid-1">
         <div id="map0" class="map-instance">
             <div class="map-metadata">
@@ -947,7 +972,101 @@
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, where, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
-        
+        let rocChartInstance = null;
+
+        // Toggle Views
+        document.getElementById('showAccuracyBtn').addEventListener('click', () => {
+            document.getElementById('map-wrapper').style.display = 'none';
+            document.getElementById('accuracy-wrapper').style.display = 'block';
+            fetchAndRenderAccuracy();
+        });
+
+        document.getElementById('closeAccuracyBtn').addEventListener('click', () => {
+            document.getElementById('accuracy-wrapper').style.display = 'none';
+            document.getElementById('map-wrapper').style.display = 'grid'; // Restore grid
+        });
+
+        // Fetch Data & Render Chart
+        async function fetchAndRenderAccuracy() {
+            try {
+                const statsRef = doc(db, "system_stats", "accuracy_latest");
+                const docSnap = await getDoc(statsRef);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    document.getElementById('aucDisplay').innerText = `AUC: ${data.auc.toFixed(2)}`;
+                    document.getElementById('lastUpdatedText').innerText = `Last calculated: ${new Date(data.timestamp.toDate()).toLocaleString()}`;
+                    renderRocChart(data.fpr, data.tpr); // fpr = False Positive Rate, tpr = True Positive Rate arrays
+                } else {
+                    document.getElementById('aucDisplay').innerText = "AUC: No data yet";
+                }
+            } catch (err) {
+                console.error("Error fetching accuracy data", err);
+                showToast("Failed to load accuracy chart", "error");
+            }
+        }
+
+        function renderRocChart(fpr, tpr) {
+            const ctx = document.getElementById('rocChart').getContext('2d');
+
+            // Format data for Chart.js scatter/line
+            const curveData = fpr.map((val, index) => ({ x: val, y: tpr[index] }));
+
+            if (rocChartInstance) rocChartInstance.destroy();
+
+            rocChartInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'ROC Curve (AUTO Models)',
+                        data: curveData,
+                        showLine: true,
+                        borderColor: '#3498db',
+                        backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Random Guess',
+                        data: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
+                        showLine: true,
+                        borderColor: '#888',
+                        borderDash: [5, 5],
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: 'False Positive Rate', color: '#ccc' }, min: 0, max: 1, grid: { color: '#333' } },
+                        y: { title: { display: true, text: 'True Positive Rate', color: '#ccc' }, min: 0, max: 1, grid: { color: '#333' } }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#fff' } }
+                    }
+                }
+            });
+        }
+
+        // Manual Update Trigger
+        document.getElementById('manualUpdateBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('manualUpdateBtn');
+            btn.disabled = true;
+            btn.innerText = "Calculating...";
+
+            try {
+                const triggerRecalc = httpsCallable(functions, 'calculateAutoAccuracy');
+                await triggerRecalc();
+                showToast("Accuracy recalculated successfully!", "success");
+                await fetchAndRenderAccuracy();
+            } catch (err) {
+                showToast("Error recalculating accuracy.", "error");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "↻ Recalculate Now";
+            }
+        });
         const accountMap = {
             main: { owner: "Handry-Outlook", repo: "HOCO-BACKEND" },
             alt1: { owner: "handry66", repo: "HOCO-BACKEND-ALT1" },
@@ -2305,10 +2424,10 @@
 
                 if (descEl) {
                     const html = descEl.innerHTML;
-                    
+
                     const timeMatch = html.match(/<strong>Period:<\/strong>\s*([^<]+)/i);
                     if (timeMatch && timeMatch[1]) periodText = timeMatch[1].trim();
-                    
+
                     const issueMatch = html.match(/<strong>Time:<\/strong>\s*([^<]+)/i);
                     if (issueMatch && issueMatch[1]) issueText = issueMatch[1].trim();
 
@@ -2349,8 +2468,8 @@
                 }
 
                 // Set Title string
-                const mainTitleText = isAuto 
-                    ? 'AUTO-HOCO V2.0 Thunderstorms Forecast' 
+                const mainTitleText = isAuto
+                    ? 'AUTO-HOCO V2.0 Thunderstorms Forecast'
                     : 'MANUAL-HOCO V2.0 Thunderstorms Forecast';
 
                 // 1. Create Export Container Offscreen (Flex Layout)
@@ -2498,7 +2617,7 @@
                         // Ensure we use fill-extrusion per user request, but relying on pitch:0 to stay flat
                         exportMap.addLayer({
                             'id': 'export-hoco-polygons',
-                            'type': 'fill-extrusion', 
+                            'type': 'fill-extrusion',
                             'source': 'export-hoco-source',
                             'filter': ['==', ['get', 'feature_type'], 'polygon'],
                             'paint': {
@@ -2553,7 +2672,7 @@
                             starEl.style.fontSize = '32px';
                             starEl.style.lineHeight = '1';
                             starEl.style.textShadow = '0 0 6px white, 0 0 6px white, 0 0 6px white';
-                            
+
                             new mapboxgl.Marker(starEl)
                                 .setLngLat(maxRiskCoords)
                                 .addTo(exportMap);
