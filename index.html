@@ -804,8 +804,12 @@
 
         <div
             style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid var(--border); margin-top: 20px;">
-            <h3 id="aucDisplay" style="text-align: center; font-size: 2rem; color: var(--accent); margin: 0 0 20px 0;">
-                AUC: Loading...</h3>
+            <div id="aucDisplay"
+                style="display: flex; justify-content: space-around; font-size: 1.2rem; font-weight: bold; margin: 0 0 20px 0;">
+                <span style="color: #2ecc71;">Day 0 AUC: <span id="auc-day0">...</span></span>
+                <span style="color: #f39c12;">Day 1 AUC: <span id="auc-day1">...</span></span>
+                <span style="color: #e74c3c;">Day 2 AUC: <span id="auc-day2">...</span></span>
+            </div>
             <div style="position: relative; height: 50vh; width: 100%;">
                 <canvas id="rocChart"></canvas>
             </div>
@@ -994,11 +998,24 @@
 
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    document.getElementById('aucDisplay').innerText = `AUC: ${data.auc.toFixed(2)}`;
+
+                    // Check if we are using the new multi-day format
+                    if (data.day0 && data.day1 && data.day2) {
+                        document.getElementById('auc-day0').innerText = data.day0.auc.toFixed(2);
+                        document.getElementById('auc-day1').innerText = data.day1.auc.toFixed(2);
+                        document.getElementById('auc-day2').innerText = data.day2.auc.toFixed(2);
+                        
+                        renderRocChart(data.day0, data.day1, data.day2);
+                    } else {
+                        // Fallback message just in case the backend hasn't run the new function yet
+                        document.getElementById('aucDisplay').innerHTML = `<span style="color:#aaa;">Legacy AUC: ${data.auc ? data.auc.toFixed(2) : 'N/A'} (Recalculate to update)</span>`;
+                    }
+                    
                     document.getElementById('lastUpdatedText').innerText = `Last calculated: ${new Date(data.timestamp.toDate()).toLocaleString()}`;
-                    renderRocChart(data.fpr, data.tpr); // fpr = False Positive Rate, tpr = True Positive Rate arrays
                 } else {
-                    document.getElementById('aucDisplay').innerText = "AUC: No data yet";
+                    document.getElementById('auc-day0').innerText = "N/A";
+                    document.getElementById('auc-day1').innerText = "N/A";
+                    document.getElementById('auc-day2').innerText = "N/A";
                 }
             } catch (err) {
                 console.error("Error fetching accuracy data", err);
@@ -1006,34 +1023,56 @@
             }
         }
 
-        function renderRocChart(fpr, tpr) {
+        function renderRocChart(day0, day1, day2) {
             const ctx = document.getElementById('rocChart').getContext('2d');
 
-            // Format data for Chart.js scatter/line
-            const curveData = fpr.map((val, index) => ({ x: val, y: tpr[index] }));
+            // Format data for Chart.js scatter/line for all three days
+            const curveData0 = day0.fpr.map((val, index) => ({ x: val, y: day0.tpr[index] }));
+            const curveData1 = day1.fpr.map((val, index) => ({ x: val, y: day1.tpr[index] }));
+            const curveData2 = day2.fpr.map((val, index) => ({ x: val, y: day2.tpr[index] }));
 
             if (rocChartInstance) rocChartInstance.destroy();
 
             rocChartInstance = new Chart(ctx, {
                 type: 'scatter',
                 data: {
-                    datasets: [{
-                        label: 'ROC Curve (AUTO Models)',
-                        data: curveData,
-                        showLine: true,
-                        borderColor: '#3498db',
-                        backgroundColor: 'rgba(52, 152, 219, 0.2)',
-                        tension: 0.4,
-                        fill: true
-                    },
-                    {
-                        label: 'Random Guess',
-                        data: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
-                        showLine: true,
-                        borderColor: '#888',
-                        borderDash: [5, 5],
-                        pointRadius: 0
-                    }]
+                    datasets: [
+                        {
+                            label: 'Day 0 (Nowcast)',
+                            data: curveData0,
+                            showLine: true,
+                            borderColor: '#2ecc71', // Green indicating high confidence
+                            backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                            tension: 0.4,
+                            fill: false
+                        },
+                        {
+                            label: 'Day 1 Forecast',
+                            data: curveData1,
+                            showLine: true,
+                            borderColor: '#f39c12', // Warning Orange
+                            backgroundColor: 'rgba(243, 156, 18, 0.1)',
+                            tension: 0.4,
+                            fill: false
+                        },
+                        {
+                            label: 'Day 2 Forecast',
+                            data: curveData2,
+                            showLine: true,
+                            borderColor: '#e74c3c', // Danger Red indicating decay
+                            backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                            tension: 0.4,
+                            fill: false
+                        },
+                        {
+                            label: 'Random Guess',
+                            data: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
+                            showLine: true,
+                            borderColor: '#888',
+                            borderDash: [5, 5],
+                            pointRadius: 0
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
