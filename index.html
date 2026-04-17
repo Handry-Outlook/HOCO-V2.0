@@ -1914,66 +1914,7 @@
                 renderArchiveDropdown();
             });
         }
-        // Function to refresh the dropdown based on a selected date
-        async function refreshArchiveList(selectedDateString) {
-            const selector = document.getElementById('idSelector');
-            selector.innerHTML = '<option value="">Loading runs...</option>';
 
-            let archiveQuery;
-            const baseColl = collection(db, "hoco_requests");
-
-            if (selectedDateString) {
-                // Create a range for the entire selected day
-                const startOfDay = new Date(selectedDateString);
-                startOfDay.setHours(0, 0, 0, 0);
-                const endOfDay = new Date(selectedDateString);
-                endOfDay.setHours(23, 59, 59, 999);
-
-                // Targeted query for older data
-                archiveQuery = query(
-                    baseColl,
-                    where("type", "==", "automated"),
-                    where("createdAt", ">=", startOfDay),
-                    where("createdAt", "<=", endOfDay),
-                    orderBy("createdAt", "desc")
-                );
-            } else {
-                // Fallback to recent runs if no date is picked
-                archiveQuery = query(
-                    baseColl,
-                    where("type", "==", "automated"),
-                    orderBy("createdAt", "desc"),
-                    limit(50)
-                );
-            }
-
-            const snap = await getDocs(archiveQuery);
-            selector.innerHTML = '<option value="">Select Run...</option>';
-
-            // Group by minute (like your reference app) to keep the list clean
-            const uniqueRuns = new Map();
-            snap.forEach(doc => {
-                const data = doc.data();
-                const d = data.createdAt.toDate();
-                const minuteKey = d.toISOString().substring(0, 16); // YYYY-MM-DDTHH:mm
-
-                if (!uniqueRuns.has(minuteKey)) {
-                    uniqueRuns.set(minuteKey, {
-                        id: doc.id,
-                        display: d.toLocaleString('en-GB')
-                    });
-                    const opt = document.createElement('option');
-                    opt.value = doc.id;
-                    opt.textContent = uniqueRuns.get(minuteKey).display;
-                    selector.appendChild(opt);
-                }
-            });
-        }
-
-        // Add listener to your calendar input
-        document.getElementById('calendarFilter').addEventListener('change', (e) => {
-            refreshArchiveList(e.target.value);
-        });
         function updateCapUI() {
             const capText = document.getElementById('runCapText');
             if (userRole === 'normal') capText.innerText = `(Daily Cap: ${runsToday}/7)`;
@@ -2069,6 +2010,7 @@
             const isPending = (runData.status === 'pending' || !runData.geojsonUrl);
 
             if (isPending) {
+                // ... (your existing pending logic - no change needed)
                 let numModels = 6;
                 if (runData.scenarios && Array.isArray(runData.scenarios) && runData.scenarios.length > 0) {
                     numModels = runData.scenarios.length;
@@ -2087,7 +2029,6 @@
                 const createdAt = runData.createdAt?.toDate?.() || new Date(runData.createdAt || Date.now());
                 showMapLoading(mapIndex, estMinutes, runId, createdAt);
 
-                // Hide buttons while run is pending
                 const lightningBtn = document.getElementById(`lightning-btn-${mapIndex}`);
                 if (lightningBtn) lightningBtn.style.display = 'none';
                 const exportBtn = document.getElementById(`export-btn-${mapIndex}`);
@@ -2099,15 +2040,63 @@
             hideMapLoading(mapIndex);
 
             try {
-                const response = await fetch(runData.geojsonUrl);
-                const geojsonData = await response.json();
+                let geojsonData;
 
+                // === FIXED FETCHING LOGIC FOR OLD RUNS ===
+                if (runData.geojsonUrl && runData.geojsonUrl.includes('raw.githubusercontent.com')) {
+                    try {
+                        // Extract parts from raw.githubusercontent.com URL
+                        const parts = runData.geojsonUrl.split('/');
+                        const owner = parts[3];
+                        const repo = parts[4];
+                        const ref = parts[5];                    // branch or commit
+                        const filePath = parts.slice(6).join('/'); // the rest of the path
+
+                        const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}?ref=${ref}`;
+
+                        const resp = await fetch(apiUrl, {
+                            headers: {
+                                'Accept': 'application/vnd.github.v3.raw',
+                                // Optional: Add your GitHub token here later for higher rate limits
+                                // 'Authorization': 'token ghp_xxxxxxxxxxxxxxxx'
+                            }
+                        });
+
+                        if (!resp.ok) {
+                            throw new Error(`GitHub API returned ${resp.status}`);
+                        }
+
+                        geojsonData = await resp.json();
+                        console.log(`Loaded old run via GitHub API for run ${runId}`);
+                    }
+                    catch (apiError) {
+                        console.warn("GitHub API fetch failed, falling back to raw URL:", apiError);
+                        // Fallback to original raw URL (for very recent runs)
+                        const fallbackResp = await fetch(runData.geojsonUrl);
+                        if (!fallbackResp.ok) throw new Error(`Raw URL also failed: ${fallbackResp.status}`);
+                        geojsonData = await fallbackResp.json();
+                    }
+                }
+                else if (runData.geojsonUrl) {
+                    // For any other URLs (Firebase Storage, etc.)
+                    const response = await fetch(runData.geojsonUrl);
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    geojsonData = await response.json();
+                }
+                else {
+                    throw new Error("No geojsonUrl found in run data");
+                }
+
+                // Success!
                 activeMapData[mapIndex] = geojsonData;
                 await renderHocoLayers(targetMap, geojsonData, mapIndex);
 
                 statusUI.innerText = "Loaded successfully.";
 
-                const creationDate = runData.createdAt ? (runData.createdAt.toDate ? runData.createdAt.toDate() : new Date(runData.createdAt)) : new Date();
+                const creationDate = runData.createdAt ?
+                    (runData.createdAt.toDate ? runData.createdAt.toDate() : new Date(runData.createdAt)) :
+                    new Date();
+
                 const isNormal = runData.type === 'automated';
                 const displayUser = runData.userId ? runData.userId.substring(0, 6) : 'System';
 
@@ -2119,19 +2108,19 @@
             <strong>Ran by:</strong> User ${displayUser}<br>
             <strong>Time:</strong> ${creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
         `;
+
                 document.getElementById(`meta-scale-${mapIndex}`).style.display = 'flex';
 
-                // Show buttons when run loads successfully
-                const lightningBtn = document.getElementById(`lightning-btn-${mapIndex}`);
-                if (lightningBtn) lightningBtn.style.display = 'block';
-                const exportBtn = document.getElementById(`export-btn-${mapIndex}`);
-                if (exportBtn) exportBtn.style.display = 'block';
+                // Show action buttons
+                document.getElementById(`lightning-btn-${mapIndex}`).style.display = 'block';
+                document.getElementById(`export-btn-${mapIndex}`).style.display = 'block';
 
             } catch (err) {
-                console.error("Map load error:", err);
-                statusUI.innerText = "Error loading run data.";
+                console.error("Map load error for run", runId, ":", err);
+                statusUI.innerText = "Failed to load data. Link may have expired.";
+                showToast("Could not load this old run. The data link has likely expired.", "error");
 
-                // Hide buttons on error
+                // Hide buttons on failure
                 const lightningBtn = document.getElementById(`lightning-btn-${mapIndex}`);
                 if (lightningBtn) lightningBtn.style.display = 'none';
                 const exportBtn = document.getElementById(`export-btn-${mapIndex}`);
