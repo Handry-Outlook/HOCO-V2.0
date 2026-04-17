@@ -8,7 +8,6 @@
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
-    <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-TKT4GTFBNM"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
@@ -249,7 +248,7 @@
             z-index: 5;
             pointer-events: auto;
             border: 1px solid rgba(255, 255, 255, 0.15);
-            max-width: 250px;
+            max-width: 350px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
         }
 
@@ -296,10 +295,7 @@
             height: 100%;
             background: linear-gradient(90deg, var(--primary), var(--accent), var(--primary));
             width: 0%;
-            /* ← changed */
-            /* remove: animation: loadingBar 1.5s linear infinite; */
             transition: width 0.6s linear;
-            /* ← add this */
         }
 
         @keyframes loadingBar {
@@ -806,11 +802,18 @@
                     </div>
                     <span style="font-size: 0.55rem;">High</span>
                 </div>
-                <button id="lightning-btn-0"
-                    style="margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
-                    onclick="toggleLightningLayer(0)">
-                    ⚡ Show Lightning
-                </button>
+                <div style="display: flex; gap: 5px; margin-top: 8px;">
+                    <button id="lightning-btn-0"
+                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        onclick="toggleLightningLayer(0)">
+                        ⚡ Show Lightning
+                    </button>
+                    <button id="export-btn-0"
+                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: #2980b9; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        onclick="exportMapToPNG(0)">
+                        📷 Export PNG
+                    </button>
+                </div>
             </div>
             <div id="loading-0" class="loading-overlay">
                 <div class="loading-content">
@@ -837,11 +840,18 @@
                     </div>
                     <span style="font-size: 0.55rem;">High</span>
                 </div>
-                <button id="lightning-btn-1"
-                    style="margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
-                    onclick="toggleLightningLayer(1)">
-                    ⚡ Show Lightning
-                </button>
+                <div style="display: flex; gap: 5px; margin-top: 8px;">
+                    <button id="lightning-btn-1"
+                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        onclick="toggleLightningLayer(1)">
+                        ⚡ Show Lightning
+                    </button>
+                    <button id="export-btn-1"
+                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: #2980b9; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        onclick="exportMapToPNG(1)">
+                        📷 Export PNG
+                    </button>
+                </div>
             </div>
             <div id="loading-1" class="loading-overlay">
                 <div class="loading-content">
@@ -868,11 +878,18 @@
                     </div>
                     <span style="font-size: 0.55rem;">High</span>
                 </div>
-                <button id="lightning-btn-2"
-                    style="margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
-                    onclick="toggleLightningLayer(2)">
-                    ⚡ Show Lightning
-                </button>
+                <div style="display: flex; gap: 5px; margin-top: 8px;">
+                    <button id="lightning-btn-2"
+                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        onclick="toggleLightningLayer(2)">
+                        ⚡ Show Lightning
+                    </button>
+                    <button id="export-btn-2"
+                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: #2980b9; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        onclick="exportMapToPNG(2)">
+                        📷 Export PNG
+                    </button>
+                </div>
             </div>
             <div id="loading-2" class="loading-overlay">
                 <div class="loading-content">
@@ -899,11 +916,18 @@
                     </div>
                     <span style="font-size: 0.55rem;">High</span>
                 </div>
-                <button id="lightning-btn-3"
-                    style="margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
-                    onclick="toggleLightningLayer(3)">
-                    ⚡ Show Lightning
-                </button>
+                <div style="display: flex; gap: 5px; margin-top: 8px;">
+                    <button id="lightning-btn-3"
+                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        onclick="toggleLightningLayer(3)">
+                        ⚡ Show Lightning
+                    </button>
+                    <button id="export-btn-3"
+                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: #2980b9; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        onclick="exportMapToPNG(3)">
+                        📷 Export PNG
+                    </button>
+                </div>
             </div>
             <div id="loading-3" class="loading-overlay">
                 <div class="loading-content">
@@ -1414,9 +1438,11 @@
             const loadingDiv = document.getElementById(`loading-${mapIndex}`);
             if (loadingDiv) loadingDiv.style.display = 'none';
 
-            // ─── NEW: Hide lightning button when loading screen appears ───
+            // ─── NEW: Hide buttons when loading screen appears ───
             const lightningBtn = document.getElementById(`lightning-btn-${mapIndex}`);
             if (lightningBtn) lightningBtn.style.display = 'none';
+            const exportBtn = document.getElementById(`export-btn-${mapIndex}`);
+            if (exportBtn) exportBtn.style.display = 'none';
         }
 
         // ==========================================
@@ -1831,9 +1857,11 @@
                 const createdAt = runData.createdAt?.toDate?.() || new Date(runData.createdAt || Date.now());
                 showMapLoading(mapIndex, estMinutes, runId, createdAt);
 
-                // ─── NEW: Hide lightning button while run is pending ───
+                // ─── NEW: Hide buttons while run is pending ───
                 const lightningBtn = document.getElementById(`lightning-btn-${mapIndex}`);
                 if (lightningBtn) lightningBtn.style.display = 'none';
+                const exportBtn = document.getElementById(`export-btn-${mapIndex}`);
+                if (exportBtn) exportBtn.style.display = 'none';
 
                 return;
             }
@@ -1863,17 +1891,21 @@
         `;
                 document.getElementById(`meta-scale-${mapIndex}`).style.display = 'flex';
 
-                // ─── NEW: Show lightning button when run loads successfully ───
+                // ─── NEW: Show buttons when run loads successfully ───
                 const lightningBtn = document.getElementById(`lightning-btn-${mapIndex}`);
                 if (lightningBtn) lightningBtn.style.display = 'block';
+                const exportBtn = document.getElementById(`export-btn-${mapIndex}`);
+                if (exportBtn) exportBtn.style.display = 'block';
 
             } catch (err) {
                 console.error("Map load error:", err);
                 statusUI.innerText = "Error loading run data.";
 
-                // ─── NEW: Hide button on error ───
+                // ─── NEW: Hide buttons on error ───
                 const lightningBtn = document.getElementById(`lightning-btn-${mapIndex}`);
                 if (lightningBtn) lightningBtn.style.display = 'none';
+                const exportBtn = document.getElementById(`export-btn-${mapIndex}`);
+                if (exportBtn) exportBtn.style.display = 'none';
             }
         }
         async function renderHocoLayers(targetMap, geojsonData, mapIndex) {
@@ -2240,6 +2272,254 @@
             endInput.value = localISOTime;
         };
         window.toggleLightningLayer = toggleLightningLayer;
+
+        // ==========================================
+        // EXPORT TO PNG LOGIC
+        // ==========================================
+        window.exportMapToPNG = async (mapIndex) => {
+            const geojsonData = activeMapData[mapIndex];
+            if (!geojsonData) {
+                showToast("No data to export on this map", "error");
+                return;
+            }
+
+            const btn = document.getElementById(`export-btn-${mapIndex}`);
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = "Exporting...";
+            }
+
+            try {
+                // Calculate Max Risk
+                let maxRisk = -1;
+                let maxRiskCoords = null;
+                geojsonData.features.forEach(f => {
+                    if (f.properties && f.properties.risk !== undefined) {
+                        if (f.properties.risk > maxRisk) {
+                            maxRisk = f.properties.risk;
+                            if (f.geometry.type === 'Polygon') {
+                                maxRiskCoords = f.geometry.coordinates[0][0]; // Simple estimation
+                            } else if (f.geometry.type === 'Point') {
+                                maxRiskCoords = f.geometry.coordinates;
+                            }
+                        }
+                    }
+                });
+
+                // Extract metadata info
+                const descEl = document.getElementById(`meta-desc-${mapIndex}`);
+                let periodText = "Unknown Period";
+                let issueText = new Date().toLocaleString();
+
+                if (descEl) {
+                    const html = descEl.innerHTML;
+                    const timeMatch = html.match(/<strong>Period:<\/strong>\s*([^<]+)/i);
+                    if (timeMatch && timeMatch[1]) periodText = timeMatch[1].trim();
+                    const issueMatch = html.match(/<strong>Time:<\/strong>\s*([^<]+)/i);
+                    if (issueMatch && issueMatch[1]) issueText = issueMatch[1].trim();
+                }
+
+                // 1. Create Export Container Offscreen
+                const exportContainer = document.createElement('div');
+                exportContainer.id = 'export-container-png';
+                exportContainer.style.position = 'absolute';
+                exportContainer.style.top = '-9999px';
+                exportContainer.style.left = '-9999px';
+                exportContainer.style.width = '1200px';
+                exportContainer.style.height = '800px';
+                exportContainer.style.backgroundColor = '#111';
+                exportContainer.style.fontFamily = "'Inter', system-ui, sans-serif";
+                exportContainer.style.overflow = 'hidden';
+                exportContainer.style.zIndex = '-999';
+                document.body.appendChild(exportContainer);
+
+                // 2. Add Header
+                const header = document.createElement('div');
+                header.style.backgroundColor = '#283673';
+                header.style.color = '#ffffff';
+                header.style.padding = '15px';
+                header.style.textAlign = 'center';
+                header.style.fontSize = '26px';
+                header.style.fontWeight = 'bold';
+                header.innerText = 'AUTO-HOCO V2.0 Thunderstorms Forecast';
+                exportContainer.appendChild(header);
+
+                // 3. Add Sub-header
+                const subHeader = document.createElement('div');
+                subHeader.style.backgroundColor = '#1e295d';
+                subHeader.style.color = '#dddddd';
+                subHeader.style.padding = '8px 25px';
+                subHeader.style.fontSize = '14px';
+                subHeader.style.display = 'flex';
+                subHeader.style.justifyContent = 'space-between';
+                subHeader.innerHTML = `<span><strong>Valid:</strong> ${periodText}</span><span><strong>Issued:</strong> ${issueText}</span>`;
+                exportContainer.appendChild(subHeader);
+
+                // 4. Map Container inside Export
+                const mapDiv = document.createElement('div');
+                mapDiv.id = 'export-map-div';
+                mapDiv.style.width = '100%';
+                mapDiv.style.height = 'calc(100% - 85px)'; // Accounting for header height
+                mapDiv.style.position = 'relative';
+                exportContainer.appendChild(mapDiv);
+
+                // Overlay: Max Risk Label
+                const maxRiskLabel = document.createElement('div');
+                maxRiskLabel.style.position = 'absolute';
+                maxRiskLabel.style.top = '20px';
+                maxRiskLabel.style.left = '20px';
+                maxRiskLabel.style.backgroundColor = 'rgba(0,0,0,0.75)';
+                maxRiskLabel.style.color = 'white';
+                maxRiskLabel.style.padding = '8px 12px';
+                maxRiskLabel.style.borderRadius = '6px';
+                maxRiskLabel.style.border = '1px solid rgba(255,255,255,0.2)';
+                maxRiskLabel.style.fontSize = '16px';
+                maxRiskLabel.style.fontWeight = 'bold';
+                maxRiskLabel.style.zIndex = '10';
+                maxRiskLabel.innerText = `Max Risk Area: ${maxRisk}%`;
+                mapDiv.appendChild(maxRiskLabel);
+
+                // Overlay: Color Scale (Legend)
+                const legend = document.createElement('div');
+                legend.style.position = 'absolute';
+                legend.style.bottom = '40px';
+                legend.style.right = '20px';
+                legend.style.backgroundColor = 'rgba(15,15,15,0.85)';
+                legend.style.color = 'white';
+                legend.style.padding = '12px';
+                legend.style.borderRadius = '6px';
+                legend.style.border = '1px solid rgba(255,255,255,0.2)';
+                legend.style.zIndex = '10';
+                legend.innerHTML = `
+                    <div style="font-size: 13px; font-weight: bold; margin-bottom: 8px;">Risk Probability</div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 11px;">Low</span>
+                        <div style="width: 200px; height: 12px; border-radius: 6px; background: linear-gradient(to right, rgba(255,255,255,0), rgba(102,194,164,0.8) 20%, rgba(255,242,0,0.8) 40%, rgba(255,127,39,0.8) 60%, rgba(236,28,36,0.8) 80%, rgba(184,61,218,0.9) 100%);"></div>
+                        <span style="font-size: 11px;">High</span>
+                    </div>
+                `;
+                mapDiv.appendChild(legend);
+
+                // Overlay: Logo
+                const logo = document.createElement('img');
+                logo.src = 'https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png';
+                logo.style.position = 'absolute';
+                logo.style.bottom = '40px';
+                logo.style.left = '20px';
+                logo.style.height = '70px';
+                logo.style.zIndex = '10';
+                logo.crossOrigin = 'anonymous'; // Important for html2canvas
+                mapDiv.appendChild(logo);
+
+                // Overlay: Footer Text
+                const footerUrl = document.createElement('div');
+                footerUrl.style.position = 'absolute';
+                footerUrl.style.bottom = '10px';
+                footerUrl.style.width = '100%';
+                footerUrl.style.textAlign = 'center';
+                footerUrl.style.color = 'rgba(255,255,255,0.8)';
+                footerUrl.style.fontSize = '12px';
+                footerUrl.style.fontWeight = 'bold';
+                footerUrl.style.zIndex = '10';
+                footerUrl.style.textShadow = '0px 1px 3px rgba(0,0,0,0.8)';
+                footerUrl.innerText = 'https://handry-outlook.github.io/HOCO-V2.0/index.html';
+                mapDiv.appendChild(footerUrl);
+
+                // 5. Initialize the Independent Mapbox Map
+                const exportMap = new mapboxgl.Map({
+                    container: 'export-map-div',
+                    style: 'mapbox://styles/handry20191026/cmns2lucg001401s898cuaxjt',
+                    bounds: [
+                        [-10.234, 48.788], // SW coordinates
+                        [5.471, 56.578]    // NE coordinates
+                    ],
+                    preserveDrawingBuffer: true,
+                    interactive: false
+                });
+
+                await new Promise((resolve) => {
+                    exportMap.on('style.load', () => {
+                        exportMap.setProjection('mercator'); // Strict 2D for flat clean exports
+
+                        exportMap.addSource('export-hoco-source', {
+                            'type': 'geojson',
+                            'data': geojsonData
+                        });
+
+                        exportMap.addLayer({
+                            'id': 'export-hoco-polygons',
+                            'type': 'fill',
+                            'source': 'export-hoco-source',
+                            'filter': ['==', ['get', 'feature_type'], 'polygon'],
+                            'paint': {
+                                'fill-color': ['get', 'fill'],
+                                'fill-opacity': 0.7
+                            }
+                        });
+
+                        exportMap.addLayer({
+                            'id': 'export-hoco-polygons-outline',
+                            'type': 'line',
+                            'source': 'export-hoco-source',
+                            'filter': ['==', ['get', 'feature_type'], 'polygon'],
+                            'paint': {
+                                'line-color': '#ffffff',
+                                'line-width': 1.5,
+                                'line-opacity': 1.0
+                            }
+                        });
+
+                        // Add Max Risk White Dot
+                        if (maxRiskCoords) {
+                            const dotEl = document.createElement('div');
+                            dotEl.style.width = '14px';
+                            dotEl.style.height = '14px';
+                            dotEl.style.backgroundColor = '#ffffff';
+                            dotEl.style.borderRadius = '50%';
+                            dotEl.style.border = '2px solid #000000';
+                            dotEl.style.boxShadow = '0 0 12px rgba(255,255,255,1)';
+                            
+                            new mapboxgl.Marker(dotEl)
+                                .setLngLat(maxRiskCoords)
+                                .addTo(exportMap);
+                        }
+
+                        // Wait for full map render
+                        exportMap.once('idle', () => {
+                            setTimeout(resolve, 800); // Give tiles, layers, and logo an extra moment to settle
+                        });
+                    });
+                });
+
+                // 6. Capture to Canvas
+                const canvas = await html2canvas(exportContainer, {
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: '#111'
+                });
+
+                // 7. Trigger Image Download
+                const link = document.createElement('a');
+                link.download = `HOCO_Export_${Date.now()}.png`;
+                link.href = canvas.toDataURL('image/png', 1.0);
+                link.click();
+
+                showToast("Export completed successfully", "success");
+
+                // Cleanup
+                exportMap.remove();
+                document.body.removeChild(exportContainer);
+
+            } catch (err) {
+                console.error("Export error:", err);
+                showToast("Failed to create export image.", "error");
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = "📷 Export PNG";
+                }
+            }
+        };
     </script>
     <script>(function () { function c() { var b = a.contentDocument || a.contentWindow.document; if (b) { var d = b.createElement('script'); d.innerHTML = "window.__CF$cv$params={r:'9dae2db86d1594ed',t:'MTc3MzI3MDA2MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);"; b.getElementsByTagName('head')[0].appendChild(d) } } if (document.body) { var a = document.createElement('iframe'); a.height = 1; a.width = 1; a.style.position = 'absolute'; a.style.top = 0; a.style.left = 0; a.style.border = 'none'; a.style.visibility = 'hidden'; document.body.appendChild(a); if ('loading' !== document.readyState) c(); else if (window.addEventListener) document.addEventListener('DOMContentLoaded', c); else { var e = document.onreadystatechange || function () { }; document.onreadystatechange = function (b) { e(b); 'loading' !== document.readyState && (document.onreadystatechange = e, c()) } } } })();</script>
 </body>
