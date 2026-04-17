@@ -1889,28 +1889,28 @@
         // ARCHIVE & RENDERING
         // ==========================================
         function loadArchive() {
-            const todayStr = new Date().toISOString().split('T')[0];
             const calendar = document.getElementById('calendarFilter');
-            if (!calendar.value) {
-                calendar.value = todayStr;
-            }
+            const selectedDate = calendar.value; // e.g., "2026-04-13"
 
-            const q = query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(100));
+            // Convert "YYYY-MM-DD" to "DD/MM/YYYY" to match your startTime format
+            const [y, m, d] = selectedDate.split('-');
+            const formattedDate = `${d}/${m}/${y}`;
+
+            // Query for runs that START on the selected date
+            const q = query(
+                collection(db, "hoco_requests"),
+                where("type", "==", "automated"),
+                // This looks for any startTime that begins with the selected date
+                where("startTime", ">=", formattedDate),
+                where("startTime", "<=", formattedDate + " 23:59"),
+                orderBy("startTime", "desc")
+            );
+
             onSnapshot(q, (snap) => {
                 allRuns = [];
-                let myRunsTodayCount = 0;
-
-                snap.forEach(d => {
-                    const data = d.data();
-                    allRuns.push({ id: d.id, ...data });
-                    if (data.userId === auth.currentUser?.uid) {
-                        const runDate = getCreationDateString(data);
-                        if (runDate === todayStr) myRunsTodayCount++;
-                    }
+                snap.forEach(doc => {
+                    allRuns.push({ id: doc.id, ...doc.data() });
                 });
-
-                runsToday = myRunsTodayCount;
-                updateCapUI();
                 renderArchiveDropdown();
             });
         }
@@ -2767,6 +2767,6 @@
             }
         };
     </script>
-    </body>
+</body>
 
 </html>
