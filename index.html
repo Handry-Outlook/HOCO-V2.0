@@ -1232,22 +1232,28 @@
                 let allStrikes = [];
 
                 for (const url of [
-                    'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new/refs/heads/main/lightning_data.json',
-                    'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new/refs/heads/main/lightning_data_2025_autumn.json'
+                    'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new/main/lightning_data.json',
+                    'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new/main/lightning_data_2025_autumn.json',
+                    'https://data.consumer-digital.api.metoffice.gov.uk/v1/lightning'
                 ]) {
                     let jsonData = lightningCache.get(url);
 
                     if (!jsonData || (Date.now() - jsonData.timestamp) > CACHE_TTL_MS) {
-                        const resp = await fetch(url, { cache: 'no-cache' });
-                        if (!resp.ok) continue;
+                        try {
+                            const resp = await fetch(url, { cache: 'no-cache', headers: { 'Accept': 'application/json' } });
+                            if (!resp.ok) continue;
 
-                        jsonData = { data: await resp.json(), timestamp: Date.now() };
-                        lightningCache.set(url, jsonData);
+                            jsonData = { data: await resp.json(), timestamp: Date.now() };
+                            lightningCache.set(url, jsonData);
+                        } catch (err) {
+                            console.warn(`Failed to fetch lightning from ${url}`, err);
+                            continue;
+                        }
                     }
 
                     const raw = jsonData.data;
-                    const strikes = Array.isArray(raw) ? raw : (raw?.lightning_strikes || []);
-
+                    // Handles the three formats: direct array, { lightning_strikes: [] }, or { strikes: [] }
+                    const strikes = Array.isArray(raw) ? raw : (raw?.lightning_strikes || raw?.strikes || []);
                     const filtered = strikes.filter(s => {
                         if (!s.strike_time) return false;
                         const t = Math.floor(new Date(s.strike_time).getTime() / 1000);
