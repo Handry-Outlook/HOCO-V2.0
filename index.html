@@ -979,6 +979,7 @@
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, where, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
+        import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
         let rocChartInstance = null;
 
         // Toggle Views
@@ -1180,6 +1181,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
         const functions = getFunctions(app, "us-central1");
+        const storage = getStorage(app);
         const triggerHocoRun = httpsCallable(functions, 'triggerHocoRun');
 
         let userRole = 'guest';
@@ -1895,7 +1897,7 @@
                 calendar.value = todayStr;
             }
 
-            const q = query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(100));
+            const q = query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(500));
             onSnapshot(q, (snap) => {
                 allRuns = [];
                 let myRunsTodayCount = 0;
@@ -2078,8 +2080,35 @@
                     }
                 }
                 else if (runData.geojsonUrl) {
-                    // For any other URLs (Firebase Storage, etc.)
-                    const response = await fetch(runData.geojsonUrl);
+                    let fetchUrl = runData.geojsonUrl;
+
+                    // FIX: Prevent 7-day expiration by generating a fresh token for Firebase/Google Storage links
+                    if (fetchUrl.includes('firebasestorage.googleapis.com') || fetchUrl.includes('storage.googleapis.com')) {
+                        try {
+                            let decodedPath = '';
+                            const urlObj = new URL(fetchUrl);
+
+                            if (fetchUrl.includes('firebasestorage.googleapis.com')) {
+                                // Extract path from standard Firebase Storage /o/ format
+                                const pathPart = urlObj.pathname.split('/o/')[1];
+                                if (pathPart) decodedPath = decodeURIComponent(pathPart);
+                            } else {
+                                // Extract path from Google Cloud Storage URL format
+                                const parts = urlObj.pathname.split('/');
+                                if (parts.length > 2) decodedPath = decodeURIComponent(parts.slice(2).join('/'));
+                            }
+
+                            if (decodedPath) {
+                                decodedPath = decodedPath.split('?')[0]; // Clean query params if any
+                                // Generate a fresh, valid Firebase Storage URL
+                                fetchUrl = await getDownloadURL(ref(storage, decodedPath));
+                            }
+                        } catch (storageErr) {
+                            console.warn("Could not generate fresh URL, falling back to original:", storageErr);
+                        }
+                    }
+
+                    const response = await fetch(fetchUrl);
                     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                     geojsonData = await response.json();
                 }
