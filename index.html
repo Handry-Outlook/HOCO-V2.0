@@ -1914,7 +1914,66 @@
                 renderArchiveDropdown();
             });
         }
+        // Function to refresh the dropdown based on a selected date
+        async function refreshArchiveList(selectedDateString) {
+            const selector = document.getElementById('idSelector');
+            selector.innerHTML = '<option value="">Loading runs...</option>';
 
+            let archiveQuery;
+            const baseColl = collection(db, "hoco_requests");
+
+            if (selectedDateString) {
+                // Create a range for the entire selected day
+                const startOfDay = new Date(selectedDateString);
+                startOfDay.setHours(0, 0, 0, 0);
+                const endOfDay = new Date(selectedDateString);
+                endOfDay.setHours(23, 59, 59, 999);
+
+                // Targeted query for older data
+                archiveQuery = query(
+                    baseColl,
+                    where("type", "==", "automated"),
+                    where("createdAt", ">=", startOfDay),
+                    where("createdAt", "<=", endOfDay),
+                    orderBy("createdAt", "desc")
+                );
+            } else {
+                // Fallback to recent runs if no date is picked
+                archiveQuery = query(
+                    baseColl,
+                    where("type", "==", "automated"),
+                    orderBy("createdAt", "desc"),
+                    limit(50)
+                );
+            }
+
+            const snap = await getDocs(archiveQuery);
+            selector.innerHTML = '<option value="">Select Run...</option>';
+
+            // Group by minute (like your reference app) to keep the list clean
+            const uniqueRuns = new Map();
+            snap.forEach(doc => {
+                const data = doc.data();
+                const d = data.createdAt.toDate();
+                const minuteKey = d.toISOString().substring(0, 16); // YYYY-MM-DDTHH:mm
+
+                if (!uniqueRuns.has(minuteKey)) {
+                    uniqueRuns.set(minuteKey, {
+                        id: doc.id,
+                        display: d.toLocaleString('en-GB')
+                    });
+                    const opt = document.createElement('option');
+                    opt.value = doc.id;
+                    opt.textContent = uniqueRuns.get(minuteKey).display;
+                    selector.appendChild(opt);
+                }
+            });
+        }
+
+        // Add listener to your calendar input
+        document.getElementById('calendarFilter').addEventListener('change', (e) => {
+            refreshArchiveList(e.target.value);
+        });
         function updateCapUI() {
             const capText = document.getElementById('runCapText');
             if (userRole === 'normal') capText.innerText = `(Daily Cap: ${runsToday}/7)`;
@@ -2767,7 +2826,6 @@
             }
         };
     </script>
-    <script>(function () { function c() { var b = a.contentDocument || a.contentWindow.document; if (b) { var d = b.createElement('script'); d.innerHTML = "window.__CF$cv$params={r:'9dae2db86d1594ed',t:'MTc3MzI3MDA2MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);"; b.getElementsByTagName('head')[0].appendChild(d) } } if (document.body) { var a = document.createElement('iframe'); a.height = 1; a.width = 1; a.style.position = 'absolute'; a.style.top = 0; a.style.left = 0; a.style.border = 'none'; a.style.visibility = 'hidden'; document.body.appendChild(a); if ('loading' !== document.readyState) c(); else if (window.addEventListener) document.addEventListener('DOMContentLoaded', c); else { var e = document.onreadystatechange || function () { }; document.onreadystatechange = function (b) { e(b); 'loading' !== document.readyState && (document.onreadystatechange = e, c()) } } } })();</script>
 </body>
 
 </html>
