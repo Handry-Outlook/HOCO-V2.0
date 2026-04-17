@@ -1890,29 +1890,64 @@
         // ==========================================
         // ARCHIVE & RENDERING
         // ==========================================
-        function loadArchive() {
+        // Variable to store the unsubscribe function so we don't create duplicate listeners
+        let runsUnsubscribe = null;
+
+        function loadArchive(selectedDate = null) {
             const todayStr = new Date().toISOString().split('T')[0];
             const calendar = document.getElementById('calendarFilter');
+
+            // Set default calendar value if empty
             if (!calendar.value) {
                 calendar.value = todayStr;
             }
 
-            const q = query(collection(db, "hoco_requests"), orderBy("createdAt", "desc"), limit(500));
-            onSnapshot(q, (snap) => {
+            // Use the passed date, the calendar value, or default to today
+            const targetDateStr = selectedDate || calendar.value || todayStr;
+
+            // Create Date objects for the exact start and end of the target day
+            const startOfDay = new Date(targetDateStr);
+            startOfDay.setHours(0, 0, 0, 0);
+
+            const endOfDay = new Date(targetDateStr);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            // Build the dynamic query for that specific day
+            const colRef = collection(db, "hoco_requests");
+            const q = query(
+                colRef,
+                where("createdAt", ">=", startOfDay),
+                where("createdAt", "<=", endOfDay),
+                orderBy("createdAt", "desc")
+            );
+
+            // Clean up previous listener to prevent memory leaks and overlapping data
+            if (runsUnsubscribe) {
+                runsUnsubscribe();
+            }
+
+            runsUnsubscribe = onSnapshot(q, (snap) => {
                 allRuns = [];
                 let myRunsTodayCount = 0;
 
                 snap.forEach(d => {
                     const data = d.data();
                     allRuns.push({ id: d.id, ...data });
+
+                    // Count runs today
                     if (data.userId === auth.currentUser?.uid) {
                         const runDate = getCreationDateString(data);
                         if (runDate === todayStr) myRunsTodayCount++;
                     }
                 });
 
-                runsToday = myRunsTodayCount;
-                updateCapUI();
+                // Security check: Only update the daily cap limit if the user is viewing today's date.
+                // (If they view 2024, the count for that day would be 0, potentially allowing them to bypass the limit)
+                if (targetDateStr === todayStr) {
+                    runsToday = myRunsTodayCount;
+                    updateCapUI();
+                }
+
                 renderArchiveDropdown();
             });
         }
@@ -1987,7 +2022,10 @@
             calendar.value = today;
             renderArchiveDropdown();
         });
-        document.getElementById('calendarFilter').addEventListener('change', renderArchiveDropdown);
+        document.getElementById('calendarFilter').addEventListener('change', (e) => {
+            // Re-run the archive fetch for the newly selected date
+            loadArchive(e.target.value);
+        });
 
         document.getElementById('idSelector').addEventListener('change', async (e) => {
             const runId = e.target.value;
