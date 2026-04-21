@@ -1189,14 +1189,16 @@
             return points;
         }
 
-        function updateCurvePointInfo(day0, day1, day2) {
+        function updateCurvePointInfo(day0, day1, day2, note = "") {
             const text = [
                 `Stored ROC points - D0: ${day0?.fpr?.length || 0}, D1: ${day1?.fpr?.length || 0}, D2: ${day2?.fpr?.length || 0}`,
                 `Stored PR points - D0: ${day0?.recall?.length || 0}, D1: ${day1?.recall?.length || 0}, D2: ${day2?.recall?.length || 0}`,
                 `AUC and PR-AUC are computed from all stored verification blocks, but the plotted curve arrays stored in Firebase may be downsampled before display.`
-            ].join(' | ');
+            ];
 
-            document.getElementById('curvePointInfo').innerText = text;
+            if (note) text.push(note);
+
+            document.getElementById('curvePointInfo').innerText = text.join(' | ');
         }
 
         function formatVerificationMethod(verification = {}) {
@@ -1226,6 +1228,32 @@
             parts.push(intensityNote);
 
             return parts.join(' | ');
+        }
+
+        function mergeAccuracyDayData(summaryDay = {}, curveDay = null) {
+            if (!curveDay || typeof curveDay !== 'object') {
+                return { ...summaryDay };
+            }
+
+            return {
+                ...summaryDay,
+                fpr: Array.isArray(curveDay.fpr) ? curveDay.fpr : [],
+                tpr: Array.isArray(curveDay.tpr) ? curveDay.tpr : [],
+                recall: Array.isArray(curveDay.recall) ? curveDay.recall : [],
+                precision: Array.isArray(curveDay.precision) ? curveDay.precision : []
+            };
+        }
+
+        async function loadAccuracyCurvePayload(curveStoragePath) {
+            if (!curveStoragePath) return null;
+
+            const curveUrl = await getDownloadURL(ref(storage, curveStoragePath));
+            const response = await fetch(curveUrl, { cache: 'no-store' });
+            if (!response.ok) {
+                throw new Error(`Curve fetch failed with status ${response.status}`);
+            }
+
+            return await response.json();
         }
 
         function resetAccuracyDisplays() {
@@ -1273,10 +1301,32 @@
                         document.getElementById('count-day0').innerText = data.day0.count || 0;
                         document.getElementById('count-day1').innerText = data.day1.count || 0;
                         document.getElementById('count-day2').innerText = data.day2.count || 0;
+                        let accuracyDay0 = { ...data.day0 };
+                        let accuracyDay1 = { ...data.day1 };
+                        let accuracyDay2 = { ...data.day2 };
+                        let curveInfoNote = "";
+                        const hasEmbeddedCurves =
+                            Array.isArray(data.day0?.fpr) ||
+                            Array.isArray(data.day1?.fpr) ||
+                            Array.isArray(data.day2?.fpr);
 
-                        renderRocChart(data.day0, data.day1, data.day2);
-                        renderPrChart(data.day0, data.day1, data.day2);
-                        updateCurvePointInfo(data.day0, data.day1, data.day2);
+                        if (data.curveStoragePath) {
+                            try {
+                                const curvePayload = await loadAccuracyCurvePayload(data.curveStoragePath);
+                                accuracyDay0 = mergeAccuracyDayData(data.day0, curvePayload?.day0);
+                                accuracyDay1 = mergeAccuracyDayData(data.day1, curvePayload?.day1);
+                                accuracyDay2 = mergeAccuracyDayData(data.day2, curvePayload?.day2);
+                            } catch (curveErr) {
+                                console.warn("Could not load accuracy curve payload:", curveErr);
+                                curveInfoNote = "Curve JSON could not be loaded from Firebase Storage, so only summary metrics are shown.";
+                            }
+                        } else if (!hasEmbeddedCurves) {
+                            curveInfoNote = "Curve arrays are not stored in Firestore anymore; recalculate once to repopulate the chart JSON in Firebase Storage.";
+                        }
+
+                        renderRocChart(accuracyDay0, accuracyDay1, accuracyDay2);
+                        renderPrChart(accuracyDay0, accuracyDay1, accuracyDay2);
+                        updateCurvePointInfo(accuracyDay0, accuracyDay1, accuracyDay2, curveInfoNote);
                         document.getElementById('verificationMethodInfo').innerText = formatVerificationMethod(data.verification);
                     } else {
                         resetAccuracyDisplays();
