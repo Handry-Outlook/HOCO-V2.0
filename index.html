@@ -994,6 +994,25 @@
             document.getElementById('map-wrapper').style.display = 'grid'; // Restore grid
         });
 
+        function formatAccuracyTimestamp(value) {
+            if (!value) return "Unknown";
+
+            try {
+                if (typeof value.toDate === 'function') {
+                    return value.toDate().toLocaleString();
+                }
+
+                const parsed = value instanceof Date ? value : new Date(value);
+                return Number.isNaN(parsed.getTime()) ? "Unknown" : parsed.toLocaleString();
+            } catch (_) {
+                return "Unknown";
+            }
+        }
+
+        function formatAucValue(value) {
+            return Number.isFinite(value) ? value.toFixed(2) : "N/A";
+        }
+
         // Fetch Data & Render Chart
         async function fetchAndRenderAccuracy() {
             try {
@@ -1002,12 +1021,13 @@
 
                 if (docSnap.exists()) {
                     const data = docSnap.data();
+                    const updatedAt = data.lastUpdated || data.timestamp;
 
                     // Check if we are using the new multi-day format
                     if (data.day0 && data.day1 && data.day2) {
-                        document.getElementById('auc-day0').innerText = data.day0.auc.toFixed(2);
-                        document.getElementById('auc-day1').innerText = data.day1.auc.toFixed(2);
-                        document.getElementById('auc-day2').innerText = data.day2.auc.toFixed(2);
+                        document.getElementById('auc-day0').innerText = formatAucValue(data.day0.auc);
+                        document.getElementById('auc-day1').innerText = formatAucValue(data.day1.auc);
+                        document.getElementById('auc-day2').innerText = formatAucValue(data.day2.auc);
 
                         document.getElementById('count-day0').innerText = data.day0.count || 0;
                         document.getElementById('count-day1').innerText = data.day1.count || 0;
@@ -1019,11 +1039,12 @@
                         document.getElementById('aucDisplay').innerHTML = `<span style="color:#aaa;">Legacy AUC: ${data.auc ? data.auc.toFixed(2) : 'N/A'} (Recalculate to update)</span>`;
                     }
 
-                    document.getElementById('lastUpdatedText').innerText = `Last calculated: ${new Date(data.timestamp.toDate()).toLocaleString()}`;
+                    document.getElementById('lastUpdatedText').innerText = `Last calculated: ${formatAccuracyTimestamp(updatedAt)}`;
                 } else {
                     document.getElementById('auc-day0').innerText = "N/A";
                     document.getElementById('auc-day1').innerText = "N/A";
                     document.getElementById('auc-day2').innerText = "N/A";
+                    document.getElementById('lastUpdatedText').innerText = "Last calculated: Unknown";
                 }
             } catch (err) {
                 console.error("Error fetching accuracy data", err);
@@ -1893,6 +1914,29 @@
         // Variable to store the unsubscribe function so we don't create duplicate listeners
         let runsUnsubscribe = null;
 
+        function buildArchiveQuery(targetDateStr) {
+            const colRef = collection(db, "hoco_requests");
+
+            if (currentDateFilterMode === 'valid') {
+                // Valid-date mode needs a wider archive window because matching runs may
+                // have been created on earlier days.
+                return query(colRef, orderBy("createdAt", "desc"));
+            }
+
+            const startOfDay = new Date(targetDateStr);
+            startOfDay.setHours(0, 0, 0, 0);
+
+            const endOfDay = new Date(targetDateStr);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            return query(
+                colRef,
+                where("createdAt", ">=", startOfDay),
+                where("createdAt", "<=", endOfDay),
+                orderBy("createdAt", "desc")
+            );
+        }
+
         function loadArchive(selectedDate = null) {
             const todayStr = new Date().toISOString().split('T')[0];
             const calendar = document.getElementById('calendarFilter');
@@ -1904,22 +1948,7 @@
 
             // Use the passed date, the calendar value, or default to today
             const targetDateStr = selectedDate || calendar.value || todayStr;
-
-            // Create Date objects for the exact start and end of the target day
-            const startOfDay = new Date(targetDateStr);
-            startOfDay.setHours(0, 0, 0, 0);
-
-            const endOfDay = new Date(targetDateStr);
-            endOfDay.setHours(23, 59, 59, 999);
-
-            // Build the dynamic query for that specific day
-            const colRef = collection(db, "hoco_requests");
-            const q = query(
-                colRef,
-                where("createdAt", ">=", startOfDay),
-                where("createdAt", "<=", endOfDay),
-                orderBy("createdAt", "desc")
-            );
+            const q = buildArchiveQuery(targetDateStr);
 
             // Clean up previous listener to prevent memory leaks and overlapping data
             if (runsUnsubscribe) {
@@ -1970,10 +1999,8 @@
 
             allRuns
                 .filter(r => {
-                    if (!r.createdAt) return false;
-
                     const filterDate = getFilterDate(r);
-                    if (filterDate !== dateStr) return false;
+                    if (!filterDate || filterDate !== dateStr) return false;
 
                     // Visibility rules remain the same
                     if (userRole === 'developer') return true;
@@ -1992,12 +2019,18 @@
                     else if (r.public === true) tag = "[PUB]";
                     else if (currentUid && r.userId === currentUid) tag = "[MINE]";
 
-                    const creationDate = r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
-                    const creationTimeStr = creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const creationDate = r.createdAt
+                        ? (r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt))
+                        : null;
+                    const creationTimeStr = creationDate && !Number.isNaN(creationDate.getTime())
+                        ? creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : "Unknown";
 
                     const displayDate = currentDateFilterMode === 'valid' && r.startTime
                         ? r.startTime.split(' ')[0]
-                        : creationDate.toLocaleDateString([], { day: '2-digit', month: 'short' });
+                        : (creationDate && !Number.isNaN(creationDate.getTime())
+                            ? creationDate.toLocaleDateString([], { day: '2-digit', month: 'short' })
+                            : "Unknown");
 
                     const periodStart = r.startTime ? r.startTime.split(' ')[1] || "??:??" : "??:??";
                     const periodEnd = r.endTime ? r.endTime.split(' ')[1] || "??:??" : "??:??";
@@ -2017,10 +2050,9 @@
                 ? "Filter by forecast valid date (start of period)"
                 : "Filter by when the run was created/queued";
 
-            // Re-render with current date (or reset to today)
-            const today = new Date().toISOString().split('T')[0];
-            calendar.value = today;
-            renderArchiveDropdown();
+            const selectedDate = calendar.value || new Date().toISOString().split('T')[0];
+            calendar.value = selectedDate;
+            loadArchive(selectedDate);
         });
         document.getElementById('calendarFilter').addEventListener('change', (e) => {
             // Re-run the archive fetch for the newly selected date
