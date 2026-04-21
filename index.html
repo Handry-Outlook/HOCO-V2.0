@@ -813,8 +813,19 @@
                 <span style="color: #e74c3c;">Day 2 AUC: <span id="auc-day2">...</span> <span
                         style="font-size: 0.8rem; color: #888;">(n=<span id="count-day2">0</span>)</span></span>
             </div>
-            <div style="position: relative; height: 50vh; width: 100%;">
+            <div id="prAucDisplay"
+                style="display: flex; justify-content: space-around; font-size: 1.05rem; font-weight: bold; margin: 0 0 20px 0;">
+                <span style="color: #2ecc71;">Day 0 PR-AUC: <span id="prauc-day0">...</span></span>
+                <span style="color: #f39c12;">Day 1 PR-AUC: <span id="prauc-day1">...</span></span>
+                <span style="color: #e74c3c;">Day 2 PR-AUC: <span id="prauc-day2">...</span></span>
+            </div>
+            <p id="curvePointInfo"
+                style="text-align: center; color: #888; font-size: 0.8rem; margin: 0 0 15px 0;"></p>
+            <div style="position: relative; height: 40vh; width: 100%; margin-bottom: 20px;">
                 <canvas id="rocChart"></canvas>
+            </div>
+            <div style="position: relative; height: 50vh; width: 100%;">
+                <canvas id="prChart"></canvas>
             </div>
             <p id="lastUpdatedText" style="text-align: center; color: #888; font-size: 0.8rem; margin-top: 15px;"></p>
         </div>
@@ -981,6 +992,7 @@
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
         import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
         let rocChartInstance = null;
+        let prChartInstance = null;
 
         // Toggle Views
         document.getElementById('showAccuracyBtn').addEventListener('click', () => {
@@ -1013,6 +1025,52 @@
             return Number.isFinite(value) ? value.toFixed(2) : "N/A";
         }
 
+        function buildCurveData(xValues = [], yValues = []) {
+            const points = [];
+            const length = Math.min(xValues.length || 0, yValues.length || 0);
+
+            for (let i = 0; i < length; i++) {
+                const x = Number(xValues[i]);
+                const y = Number(yValues[i]);
+                if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+                points.push({ x, y });
+            }
+
+            return points;
+        }
+
+        function updateCurvePointInfo(day0, day1, day2) {
+            const text = [
+                `Stored ROC points - D0: ${day0?.fpr?.length || 0}, D1: ${day1?.fpr?.length || 0}, D2: ${day2?.fpr?.length || 0}`,
+                `Stored PR points - D0: ${day0?.recall?.length || 0}, D1: ${day1?.recall?.length || 0}, D2: ${day2?.recall?.length || 0}`,
+                `AUC and PR-AUC are computed from all accuracy points, but the plotted curve arrays stored in Firebase may be downsampled before display.`
+            ].join(' | ');
+
+            document.getElementById('curvePointInfo').innerText = text;
+        }
+
+        function resetAccuracyDisplays() {
+            if (rocChartInstance) {
+                rocChartInstance.destroy();
+                rocChartInstance = null;
+            }
+            if (prChartInstance) {
+                prChartInstance.destroy();
+                prChartInstance = null;
+            }
+
+            document.getElementById('auc-day0').innerText = "N/A";
+            document.getElementById('auc-day1').innerText = "N/A";
+            document.getElementById('auc-day2').innerText = "N/A";
+            document.getElementById('prauc-day0').innerText = "N/A";
+            document.getElementById('prauc-day1').innerText = "N/A";
+            document.getElementById('prauc-day2').innerText = "N/A";
+            document.getElementById('count-day0').innerText = "0";
+            document.getElementById('count-day1').innerText = "0";
+            document.getElementById('count-day2').innerText = "0";
+            document.getElementById('curvePointInfo').innerText = "";
+        }
+
         // Fetch Data & Render Chart
         async function fetchAndRenderAccuracy() {
             try {
@@ -1028,22 +1086,26 @@
                         document.getElementById('auc-day0').innerText = formatAucValue(data.day0.auc);
                         document.getElementById('auc-day1').innerText = formatAucValue(data.day1.auc);
                         document.getElementById('auc-day2').innerText = formatAucValue(data.day2.auc);
+                        document.getElementById('prauc-day0').innerText = formatAucValue(data.day0.prAuc);
+                        document.getElementById('prauc-day1').innerText = formatAucValue(data.day1.prAuc);
+                        document.getElementById('prauc-day2').innerText = formatAucValue(data.day2.prAuc);
 
                         document.getElementById('count-day0').innerText = data.day0.count || 0;
                         document.getElementById('count-day1').innerText = data.day1.count || 0;
                         document.getElementById('count-day2').innerText = data.day2.count || 0;
 
                         renderRocChart(data.day0, data.day1, data.day2);
+                        renderPrChart(data.day0, data.day1, data.day2);
+                        updateCurvePointInfo(data.day0, data.day1, data.day2);
                     } else {
-                        // Fallback message just in case the backend hasn't run the new function yet
-                        document.getElementById('aucDisplay').innerHTML = `<span style="color:#aaa;">Legacy AUC: ${data.auc ? data.auc.toFixed(2) : 'N/A'} (Recalculate to update)</span>`;
+                        resetAccuracyDisplays();
+                        document.getElementById('curvePointInfo').innerText =
+                            `Legacy accuracy format detected. Legacy AUC: ${formatAucValue(data.auc)}. Recalculate to populate ROC and PR curves.`;
                     }
 
                     document.getElementById('lastUpdatedText').innerText = `Last calculated: ${formatAccuracyTimestamp(updatedAt)}`;
                 } else {
-                    document.getElementById('auc-day0').innerText = "N/A";
-                    document.getElementById('auc-day1').innerText = "N/A";
-                    document.getElementById('auc-day2').innerText = "N/A";
+                    resetAccuracyDisplays();
                     document.getElementById('lastUpdatedText').innerText = "Last calculated: Unknown";
                 }
             } catch (err) {
@@ -1056,9 +1118,9 @@
             const ctx = document.getElementById('rocChart').getContext('2d');
 
             // Format data for Chart.js scatter/line for all three days
-            const curveData0 = day0.fpr.map((val, index) => ({ x: val, y: day0.tpr[index] }));
-            const curveData1 = day1.fpr.map((val, index) => ({ x: val, y: day1.tpr[index] }));
-            const curveData2 = day2.fpr.map((val, index) => ({ x: val, y: day2.tpr[index] }));
+            const curveData0 = buildCurveData(day0.fpr, day0.tpr);
+            const curveData1 = buildCurveData(day1.fpr, day1.tpr);
+            const curveData2 = buildCurveData(day2.fpr, day2.tpr);
 
             if (rocChartInstance) rocChartInstance.destroy();
 
@@ -1072,7 +1134,8 @@
                             showLine: true,
                             borderColor: '#2ecc71', // Green indicating high confidence
                             backgroundColor: 'rgba(46, 204, 113, 0.1)',
-                            tension: 0.4,
+                            tension: 0,
+                            pointRadius: 0,
                             fill: false
                         },
                         {
@@ -1081,7 +1144,8 @@
                             showLine: true,
                             borderColor: '#f39c12', // Warning Orange
                             backgroundColor: 'rgba(243, 156, 18, 0.1)',
-                            tension: 0.4,
+                            tension: 0,
+                            pointRadius: 0,
                             fill: false
                         },
                         {
@@ -1090,7 +1154,8 @@
                             showLine: true,
                             borderColor: '#e74c3c', // Danger Red indicating decay
                             backgroundColor: 'rgba(231, 76, 60, 0.1)',
-                            tension: 0.4,
+                            tension: 0,
+                            pointRadius: 0,
                             fill: false
                         },
                         {
@@ -1111,7 +1176,76 @@
                         y: { title: { display: true, text: 'True Positive Rate', color: '#ccc' }, min: 0, max: 1, grid: { color: '#333' } }
                     },
                     plugins: {
-                        legend: { labels: { color: '#fff' } }
+                        legend: { labels: { color: '#fff' } },
+                        title: {
+                            display: true,
+                            text: 'ROC Curve',
+                            color: '#fff'
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderPrChart(day0, day1, day2) {
+            const ctx = document.getElementById('prChart').getContext('2d');
+
+            const curveData0 = buildCurveData(day0.recall, day0.precision);
+            const curveData1 = buildCurveData(day1.recall, day1.precision);
+            const curveData2 = buildCurveData(day2.recall, day2.precision);
+
+            if (prChartInstance) prChartInstance.destroy();
+
+            prChartInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Day 0 PR Curve',
+                            data: curveData0,
+                            showLine: true,
+                            borderColor: '#2ecc71',
+                            backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                            tension: 0,
+                            pointRadius: 0,
+                            fill: false
+                        },
+                        {
+                            label: 'Day 1 PR Curve',
+                            data: curveData1,
+                            showLine: true,
+                            borderColor: '#f39c12',
+                            backgroundColor: 'rgba(243, 156, 18, 0.1)',
+                            tension: 0,
+                            pointRadius: 0,
+                            fill: false
+                        },
+                        {
+                            label: 'Day 2 PR Curve',
+                            data: curveData2,
+                            showLine: true,
+                            borderColor: '#e74c3c',
+                            backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                            tension: 0,
+                            pointRadius: 0,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: 'Recall', color: '#ccc' }, min: 0, max: 1, grid: { color: '#333' } },
+                        y: { title: { display: true, text: 'Precision', color: '#ccc' }, min: 0, max: 1, grid: { color: '#333' } }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#fff' } },
+                        title: {
+                            display: true,
+                            text: 'Precision-Recall Curve',
+                            color: '#fff'
+                        }
                     }
                 }
             });
