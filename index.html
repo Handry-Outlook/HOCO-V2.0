@@ -821,6 +821,8 @@
             </div>
             <p id="curvePointInfo"
                 style="text-align: center; color: #888; font-size: 0.8rem; margin: 0 0 15px 0;"></p>
+            <p id="verificationMethodInfo"
+                style="text-align: center; color: #9aa6b2; font-size: 0.8rem; margin: 0 0 15px 0;"></p>
             <div style="position: relative; height: 40vh; width: 100%; margin-bottom: 20px;">
                 <canvas id="rocChart"></canvas>
             </div>
@@ -852,9 +854,21 @@
                 </p>
                 <p style="margin: 0 0 16px 0; font-size: 0.9rem; color: #aaa;">
                     <strong>HOCO verification scale:</strong> the current verification logic evaluates forecasts on an approximately
-                    <strong>8 km grid</strong> over the UK. That means HOCO's ROC AUC and PR-AUC here describe skill at that grid-cell
-                    scale, not at raw polygon resolution. Some external systems below operate at finer kilometre-scale model grids,
-                    some at coarser regional or global scales, and some are verified only after aggregating in space or time.
+                    <strong>8 km grid</strong> over the UK and then aggregates neighbouring cells into approximately
+                    <strong>24 km spatial blocks</strong> before scoring. That reduces the worst storm-clustering problem from treating
+                    every adjacent grid cell as fully independent, but it still remains an occurrence-based benchmark rather than a full
+                    storm-object verification system.
+                </p>
+                <p style="margin: 0 0 16px 0; font-size: 0.9rem; color: #aaa;">
+                    A block is currently treated as a <strong>binary event</strong>: if at least one lightning strike lands inside it,
+                    the observed label is positive. That makes ROC AUC and PR-AUC useful for event discrimination, but it also means
+                    these scores do <strong>not</strong> yet reward a forecast differently for 1 strike versus 100 strikes. In other
+                    words, the curves below measure <strong>occurrence skill</strong>, not flash-density or intensity skill.
+                </p>
+                <p style="margin: 0 0 16px 0; font-size: 0.9rem; color: #aaa;">
+                    Forecast polygons are now matched more strictly as well: there is no extra blanket 10 km polygon buffer in the
+                    verifier, and overlapping forecast zones are combined into a single block probability instead of stopping at the
+                    first matching zone. That makes the benchmark less optimistic than the earlier version.
                 </p>
                 <p style="margin: 0 0 16px 0; font-size: 0.9rem; color: #aaa;">
                     <strong>Research note:</strong> public lightning papers do not all publish the same skill metrics. A few provide
@@ -1179,10 +1193,39 @@
             const text = [
                 `Stored ROC points - D0: ${day0?.fpr?.length || 0}, D1: ${day1?.fpr?.length || 0}, D2: ${day2?.fpr?.length || 0}`,
                 `Stored PR points - D0: ${day0?.recall?.length || 0}, D1: ${day1?.recall?.length || 0}, D2: ${day2?.recall?.length || 0}`,
-                `AUC and PR-AUC are computed from all accuracy points, but the plotted curve arrays stored in Firebase may be downsampled before display.`
+                `AUC and PR-AUC are computed from all stored verification blocks, but the plotted curve arrays stored in Firebase may be downsampled before display.`
             ].join(' | ');
 
             document.getElementById('curvePointInfo').innerText = text;
+        }
+
+        function formatVerificationMethod(verification = {}) {
+            if (!verification || typeof verification !== 'object') {
+                return "";
+            }
+
+            const gridKm = Number(verification.gridKm);
+            const blockKm = Number(verification.spatialBlockKm);
+            const polygonBufferKm = Number(verification.polygonBufferKm);
+            const overlapMode = verification.overlapMode === 'probability_union'
+                ? 'overlapping forecast zones combined into one event probability'
+                : 'legacy overlapping-zone handling';
+            const target = verification.target === 'binary_any_lightning_in_block'
+                ? 'binary lightning occurrence by spatial block'
+                : (verification.target || 'binary lightning occurrence');
+            const intensityNote = verification.includesStrikeIntensity
+                ? 'strike intensity included'
+                : 'strike intensity not included';
+
+            const parts = [];
+            if (Number.isFinite(gridKm)) parts.push(`Grid: ~${gridKm} km`);
+            if (Number.isFinite(blockKm)) parts.push(`Aggregation: ~${blockKm} km blocks`);
+            if (Number.isFinite(polygonBufferKm)) parts.push(`Polygon buffer: ${polygonBufferKm} km`);
+            parts.push(`Target: ${target}`);
+            parts.push(overlapMode);
+            parts.push(intensityNote);
+
+            return parts.join(' | ');
         }
 
         function resetAccuracyDisplays() {
@@ -1205,6 +1248,7 @@
             document.getElementById('count-day1').innerText = "0";
             document.getElementById('count-day2').innerText = "0";
             document.getElementById('curvePointInfo').innerText = "";
+            document.getElementById('verificationMethodInfo').innerText = "";
         }
 
         // Fetch Data & Render Chart
@@ -1233,10 +1277,13 @@
                         renderRocChart(data.day0, data.day1, data.day2);
                         renderPrChart(data.day0, data.day1, data.day2);
                         updateCurvePointInfo(data.day0, data.day1, data.day2);
+                        document.getElementById('verificationMethodInfo').innerText = formatVerificationMethod(data.verification);
                     } else {
                         resetAccuracyDisplays();
                         document.getElementById('curvePointInfo').innerText =
                             `Legacy accuracy format detected. Legacy AUC: ${formatAucValue(data.auc)}. Recalculate to populate ROC and PR curves.`;
+                        document.getElementById('verificationMethodInfo').innerText =
+                            "Verification method metadata is unavailable for the legacy accuracy format.";
                     }
 
                     document.getElementById('lastUpdatedText').innerText = `Last calculated: ${formatAccuracyTimestamp(updatedAt)}`;
