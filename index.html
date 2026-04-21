@@ -800,12 +800,12 @@
                     Map</button>
             </div>
         </div>
-        <p style="color: #ccc; font-size: 0.9rem;">Evaluation: Will there be lightning given any environment?</p>
+        <p style="color: #ccc; font-size: 0.9rem;">Evaluation: occurrence discrimination, calibration, and observed flash-density diagnostics for AUTO lightning forecasts.</p>
 
         <div
             style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid var(--border); margin-top: 20px;">
             <div id="aucDisplay"
-                style="display: flex; justify-content: space-around; font-size: 1.2rem; font-weight: bold; margin: 0 0 20px 0;">
+                style="display: flex; flex-wrap: wrap; gap: 10px 20px; justify-content: space-around; font-size: 1.2rem; font-weight: bold; margin: 0 0 20px 0; text-align: center;">
                 <span style="color: #2ecc71;">Day 0 AUC: <span id="auc-day0">...</span> <span
                         style="font-size: 0.8rem; color: #888;">(n=<span id="count-day0">0</span>)</span></span>
                 <span style="color: #f39c12;">Day 1 AUC: <span id="auc-day1">...</span> <span
@@ -814,10 +814,22 @@
                         style="font-size: 0.8rem; color: #888;">(n=<span id="count-day2">0</span>)</span></span>
             </div>
             <div id="prAucDisplay"
-                style="display: flex; justify-content: space-around; font-size: 1.05rem; font-weight: bold; margin: 0 0 20px 0;">
+                style="display: flex; flex-wrap: wrap; gap: 10px 20px; justify-content: space-around; font-size: 1.05rem; font-weight: bold; margin: 0 0 20px 0; text-align: center;">
                 <span style="color: #2ecc71;">Day 0 PR-AUC: <span id="prauc-day0">...</span></span>
                 <span style="color: #f39c12;">Day 1 PR-AUC: <span id="prauc-day1">...</span></span>
                 <span style="color: #e74c3c;">Day 2 PR-AUC: <span id="prauc-day2">...</span></span>
+            </div>
+            <div id="brierDisplay"
+                style="display: flex; flex-wrap: wrap; gap: 10px 20px; justify-content: space-around; font-size: 1rem; font-weight: bold; margin: 0 0 14px 0; text-align: center;">
+                <span style="color: #2ecc71;">Day 0 Brier: <span id="brier-day0">...</span></span>
+                <span style="color: #f39c12;">Day 1 Brier: <span id="brier-day1">...</span></span>
+                <span style="color: #e74c3c;">Day 2 Brier: <span id="brier-day2">...</span></span>
+            </div>
+            <div id="densityDisplay"
+                style="display: flex; flex-wrap: wrap; gap: 10px 20px; justify-content: space-around; font-size: 0.98rem; font-weight: bold; margin: 0 0 20px 0; text-align: center;">
+                <span style="color: #2ecc71;">Day 0 Mean Flash Density: <span id="density-day0">...</span></span>
+                <span style="color: #f39c12;">Day 1 Mean Flash Density: <span id="density-day1">...</span></span>
+                <span style="color: #e74c3c;">Day 2 Mean Flash Density: <span id="density-day2">...</span></span>
             </div>
             <p id="curvePointInfo"
                 style="text-align: center; color: #888; font-size: 0.8rem; margin: 0 0 15px 0;"></p>
@@ -829,10 +841,16 @@
             <div style="position: relative; height: 50vh; width: 100%;">
                 <canvas id="prChart"></canvas>
             </div>
+            <div style="position: relative; height: 40vh; width: 100%; margin-top: 20px;">
+                <canvas id="reliabilityChart"></canvas>
+            </div>
+            <div style="position: relative; height: 40vh; width: 100%; margin-top: 20px;">
+                <canvas id="densityChart"></canvas>
+            </div>
             <p id="lastUpdatedText" style="text-align: center; color: #888; font-size: 0.8rem; margin-top: 15px;"></p>
             <div
                 style="margin-top: 22px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.08); color: #d7d7d7; line-height: 1.65;">
-                <h3 style="margin: 0 0 12px 0; color: #fff; font-size: 1rem;">How to read ROC AUC and PR-AUC</h3>
+                <h3 style="margin: 0 0 12px 0; color: #fff; font-size: 1rem;">How to read the verification metrics</h3>
                 <p style="margin: 0 0 12px 0; font-size: 0.92rem;">
                     <strong>ROC AUC</strong> measures how well the forecast ranks lightning-prone cells above non-lightning cells
                     across every possible decision threshold. A value near <strong>1.00</strong> means the system almost always ranks
@@ -847,6 +865,22 @@
                     compared with the total number of grid cells. A model can post a respectable ROC AUC while still having modest
                     precision in rare-event situations, which is why PR-AUC is a valuable companion metric.
                 </p>
+                <p style="margin: 0 0 12px 0; font-size: 0.92rem;">
+                    <strong>Brier score</strong> measures the average squared error between the forecast probability and the observed
+                    binary outcome. Lower is better, with <strong>0.00</strong> being perfect. It complements ROC/PR by checking whether
+                    the probabilities themselves are numerically sensible, not just well ranked.
+                </p>
+                <p style="margin: 0 0 12px 0; font-size: 0.92rem;">
+                    The <strong>reliability curve</strong> compares the average forecast probability in each occupied bin with the actual
+                    observed lightning frequency in that bin. Curves close to the diagonal are well calibrated. Above the diagonal means
+                    HOCO was underconfident there; below it means the forecast probabilities were too high.
+                </p>
+                <p style="margin: 0 0 16px 0; font-size: 0.92rem;">
+                    The <strong>flash-density chart</strong> adds intensity context by plotting observed strikes per approximate
+                    <strong>1,000 km^2</strong> against forecast-probability bins. HOCO still does not forecast explicit flash counts, so
+                    this is a diagnostic relationship rather than a direct count-forecast skill score, but it helps show whether higher
+                    probabilities are lining up with more concentrated lightning.
+                </p>
                 <p style="margin: 0 0 16px 0; font-size: 0.9rem; color: #aaa;">
                     The reference systems below are included as <strong>context only</strong>. Their domains, lead times, targets
                     (e.g. total lightning vs cloud-to-ground lightning), spatial scales, and verification methods differ from HOCO, so
@@ -856,14 +890,14 @@
                     <strong>HOCO verification scale:</strong> the current verification logic evaluates forecasts on an approximately
                     <strong>8 km grid</strong> over the UK and then aggregates neighbouring cells into approximately
                     <strong>24 km spatial blocks</strong> before scoring. That reduces the worst storm-clustering problem from treating
-                    every adjacent grid cell as fully independent, but it still remains an occurrence-based benchmark rather than a full
-                    storm-object verification system.
+                    every adjacent grid cell as fully independent. It is still not a full storm-object verification system, but it now
+                    includes both calibration diagnostics and an observed density view in addition to occurrence discrimination.
                 </p>
                 <p style="margin: 0 0 16px 0; font-size: 0.9rem; color: #aaa;">
-                    A block is currently treated as a <strong>binary event</strong>: if at least one lightning strike lands inside it,
-                    the observed label is positive. That makes ROC AUC and PR-AUC useful for event discrimination, but it also means
-                    these scores do <strong>not</strong> yet reward a forecast differently for 1 strike versus 100 strikes. In other
-                    words, the curves below measure <strong>occurrence skill</strong>, not flash-density or intensity skill.
+                    A block is still treated as a <strong>binary event</strong> for ROC AUC, PR-AUC, Brier score, and the reliability
+                    curve: if at least one lightning strike lands inside it, the observed occurrence label is positive. The added
+                    density diagnostic partly addresses that limitation by also tracking how many strikes accumulated within each
+                    probability bin, but it should still be read as supporting context rather than a full explicit-intensity forecast.
                 </p>
                 <p style="margin: 0 0 16px 0; font-size: 0.9rem; color: #aaa;">
                     Forecast polygons are now matched more strictly as well: there is no extra blanket 10 km polygon buffer in the
@@ -1143,6 +1177,8 @@
         import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
         let rocChartInstance = null;
         let prChartInstance = null;
+        let reliabilityChartInstance = null;
+        let densityChartInstance = null;
 
         // Toggle Views
         document.getElementById('showAccuracyBtn').addEventListener('click', () => {
@@ -1171,8 +1207,16 @@
             }
         }
 
+        function formatMetricValue(value, digits = 2) {
+            return Number.isFinite(value) ? value.toFixed(digits) : "N/A";
+        }
+
         function formatAucValue(value) {
-            return Number.isFinite(value) ? value.toFixed(2) : "N/A";
+            return formatMetricValue(value, 2);
+        }
+
+        function formatDensitySummary(value) {
+            return Number.isFinite(value) ? `${Number(value).toFixed(3)} / 1000 km^2` : "N/A";
         }
 
         function buildCurveData(xValues = [], yValues = []) {
@@ -1193,7 +1237,9 @@
             const text = [
                 `Stored ROC points - D0: ${day0?.fpr?.length || 0}, D1: ${day1?.fpr?.length || 0}, D2: ${day2?.fpr?.length || 0}`,
                 `Stored PR points - D0: ${day0?.recall?.length || 0}, D1: ${day1?.recall?.length || 0}, D2: ${day2?.recall?.length || 0}`,
-                `AUC and PR-AUC are computed from all stored verification blocks, but the plotted curve arrays stored in Firebase may be downsampled before display.`
+                `Reliability bins - D0: ${day0?.reliabilityForecast?.length || 0}, D1: ${day1?.reliabilityForecast?.length || 0}, D2: ${day2?.reliabilityForecast?.length || 0}`,
+                `Density bins - D0: ${day0?.densityForecast?.length || 0}, D1: ${day1?.densityForecast?.length || 0}, D2: ${day2?.densityForecast?.length || 0}`,
+                `ROC and PR curves may be downsampled before display; Brier, reliability, and flash-density summaries use the full stored verification blocks.`
             ];
 
             if (note) text.push(note);
@@ -1209,6 +1255,7 @@
             const gridKm = Number(verification.gridKm);
             const blockKm = Number(verification.spatialBlockKm);
             const polygonBufferKm = Number(verification.polygonBufferKm);
+            const calibrationBins = Number(verification.calibrationBins);
             const overlapMode = verification.overlapMode === 'probability_union'
                 ? 'overlapping forecast zones combined into one event probability'
                 : 'legacy overlapping-zone handling';
@@ -1216,13 +1263,16 @@
                 ? 'binary lightning occurrence by spatial block'
                 : (verification.target || 'binary lightning occurrence');
             const intensityNote = verification.includesStrikeIntensity
-                ? 'strike intensity included'
+                ? (verification.intensityMetric === 'flash_count_density_per_1000km2'
+                    ? 'flash-count density per ~1,000 km^2 included'
+                    : 'strike intensity included')
                 : 'strike intensity not included';
 
             const parts = [];
             if (Number.isFinite(gridKm)) parts.push(`Grid: ~${gridKm} km`);
             if (Number.isFinite(blockKm)) parts.push(`Aggregation: ~${blockKm} km blocks`);
             if (Number.isFinite(polygonBufferKm)) parts.push(`Polygon buffer: ${polygonBufferKm} km`);
+            if (Number.isFinite(calibrationBins)) parts.push(`Calibration bins: ${calibrationBins}`);
             parts.push(`Target: ${target}`);
             parts.push(overlapMode);
             parts.push(intensityNote);
@@ -1240,7 +1290,13 @@
                 fpr: Array.isArray(curveDay.fpr) ? curveDay.fpr : [],
                 tpr: Array.isArray(curveDay.tpr) ? curveDay.tpr : [],
                 recall: Array.isArray(curveDay.recall) ? curveDay.recall : [],
-                precision: Array.isArray(curveDay.precision) ? curveDay.precision : []
+                precision: Array.isArray(curveDay.precision) ? curveDay.precision : [],
+                reliabilityForecast: Array.isArray(curveDay.reliabilityForecast) ? curveDay.reliabilityForecast : [],
+                reliabilityObserved: Array.isArray(curveDay.reliabilityObserved) ? curveDay.reliabilityObserved : [],
+                reliabilityCount: Array.isArray(curveDay.reliabilityCount) ? curveDay.reliabilityCount : [],
+                densityForecast: Array.isArray(curveDay.densityForecast) ? curveDay.densityForecast : [],
+                flashDensity: Array.isArray(curveDay.flashDensity) ? curveDay.flashDensity : [],
+                densityCount: Array.isArray(curveDay.densityCount) ? curveDay.densityCount : []
             };
         }
 
@@ -1265,6 +1321,14 @@
                 prChartInstance.destroy();
                 prChartInstance = null;
             }
+            if (reliabilityChartInstance) {
+                reliabilityChartInstance.destroy();
+                reliabilityChartInstance = null;
+            }
+            if (densityChartInstance) {
+                densityChartInstance.destroy();
+                densityChartInstance = null;
+            }
 
             document.getElementById('auc-day0').innerText = "N/A";
             document.getElementById('auc-day1').innerText = "N/A";
@@ -1272,6 +1336,12 @@
             document.getElementById('prauc-day0').innerText = "N/A";
             document.getElementById('prauc-day1').innerText = "N/A";
             document.getElementById('prauc-day2').innerText = "N/A";
+            document.getElementById('brier-day0').innerText = "N/A";
+            document.getElementById('brier-day1').innerText = "N/A";
+            document.getElementById('brier-day2').innerText = "N/A";
+            document.getElementById('density-day0').innerText = "N/A";
+            document.getElementById('density-day1').innerText = "N/A";
+            document.getElementById('density-day2').innerText = "N/A";
             document.getElementById('count-day0').innerText = "0";
             document.getElementById('count-day1').innerText = "0";
             document.getElementById('count-day2').innerText = "0";
@@ -1297,6 +1367,12 @@
                         document.getElementById('prauc-day0').innerText = formatAucValue(data.day0.prAuc);
                         document.getElementById('prauc-day1').innerText = formatAucValue(data.day1.prAuc);
                         document.getElementById('prauc-day2').innerText = formatAucValue(data.day2.prAuc);
+                        document.getElementById('brier-day0').innerText = formatMetricValue(data.day0.brierScore, 3);
+                        document.getElementById('brier-day1').innerText = formatMetricValue(data.day1.brierScore, 3);
+                        document.getElementById('brier-day2').innerText = formatMetricValue(data.day2.brierScore, 3);
+                        document.getElementById('density-day0').innerText = formatDensitySummary(data.day0.meanFlashDensityPer1000Km2);
+                        document.getElementById('density-day1').innerText = formatDensitySummary(data.day1.meanFlashDensityPer1000Km2);
+                        document.getElementById('density-day2').innerText = formatDensitySummary(data.day2.meanFlashDensityPer1000Km2);
 
                         document.getElementById('count-day0').innerText = data.day0.count || 0;
                         document.getElementById('count-day1').innerText = data.day1.count || 0;
@@ -1326,12 +1402,14 @@
 
                         renderRocChart(accuracyDay0, accuracyDay1, accuracyDay2);
                         renderPrChart(accuracyDay0, accuracyDay1, accuracyDay2);
+                        renderReliabilityChart(accuracyDay0, accuracyDay1, accuracyDay2);
+                        renderDensityChart(accuracyDay0, accuracyDay1, accuracyDay2);
                         updateCurvePointInfo(accuracyDay0, accuracyDay1, accuracyDay2, curveInfoNote);
                         document.getElementById('verificationMethodInfo').innerText = formatVerificationMethod(data.verification);
                     } else {
                         resetAccuracyDisplays();
                         document.getElementById('curvePointInfo').innerText =
-                            `Legacy accuracy format detected. Legacy AUC: ${formatAucValue(data.auc)}. Recalculate to populate ROC and PR curves.`;
+                            `Legacy accuracy format detected. Legacy AUC: ${formatAucValue(data.auc)}. Recalculate to populate ROC, PR, reliability, and density curves.`;
                         document.getElementById('verificationMethodInfo').innerText =
                             "Verification method metadata is unavailable for the legacy accuracy format.";
                     }
@@ -1478,6 +1556,162 @@
                             display: true,
                             text: 'Precision-Recall Curve',
                             color: '#fff'
+                        }
+                    }
+                }
+            });
+        }
+
+        function buildBinTooltipLabel(context, suffix = "") {
+            const count = context.dataset.binCounts?.[context.dataIndex];
+            if (!Number.isFinite(count)) return "";
+            return `Blocks in bin: ${count}${suffix}`;
+        }
+
+        function renderReliabilityChart(day0, day1, day2) {
+            const ctx = document.getElementById('reliabilityChart').getContext('2d');
+            const curveData0 = buildCurveData(day0.reliabilityForecast, day0.reliabilityObserved);
+            const curveData1 = buildCurveData(day1.reliabilityForecast, day1.reliabilityObserved);
+            const curveData2 = buildCurveData(day2.reliabilityForecast, day2.reliabilityObserved);
+
+            if (reliabilityChartInstance) reliabilityChartInstance.destroy();
+
+            reliabilityChartInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Day 0 Reliability',
+                            data: curveData0,
+                            binCounts: Array.isArray(day0.reliabilityCount) ? day0.reliabilityCount : [],
+                            showLine: true,
+                            borderColor: '#2ecc71',
+                            backgroundColor: 'rgba(46, 204, 113, 0.35)',
+                            tension: 0,
+                            pointRadius: 4,
+                            fill: false
+                        },
+                        {
+                            label: 'Day 1 Reliability',
+                            data: curveData1,
+                            binCounts: Array.isArray(day1.reliabilityCount) ? day1.reliabilityCount : [],
+                            showLine: true,
+                            borderColor: '#f39c12',
+                            backgroundColor: 'rgba(243, 156, 18, 0.35)',
+                            tension: 0,
+                            pointRadius: 4,
+                            fill: false
+                        },
+                        {
+                            label: 'Day 2 Reliability',
+                            data: curveData2,
+                            binCounts: Array.isArray(day2.reliabilityCount) ? day2.reliabilityCount : [],
+                            showLine: true,
+                            borderColor: '#e74c3c',
+                            backgroundColor: 'rgba(231, 76, 60, 0.35)',
+                            tension: 0,
+                            pointRadius: 4,
+                            fill: false
+                        },
+                        {
+                            label: 'Perfect Calibration',
+                            data: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
+                            showLine: true,
+                            borderColor: '#9aa6b2',
+                            borderDash: [6, 6],
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: 'Mean Forecast Probability', color: '#ccc' }, min: 0, max: 1, grid: { color: '#333' } },
+                        y: { title: { display: true, text: 'Observed Lightning Frequency', color: '#ccc' }, min: 0, max: 1, grid: { color: '#333' } }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#fff' } },
+                        title: {
+                            display: true,
+                            text: 'Reliability Curve',
+                            color: '#fff'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                afterLabel: (context) => buildBinTooltipLabel(context)
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderDensityChart(day0, day1, day2) {
+            const ctx = document.getElementById('densityChart').getContext('2d');
+            const curveData0 = buildCurveData(day0.densityForecast, day0.flashDensity);
+            const curveData1 = buildCurveData(day1.densityForecast, day1.flashDensity);
+            const curveData2 = buildCurveData(day2.densityForecast, day2.flashDensity);
+
+            if (densityChartInstance) densityChartInstance.destroy();
+
+            densityChartInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Day 0 Density',
+                            data: curveData0,
+                            binCounts: Array.isArray(day0.densityCount) ? day0.densityCount : [],
+                            showLine: true,
+                            borderColor: '#2ecc71',
+                            backgroundColor: 'rgba(46, 204, 113, 0.35)',
+                            tension: 0,
+                            pointRadius: 4,
+                            fill: false
+                        },
+                        {
+                            label: 'Day 1 Density',
+                            data: curveData1,
+                            binCounts: Array.isArray(day1.densityCount) ? day1.densityCount : [],
+                            showLine: true,
+                            borderColor: '#f39c12',
+                            backgroundColor: 'rgba(243, 156, 18, 0.35)',
+                            tension: 0,
+                            pointRadius: 4,
+                            fill: false
+                        },
+                        {
+                            label: 'Day 2 Density',
+                            data: curveData2,
+                            binCounts: Array.isArray(day2.densityCount) ? day2.densityCount : [],
+                            showLine: true,
+                            borderColor: '#e74c3c',
+                            backgroundColor: 'rgba(231, 76, 60, 0.35)',
+                            tension: 0,
+                            pointRadius: 4,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: 'Mean Forecast Probability', color: '#ccc' }, min: 0, max: 1, grid: { color: '#333' } },
+                        y: { title: { display: true, text: 'Observed Flashes / 1000 km^2', color: '#ccc' }, min: 0, grid: { color: '#333' } }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#fff' } },
+                        title: {
+                            display: true,
+                            text: 'Observed Flash Density by Forecast Probability',
+                            color: '#fff'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                afterLabel: (context) => buildBinTooltipLabel(context)
+                            }
                         }
                     }
                 }
