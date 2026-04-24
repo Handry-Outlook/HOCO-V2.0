@@ -3412,11 +3412,10 @@
                     });
                 });
 
-                // Click listeners and movement sync remain the same...
                 maps[i].on('click', 'hoco-points', (e) => {
                     if (!e.features || e.features.length === 0) return;
                     const rawRisk = e.features[0].properties.risk || 0;
-                    new mapboxgl.Popup({ closeButton: true, focusAfterOpen: false })
+                    new mapboxgl.Popup({ closeButton: false, focusAfterOpen: false }) // <-- Changed to false
                         .setLngLat(e.lngLat)
                         .setHTML(`<div style="color:#000; padding: 10px;"><strong>Risk Level:</strong> ${rawRisk}%</div>`)
                         .addTo(maps[i]);
@@ -3518,13 +3517,13 @@
         let sliderDebounceTimer;
         function debouncedAutoLoad() {
             // Update the UI immediately so the text changes while dragging
-            renderAutoTimeline(); 
-            
+            renderAutoTimeline();
+
             // Wait 150ms after the slider stops moving before fetching the heavy map data
             clearTimeout(sliderDebounceTimer);
             sliderDebounceTimer = setTimeout(() => {
                 autoLoadSelectedRun();
-            }, 150); 
+            }, 150);
         }
 
         document.getElementById('autoRunSlider').addEventListener('input', debouncedAutoLoad);
