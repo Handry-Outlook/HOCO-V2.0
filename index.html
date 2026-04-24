@@ -1661,7 +1661,8 @@
                             </tr>
                             <tr>
                                 <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">
-                                    <strong>HARMONIE-AROME</strong></td>
+                                    <strong>HARMONIE-AROME</strong>
+                                </td>
                                 <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">2.5 km horizontal grid
                                     spacing in the cited Met Eireann description.</td>
                                 <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Not reported in the
@@ -2627,6 +2628,7 @@
         let autoRunSelectionByDay = [null, null, null];
         let runBrowserFilter = 'all';
         let activeMapData = [null, null, null, null];
+        let isInitialLoad = true;
         let pendingRunTimers = {};      // { mapIndex: { runId, createdAtMs, estSeconds, intervalId, timeoutId, ... } }
         let progressIntervals = {};
         const models = {
@@ -2805,7 +2807,7 @@
                 runSlider.value = '0';
                 runSlider.max = '0';
                 runSlider.disabled = true;
-                
+
                 autoRunSelectionByDay[autoDaySelection] = null;
 
                 preview?.classList.add('is-empty');
@@ -2830,7 +2832,7 @@
             runSlider.max = String(Math.max(runs.length - 1, 0));
             runSlider.value = String(selectedIndex);
             runSlider.disabled = false;
-            
+
 
             preview?.classList.remove('is-empty');
             if (slotLabel) slotLabel.textContent = `Run ${selectedIndex + 1} of ${runs.length}`;
@@ -3414,7 +3416,7 @@
                 maps[i].on('click', 'hoco-points', (e) => {
                     if (!e.features || e.features.length === 0) return;
                     const rawRisk = e.features[0].properties.risk || 0;
-                    new mapboxgl.Popup({ closeButton: true })
+                    new mapboxgl.Popup({ closeButton: true, focusAfterOpen: false })
                         .setLngLat(e.lngLat)
                         .setHTML(`<div style="color:#000; padding: 10px;"><strong>Risk Level:</strong> ${rawRisk}%</div>`)
                         .addTo(maps[i]);
@@ -3512,10 +3514,21 @@
             await loadRunIntoMap(run.id, mapIndex);
         }
 
-        // Trigger map load when releasing the slider
-        document.getElementById('autoRunSlider').addEventListener('change', autoLoadSelectedRun);
-        document.getElementById('autoDaySlider').addEventListener('change', autoLoadSelectedRun);
+        // Trigger map load while dragging, but prevent browser freezing/API spamming
+        let sliderDebounceTimer;
+        function debouncedAutoLoad() {
+            // Update the UI immediately so the text changes while dragging
+            renderAutoTimeline(); 
+            
+            // Wait 150ms after the slider stops moving before fetching the heavy map data
+            clearTimeout(sliderDebounceTimer);
+            sliderDebounceTimer = setTimeout(() => {
+                autoLoadSelectedRun();
+            }, 150); 
+        }
 
+        document.getElementById('autoRunSlider').addEventListener('input', debouncedAutoLoad);
+        document.getElementById('autoDaySlider').addEventListener('input', debouncedAutoLoad);
         document.getElementById('runBrowserFilters').addEventListener('click', (event) => {
             const btn = event.target.closest('button[data-filter]');
             if (!btn) return;
@@ -3730,6 +3743,16 @@
                 }
 
                 renderArchiveDropdown();
+
+                if (isInitialLoad && allRuns.length > 0) {
+                    isInitialLoad = false;
+                    autoDaySelection = 0; // Ensure Day 0 is selected
+                    const daySlider = document.getElementById('autoDaySlider');
+                    if (daySlider) daySlider.value = 0;
+
+                    renderAutoTimeline(); // Refresh slider UI
+                    autoLoadSelectedRun(); // Trigger the map load
+                }
             });
         }
 
