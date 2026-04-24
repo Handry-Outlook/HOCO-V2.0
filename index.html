@@ -1086,6 +1086,13 @@
             #map-wrapper {
                 height: 42vh;
             }
+
+            /* Force black background on all dropdowns */
+            select,
+            select option {
+                background-color: #000000 !important;
+                color: #ffffff !important;
+            }
         }
     </style>
 </head>
@@ -1190,7 +1197,8 @@
                 <div class="dashboard-hero">
                     <div class="hero-kicker">Handry Outlook</div>
                     <h2 class="hero-title">HOCO 2.0</h2>
-                    <p class="hero-text">Start with AUTO-HOCO for Day 0, Day 1, and Day 2, then browse other archived or manual runs when you need a deeper comparison.</p>
+                    <p class="hero-text">Start with AUTO-HOCO for Day 0, Day 1, and Day 2, then browse other archived or
+                        manual runs when you need a deeper comparison.</p>
                     <span id="roleBadge" class="role-badge">...</span>
                 </div>
                 <button id="showAccuracyBtn" class="btn-outline secondary-action">
@@ -1267,7 +1275,8 @@
                             <span id="autoRunSlotLabel" class="run-chip neutral">No run selected</span>
                         </div>
                         <h4 id="autoRunHeadline">Waiting for AUTO-HOCO</h4>
-                        <p id="autoRunMeta">Choose a forecast day to review the available automated outlooks, then use the time slider to pick the specific run you want.</p>
+                        <p id="autoRunMeta">Choose a forecast day to review the available automated outlooks, then use
+                            the time slider to pick the specific run you want.</p>
                         <div class="preview-stats">
                             <div class="preview-stat">
                                 <span class="preview-stat-label">Valid</span>
@@ -1294,10 +1303,7 @@
                         </div>
                     </div>
 
-                    <div class="button-row">
-                        <button id="loadAutoRunBtn" type="button">Load Selected AUTO-HOCO</button>
-                        <button id="jumpToManualBtn" type="button" class="btn-outline">Open Manual Builder</button>
-                    </div>
+
                     <div id="autoTimelineStatus" class="helper-text">Latest AUTO-HOCO runs will appear here.</div>
                 </div>
 
@@ -1345,7 +1351,8 @@
                 </div>
 
                 <div id="executionPanel" style="display:none;">
-                    <form id="hocoForm" class="panel dashboard-panel execution-panel" style="border-color: var(--primary);">
+                    <form id="hocoForm" class="panel dashboard-panel execution-panel"
+                        style="border-color: var(--primary);">
                         <div class="panel-heading panel-heading-spread">
                             <div>
                                 <div class="panel-kicker">Manual HOCO</div>
@@ -1353,7 +1360,9 @@
                             </div>
                             <span id="runCapText" class="status-chip subtle"></span>
                         </div>
-                        <p class="helper-text" style="margin-top: 0;">AUTO-HOCO is the quickest way to compare the day guidance. Use manual mode when you want a custom weighting, a private run, or a scenario experiment.</p>
+                        <p class="helper-text" style="margin-top: 0;">AUTO-HOCO is the quickest way to compare the day
+                            guidance. Use manual mode when you want a custom weighting, a private run, or a scenario
+                            experiment.</p>
 
                         <div id="exclusiveSection"
                             style="display:none; background: #0a0a0a; padding: 10px; border-radius: 6px; margin-bottom: 10px; border: 1px dashed #444;">
@@ -1461,7 +1470,8 @@
                     Map</button>
             </div>
         </div>
-        <p style="color: #ccc; font-size: 0.9rem;">Evaluation: occurrence discrimination, calibration, and observed flash-density diagnostics for AUTO lightning forecasts.</p>
+        <p style="color: #ccc; font-size: 0.9rem;">Evaluation: occurrence discrimination, calibration, and observed
+            flash-density diagnostics for AUTO lightning forecasts.</p>
 
         <div
             style="background: #1e1e1e; padding: 20px; border-radius: 8px; border: 1px solid var(--border); margin-top: 20px;">
@@ -1492,8 +1502,7 @@
                 <span style="color: #f39c12;">Day 1 Mean Flash Density: <span id="density-day1">...</span></span>
                 <span style="color: #e74c3c;">Day 2 Mean Flash Density: <span id="density-day2">...</span></span>
             </div>
-            <p id="curvePointInfo"
-                style="text-align: center; color: #888; font-size: 0.8rem; margin: 0 0 15px 0;"></p>
+            <p id="curvePointInfo" style="text-align: center; color: #888; font-size: 0.8rem; margin: 0 0 15px 0;"></p>
             <p id="verificationMethodInfo"
                 style="text-align: center; color: #9aa6b2; font-size: 0.8rem; margin: 0 0 15px 0;"></p>
             <div style="position: relative; height: 40vh; width: 100%; margin-bottom: 20px;">
@@ -1513,62 +1522,92 @@
                 style="margin-top: 22px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.08); color: #d7d7d7; line-height: 1.65;">
                 <h3 style="margin: 0 0 12px 0; color: #fff; font-size: 1rem;">How to read the verification metrics</h3>
                 <p style="margin: 0 0 12px 0; font-size: 0.92rem;">
-                    <strong>ROC AUC</strong> measures how well the forecast ranks lightning-prone cells above non-lightning cells
-                    across every possible decision threshold. A value near <strong>1.00</strong> means the system almost always ranks
-                    true lightning environments above quiet environments, while a value near <strong>0.50</strong> behaves like random
-                    guessing. Because ROC looks at both hit rate and false-alarm rate over all thresholds, it is a strong measure of
+                    <strong>ROC AUC</strong> measures how well the forecast ranks lightning-prone cells above
+                    non-lightning cells
+                    across every possible decision threshold. A value near <strong>1.00</strong> means the system almost
+                    always ranks
+                    true lightning environments above quiet environments, while a value near <strong>0.50</strong>
+                    behaves like random
+                    guessing. Because ROC looks at both hit rate and false-alarm rate over all thresholds, it is a
+                    strong measure of
                     overall discrimination skill.
                 </p>
                 <p style="margin: 0 0 12px 0; font-size: 0.92rem;">
-                    <strong>PR-AUC</strong> focuses on <strong>precision</strong> and <strong>recall</strong>, so it answers a slightly
-                    different question: when the model highlights a grid cell as risky, how often is that signal useful, and how many
-                    true lightning cells are being captured? This matters a lot for lightning because positive events are relatively rare
-                    compared with the total number of grid cells. A model can post a respectable ROC AUC while still having modest
+                    <strong>PR-AUC</strong> focuses on <strong>precision</strong> and <strong>recall</strong>, so it
+                    answers a slightly
+                    different question: when the model highlights a grid cell as risky, how often is that signal useful,
+                    and how many
+                    true lightning cells are being captured? This matters a lot for lightning because positive events
+                    are relatively rare
+                    compared with the total number of grid cells. A model can post a respectable ROC AUC while still
+                    having modest
                     precision in rare-event situations, which is why PR-AUC is a valuable companion metric.
                 </p>
                 <p style="margin: 0 0 12px 0; font-size: 0.92rem;">
-                    <strong>Brier score</strong> measures the average squared error between the forecast probability and the observed
-                    binary outcome. Lower is better, with <strong>0.00</strong> being perfect. It complements ROC/PR by checking whether
+                    <strong>Brier score</strong> measures the average squared error between the forecast probability and
+                    the observed
+                    binary outcome. Lower is better, with <strong>0.00</strong> being perfect. It complements ROC/PR by
+                    checking whether
                     the probabilities themselves are numerically sensible, not just well ranked.
                 </p>
                 <p style="margin: 0 0 12px 0; font-size: 0.92rem;">
-                    The <strong>reliability curve</strong> compares the average forecast probability in each occupied bin with the actual
-                    observed lightning frequency in that bin. Curves close to the diagonal are well calibrated. Above the diagonal means
+                    The <strong>reliability curve</strong> compares the average forecast probability in each occupied
+                    bin with the actual
+                    observed lightning frequency in that bin. Curves close to the diagonal are well calibrated. Above
+                    the diagonal means
                     HOCO was underconfident there; below it means the forecast probabilities were too high.
                 </p>
                 <p style="margin: 0 0 16px 0; font-size: 0.92rem;">
-                    The <strong>flash-density chart</strong> adds intensity context by plotting observed strikes per approximate
-                    <strong>1,000 km^2</strong> against forecast-probability bins. HOCO still does not forecast explicit flash counts, so
-                    this is a diagnostic relationship rather than a direct count-forecast skill score, but it helps show whether higher
+                    The <strong>flash-density chart</strong> adds intensity context by plotting observed strikes per
+                    approximate
+                    <strong>1,000 km^2</strong> against forecast-probability bins. HOCO still does not forecast explicit
+                    flash counts, so
+                    this is a diagnostic relationship rather than a direct count-forecast skill score, but it helps show
+                    whether higher
                     probabilities are lining up with more concentrated lightning.
                 </p>
                 <p style="margin: 0 0 16px 0; font-size: 0.9rem; color: #aaa;">
-                    The reference systems below are included as <strong>context only</strong>. Their domains, lead times, targets
-                    (e.g. total lightning vs cloud-to-ground lightning), spatial scales, and verification methods differ from HOCO, so
+                    The reference systems below are included as <strong>context only</strong>. Their domains, lead
+                    times, targets
+                    (e.g. total lightning vs cloud-to-ground lightning), spatial scales, and verification methods differ
+                    from HOCO, so
                     they should not be treated as direct like-for-like rankings against the curves above.
                 </p>
                 <p style="margin: 0 0 16px 0; font-size: 0.9rem; color: #aaa;">
-                    <strong>HOCO verification scale:</strong> the current verification logic evaluates forecasts on an approximately
+                    <strong>HOCO verification scale:</strong> the current verification logic evaluates forecasts on an
+                    approximately
                     <strong>8 km grid</strong> over the UK and then aggregates neighbouring cells into approximately
-                    <strong>24 km spatial blocks</strong> before scoring. That reduces the worst storm-clustering problem from treating
-                    every adjacent grid cell as fully independent. It is still not a full storm-object verification system, but it now
-                    includes both calibration diagnostics and an observed density view in addition to occurrence discrimination.
+                    <strong>24 km spatial blocks</strong> before scoring. That reduces the worst storm-clustering
+                    problem from treating
+                    every adjacent grid cell as fully independent. It is still not a full storm-object verification
+                    system, but it now
+                    includes both calibration diagnostics and an observed density view in addition to occurrence
+                    discrimination.
                 </p>
                 <p style="margin: 0 0 16px 0; font-size: 0.9rem; color: #aaa;">
-                    A block is still treated as a <strong>binary event</strong> for ROC AUC, PR-AUC, Brier score, and the reliability
-                    curve: if at least one lightning strike lands inside it, the observed occurrence label is positive. The added
-                    density diagnostic partly addresses that limitation by also tracking how many strikes accumulated within each
-                    probability bin, but it should still be read as supporting context rather than a full explicit-intensity forecast.
+                    A block is still treated as a <strong>binary event</strong> for ROC AUC, PR-AUC, Brier score, and
+                    the reliability
+                    curve: if at least one lightning strike lands inside it, the observed occurrence label is positive.
+                    The added
+                    density diagnostic partly addresses that limitation by also tracking how many strikes accumulated
+                    within each
+                    probability bin, but it should still be read as supporting context rather than a full
+                    explicit-intensity forecast.
                 </p>
                 <p style="margin: 0 0 16px 0; font-size: 0.9rem; color: #aaa;">
-                    Forecast polygons are now matched more strictly as well: there is no extra blanket 10 km polygon buffer in the
-                    verifier, and overlapping forecast zones are combined into a single block probability instead of stopping at the
+                    Forecast polygons are now matched more strictly as well: there is no extra blanket 10 km polygon
+                    buffer in the
+                    verifier, and overlapping forecast zones are combined into a single block probability instead of
+                    stopping at the
                     first matching zone. That makes the benchmark less optimistic than the earlier version.
                 </p>
                 <p style="margin: 0 0 16px 0; font-size: 0.9rem; color: #aaa;">
-                    <strong>Research note:</strong> public lightning papers do not all publish the same skill metrics. A few provide
-                    scalar <strong>ROC AUC</strong> or <strong>PR-AUC</strong> values, while others focus on CSI, POD/FAR, reliability,
-                    or lead time instead. The table below prioritizes studies that actually report AUC-style values, and leaves the
+                    <strong>Research note:</strong> public lightning papers do not all publish the same skill metrics. A
+                    few provide
+                    scalar <strong>ROC AUC</strong> or <strong>PR-AUC</strong> values, while others focus on CSI,
+                    POD/FAR, reliability,
+                    or lead time instead. The table below prioritizes studies that actually report AUC-style values, and
+                    leaves the
                     metric cell blank where a directly comparable AUC/PR-AUC was not published in the cited source.
                 </p>
 
@@ -1577,97 +1616,194 @@
                         style="width: 100%; border-collapse: collapse; min-width: 1120px; background: #151515; border: 1px solid #2c2c2c; font-size: 0.88rem;">
                         <thead>
                             <tr style="background: #1a254d; color: #fff;">
-                                <th style="text-align: left; padding: 10px 12px; border-bottom: 1px solid #2c2c2c;">System</th>
-                                <th style="text-align: left; padding: 10px 12px; border-bottom: 1px solid #2c2c2c;">Typical resolution / scale</th>
-                                <th style="text-align: left; padding: 10px 12px; border-bottom: 1px solid #2c2c2c;">Published ROC AUC / PR-AUC</th>
-                                <th style="text-align: left; padding: 10px 12px; border-bottom: 1px solid #2c2c2c;">Published skill note</th>
-                                <th style="text-align: left; padding: 10px 12px; border-bottom: 1px solid #2c2c2c;">Source</th>
+                                <th style="text-align: left; padding: 10px 12px; border-bottom: 1px solid #2c2c2c;">
+                                    System</th>
+                                <th style="text-align: left; padding: 10px 12px; border-bottom: 1px solid #2c2c2c;">
+                                    Typical resolution / scale</th>
+                                <th style="text-align: left; padding: 10px 12px; border-bottom: 1px solid #2c2c2c;">
+                                    Published ROC AUC / PR-AUC</th>
+                                <th style="text-align: left; padding: 10px 12px; border-bottom: 1px solid #2c2c2c;">
+                                    Published skill note</th>
+                                <th style="text-align: left; padding: 10px 12px; border-bottom: 1px solid #2c2c2c;">
+                                    Source</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><strong>ECMWF IFS lightning parametrization</strong></td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Global model around 9 km operationally in the cited note; some verification examples are aggregated to 50 km+ scales and 6 h+ windows.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Not reported in the cited newsletter article</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Useful ensemble skill to at least day 3; reported map correlations up to about 0.75 for daily averages over 5-degree boxes.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a href="https://www.ecmwf.int/en/newsletter/155/meteorology/promising-results-lightning-predictions" target="_blank" style="color: #7fb3ff;">ECMWF Newsletter 155</a></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><strong>ECMWF IFS
+                                        lightning parametrization</strong></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Global model around 9
+                                    km operationally in the cited note; some verification examples are aggregated to 50
+                                    km+ scales and 6 h+ windows.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Not reported in the
+                                    cited newsletter article</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Useful ensemble skill
+                                    to at least day 3; reported map correlations up to about 0.75 for daily averages
+                                    over 5-degree boxes.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a
+                                        href="https://www.ecmwf.int/en/newsletter/155/meteorology/promising-results-lightning-predictions"
+                                        target="_blank" style="color: #7fb3ff;">ECMWF Newsletter 155</a></td>
                             </tr>
                             <tr>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><strong>Met Office UKV / UKCP CPM</strong></td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Convection-permitting kilometre-scale guidance; the cited UKCP CPM report evaluates lightning more qualitatively than with a directly comparable ROC curve.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Not reported in the cited report</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Lightning output is assessed only subjectively in this report; the scheme is described as performing better in summer and overpredicting in winter.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a href="https://www.metoffice.gov.uk/pub/data/weather/uk/ukcp18/science-reports/UKCP-Convection-permitting-model-projections-report.pdf" target="_blank" style="color: #7fb3ff;">Met Office UKCP convection-permitting report</a></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><strong>Met Office UKV
+                                        / UKCP CPM</strong></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Convection-permitting
+                                    kilometre-scale guidance; the cited UKCP CPM report evaluates lightning more
+                                    qualitatively than with a directly comparable ROC curve.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Not reported in the
+                                    cited report</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Lightning output is
+                                    assessed only subjectively in this report; the scheme is described as performing
+                                    better in summer and overpredicting in winter.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a
+                                        href="https://www.metoffice.gov.uk/pub/data/weather/uk/ukcp18/science-reports/UKCP-Convection-permitting-model-projections-report.pdf"
+                                        target="_blank" style="color: #7fb3ff;">Met Office UKCP convection-permitting
+                                        report</a></td>
                             </tr>
                             <tr>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><strong>HARMONIE-AROME</strong></td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">2.5 km horizontal grid spacing in the cited Met Eireann description.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Not reported in the cited overview</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Met Eireann notes that the higher-resolution HARMONIE-AROME setup tends to forecast small-scale features such as thunderstorms better than coarser global models.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a href="https://www.met.ie/the-ins-and-outs-of-weather-models/" target="_blank" style="color: #7fb3ff;">Met Eireann: The Ins and Outs of Weather Models</a></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">
+                                    <strong>HARMONIE-AROME</strong></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">2.5 km horizontal grid
+                                    spacing in the cited Met Eireann description.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Not reported in the
+                                    cited overview</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Met Eireann notes that
+                                    the higher-resolution HARMONIE-AROME setup tends to forecast small-scale features
+                                    such as thunderstorms better than coarser global models.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a
+                                        href="https://www.met.ie/the-ins-and-outs-of-weather-models/" target="_blank"
+                                        style="color: #7fb3ff;">Met Eireann: The Ins and Outs of Weather Models</a></td>
                             </tr>
                             <tr>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><strong>DWD CellMOS + ICON</strong></td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">ICON-EU is about 6.5 km native (~7 km output grid); ICON-D2 is 2.2 km for very-short-range hazardous convection.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Not reported in the cited operational page</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Operational thunderstorm guidance updated every 5 minutes from radar, lightning observations, and ICON model guidance, including empirical flash-count information.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a href="https://www.dwd.de/EN/research/weatherforecasting/met_applications/nowcasting/cellmos_application.html" target="_blank" style="color: #7fb3ff;">DWD CellMOS system</a></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><strong>DWD CellMOS +
+                                        ICON</strong></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">ICON-EU is about 6.5
+                                    km native (~7 km output grid); ICON-D2 is 2.2 km for very-short-range hazardous
+                                    convection.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Not reported in the
+                                    cited operational page</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Operational
+                                    thunderstorm guidance updated every 5 minutes from radar, lightning observations,
+                                    and ICON model guidance, including empirical flash-count information.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a
+                                        href="https://www.dwd.de/EN/research/weatherforecasting/met_applications/nowcasting/cellmos_application.html"
+                                        target="_blank" style="color: #7fb3ff;">DWD CellMOS system</a></td>
                             </tr>
                             <tr>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><strong>NOAA LightningCast</strong></td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Satellite-based next-hour nowcasting on geostationary imager grids rather than a UK land-only verification mesh like HOCO's 8 km grid.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Not reported as ROC AUC / PR-AUC in the cited paper</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Deep-learning next-hour lightning nowcasting; the NOAA paper reports that the system frequently provides around 20 minutes or more of lead time to new lightning activity.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a href="https://repository.library.noaa.gov/view/noaa/52868" target="_blank" style="color: #7fb3ff;">Weather and Forecasting (2022): LightningCast</a></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><strong>NOAA
+                                        LightningCast</strong></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Satellite-based
+                                    next-hour nowcasting on geostationary imager grids rather than a UK land-only
+                                    verification mesh like HOCO's 8 km grid.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Not reported as ROC
+                                    AUC / PR-AUC in the cited paper</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Deep-learning
+                                    next-hour lightning nowcasting; the NOAA paper reports that the system frequently
+                                    provides around 20 minutes or more of lead time to new lightning activity.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a
+                                        href="https://repository.library.noaa.gov/view/noaa/52868" target="_blank"
+                                        style="color: #7fb3ff;">Weather and Forecasting (2022): LightningCast</a></td>
                             </tr>
                             <tr>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><strong>Operational gridded CG lightning forecast (ConUS + Alaska)</strong></td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Uniform 20 km continental grid.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">ROC AUC = 0.9398 (NARR-driven AK), 0.9444 (GFS-init AK); 0.9328 down to 0.8697 from 0-3 h out to 168-171 h.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">One of the clearest publicly reported scalar AUC benchmarks I found for a gridded lightning-probability system.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a href="https://www.mdpi.com/2571-6255/7/4/111" target="_blank" style="color: #7fb3ff;">Fire (2024): Probabilistic Forecasting of Lightning Strikes</a></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><strong>Operational
+                                        gridded CG lightning forecast (ConUS + Alaska)</strong></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Uniform 20 km
+                                    continental grid.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">ROC AUC = 0.9398
+                                    (NARR-driven AK), 0.9444 (GFS-init AK); 0.9328 down to 0.8697 from 0-3 h out to
+                                    168-171 h.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">One of the clearest
+                                    publicly reported scalar AUC benchmarks I found for a gridded lightning-probability
+                                    system.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a
+                                        href="https://www.mdpi.com/2571-6255/7/4/111" target="_blank"
+                                        style="color: #7fb3ff;">Fire (2024): Probabilistic Forecasting of Lightning
+                                        Strikes</a></td>
                             </tr>
                             <tr>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><strong>3D weather-radar CNN lightning-strike identifier</strong></td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Strike-location identification from 3D weather radar volumes; not directly the same task as HOCO's grid verification.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">CNN: ROC AUC = 0.798, PR-AUC = 0.534.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Useful because it reports both ROC AUC and PR-AUC on an imbalanced lightning-identification problem.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a href="https://www.frontiersin.org/journals/environmental-science/articles/10.3389/fenvs.2021.714067/full" target="_blank" style="color: #7fb3ff;">Frontiers (2021): Lightning Strike Location Identification Based on 3D Weather Radar Data</a></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><strong>3D
+                                        weather-radar CNN lightning-strike identifier</strong></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Strike-location
+                                    identification from 3D weather radar volumes; not directly the same task as HOCO's
+                                    grid verification.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">CNN: ROC AUC = 0.798,
+                                    PR-AUC = 0.534.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Useful because it
+                                    reports both ROC AUC and PR-AUC on an imbalanced lightning-identification problem.
+                                </td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a
+                                        href="https://www.frontiersin.org/journals/environmental-science/articles/10.3389/fenvs.2021.714067/full"
+                                        target="_blank" style="color: #7fb3ff;">Frontiers (2021): Lightning Strike
+                                        Location Identification Based on 3D Weather Radar Data</a></td>
                             </tr>
                             <tr>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><strong>3D weather-radar RF baseline</strong></td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Same dataset and task as the CNN row above.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">RF: ROC AUC = 0.765, PR-AUC = 0.475.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">A useful non-deep-learning comparison point from the same benchmark study.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a href="https://www.frontiersin.org/journals/environmental-science/articles/10.3389/fenvs.2021.714067/full" target="_blank" style="color: #7fb3ff;">Frontiers (2021): same benchmark table</a></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><strong>3D
+                                        weather-radar RF baseline</strong></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Same dataset and task
+                                    as the CNN row above.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">RF: ROC AUC = 0.765,
+                                    PR-AUC = 0.475.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">A useful
+                                    non-deep-learning comparison point from the same benchmark study.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a
+                                        href="https://www.frontiersin.org/journals/environmental-science/articles/10.3389/fenvs.2021.714067/full"
+                                        target="_blank" style="color: #7fb3ff;">Frontiers (2021): same benchmark
+                                        table</a></td>
                             </tr>
                             <tr>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><strong>Western U.S. grid-cell CNN lightning-day model</strong></td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Individually trained grid-cell models over the western United States; climate-oriented lightning-day prediction rather than event-scale HOCO polygons.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">AUC &gt; 0.9 in parts of the interior Southwest; AUC &lt; 0.6 in some Pacific coastal areas.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">This is an AMS conference abstract, so it gives a regional AUC range rather than a single published national mean.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a href="https://ams.confex.com/ams/104ANNUAL/webprogram/Paper431802.html" target="_blank" style="color: #7fb3ff;">AMS 2024 abstract: Using Deep Learning to Predict Cloud-to-Ground Lightning in the Western United States</a></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><strong>Western U.S.
+                                        grid-cell CNN lightning-day model</strong></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Individually trained
+                                    grid-cell models over the western United States; climate-oriented lightning-day
+                                    prediction rather than event-scale HOCO polygons.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">AUC &gt; 0.9 in parts
+                                    of the interior Southwest; AUC &lt; 0.6 in some Pacific coastal areas.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">This is an AMS
+                                    conference abstract, so it gives a regional AUC range rather than a single published
+                                    national mean.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a
+                                        href="https://ams.confex.com/ams/104ANNUAL/webprogram/Paper431802.html"
+                                        target="_blank" style="color: #7fb3ff;">AMS 2024 abstract: Using Deep Learning
+                                        to Predict Cloud-to-Ground Lightning in the Western United States</a></td>
                             </tr>
                             <tr>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><strong>Southern Great Plains RF lightning-occurrence model</strong></td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Site-focused summertime lightning occurrence around the ARM Southern Great Plains region.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><strong>Southern Great
+                                        Plains RF lightning-occurrence model</strong></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Site-focused
+                                    summertime lightning occurrence around the ARM Southern Great Plains region.</td>
                                 <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">AUC = 0.850.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Preprint result based on ARM variables plus Earth Networks lightning data; useful as another published scalar AUC reference.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a href="https://egusphere.copernicus.org/preprints/2023/egusphere-2023-1020/" target="_blank" style="color: #7fb3ff;">EGUsphere preprint: ML investigation of summertime lightning frequency</a></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Preprint result based
+                                    on ARM variables plus Earth Networks lightning data; useful as another published
+                                    scalar AUC reference.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a
+                                        href="https://egusphere.copernicus.org/preprints/2023/egusphere-2023-1020/"
+                                        target="_blank" style="color: #7fb3ff;">EGUsphere preprint: ML investigation of
+                                        summertime lightning frequency</a></td>
                             </tr>
                             <tr>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><strong>Bangladesh pre-monsoon XGBoost lightning model</strong></td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Regional ERA5-based pre-monsoon lightning classifier over Bangladesh.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><strong>Bangladesh
+                                        pre-monsoon XGBoost lightning model</strong></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">Regional ERA5-based
+                                    pre-monsoon lightning classifier over Bangladesh.</td>
                                 <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">AUC = 0.76.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">The abstract also reports POD = 86.01% and accuracy = 71.08%, which helps contextualize the moderate AUC.</td>
-                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a href="https://www.sciencedirect.com/science/article/abs/pii/S136468262500032X" target="_blank" style="color: #7fb3ff;">JASTP (2025): Prediction of lightning events over Bangladesh</a></td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;">The abstract also
+                                    reports POD = 86.01% and accuracy = 71.08%, which helps contextualize the moderate
+                                    AUC.</td>
+                                <td style="padding: 10px 12px; border-bottom: 1px solid #242424;"><a
+                                        href="https://www.sciencedirect.com/science/article/abs/pii/S136468262500032X"
+                                        target="_blank" style="color: #7fb3ff;">JASTP (2025): Prediction of lightning
+                                        events over Bangladesh</a></td>
                             </tr>
                             <tr>
-                                <td style="padding: 10px 12px;"><strong>MDE-UNet lightning-identification network</strong></td>
-                                <td style="padding: 10px 12px;">2 km spatial resolution over Guangdong Province in the published experiment.</td>
+                                <td style="padding: 10px 12px;"><strong>MDE-UNet lightning-identification
+                                        network</strong></td>
+                                <td style="padding: 10px 12px;">2 km spatial resolution over Guangdong Province in the
+                                    published experiment.</td>
                                 <td style="padding: 10px 12px;">AUC-ROC = 0.9939 (vs. baseline UNet at 0.9907).</td>
-                                <td style="padding: 10px 12px;">Very high score, but on a lightning-identification task with a different dataset, target, and regional setup than HOCO.</td>
-                                <td style="padding: 10px 12px;"><a href="https://www.mdpi.com/2072-4292/18/7/1027" target="_blank" style="color: #7fb3ff;">Remote Sensing (2026): MDE-UNet</a></td>
+                                <td style="padding: 10px 12px;">Very high score, but on a lightning-identification task
+                                    with a different dataset, target, and regional setup than HOCO.</td>
+                                <td style="padding: 10px 12px;"><a href="https://www.mdpi.com/2072-4292/18/7/1027"
+                                        target="_blank" style="color: #7fb3ff;">Remote Sensing (2026): MDE-UNet</a></td>
                             </tr>
                         </tbody>
                     </table>
@@ -2632,17 +2768,16 @@
                 .filter((run) => run.type === 'automated')
                 .filter((run) => formatDateKey(getRunStartDate(run)) === targetDay)
                 .sort((a, b) => {
-                    const aDate = getRunStartDate(a)?.getTime?.() || 0;
-                    const bDate = getRunStartDate(b)?.getTime?.() || 0;
-                    return aDate - bDate;
+                    const aDate = getRunCreatedDate(a)?.getTime?.() || 0;
+                    const bDate = getRunCreatedDate(b)?.getTime?.() || 0;
+                    return aDate - bDate; // Sorted by issue time: Oldest to Newest
                 });
         }
 
         function renderAutoTimeline() {
             const daySlider = document.getElementById('autoDaySlider');
             const runSlider = document.getElementById('autoRunSlider');
-            const loadBtn = document.getElementById('loadAutoRunBtn');
-            if (!daySlider || !runSlider || !loadBtn) return;
+            if (!daySlider || !runSlider) return;
 
             autoDaySelection = Number(daySlider.value || autoDaySelection || 0);
 
@@ -2671,7 +2806,7 @@
                 runSlider.value = '0';
                 runSlider.max = '0';
                 runSlider.disabled = true;
-                loadBtn.disabled = true;
+                
                 autoRunSelectionByDay[autoDaySelection] = null;
 
                 preview?.classList.add('is-empty');
@@ -2696,7 +2831,7 @@
             runSlider.max = String(Math.max(runs.length - 1, 0));
             runSlider.value = String(selectedIndex);
             runSlider.disabled = false;
-            loadBtn.disabled = false;
+            
 
             preview?.classList.remove('is-empty');
             if (slotLabel) slotLabel.textContent = `Run ${selectedIndex + 1} of ${runs.length}`;
@@ -3366,30 +3501,21 @@
             renderAutoTimeline();
         });
 
-        document.getElementById('loadAutoRunBtn').addEventListener('click', async () => {
+        async function autoLoadSelectedRun() {
             const runs = getAutoRunsForDay(autoDaySelection);
             const selectedIndex = autoRunSelectionByDay[autoDaySelection];
             const run = Number.isInteger(selectedIndex) ? runs[selectedIndex] : runs[runs.length - 1];
 
-            if (!run) {
-                showToast("No AUTO-HOCO run is available for the selected day.", "info");
-                return;
-            }
+            if (!run) return;
 
             document.getElementById('idSelector').value = run.id;
             const mapIndex = parseInt(document.getElementById('targetMapSelect').value);
             await loadRunIntoMap(run.id, mapIndex);
-        });
+        }
 
-        document.getElementById('jumpToManualBtn').addEventListener('click', () => {
-            const executionPanel = document.getElementById('executionPanel');
-            if (!executionPanel || executionPanel.style.display === 'none') {
-                showToast("Manual HOCO is only available after sign-in.", "info");
-                return;
-            }
-
-            executionPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
+        // Trigger map load when releasing the slider
+        document.getElementById('autoRunSlider').addEventListener('change', autoLoadSelectedRun);
+        document.getElementById('autoDaySlider').addEventListener('change', autoLoadSelectedRun);
 
         document.getElementById('runBrowserFilters').addEventListener('click', (event) => {
             const btn = event.target.closest('button[data-filter]');
