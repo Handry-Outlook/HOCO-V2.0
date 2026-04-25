@@ -1818,14 +1818,16 @@
                         </select>
 
                         <select id="mapStyleSelect">
-                            <option value="mapbox://styles/handry20191026/cmns2lucg001401s898cuaxjt">Style: Default</option>
+                            <option value="mapbox://styles/handry20191026/cmns2lucg001401s898cuaxjt">Style: Default
+                            </option>
                             <option value="mapbox://styles/mapbox/standard">Style: Standard (3D Enhanced)</option>
                             <option value="mapbox://styles/mapbox/satellite-v9">Style: Satellite (Imagery Only)</option>
                             <option value="mapbox://styles/mapbox/satellite-streets-v12">Style: Satellite (with Streets)
                             </option>
                             <option value="mapbox://styles/mapbox/light-v11">Style: Light (Minimalist)</option>
                             <option value="mapbox://styles/mapbox/outdoors-v12">Style: Outdoors (Terrain)</option>
-                            <option value="mapbox://styles/mapbox/navigation-night-v1">Style: Navigation (Night)</option>
+                            <option value="mapbox://styles/mapbox/navigation-night-v1">Style: Navigation (Night)
+                            </option>
                             <option value="mapbox://styles/mapbox/navigation-day-v1">Style: Navigation (Day)</option>
                         </select>
 
@@ -1924,7 +1926,8 @@
                                 </div>
                             </div>
 
-                            <div id="autoTimelineStatus" class="helper-text">Latest AUTO-HOCO runs will appear here.</div>
+                            <div id="autoTimelineStatus" class="helper-text">Latest AUTO-HOCO runs will appear here.
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2435,7 +2438,8 @@
         </div>
     </div>
     <div id="map-wrapper" class="grid-1">
-        <button id="sidebarToggleBtn" type="button" class="sidebar-toggle-btn btn-outline" aria-expanded="true">Hide panel</button>
+        <button id="sidebarToggleBtn" type="button" class="sidebar-toggle-btn btn-outline" aria-expanded="true">Hide
+            panel</button>
         <div id="map0" class="map-instance">
             <div class="map-metadata">
                 <div id="meta-title-0"
@@ -4788,6 +4792,7 @@
                 const isNormal = runData.type === 'automated';
                 const displayUser = runData.userId ? runData.userId.substring(0, 6) : 'System';
 
+                // ... (inside the try block of loadRunIntoMap)
                 document.getElementById(`meta-title-${mapIndex}`).innerText = `Loaded: ${runData.region || 'Unknown'}`;
                 document.getElementById(`meta-desc-${mapIndex}`).innerHTML = `
             <strong>Period:</strong> ${runData.startTime || 'N/A'} - ${runData.endTime || 'N/A'}<br>
@@ -4802,6 +4807,12 @@
                 // Show action buttons
                 document.getElementById(`lightning-btn-${mapIndex}`).style.display = 'block';
                 document.getElementById(`export-btn-${mapIndex}`).style.display = 'block';
+
+                // AUTO-REPLOT LIGHTNING: if it was previously visible, fetch the new times and replot
+                if (lightningVisible[mapIndex]) {
+                    lightningVisible[mapIndex] = false; // Briefly reset state to force fresh load
+                    loadAndShowLightning(mapIndex, runData.startTime, runData.endTime || runData.startTime);
+                }
 
             } catch (err) {
                 console.error("Map load error for run", runId, ":", err);
@@ -4991,14 +5002,41 @@
         document.getElementById('hocoForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const startVal = new Date(document.getElementById('startTime').value);
-            const endVal = new Date(document.getElementById('endTime').value);
+            const startInput = document.getElementById('startTime').value;
+            const endInput = document.getElementById('endTime').value;
 
-            if (userRole === 'normal' && runsToday >= 7) return showToast("Daily Normal limit (7) reached.", "error");
-            if (userRole === 'exclusive' && runsToday >= 15) return showToast("Daily Exclusive limit (15) reached.", "error");
+            if (!startInput || !endInput) {
+                return showToast("Please select both a Start and End time.", "error");
+            }
+
+            const startVal = new Date(startInput);
+            const endVal = new Date(endInput);
+
+            // 1. Validation: Time Range Check (Start must be before End)
+            if (startVal >= endVal) {
+                return showToast("Start time must be before end time.", "error");
+            }
+
+            // 2. Validation: 72 Hour Forecast Limit (Enforced for Normal and Exclusive)
+            const diffHours = (endVal - startVal) / (1000 * 60 * 60);
+            if (userRole !== 'developer' && diffHours > 72) {
+                return showToast("Forecast range cannot exceed 72 hours.", "error");
+            }
+
+            // 3. Validation: Enforce Daily Limits By Role
+            if (userRole === 'guest') {
+                return showToast("Guests cannot execute new runs.", "error");
+            }
+            if (userRole === 'normal' && runsToday >= 7) {
+                return showToast("Daily Normal limit (7) reached.", "error");
+            }
+            if (userRole === 'exclusive' && runsToday >= 15) {
+                return showToast("Daily Exclusive limit (15) reached.", "error");
+            }
 
             const btn = document.getElementById('submitBtn');
-            btn.disabled = true; btn.innerText = "Triggering...";
+            btn.disabled = true;
+            btn.innerText = "Triggering...";
 
             const formatDate = (isoStr) => {
                 const d = new Date(isoStr);
@@ -5197,13 +5235,11 @@
             }
 
             try {
-                // Fetch user UI settings to map visually 
                 const opacitySlider = document.getElementById('opacitySlider');
                 const currentOpacity = opacitySlider ? parseInt(opacitySlider.value) / 100 : 0.5;
                 const heightSlider = document.getElementById('heightSlider');
                 const currentHeightScale = heightSlider ? parseInt(heightSlider.value) : 500;
 
-                // Extract metadata text
                 const descEl = document.getElementById(`meta-desc-${mapIndex}`);
                 let periodText = "Unknown Period";
                 let issueText = new Date().toLocaleString();
@@ -5212,14 +5248,11 @@
 
                 if (descEl) {
                     const html = descEl.innerHTML;
-
                     const timeMatch = html.match(/<strong>Period:<\/strong>\s*([^<]+)/i);
                     if (timeMatch && timeMatch[1]) periodText = timeMatch[1].trim();
-
                     const issueMatch = html.match(/<strong>Time:<\/strong>\s*([^<]+)/i);
                     if (issueMatch && issueMatch[1]) issueText = issueMatch[1].trim();
 
-                    // Check mode and creator
                     isAuto = html.includes('Normal Mode (Auto)');
                     const ranByMatch = html.match(/<strong>Ran by:<\/strong>\s*(User\s*[^\s<]+|System)/i);
                     if (ranByMatch && ranByMatch[1]) creatorId = ranByMatch[1];
@@ -5229,13 +5262,11 @@
                     creatorId = 'Automatic HOCO V2.0';
                 }
 
-                // Check active Lightning Layer
                 let activeLightningGeojson = null;
                 if (lightningVisible[mapIndex] && lightningSources[mapIndex]) {
                     activeLightningGeojson = lightningSources[mapIndex].data;
                 }
 
-                // Calculate Max Risk
                 let maxRisk = -1;
                 let maxRiskCoords = null;
                 geojsonData.features.forEach(f => {
@@ -5243,7 +5274,7 @@
                         if (f.properties.risk > maxRisk) {
                             maxRisk = f.properties.risk;
                             if (f.geometry.type === 'Polygon') {
-                                maxRiskCoords = f.geometry.coordinates[0][0]; // Simple estimation
+                                maxRiskCoords = f.geometry.coordinates[0][0];
                             } else if (f.geometry.type === 'Point') {
                                 maxRiskCoords = f.geometry.coordinates;
                             }
@@ -5251,21 +5282,14 @@
                     }
                 });
 
-                // Set up Max Risk Label String
-                let maxRiskString = '';
-                if (maxRisk < 5) {
-                    maxRiskString = "Peak risk is below 5%. The red star marks the highest-risk point on the map.";
-                } else {
-                    maxRiskString = `Peak risk reaches ${maxRisk}%. The red star marks the highest-risk point on the map.`;
-                }
+                let maxRiskString = maxRisk < 5
+                    ? "Peak risk is below 5%. The red star marks the highest-risk point on the map."
+                    : `Peak risk reaches ${maxRisk}%. The red star marks the highest-risk point on the map.`;
 
-                // Set Title string
-                const mainTitleText = isAuto
-                    ? 'AUTO-HOCO Forecast'
-                    : 'Manual HOCO Forecast';
+                const mainTitleText = isAuto ? 'AUTO-HOCO Forecast' : 'Manual HOCO Forecast';
                 const exportModeLabel = isAuto ? 'Auto guidance' : 'Manual blend';
 
-                // 1. Create Export Container Offscreen (Flex Layout)
+                // 1. Create Export Container (Light Mode Background)
                 const exportContainer = document.createElement('div');
                 exportContainer.id = 'export-container-png';
                 exportContainer.style.position = 'absolute';
@@ -5273,7 +5297,7 @@
                 exportContainer.style.left = '-9999px';
                 exportContainer.style.width = '1200px';
                 exportContainer.style.height = '920px';
-                exportContainer.style.background = 'linear-gradient(180deg, #07101b 0%, #0b1830 100%)';
+                exportContainer.style.background = 'linear-gradient(180deg, #f6faff 0%, #e9f1fb 100%)';
                 exportContainer.style.fontFamily = "'Segoe UI', 'Aptos', system-ui, sans-serif";
                 exportContainer.style.overflow = 'hidden';
                 exportContainer.style.zIndex = '-999';
@@ -5281,9 +5305,9 @@
                 exportContainer.style.flexDirection = 'column';
                 document.body.appendChild(exportContainer);
 
-                // 2. Add Header
+                // 2. Header (Blue Light Theme)
                 const header = document.createElement('div');
-                header.style.background = 'linear-gradient(135deg, #0f2d5e 0%, #234d97 100%)';
+                header.style.background = 'linear-gradient(135deg, #2f67e4 0%, #4e82ef 100%)';
                 header.style.color = '#ffffff';
                 header.style.padding = '24px 30px 18px 30px';
                 header.style.display = 'flex';
@@ -5291,24 +5315,24 @@
                 header.style.justifyContent = 'space-between';
                 header.style.gap = '20px';
                 header.innerHTML = `
-                    <div>
-                        <div style="font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.7); margin-bottom: 8px;">Handry Outlook</div>
-                        <div style="font-size: 31px; font-weight: 800; line-height: 1.05;">${mainTitleText}</div>
-                    </div>
-                    <div style="padding: 8px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.16); background: rgba(255,255,255,0.1); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">${exportModeLabel}</div>
-                `;
+            <div>
+                <div style="font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.8); margin-bottom: 8px;">Handry Outlook</div>
+                <div style="font-size: 31px; font-weight: 800; line-height: 1.05;">${mainTitleText}</div>
+            </div>
+            <div style="padding: 8px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.2); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">${exportModeLabel}</div>
+        `;
                 exportContainer.appendChild(header);
 
-                // 3. Add Sub-header
+                // 3. Sub-header (Light mode)
                 const subHeader = document.createElement('div');
-                subHeader.style.background = 'rgba(11, 24, 48, 0.96)';
-                subHeader.style.color = '#d7e0f0';
+                subHeader.style.background = '#ffffff';
+                subHeader.style.color = '#102238';
                 subHeader.style.padding = '12px 30px';
                 subHeader.style.fontSize = '14px';
                 subHeader.style.display = 'flex';
                 subHeader.style.justifyContent = 'space-between';
                 subHeader.style.gap = '20px';
-                subHeader.style.borderBottom = '1px solid rgba(255,255,255,0.06)';
+                subHeader.style.borderBottom = '1px solid rgba(102,139,207,0.22)';
                 subHeader.innerHTML = `<span><strong>Valid:</strong> ${periodText}</span><span><strong>Issued:</strong> ${issueText}</span>`;
                 exportContainer.appendChild(subHeader);
 
@@ -5318,35 +5342,33 @@
                 summaryStrip.style.gap = '12px';
                 summaryStrip.style.padding = '18px 30px 0 30px';
                 summaryStrip.innerHTML = `
-                    <div style="padding: 14px 16px; border-radius: 18px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.06);">
-                        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: rgba(215,224,240,0.7); margin-bottom: 6px;">Max Risk</div>
-                        <div style="font-size: 23px; font-weight: 800; color: #ffffff;">${maxRisk < 5 ? '&lt;5%' : `${maxRisk}%`}</div>
-                    </div>
-                    <div style="padding: 14px 16px; border-radius: 18px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.06);">
-                        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: rgba(215,224,240,0.7); margin-bottom: 6px;">Region</div>
-                        <div style="font-size: 23px; font-weight: 800; color: #ffffff;">${(geojsonData.features[0]?.properties?.region) || 'England'}</div>
-                    </div>
-                    <div style="padding: 14px 16px; border-radius: 18px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.06);">
-                        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: rgba(215,224,240,0.7); margin-bottom: 6px;">Created By</div>
-                        <div style="font-size: 23px; font-weight: 800; color: #ffffff;">${creatorId}</div>
-                    </div>
-                `;
+            <div style="padding: 14px 16px; border-radius: 18px; background: #ffffff; border: 1px solid rgba(102,139,207,0.22); box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+                <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: #5d7088; margin-bottom: 6px;">Max Risk</div>
+                <div style="font-size: 23px; font-weight: 800; color: #102238;">${maxRisk < 5 ? '&lt;5%' : `${maxRisk}%`}</div>
+            </div>
+            <div style="padding: 14px 16px; border-radius: 18px; background: #ffffff; border: 1px solid rgba(102,139,207,0.22); box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+                <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: #5d7088; margin-bottom: 6px;">Region</div>
+                <div style="font-size: 23px; font-weight: 800; color: #102238;">${(geojsonData.features[0]?.properties?.region) || 'England'}</div>
+            </div>
+            <div style="padding: 14px 16px; border-radius: 18px; background: #ffffff; border: 1px solid rgba(102,139,207,0.22); box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
+                <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: #5d7088; margin-bottom: 6px;">Created By</div>
+                <div style="font-size: 23px; font-weight: 800; color: #102238;">${creatorId}</div>
+            </div>
+        `;
                 exportContainer.appendChild(summaryStrip);
 
-                // 4. Add Manual Warning Bar (if not auto)
+                // 4. Warning Bar
                 if (!isAuto) {
                     const warningDiv = document.createElement('div');
                     warningDiv.style.margin = '14px 30px 0 30px';
-                    warningDiv.style.background = 'rgba(192, 57, 43, 0.16)';
-                    warningDiv.style.color = '#ffe0dc';
+                    warningDiv.style.background = '#fdeded';
+                    warningDiv.style.color = '#5f2120';
                     warningDiv.style.padding = '12px 16px';
                     warningDiv.style.borderRadius = '16px';
-                    warningDiv.style.border = '1px solid rgba(255, 139, 120, 0.24)';
+                    warningDiv.style.border = '1px solid #f4c3c2';
                     warningDiv.style.fontSize = '13px';
                     warningDiv.style.fontWeight = '700';
-                    warningDiv.innerText = `Manual HOCO: this export uses a custom weighting profile and may differ from the official AUTO-HOCO guidance. Creator ID: ${creatorId}`;
                     warningDiv.innerText = `⚠️ MANUAL-HOCO: This product is custom weighted and may not accurately reflect official AUTO-HOCO forecasts. Creator ID: ${creatorId}`;
-                    warningDiv.innerText = `Manual HOCO: this export uses a custom weighting profile and may differ from the official AUTO-HOCO guidance. Creator ID: ${creatorId}`;
                     exportContainer.appendChild(warningDiv);
                 }
 
@@ -5359,21 +5381,21 @@
                 mapDiv.style.margin = '18px 30px 0 30px';
                 mapDiv.style.borderRadius = '24px';
                 mapDiv.style.overflow = 'hidden';
-                mapDiv.style.border = '1px solid rgba(255,255,255,0.08)';
-                mapDiv.style.boxShadow = '0 26px 44px rgba(0,0,0,0.28)';
+                mapDiv.style.border = '1px solid rgba(102,139,207,0.22)';
+                mapDiv.style.boxShadow = '0 18px 40px rgba(88,115,158,0.15)';
                 exportContainer.appendChild(mapDiv);
 
-                // Overlay: Max Risk Label
+                // Overlay: Max Risk Label (Light version)
                 const maxRiskLabel = document.createElement('div');
                 maxRiskLabel.style.position = 'absolute';
                 maxRiskLabel.style.top = '18px';
                 maxRiskLabel.style.left = '18px';
                 maxRiskLabel.style.maxWidth = '360px';
-                maxRiskLabel.style.background = 'rgba(4, 12, 23, 0.76)';
-                maxRiskLabel.style.color = 'white';
+                maxRiskLabel.style.background = 'rgba(255, 255, 255, 0.9)';
+                maxRiskLabel.style.color = '#102238';
                 maxRiskLabel.style.padding = '12px 14px';
                 maxRiskLabel.style.borderRadius = '16px';
-                maxRiskLabel.style.border = '1px solid rgba(255,255,255,0.12)';
+                maxRiskLabel.style.border = '1px solid rgba(102,139,207,0.3)';
                 maxRiskLabel.style.fontSize = '14px';
                 maxRiskLabel.style.lineHeight = '1.45';
                 maxRiskLabel.style.fontWeight = '700';
@@ -5381,15 +5403,16 @@
                 maxRiskLabel.innerText = maxRiskString;
                 mapDiv.appendChild(maxRiskLabel);
 
+                // Overlay: Mode Pill
                 const modePill = document.createElement('div');
                 modePill.style.position = 'absolute';
                 modePill.style.top = '18px';
                 modePill.style.right = '18px';
                 modePill.style.padding = '10px 14px';
                 modePill.style.borderRadius = '999px';
-                modePill.style.background = isAuto ? 'rgba(99, 230, 190, 0.16)' : 'rgba(255, 123, 123, 0.18)';
-                modePill.style.border = isAuto ? '1px solid rgba(99, 230, 190, 0.2)' : '1px solid rgba(255, 123, 123, 0.24)';
-                modePill.style.color = '#ffffff';
+                modePill.style.background = isAuto ? '#e8f8f2' : '#fdeded';
+                modePill.style.border = isAuto ? '1px solid #1f9d70' : '1px solid #d45d5d';
+                modePill.style.color = isAuto ? '#1f9d70' : '#d45d5d';
                 modePill.style.fontSize = '12px';
                 modePill.style.fontWeight = '800';
                 modePill.style.letterSpacing = '0.08em';
@@ -5409,69 +5432,67 @@
                 logo.crossOrigin = 'anonymous';
                 mapDiv.appendChild(logo);
 
-                // Overlay: Footer URL
+                // Overlay: Footer URL (Light version)
                 const footerUrl = document.createElement('div');
                 footerUrl.style.position = 'absolute';
                 footerUrl.style.bottom = '24px';
                 footerUrl.style.right = '22px';
                 footerUrl.style.padding = '10px 14px';
                 footerUrl.style.borderRadius = '14px';
-                footerUrl.style.background = 'rgba(4, 12, 23, 0.72)';
-                footerUrl.style.border = '1px solid rgba(255,255,255,0.12)';
-                footerUrl.style.color = 'rgba(255,255,255,0.86)';
+                footerUrl.style.background = 'rgba(255, 255, 255, 0.9)';
+                footerUrl.style.border = '1px solid rgba(102,139,207,0.3)';
+                footerUrl.style.color = '#102238';
                 footerUrl.style.fontSize = '12px';
                 footerUrl.style.fontWeight = '700';
                 footerUrl.style.zIndex = '10';
-                footerUrl.style.textShadow = '0px 1px 3px rgba(0,0,0,0.5)';
                 footerUrl.innerText = 'handry-outlook.github.io/HOCO-V2.0';
                 mapDiv.appendChild(footerUrl);
 
-                // 6. Add Full Width Bottom Color Legend
+                // 6. Legend Bar (Light version)
                 const legendBar = document.createElement('div');
                 legendBar.style.width = '100%';
                 legendBar.style.padding = '18px 30px 24px 30px';
                 legendBar.style.boxSizing = 'border-box';
-                legendBar.style.background = 'rgba(8, 17, 31, 0.96)';
-                legendBar.style.borderTop = '1px solid rgba(255,255,255,0.06)';
+                legendBar.style.background = '#ffffff';
+                legendBar.style.borderTop = '1px solid rgba(102,139,207,0.22)';
                 legendBar.innerHTML = `
-                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 12px;">
-                        <div style="color: white; font-weight: 800; font-size: 15px;">Convective Risk Probability</div>
-                        <div style="color: rgba(215,224,240,0.76); font-size: 12px;">Low to high thunderstorm risk (%)</div>
-                    </div>
-                    <div style="position: relative; width: 100%; height: 24px; background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(102,194,164,1) 20%, rgba(255,242,0,1) 40%, rgba(255,127,39,1) 60%, rgba(236,28,36,1) 80%, rgba(184,61,218,1) 100%); border: 1px solid rgba(255,255,255,0.18); border-radius: 999px;">
-                        <span style="position: absolute; left: 0%; top: 34px; transform: translateX(-10%); color: #cbd6e8; font-size: 12px; font-weight: 700;">0%</span>
-                        <span style="position: absolute; left: 20%; top: 34px; transform: translateX(-50%); color: #cbd6e8; font-size: 12px; font-weight: 700;">20%</span>
-                        <span style="position: absolute; left: 40%; top: 34px; transform: translateX(-50%); color: #cbd6e8; font-size: 12px; font-weight: 700;">40%</span>
-                        <span style="position: absolute; left: 60%; top: 34px; transform: translateX(-50%); color: #cbd6e8; font-size: 12px; font-weight: 700;">60%</span>
-                        <span style="position: absolute; left: 80%; top: 34px; transform: translateX(-50%); color: #cbd6e8; font-size: 12px; font-weight: 700;">80%</span>
-                        <span style="position: absolute; left: 100%; top: 34px; transform: translateX(-90%); color: #cbd6e8; font-size: 12px; font-weight: 700;">100%</span>
-                    </div>
-                `;
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 12px;">
+                <div style="color: #102238; font-weight: 800; font-size: 15px;">Convective Risk Probability</div>
+                <div style="color: #5d7088; font-size: 12px;">Low to high thunderstorm risk (%)</div>
+            </div>
+            <div style="position: relative; width: 100%; height: 24px; background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(102,194,164,1) 20%, rgba(255,242,0,1) 40%, rgba(255,127,39,1) 60%, rgba(236,28,36,1) 80%, rgba(184,61,218,1) 100%); border: 1px solid rgba(102,139,207,0.3); border-radius: 999px;">
+                <span style="position: absolute; left: 0%; top: 34px; transform: translateX(-10%); color: #5d7088; font-size: 12px; font-weight: 700;">0%</span>
+                <span style="position: absolute; left: 20%; top: 34px; transform: translateX(-50%); color: #5d7088; font-size: 12px; font-weight: 700;">20%</span>
+                <span style="position: absolute; left: 40%; top: 34px; transform: translateX(-50%); color: #5d7088; font-size: 12px; font-weight: 700;">40%</span>
+                <span style="position: absolute; left: 60%; top: 34px; transform: translateX(-50%); color: #5d7088; font-size: 12px; font-weight: 700;">60%</span>
+                <span style="position: absolute; left: 80%; top: 34px; transform: translateX(-50%); color: #5d7088; font-size: 12px; font-weight: 700;">80%</span>
+                <span style="position: absolute; left: 100%; top: 34px; transform: translateX(-90%); color: #5d7088; font-size: 12px; font-weight: 700;">100%</span>
+            </div>
+        `;
                 exportContainer.appendChild(legendBar);
 
-                // 7. Initialize the Independent Mapbox Map
+                // 7. Initialize Mapbox Map (Enforced Light Style for standard visibility)
                 const exportMap = new mapboxgl.Map({
                     container: 'export-map-div',
-                    style: 'mapbox://styles/handry20191026/cmns2lucg001401s898cuaxjt',
+                    style: 'mapbox://styles/mapbox/light-v11',
                     bounds: [
-                        [-10.234, 48.788], // SW coordinates
-                        [5.471, 56.578]    // NE coordinates
+                        [-10.234, 48.788],
+                        [5.471, 56.578]
                     ],
                     preserveDrawingBuffer: true,
                     interactive: false,
-                    pitch: 0 // Keep the map viewing completely flat from above
+                    pitch: 0
                 });
 
                 await new Promise((resolve) => {
                     exportMap.on('style.load', () => {
-                        exportMap.setProjection('mercator'); // Strict 2D for flat clean exports
+                        exportMap.setProjection('mercator');
 
                         exportMap.addSource('export-hoco-source', {
                             'type': 'geojson',
                             'data': geojsonData
                         });
 
-                        // Ensure we use fill-extrusion per user request, but relying on pitch:0 to stay flat
                         exportMap.addLayer({
                             'id': 'export-hoco-polygons',
                             'type': 'fill-extrusion',
@@ -5496,7 +5517,6 @@
                             }
                         });
 
-                        // Add Lightning Layer if active
                         if (activeLightningGeojson) {
                             exportMap.addSource('export-lightning', {
                                 'type': 'geojson',
@@ -5514,42 +5534,40 @@
                                     'text-ignore-placement': true
                                 },
                                 'paint': {
-                                    'text-color': '#ffffff',
-                                    'text-halo-color': 'rgba(0,0,0,0.5)',
+                                    'text-color': '#000000', // Switch lightning ticks to dark/black on light background if necessary
+                                    'text-halo-color': 'rgba(255,255,255,0.7)',
                                     'text-halo-width': 1
                                 }
                             });
                         }
 
-                        // Add Max Risk Red Star (unless negligible & no coords)
                         if (maxRiskCoords) {
                             const starEl = document.createElement('div');
                             starEl.innerHTML = '★';
                             starEl.style.color = '#e74c3c';
                             starEl.style.fontSize = '32px';
                             starEl.style.lineHeight = '1';
-                            starEl.style.textShadow = '0 0 6px white, 0 0 6px white, 0 0 6px white';
+                            starEl.style.textShadow = '0 0 6px white, 0 0 6px white';
 
                             new mapboxgl.Marker(starEl)
                                 .setLngLat(maxRiskCoords)
                                 .addTo(exportMap);
                         }
 
-                        // Wait for full map render
                         exportMap.once('idle', () => {
-                            setTimeout(resolve, 800); // Give tiles, layers, symbols and logo an extra moment to settle
+                            setTimeout(resolve, 800);
                         });
                     });
                 });
 
-                // 8. Capture to Canvas
+                // 8. Capture to Canvas (Ensuring light background)
                 const canvas = await html2canvas(exportContainer, {
                     useCORS: true,
                     allowTaint: true,
-                    backgroundColor: '#111'
+                    backgroundColor: '#f6faff'
                 });
 
-                // 9. Trigger Image Download
+                // 9. Download
                 const link = document.createElement('a');
                 link.download = `HOCO_Export_${Date.now()}.png`;
                 link.href = canvas.toDataURL('image/png', 1.0);
@@ -5557,7 +5575,6 @@
 
                 showToast("Export completed successfully", "success");
 
-                // Cleanup
                 exportMap.remove();
                 document.body.removeChild(exportContainer);
 
