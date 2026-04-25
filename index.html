@@ -6133,7 +6133,7 @@
             return clusters;
         }
 
-        async function mimicHumanForecast(mapIndex) {
+        window.mimicHumanForecast = async function mimicHumanForecast(mapIndex) {
             const btn = document.getElementById(`mimic-btn-${mapIndex}`);
             if (btn) { btn.disabled = true; btn.textContent = '⏳ Analysing ensemble...'; }
 
@@ -6392,7 +6392,7 @@
         }
 
         // ── KML Export ──────────────────────────────────────────────────────────
-        function exportMimicKML(mapIndex) {
+        window.exportMimicKML = function exportMimicKML(mapIndex) {
             const result = mimicResults[mapIndex];
             if (!result || !result.geojson) {
                 showToast("No mimic forecast to export. Run Mimic first.", "error");
