@@ -195,15 +195,19 @@
             border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
+            flex: 0 0 auto;
             z-index: 10;
             box-shadow: 5px 0 20px rgba(0, 0, 0, 0.7);
             box-sizing: border-box;
+            overflow: hidden;
+            transition: width 0.24s ease, height 0.24s ease, border-color 0.24s ease, box-shadow 0.24s ease;
         }
 
         #scroll-area {
             flex-grow: 1;
             overflow-y: auto;
             padding: 15px;
+            transition: padding 0.2s ease, opacity 0.2s ease;
         }
 
         /* Map Wrapper */
@@ -213,6 +217,7 @@
             display: grid;
             gap: 2px;
             background: #222;
+            transition: height 0.24s ease, min-height 0.24s ease;
         }
 
         #map-wrapper.grid-1 {
@@ -613,10 +618,64 @@
             background: linear-gradient(135deg, #2fc18a 0%, #63e6be 100%);
         }
 
+        #mainUI {
+            display: flex;
+            align-items: stretch;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        #mainUI>*,
+        #executionPanel,
+        #devRunnerSettings,
+        #upgradePanel,
+        #adminPanel {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        #executionPanel {
+            order: 6;
+        }
+
+        #upgradePanel {
+            order: 7;
+        }
+
+        #devRunnerSettings {
+            order: 8;
+        }
+
+        #adminPanel {
+            order: 9;
+        }
+
+        #logoutBtn {
+            order: 10;
+        }
+
+        #sessionMeta {
+            order: 11;
+        }
+
+        body.role-developer #devRunnerSettings {
+            order: 7;
+        }
+
+        body.role-developer #adminPanel {
+            order: 8;
+        }
+
+        body.role-developer #executionPanel {
+            order: 6;
+        }
+
         .dashboard-hero {
+            order: 1;
             position: relative;
             overflow: hidden;
-            padding: 22px 20px;
+            padding: 18px 18px 16px;
             margin-bottom: 16px;
             border-radius: 24px;
             border: 1px solid rgba(123, 164, 246, 0.18);
@@ -639,26 +698,26 @@
 
         .hero-kicker,
         .panel-kicker {
-            font-size: 0.72rem;
+            font-size: 0.66rem;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.16em;
+            letter-spacing: 0.14em;
             color: #8eb2ff;
         }
 
         .hero-title {
-            margin: 8px 0 10px;
+            margin: 6px 0 8px;
             color: #ffffff;
-            font-size: 2rem;
+            font-size: 1.72rem;
             line-height: 1.02;
         }
 
         .hero-text {
-            margin: 0 0 18px;
+            margin: 0 0 12px;
             color: #d7e0f0;
-            font-size: 0.95rem;
-            line-height: 1.55;
-            max-width: 28rem;
+            font-size: 0.86rem;
+            line-height: 1.45;
+            max-width: none;
         }
 
         .role-badge,
@@ -667,15 +726,15 @@
             align-items: center;
             justify-content: center;
             gap: 6px;
-            min-height: 34px;
-            padding: 0 12px;
+            min-height: 30px;
+            padding: 0 10px;
             border-radius: 999px;
             background: rgba(99, 230, 190, 0.14);
             border: 1px solid rgba(99, 230, 190, 0.22);
             color: #dffbf1;
-            font-size: 0.72rem;
+            font-size: 0.67rem;
             font-weight: 800;
-            letter-spacing: 0.12em;
+            letter-spacing: 0.1em;
             text-transform: uppercase;
         }
 
@@ -686,6 +745,7 @@
         }
 
         .secondary-action {
+            order: 3;
             margin-bottom: 0 !important;
         }
 
@@ -697,6 +757,10 @@
             margin-bottom: 14px;
         }
 
+        .panel-headline-stack {
+            min-width: 0;
+        }
+
         .panel-heading-spread {
             align-items: center;
         }
@@ -705,6 +769,32 @@
             margin: 4px 0 0;
             font-size: 1.1rem;
             color: #ffffff;
+        }
+
+        .collapsible-panel-body {
+            margin-top: 14px;
+        }
+
+        .collapsible-panel.is-collapsed .collapsible-panel-body {
+            display: none;
+        }
+
+        .collapsible-panel.is-collapsed {
+            padding-bottom: 14px;
+        }
+
+        .panel-collapse-btn {
+            width: auto;
+            min-width: 76px;
+            min-height: 32px;
+            padding: 0 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(140, 177, 248, 0.24);
+            box-shadow: none;
+            font-size: 0.68rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
         }
 
         .panel-note,
@@ -738,7 +828,12 @@
             margin-top: 12px;
         }
 
+        .workspace-panel {
+            order: 4;
+        }
+
         .auto-dashboard {
+            order: 2;
             position: relative;
             overflow: hidden;
         }
@@ -770,6 +865,248 @@
             margin-top: 8px;
             color: var(--muted);
             font-size: 0.75rem;
+        }
+
+        .auto-slider-block {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .auto-slider-toolbar {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 6px;
+        }
+
+        .auto-slider-toolbar label {
+            margin-bottom: 0;
+        }
+
+        .mobile-auto-selects {
+            display: none;
+            width: 100%;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px;
+        }
+
+        .mobile-run-picker {
+            min-width: 0;
+        }
+
+        .mobile-run-picker select {
+            width: 100%;
+            min-height: 34px;
+            margin: 0;
+            padding: 6px 10px;
+            border-radius: 12px;
+            font-size: 0.74rem;
+        }
+
+        .auto-slider-block input[type="range"] {
+            min-height: 18px;
+            margin-bottom: 0;
+            padding: 0;
+            border: none;
+            background: transparent;
+            box-shadow: none;
+        }
+
+        .auto-slider-block input[type="range"]:focus {
+            border: none;
+        }
+
+        #mapAutoTimelineDock {
+            position: absolute;
+            left: 12px;
+            right: 12px;
+            bottom: 12px;
+            z-index: 12;
+            display: none;
+            pointer-events: none;
+        }
+
+        #mapAutoTimelineDock.is-active {
+            display: block;
+        }
+
+        .map-auto-timeline-shell {
+            pointer-events: auto;
+            padding: 12px 14px;
+            border-radius: 18px;
+            background: rgba(5, 14, 27, 0.9);
+            border: 1px solid rgba(136, 172, 245, 0.18);
+            box-shadow: 0 16px 30px rgba(0, 0, 0, 0.28);
+            backdrop-filter: blur(10px);
+        }
+
+        .map-auto-timeline-shell .mobile-auto-selects {
+            display: grid;
+        }
+
+        body:not(.app-ready) #mapAutoTimelineDock {
+            display: none !important;
+        }
+
+        .sidebar-toggle-btn {
+            position: absolute;
+            top: 12px;
+            right: 68px;
+            z-index: 13;
+            width: auto;
+            min-height: 36px;
+            padding: 0 12px;
+            border-radius: 999px;
+            background: rgba(5, 14, 27, 0.88);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.24);
+        }
+
+        body:not(.app-ready) .sidebar-toggle-btn {
+            display: none;
+        }
+
+        body.sidebar-collapsed #sidebar {
+            width: 0;
+            flex-basis: 0;
+            min-width: 0;
+            border-right-color: transparent;
+            box-shadow: none;
+        }
+
+        body.sidebar-collapsed #map-wrapper {
+            position: fixed !important;
+            inset: 0 !important;
+            width: 100vw !important;
+            min-width: 100vw !important;
+            max-width: 100vw !important;
+            height: 100dvh !important;
+            min-height: 100dvh !important;
+            max-height: 100dvh !important;
+            flex: none !important;
+            z-index: 11;
+        }
+
+        body.sidebar-collapsed #scroll-area {
+            padding: 0;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        body.sidebar-collapsed #sidebar {
+            display: none !important;
+        }
+
+        body.theme-light {
+            --primary: #2f67e4;
+            --primary-hover: #4e82ef;
+            --bg: #eef4fb;
+            --card: rgba(255, 255, 255, 0.95);
+            --text: #102238;
+            --border: rgba(102, 139, 207, 0.22);
+            --accent: #1f9d70;
+            --danger: #d45d5d;
+            --warning: #c88c16;
+            --guest: #6e8098;
+            --muted: #5d7088;
+            --panel-shadow: 0 18px 40px rgba(88, 115, 158, 0.18);
+            background:
+                radial-gradient(circle at top left, rgba(47, 103, 228, 0.16), transparent 34%),
+                radial-gradient(circle at bottom right, rgba(31, 157, 112, 0.12), transparent 30%),
+                linear-gradient(180deg, #f6faff 0%, #e9f1fb 100%);
+        }
+
+        body.theme-light #sidebar {
+            background: linear-gradient(180deg, rgba(251, 253, 255, 0.98) 0%, rgba(240, 246, 252, 0.96) 100%);
+            border-right-color: rgba(102, 139, 207, 0.2);
+            box-shadow: 12px 0 34px rgba(112, 139, 181, 0.14);
+        }
+
+        body.theme-light .panel,
+        body.theme-light .dashboard-panel {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(244, 248, 253, 0.99) 100%);
+            border-color: rgba(102, 139, 207, 0.22);
+            box-shadow: var(--panel-shadow);
+        }
+
+        body.theme-light .dashboard-hero {
+            background:
+                radial-gradient(circle at top right, rgba(31, 157, 112, 0.14), transparent 36%),
+                linear-gradient(135deg, rgba(224, 235, 255, 0.96), rgba(248, 251, 255, 0.99));
+        }
+
+        body.theme-light .hero-title,
+        body.theme-light .panel-title,
+        body.theme-light .run-preview-card h4,
+        body.theme-light .run-browser-title,
+        body.theme-light .preview-stat strong {
+            color: #102238;
+        }
+
+        body.theme-light .hero-text,
+        body.theme-light .panel-note,
+        body.theme-light .helper-text,
+        body.theme-light .run-preview-card p,
+        body.theme-light .run-browser-meta,
+        body.theme-light .auto-day-subtitle,
+        body.theme-light .loading-note,
+        body.theme-light .loading-elapsed {
+            color: #5d7088;
+        }
+
+        body.theme-light label {
+            color: #4c617d;
+        }
+
+        body.theme-light input,
+        body.theme-light select,
+        body.theme-light textarea {
+            background: rgba(255, 255, 255, 0.98);
+            border-color: rgba(102, 139, 207, 0.24);
+            color: #102238;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        }
+
+        body.theme-light select option {
+            background-color: #ffffff;
+            color: #102238;
+        }
+
+        body.theme-light .run-preview-card,
+        body.theme-light .run-browser-card,
+        body.theme-light .run-browser-empty,
+        body.theme-light .map-auto-timeline-shell,
+        body.theme-light .map-metadata,
+        body.theme-light .loading-content {
+            background: rgba(255, 255, 255, 0.94);
+            border-color: rgba(102, 139, 207, 0.2);
+            box-shadow: 0 16px 28px rgba(104, 131, 171, 0.15);
+        }
+
+        body.theme-light .preview-stat,
+        body.theme-light .filter-tab,
+        body.theme-light .panel-collapse-btn,
+        body.theme-light .sidebar-toggle-btn,
+        body.theme-light .loading-phase {
+            background: rgba(24, 47, 82, 0.05);
+            border-color: rgba(102, 139, 207, 0.18);
+            color: #102238;
+        }
+
+        body.theme-light .status-chip.subtle {
+            background: rgba(24, 47, 82, 0.05);
+            border-color: rgba(102, 139, 207, 0.18);
+            color: #35506c;
+        }
+
+        body.theme-light .loading-overlay {
+            background: rgba(233, 240, 250, 0.82);
+        }
+
+        body.theme-light .loading-title,
+        body.theme-light .auto-day-label {
+            color: #102238;
         }
 
         .run-preview-card {
@@ -953,7 +1290,12 @@
             font-size: 0.8rem;
         }
 
+        .browse-dashboard {
+            order: 5;
+        }
+
         .execution-panel {
+            order: 6;
             margin-top: 2px;
         }
 
@@ -1056,19 +1398,24 @@
 
         @media (max-width: 768px) {
             #scroll-area {
-                padding: 14px;
+                padding: 12px;
             }
 
             #sidebar {
-                height: 58vh;
+                height: 36dvh;
                 border-right: none;
                 border-bottom: 1px solid var(--border);
+            }
+
+            body.sidebar-collapsed #sidebar {
+                height: 0;
+                border-bottom: none;
             }
 
             .dashboard-hero,
             .panel,
             .dashboard-panel {
-                border-radius: 18px;
+                border-radius: 16px;
             }
 
             .control-grid,
@@ -1085,12 +1432,256 @@
                 width: 100%;
             }
 
+            .dashboard-hero {
+                padding: 14px 14px 12px;
+                margin-bottom: 12px;
+            }
+
+            .hero-kicker {
+                font-size: 0.6rem;
+            }
+
             .hero-title {
-                font-size: 1.7rem;
+                font-size: 1.28rem;
+                margin: 4px 0 6px;
+            }
+
+            .hero-text {
+                font-size: 0.76rem;
+                line-height: 1.35;
+                margin-bottom: 10px;
+                display: -webkit-box;
+                -webkit-box-orient: vertical;
+                -webkit-line-clamp: 2;
+                overflow: hidden;
+            }
+
+            .role-badge,
+            .status-chip {
+                min-height: 28px;
+                padding: 0 9px;
+                font-size: 0.62rem;
+            }
+
+            .panel,
+            .dashboard-panel {
+                padding: 14px;
+                margin-bottom: 12px;
+            }
+
+            .workspace-panel {
+                padding: 12px 12px 10px;
+            }
+
+            .workspace-panel .collapsible-panel-body {
+                margin-top: 10px;
+            }
+
+            .workspace-panel label {
+                font-size: 0.62rem;
+                margin-bottom: 4px;
+            }
+
+            .workspace-panel select,
+            .workspace-panel input {
+                min-height: 38px;
+            }
+
+            .panel-heading {
+                margin-bottom: 10px;
+                gap: 8px;
+            }
+
+            .panel-heading-spread {
+                align-items: flex-start;
+            }
+
+            .panel-title {
+                font-size: 0.94rem;
+            }
+
+            .panel-note,
+            .helper-text {
+                font-size: 0.72rem;
+                line-height: 1.4;
+            }
+
+            .panel-note {
+                max-width: 11rem;
+                text-align: left;
+            }
+
+            .panel-collapse-btn {
+                min-width: 64px;
+                min-height: 28px;
+                padding: 0 10px;
+                font-size: 0.6rem;
+            }
+
+            .auto-day-header {
+                margin: 6px 0 10px;
+            }
+
+            .auto-day-label {
+                font-size: 0.92rem;
+            }
+
+            .auto-day-subtitle {
+                font-size: 0.74rem;
+            }
+
+            .run-preview-card {
+                margin: 10px 0;
+                padding: 12px;
+                border-radius: 16px;
+            }
+
+            .run-preview-card h4 {
+                font-size: 0.92rem;
+                margin-bottom: 6px;
+            }
+
+            .run-preview-card p {
+                font-size: 0.8rem;
+                line-height: 1.35;
+            }
+
+            .preview-stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+                margin-top: 10px;
+            }
+
+            .preview-stats .preview-stat:first-child {
+                grid-column: 1 / -1;
+            }
+
+            .preview-stat {
+                padding: 8px 9px;
+                border-radius: 12px;
+            }
+
+            .preview-stat-label {
+                font-size: 0.58rem;
+                margin-bottom: 4px;
+            }
+
+            .preview-stat strong {
+                font-size: 0.72rem;
+                line-height: 1.25;
+            }
+
+            .slider-ticks {
+                margin-top: 6px;
+                font-size: 0.68rem;
             }
 
             #map-wrapper {
-                height: 42vh;
+                height: 64dvh;
+                min-height: 64dvh;
+            }
+
+            body.sidebar-collapsed #map-wrapper {
+                height: 100dvh;
+                min-height: 100dvh;
+            }
+
+            #mapAutoTimelineDock {
+                left: 10px;
+                right: 10px;
+                bottom: max(10px, env(safe-area-inset-bottom));
+            }
+
+            .map-auto-timeline-shell {
+                padding: 8px 10px 9px;
+                border-radius: 14px;
+            }
+
+            .map-auto-timeline-shell .auto-slider-toolbar {
+                gap: 8px;
+            }
+
+            .map-auto-timeline-shell label {
+                font-size: 0.6rem;
+                margin-bottom: 2px;
+            }
+
+            .map-auto-timeline-shell .mobile-auto-selects {
+                display: grid;
+            }
+
+            .map-auto-timeline-shell .mobile-run-picker select {
+                min-height: 30px;
+                padding: 4px 8px;
+                font-size: 0.66rem;
+            }
+
+            .map-auto-timeline-shell input[type="range"] {
+                min-height: 12px;
+            }
+
+            .map-auto-timeline-shell .slider-ticks {
+                display: none;
+            }
+
+            .map-auto-timeline-shell #autoTimelineStatus {
+                display: none;
+            }
+
+            .sidebar-toggle-btn {
+                top: 8px;
+                right: 58px;
+                min-height: 30px;
+                padding: 0 10px;
+                font-size: 0.64rem;
+            }
+
+            .map-metadata {
+                top: 8px;
+                left: 8px;
+                max-width: min(56vw, 220px);
+                padding: 8px 10px;
+                border-radius: 12px;
+            }
+
+            .map-metadata [id^="meta-title-"] {
+                font-size: 0.68rem !important;
+                margin-bottom: 2px !important;
+            }
+
+            .map-metadata [id^="meta-desc-"] {
+                font-size: 0.56rem !important;
+                line-height: 1.25 !important;
+                display: -webkit-box;
+                -webkit-box-orient: vertical;
+                -webkit-line-clamp: 2;
+                overflow: hidden;
+            }
+
+            .map-metadata [id^="meta-scale-"] {
+                margin-top: 4px !important;
+                gap: 4px !important;
+            }
+
+            .map-metadata [id^="meta-scale-"] span {
+                font-size: 0.46rem !important;
+            }
+
+            .map-metadata [id^="meta-scale-"]>div {
+                height: 4px !important;
+                width: 56px !important;
+            }
+
+            .map-metadata>div:last-child {
+                gap: 4px !important;
+                margin-top: 6px !important;
+            }
+
+            #map-wrapper button[id^="lightning-btn-"],
+            #map-wrapper button[id^="export-btn-"] {
+                min-height: 28px;
+                padding: 5px 6px !important;
+                font-size: 0.62rem !important;
             }
         }
     </style>
@@ -1203,40 +1794,55 @@
                 <button id="showAccuracyBtn" class="btn-outline secondary-action">
                     📊 View AUTO-HOCO Accuracy
                 </button>
-                <div class="panel dashboard-panel">
-
-                    <label>Workspace Settings</label>
-                    <select id="layoutSelect">
-                        <option value="1">Single Map Mode</option>
-                        <option value="2">Dual Map Comparison</option>
-                        <option value="4">Quad Map Comparison</option>
-                    </select>
-
-                    <select id="mapStyleSelect">
-                        <option value="mapbox://styles/handry20191026/cmns2lucg001401s898cuaxjt">Style: Default</option>
-                        <option value="mapbox://styles/mapbox/standard">Style: Standard (3D Enhanced)</option>
-                        <option value="mapbox://styles/mapbox/satellite-v9">Style: Satellite (Imagery Only)</option>
-                        <option value="mapbox://styles/mapbox/satellite-streets-v12">Style: Satellite (with Streets)
-                        </option>
-                        <option value="mapbox://styles/mapbox/light-v11">Style: Light (Minimalist)</option>
-                        <option value="mapbox://styles/mapbox/outdoors-v12">Style: Outdoors (Terrain)</option>
-                        <option value="mapbox://styles/mapbox/navigation-night-v1">Style: Navigation (Night)</option>
-                        <option value="mapbox://styles/mapbox/navigation-day-v1">Style: Navigation (Day)</option>
-                    </select>
-
-                    <select id="visTypeSelect">
-                        <option value="3d">Visualization: 3D Grid Extrusion</option>
-                        <option value="2d">Visualization: 2D Flat Polygon</option>
-                    </select>
-
-                    <div style="display: flex; gap: 10px; margin-top: 10px;">
-                        <div style="flex: 1;">
-                            <label>Grid Opacity</label>
-                            <input type="range" id="opacitySlider" min="0" max="100" value="50">
+                <div id="workspacePanel" class="panel dashboard-panel workspace-panel collapsible-panel">
+                    <div class="panel-heading panel-heading-spread">
+                        <div class="panel-headline-stack">
+                            <div class="panel-kicker">Workspace</div>
+                            <h3 class="panel-title">Workspace settings</h3>
                         </div>
-                        <div style="flex: 1;">
-                            <label>3D Scale</label>
-                            <input type="range" id="heightSlider" min="10" max="1000" step="5" value="500">
+                        <button type="button" class="panel-collapse-btn" data-collapse-target="workspacePanelBody"
+                            data-expanded-label="Hide" data-collapsed-label="Show" aria-expanded="true">Hide</button>
+                    </div>
+
+                    <div id="workspacePanelBody" class="collapsible-panel-body">
+                        <label>Workspace Settings</label>
+                        <select id="layoutSelect">
+                            <option value="1">Single Map Mode</option>
+                            <option value="2">Dual Map Comparison</option>
+                            <option value="4">Quad Map Comparison</option>
+                        </select>
+
+                        <select id="themeSelect">
+                            <option value="dark">Theme: Dark</option>
+                            <option value="light">Theme: Light</option>
+                        </select>
+
+                        <select id="mapStyleSelect">
+                            <option value="mapbox://styles/handry20191026/cmns2lucg001401s898cuaxjt">Style: Default</option>
+                            <option value="mapbox://styles/mapbox/standard">Style: Standard (3D Enhanced)</option>
+                            <option value="mapbox://styles/mapbox/satellite-v9">Style: Satellite (Imagery Only)</option>
+                            <option value="mapbox://styles/mapbox/satellite-streets-v12">Style: Satellite (with Streets)
+                            </option>
+                            <option value="mapbox://styles/mapbox/light-v11">Style: Light (Minimalist)</option>
+                            <option value="mapbox://styles/mapbox/outdoors-v12">Style: Outdoors (Terrain)</option>
+                            <option value="mapbox://styles/mapbox/navigation-night-v1">Style: Navigation (Night)</option>
+                            <option value="mapbox://styles/mapbox/navigation-day-v1">Style: Navigation (Day)</option>
+                        </select>
+
+                        <select id="visTypeSelect">
+                            <option value="3d">Visualization: 3D Grid Extrusion</option>
+                            <option value="2d">Visualization: 2D Flat Polygon</option>
+                        </select>
+
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <div style="flex: 1;">
+                                <label>Grid Opacity</label>
+                                <input type="range" id="opacitySlider" min="0" max="100" value="50">
+                            </div>
+                            <div style="flex: 1;">
+                                <label>3D Scale</label>
+                                <input type="range" id="heightSlider" min="10" max="1000" step="5" value="500">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1292,18 +1898,35 @@
                         </div>
                     </div>
 
-                    <div class="field-shell">
-                        <label>AUTO time slider</label>
-                        <input type="range" id="autoRunSlider" min="0" max="0" step="1" value="0" disabled>
-                        <div class="slider-ticks auto-run-slider-ticks">
-                            <span id="autoRunSliderStart">--</span>
-                            <span id="autoRunSliderCurrent">Select a run</span>
-                            <span id="autoRunSliderEnd">--</span>
+                    <div id="autoTimelineSidebarSlot">
+                        <div id="autoTimelineSliderBlock" class="auto-slider-block">
+                            <div class="field-shell">
+                                <div class="auto-slider-toolbar">
+                                    <label for="autoRunSlider">AUTO time slider</label>
+                                    <div class="mobile-auto-selects">
+                                        <div class="mobile-run-picker">
+                                            <select id="autoDaySelectMobile" aria-label="Select valid date">
+                                                <option value="0">Valid date</option>
+                                            </select>
+                                        </div>
+                                        <div class="mobile-run-picker">
+                                            <select id="autoRunSelectMobile" aria-label="Select issued time" disabled>
+                                                <option value="">Issued time</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <input type="range" id="autoRunSlider" min="0" max="0" step="1" value="0" disabled>
+                                <div class="slider-ticks auto-run-slider-ticks">
+                                    <span id="autoRunSliderStart">--</span>
+                                    <span id="autoRunSliderCurrent">Select a run</span>
+                                    <span id="autoRunSliderEnd">--</span>
+                                </div>
+                            </div>
+
+                            <div id="autoTimelineStatus" class="helper-text">Latest AUTO-HOCO runs will appear here.</div>
                         </div>
                     </div>
-
-
-                    <div id="autoTimelineStatus" class="helper-text">Latest AUTO-HOCO runs will appear here.</div>
                 </div>
 
                 <div class="panel dashboard-panel browse-dashboard">
@@ -1452,7 +2075,7 @@
                     style="color: var(--danger); border-color: var(--danger); margin-top: 10px;">Terminate
                     Session</button>
 
-                <div style="text-align: center; margin-top: 15px;">
+                <div id="sessionMeta" style="text-align: center; margin-top: 15px;">
                     <code id="displayUid" style="font-size: 0.65rem; color: #555;"></code>
                 </div>
             </div>
@@ -1812,6 +2435,7 @@
         </div>
     </div>
     <div id="map-wrapper" class="grid-1">
+        <button id="sidebarToggleBtn" type="button" class="sidebar-toggle-btn btn-outline" aria-expanded="true">Hide panel</button>
         <div id="map0" class="map-instance">
             <div class="map-metadata">
                 <div id="meta-title-0"
@@ -1978,6 +2602,11 @@
                     </div>
                     <div class="loading-note">Based on models & forecast duration</div>
                 </div>
+            </div>
+        </div>
+        <div id="mapAutoTimelineDock">
+            <div class="map-auto-timeline-shell">
+                <div id="autoTimelineMapSlot"></div>
             </div>
         </div>
     </div>
@@ -2714,6 +3343,24 @@
             return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
 
+        function formatCompactDate(date) {
+            if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '--/--/--';
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = String(date.getFullYear()).slice(-2);
+            return `${day}/${month}/${year}`;
+        }
+
+        function formatMobileValidDateLabel(dayOffset) {
+            return `Valid ${formatCompactDate(addDays(getCalendarAnchorDate(), dayOffset))}`;
+        }
+
+        function formatMobileIssuedLabel(run) {
+            const issuedAt = getRunCreatedDate(run);
+            if (!issuedAt) return 'Issued time unavailable';
+            return `Issued at ${formatShortTime(issuedAt)} ${formatCompactDate(issuedAt)}`;
+        }
+
         function formatRunPeriodLabel(run) {
             const start = getRunStartDate(run);
             const end = getRunEndDate(run);
@@ -2798,15 +3445,27 @@
             const sliderStart = document.getElementById('autoRunSliderStart');
             const sliderCurrent = document.getElementById('autoRunSliderCurrent');
             const sliderEnd = document.getElementById('autoRunSliderEnd');
+            const mobileDaySelect = document.getElementById('autoDaySelectMobile');
+            const mobileSelect = document.getElementById('autoRunSelectMobile');
 
             if (autoDayLabel) autoDayLabel.textContent = `Day ${autoDaySelection}`;
             if (autoDaySubtitle) autoDaySubtitle.textContent = formatShortDay(targetDate);
             if (autoDayCount) autoDayCount.textContent = `${runs.length} run${runs.length === 1 ? '' : 's'}`;
+            if (mobileDaySelect) {
+                mobileDaySelect.innerHTML = [0, 1, 2].map((dayOffset) =>
+                    `<option value="${dayOffset}">${formatMobileValidDateLabel(dayOffset)}</option>`
+                ).join('');
+                mobileDaySelect.value = String(autoDaySelection);
+            }
 
             if (!runs.length) {
                 runSlider.value = '0';
                 runSlider.max = '0';
                 runSlider.disabled = true;
+                if (mobileSelect) {
+                    mobileSelect.innerHTML = '<option value="">No issued runs</option>';
+                    mobileSelect.disabled = true;
+                }
 
                 autoRunSelectionByDay[autoDaySelection] = null;
 
@@ -2832,6 +3491,14 @@
             runSlider.max = String(Math.max(runs.length - 1, 0));
             runSlider.value = String(selectedIndex);
             runSlider.disabled = false;
+            if (mobileSelect) {
+                mobileSelect.innerHTML = runs.map((run, index) => {
+                    const label = formatMobileIssuedLabel(run);
+                    return `<option value="${index}">${label}</option>`;
+                }).join('');
+                mobileSelect.value = String(selectedIndex);
+                mobileSelect.disabled = false;
+            }
 
 
             preview?.classList.remove('is-empty');
@@ -3491,6 +4158,118 @@
 
         document.getElementById('dateFilterMode').value = currentDateFilterMode;
 
+        const autoTimelineSidebarSlot = document.getElementById('autoTimelineSidebarSlot');
+        const autoTimelineMapSlot = document.getElementById('autoTimelineMapSlot');
+        const autoTimelineSliderBlock = document.getElementById('autoTimelineSliderBlock');
+        const mapAutoTimelineDock = document.getElementById('mapAutoTimelineDock');
+        const mobileAutoDockQuery = window.matchMedia('(max-width: 768px)');
+        const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+        const themeSelect = document.getElementById('themeSelect');
+        const autoDaySelectMobile = document.getElementById('autoDaySelectMobile');
+        const autoRunSelectMobile = document.getElementById('autoRunSelectMobile');
+        const collapseButtons = Array.from(document.querySelectorAll('[data-collapse-target]'));
+
+        function applyTheme(theme) {
+            const resolvedTheme = theme === 'light' ? 'light' : 'dark';
+            document.body.classList.toggle('theme-light', resolvedTheme === 'light');
+            document.body.classList.toggle('theme-dark', resolvedTheme === 'dark');
+            if (themeSelect && themeSelect.value !== resolvedTheme) {
+                themeSelect.value = resolvedTheme;
+            }
+            try {
+                localStorage.setItem('hocoThemeMode', resolvedTheme);
+            } catch (error) {
+                console.warn('Theme preference could not be saved.', error);
+            }
+        }
+
+        try {
+            applyTheme(localStorage.getItem('hocoThemeMode') || 'dark');
+        } catch (error) {
+            applyTheme('dark');
+        }
+
+        if (themeSelect) {
+            themeSelect.addEventListener('change', (event) => {
+                applyTheme(event.target.value);
+            });
+        }
+
+        function syncSidebarToggleButton() {
+            if (!sidebarToggleBtn) return;
+            const expanded = !document.body.classList.contains('sidebar-collapsed');
+            sidebarToggleBtn.textContent = expanded ? 'Hide panel' : 'Show panel';
+            sidebarToggleBtn.setAttribute('aria-expanded', String(expanded));
+        }
+
+        function resizeVisibleMaps() {
+            maps.forEach((mapInstance, index) => {
+                if (!mapInstance) return;
+                const mapDiv = document.getElementById(`map${index}`);
+                if (!mapDiv || mapDiv.style.display === 'none') return;
+                mapInstance.resize();
+            });
+        }
+
+        function setCollapsiblePanelState(button, expanded) {
+            if (!button) return;
+            const targetId = button.dataset.collapseTarget;
+            const target = targetId ? document.getElementById(targetId) : null;
+            const panel = button.closest('.collapsible-panel');
+            if (!target || !panel) return;
+
+            target.hidden = !expanded;
+            panel.classList.toggle('is-collapsed', !expanded);
+            button.setAttribute('aria-expanded', String(expanded));
+            button.textContent = expanded
+                ? (button.dataset.expandedLabel || 'Hide')
+                : (button.dataset.collapsedLabel || 'Show');
+        }
+
+        collapseButtons.forEach((button) => {
+            setCollapsiblePanelState(button, button.getAttribute('aria-expanded') !== 'false');
+            button.addEventListener('click', () => {
+                const isExpanded = button.getAttribute('aria-expanded') === 'true';
+                setCollapsiblePanelState(button, !isExpanded);
+            });
+        });
+
+        if (sidebarToggleBtn) {
+            syncSidebarToggleButton();
+            sidebarToggleBtn.addEventListener('click', () => {
+                document.body.classList.toggle('sidebar-collapsed');
+                syncSidebarToggleButton();
+                syncAutoTimelinePlacement();
+                resizeVisibleMaps();
+                setTimeout(resizeVisibleMaps, 280);
+            });
+        }
+
+        function syncAutoTimelinePlacement() {
+            if (!autoTimelineSidebarSlot || !autoTimelineMapSlot || !autoTimelineSliderBlock || !mapAutoTimelineDock) return;
+
+            const showDock = document.body.classList.contains('app-ready');
+            const target = showDock ? autoTimelineMapSlot : autoTimelineSidebarSlot;
+
+            if (autoTimelineSliderBlock.parentElement !== target) {
+                target.appendChild(autoTimelineSliderBlock);
+            }
+
+            mapAutoTimelineDock.classList.toggle('is-active', showDock);
+        }
+
+        if (typeof mobileAutoDockQuery.addEventListener === 'function') {
+            mobileAutoDockQuery.addEventListener('change', syncAutoTimelinePlacement);
+        } else if (typeof mobileAutoDockQuery.addListener === 'function') {
+            mobileAutoDockQuery.addListener(syncAutoTimelinePlacement);
+        }
+
+        window.addEventListener('resize', () => {
+            syncAutoTimelinePlacement();
+            resizeVisibleMaps();
+        });
+        syncAutoTimelinePlacement();
+
         document.getElementById('autoDaySlider').addEventListener('input', (e) => {
             autoDaySelection = Number(e.target.value || 0);
             renderAutoTimeline();
@@ -3500,6 +4279,25 @@
             autoRunSelectionByDay[autoDaySelection] = Number(e.target.value || 0);
             renderAutoTimeline();
         });
+
+        if (autoDaySelectMobile) {
+            autoDaySelectMobile.addEventListener('change', (e) => {
+                autoDaySelection = Number(e.target.value || 0);
+                const daySlider = document.getElementById('autoDaySlider');
+                if (daySlider) daySlider.value = String(autoDaySelection);
+                debouncedAutoLoad();
+            });
+        }
+
+        if (autoRunSelectMobile) {
+            autoRunSelectMobile.addEventListener('change', (e) => {
+                const selectedIndex = Number(e.target.value || 0);
+                autoRunSelectionByDay[autoDaySelection] = selectedIndex;
+                const slider = document.getElementById('autoRunSlider');
+                if (slider) slider.value = String(selectedIndex);
+                debouncedAutoLoad();
+            });
+        }
 
         async function autoLoadSelectedRun() {
             const runs = getAutoRunsForDay(autoDaySelection);
@@ -3583,7 +4381,10 @@
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 document.getElementById('landingPage').style.display = 'none';
-                document.getElementById('mainUI').style.display = 'block';
+                document.body.classList.add('app-ready');
+                document.getElementById('mainUI').style.display = 'flex';
+                syncAutoTimelinePlacement();
+                syncSidebarToggleButton();
                 document.getElementById('displayUid').innerText = `ID: ${user.uid}`;
 
                 try {
@@ -3625,6 +4426,10 @@
             } else {
                 document.getElementById('landingPage').style.display = 'flex';
                 document.getElementById('mainUI').style.display = 'none';
+                document.body.classList.remove('app-ready');
+                document.body.classList.remove('role-developer');
+                syncAutoTimelinePlacement();
+                syncSidebarToggleButton();
                 userRole = 'guest';
                 allRuns = [];
                 renderArchiveDropdown();
@@ -3650,6 +4455,8 @@
             const isNormal = userRole === 'normal';
             const isExclusive = userRole === 'exclusive';
             const isDev = userRole === 'developer';
+
+            document.body.classList.toggle('role-developer', isDev);
 
             document.getElementById('upgradePanel').style.display = (isGuest || isNormal) ? 'block' : 'none';
             document.getElementById('executionPanel').style.display = isGuest ? 'none' : 'block';
@@ -4416,6 +5223,10 @@
                     isAuto = html.includes('Normal Mode (Auto)');
                     const ranByMatch = html.match(/<strong>Ran by:<\/strong>\s*(User\s*[^\s<]+|System)/i);
                     if (ranByMatch && ranByMatch[1]) creatorId = ranByMatch[1];
+                }
+
+                if (isAuto && /^(?:System|User System)$/i.test((creatorId || '').trim())) {
+                    creatorId = 'Automatic HOCO V2.0';
                 }
 
                 // Check active Lightning Layer
