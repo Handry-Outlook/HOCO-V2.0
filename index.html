@@ -3923,7 +3923,7 @@
             return getVisibleRuns()
                 .filter((run) => run?.status !== 'pending')
                 .filter((run) => run?.type !== 'human-mimic')
-                .filter((run) => !!(run?.geojsonUrl || run?.inlineGeojson || run?.geojson || run?.ensembleGeojson))
+                .filter((run) => !!(run?.geojsonUrl || run?.inlineGeojson || run?.inlineGeojsonText || run?.geojson || run?.ensembleGeojson))
                 .filter((run) => !!run?.startTime)
                 .filter((run) => {
                     const weather = String(run?.weather || '').toLowerCase();
@@ -4526,14 +4526,29 @@
             setTimeout(() => URL.revokeObjectURL(url), 0);
         }
 
+        function decodeInlineGeojson(value, runId) {
+            if (!value) return null;
+            if (typeof value === 'string') {
+                try {
+                    return JSON.parse(value);
+                } catch (error) {
+                    throw new Error(`Run ${runId} has invalid stored GeoJSON text.`);
+                }
+            }
+            return value;
+        }
+
         async function fetchRunGeojsonData(runId, runData) {
             if (runGeojsonCache.has(runId)) {
                 return runGeojsonCache.get(runId);
             }
 
             let geojsonData;
-            if (runData.inlineGeojson || runData.geojson || runData.ensembleGeojson) {
-                geojsonData = runData.inlineGeojson || runData.geojson || runData.ensembleGeojson;
+            if (runData.inlineGeojson || runData.inlineGeojsonText || runData.geojson || runData.ensembleGeojson) {
+                geojsonData = decodeInlineGeojson(
+                    runData.inlineGeojson ?? runData.inlineGeojsonText ?? runData.geojson ?? runData.ensembleGeojson,
+                    runId
+                );
             } else if (runData.geojsonUrl && runData.geojsonUrl.includes('raw.githubusercontent.com')) {
                 try {
                     const parts = runData.geojsonUrl.split('/');
@@ -4679,7 +4694,7 @@
                     type: 'human-mimic',
                     sourceRunIds: loadedRuns.map(({ run }) => run.id),
                     sourceRunCount: loadedRuns.length,
-                    inlineGeojson: humanGeojson,
+                    inlineGeojsonText: JSON.stringify(humanGeojson),
                     humanMimic: {
                         anomalyAware,
                         noiseFilter,
@@ -5960,7 +5975,7 @@
             }
 
             const runData = docSnap.data();
-            const hasGeojson = !!(runData.geojsonUrl || runData.inlineGeojson || runData.geojson || runData.ensembleGeojson);
+            const hasGeojson = !!(runData.geojsonUrl || runData.inlineGeojson || runData.inlineGeojsonText || runData.geojson || runData.ensembleGeojson);
             const isPending = (runData.status === 'pending' || !hasGeojson);
 
             if (isPending) {
