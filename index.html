@@ -2609,9 +2609,14 @@
                 </div>
                 <div style="display: flex; gap: 5px; margin-top: 5px;">
                     <button id="mimic-btn-0"
-                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: linear-gradient(135deg,#c0392b,#8e1e1e); border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto; font-weight:700; letter-spacing:0.04em;"
-                        onclick="openMimicForecast(0)">
+                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: linear-gradient(135deg,#7b2ff7,#c84b31); border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto; font-weight:700;"
+                        onclick="mimicHumanForecast(0)">
                         🧠 Mimic Human Forecast
+                    </button>
+                    <button id="kml-btn-0"
+                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: #27ae60; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        onclick="exportMimicKML(0)">
+                        📁 Export KML
                     </button>
                 </div>
             </div>
@@ -2658,9 +2663,14 @@
                 </div>
                 <div style="display: flex; gap: 5px; margin-top: 5px;">
                     <button id="mimic-btn-1"
-                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: linear-gradient(135deg,#c0392b,#8e1e1e); border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto; font-weight:700; letter-spacing:0.04em;"
-                        onclick="openMimicForecast(1)">
+                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: linear-gradient(135deg,#7b2ff7,#c84b31); border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto; font-weight:700;"
+                        onclick="mimicHumanForecast(1)">
                         🧠 Mimic Human Forecast
+                    </button>
+                    <button id="kml-btn-1"
+                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: #27ae60; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        onclick="exportMimicKML(1)">
+                        📁 Export KML
                     </button>
                 </div>
             </div>
@@ -2707,9 +2717,14 @@
                 </div>
                 <div style="display: flex; gap: 5px; margin-top: 5px;">
                     <button id="mimic-btn-2"
-                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: linear-gradient(135deg,#c0392b,#8e1e1e); border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto; font-weight:700; letter-spacing:0.04em;"
-                        onclick="openMimicForecast(2)">
+                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: linear-gradient(135deg,#7b2ff7,#c84b31); border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto; font-weight:700;"
+                        onclick="mimicHumanForecast(2)">
                         🧠 Mimic Human Forecast
+                    </button>
+                    <button id="kml-btn-2"
+                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: #27ae60; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        onclick="exportMimicKML(2)">
+                        📁 Export KML
                     </button>
                 </div>
             </div>
@@ -2756,9 +2771,14 @@
                 </div>
                 <div style="display: flex; gap: 5px; margin-top: 5px;">
                     <button id="mimic-btn-3"
-                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: linear-gradient(135deg,#c0392b,#8e1e1e); border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto; font-weight:700; letter-spacing:0.04em;"
-                        onclick="openMimicForecast(3)">
+                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: linear-gradient(135deg,#7b2ff7,#c84b31); border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto; font-weight:700;"
+                        onclick="mimicHumanForecast(3)">
                         🧠 Mimic Human Forecast
+                    </button>
+                    <button id="kml-btn-3"
+                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: #27ae60; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        onclick="exportMimicKML(3)">
+                        📁 Export KML
                     </button>
                 </div>
             </div>
@@ -5071,9 +5091,7 @@
                 document.getElementById(`lightning-btn-${mapIndex}`).style.display = 'block';
                 document.getElementById(`export-btn-${mapIndex}`).style.display = 'block';
                 document.getElementById(`mimic-btn-${mapIndex}`).style.display = 'block';
-                // Store run data for mimic access
-                window._mimicRunData = window._mimicRunData || {};
-                window._mimicRunData[mapIndex] = { runData, geojsonData };
+                document.getElementById(`kml-btn-${mapIndex}`).style.display = 'none'; // shown after mimic runs
 
                 // AUTO-REPLOT LIGHTNING: if it was previously visible, fetch the new times and replot
                 if (lightningVisible[mapIndex]) {
@@ -5853,932 +5871,583 @@
                 }
             }
         };
-    </script>
 
-<!-- ═══════════════════════════════════════════════════════════════
-     MIMIC HUMAN FORECAST SYSTEM
-     Draws SPC-style thunderstorm risk polygons over the HOCO data,
-     anomalises against previously-issued HOCOs for the same valid
-     period, lets the user filter/edit, and exports KML.
-═══════════════════════════════════════════════════════════════ -->
-<style>
-#mimicOverlay {
-    position: fixed; inset: 0; z-index: 8000;
-    background: rgba(5,10,22,0.92);
-    backdrop-filter: blur(8px);
-    display: none; flex-direction: column;
-    font-family: "Segoe UI", system-ui, sans-serif;
-}
-#mimicOverlay.is-open { display: flex; }
+        // ============================================================
+        //  MIMIC HUMAN FORECAST ENGINE
+        //  Builds a weighted ensemble from previous HOCOs covering the
+        //  same valid period, then draws human-style risk polygons.
+        // ============================================================
 
-#mimicHeader {
-    display: flex; align-items: center; gap: 12px;
-    padding: 12px 18px;
-    background: linear-gradient(90deg,#1a0a0a,#2d1010);
-    border-bottom: 2px solid #c0392b;
-    flex-shrink: 0;
-}
-#mimicHeader h2 { margin:0; font-size:1.1rem; color:#fff; }
-#mimicHeader .mh-badge {
-    padding:3px 10px; border-radius:999px;
-    background:rgba(192,57,43,0.25); border:1px solid #c0392b;
-    color:#ff8c7a; font-size:0.7rem; font-weight:800; letter-spacing:0.1em;
-    text-transform:uppercase;
-}
-#mimicHeader .mh-spacer { flex:1; }
-#mimicClose {
-    width:auto!important; padding:6px 14px; background:#c0392b;
-    border-radius:8px; font-size:0.8rem; font-weight:700;
-}
+        // Store mimic results per map so KML export can access them
+        const mimicResults = {};
 
-#mimicBody {
-    display: flex; flex: 1; overflow: hidden;
-}
+        // Risk-level thresholds (weighted ensemble probability 0–1)
+        const RISK_LEVELS = [
+            { name: 'High',     color: '#9b1dca', minProb: 0.72 },
+            { name: 'Moderate', color: '#e74c3c', minProb: 0.54 },
+            { name: 'Enhanced', color: '#f39c12', minProb: 0.38 },
+            { name: 'Slight',   color: '#2ecc71', minProb: 0.22 },
+            { name: 'Low',      color: '#3498db', minProb: 0.08 }
+        ];
 
-#mimicSidebar {
-    width: 300px; flex-shrink: 0;
-    background: rgba(15,10,10,0.97);
-    border-right: 1px solid rgba(192,57,43,0.3);
-    display: flex; flex-direction: column;
-    overflow-y: auto; padding: 14px;
-    gap: 12px;
-}
+        // Spatial grid for UK (lon/lat cells ~0.25° ≈ 17 km)
+        const GRID_RES = 0.25;
+        const GRID_LON_MIN = -8.0, GRID_LON_MAX = 4.0;
+        const GRID_LAT_MIN = 49.5, GRID_LAT_MAX = 61.0;
 
-#mimicMapArea {
-    flex: 1; position: relative;
-}
-#mimicMapEl {
-    width:100%; height:100%;
-}
-
-.mf-section {
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(192,57,43,0.2);
-    border-radius: 12px; padding: 12px;
-}
-.mf-section h4 {
-    margin:0 0 10px; font-size:0.75rem; font-weight:800;
-    text-transform:uppercase; letter-spacing:0.12em; color:#ff8c7a;
-}
-
-.risk-palette {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
-    margin-bottom: 8px;
-}
-.risk-swatch {
-    display: flex; align-items: center; gap: 7px;
-    padding: 7px 9px; border-radius: 8px; cursor: pointer;
-    border: 2px solid transparent; transition: all 0.15s;
-    font-size: 0.77rem; font-weight: 700; color: #fff;
-    user-select: none;
-}
-.risk-swatch.active {
-    border-color: #fff;
-    box-shadow: 0 0 12px rgba(255,255,255,0.3);
-}
-.risk-swatch .sw-dot {
-    width:14px; height:14px; border-radius:50%; flex-shrink:0;
-    border: 1.5px solid rgba(255,255,255,0.4);
-}
-.risk-swatch[data-risk="1"] { background: rgba(0,120,0,0.45); }
-.risk-swatch[data-risk="2"] { background: rgba(120,210,0,0.45); }
-.risk-swatch[data-risk="3"] { background: rgba(255,200,0,0.45); }
-.risk-swatch[data-risk="4"] { background: rgba(255,100,0,0.45); }
-.risk-swatch[data-risk="5"] { background: rgba(200,0,0,0.45); }
-
-.mf-tool-row {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
-    margin-bottom: 8px;
-}
-.mf-tool-btn {
-    width:auto!important; padding:7px 10px!important;
-    font-size:0.72rem!important; border-radius:8px!important;
-    font-weight:700!important;
-}
-.mf-tool-btn.active-tool {
-    background: rgba(255,140,120,0.25)!important;
-    border-color: #ff8c7a!important;
-    color:#ff8c7a!important;
-}
-
-.polygon-list-item {
-    display: flex; align-items: center; gap: 8px;
-    padding: 6px 8px; border-radius: 8px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08);
-    margin-bottom: 5px; font-size:0.75rem; color:#ddd;
-}
-.polygon-list-item .pl-dot {
-    width:10px; height:10px; border-radius:50%; flex-shrink:0;
-}
-.polygon-list-item .pl-del {
-    margin-left:auto; cursor:pointer; color:#ff6b6b;
-    font-size:1rem; line-height:1; flex-shrink:0;
-    background:none; border:none; width:auto!important;
-    padding:0!important; box-shadow:none!important;
-}
-.polygon-list-item .pl-eye {
-    cursor:pointer; color:#aac; font-size:0.7rem;
-    background:none; border:none; width:auto!important;
-    padding:0 4px!important; box-shadow:none!important;
-}
-
-.anomaly-chip {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 3px 9px; border-radius: 999px; font-size:0.68rem;
-    font-weight:700; margin: 2px;
-}
-.anomaly-chip.upgrade { background:rgba(255,80,80,0.2); border:1px solid rgba(255,80,80,0.4); color:#ff8080; }
-.anomaly-chip.downgrade { background:rgba(80,200,80,0.15); border:1px solid rgba(80,200,80,0.3); color:#80e080; }
-.anomaly-chip.new { background:rgba(80,130,255,0.18); border:1px solid rgba(80,130,255,0.35); color:#90b8ff; }
-.anomaly-chip.same { background:rgba(180,180,180,0.12); border:1px solid rgba(180,180,180,0.2); color:#bbb; }
-
-#mimicStatusBar {
-    position:absolute; bottom:10px; left:50%; transform:translateX(-50%);
-    background:rgba(10,5,5,0.88); border:1px solid rgba(192,57,43,0.35);
-    color:#ff8c7a; padding:6px 14px; border-radius:999px;
-    font-size:0.72rem; font-weight:700; pointer-events:none;
-    transition: opacity 0.3s; z-index:10;
-}
-
-#mimicVoiceBtn {
-    display:inline-flex; align-items:center; gap:5px;
-    padding:7px 12px; border-radius:999px; cursor:pointer;
-    background:rgba(255,80,80,0.15); border:1px solid rgba(255,80,80,0.35);
-    color:#ff8080; font-size:0.72rem; font-weight:700;
-    transition:all 0.2s; width:auto!important;
-}
-#mimicVoiceBtn.listening {
-    background:rgba(255,80,80,0.35); border-color:#ff4040;
-    animation: pulse-red 1s infinite;
-}
-@keyframes pulse-red {
-    0%,100% { box-shadow: 0 0 0 0 rgba(255,60,60,0.5); }
-    50% { box-shadow: 0 0 0 8px rgba(255,60,60,0); }
-}
-
-#mimicKmlBtn {
-    background: linear-gradient(135deg,#1a6e1a,#27ae60)!important;
-    font-weight:700!important;
-}
-#mimicGenerateBtn {
-    background: linear-gradient(135deg,#7b0000,#c0392b)!important;
-    font-weight:700!important;
-}
-</style>
-
-<!-- Mimic Overlay DOM -->
-<div id="mimicOverlay">
-    <div id="mimicHeader">
-        <h2>🧠 Mimic Human Forecast</h2>
-        <span class="mh-badge">SPC-Style Risk Polygons</span>
-        <div class="mh-spacer"></div>
-        <button id="mimicClose" onclick="closeMimicForecast()">✕ Close</button>
-    </div>
-    <div id="mimicBody">
-        <div id="mimicSidebar">
-
-            <!-- Risk Palette -->
-            <div class="mf-section">
-                <h4>Risk Category</h4>
-                <div class="risk-palette">
-                    <div class="risk-swatch active" data-risk="1" onclick="selectRisk(1)">
-                        <span class="sw-dot" style="background:#007800;"></span> Low
-                    </div>
-                    <div class="risk-swatch" data-risk="2" onclick="selectRisk(2)">
-                        <span class="sw-dot" style="background:#78d200;"></span> Slight
-                    </div>
-                    <div class="risk-swatch" data-risk="3" onclick="selectRisk(3)">
-                        <span class="sw-dot" style="background:#ffc800;"></span> Enhanced
-                    </div>
-                    <div class="risk-swatch" data-risk="4" onclick="selectRisk(4)">
-                        <span class="sw-dot" style="background:#ff6400;"></span> Moderate
-                    </div>
-                    <div class="risk-swatch" data-risk="5" onclick="selectRisk(5)">
-                        <span class="sw-dot" style="background:#c80000;"></span> High
-                    </div>
-                </div>
-            </div>
-
-            <!-- Drawing Tools -->
-            <div class="mf-section">
-                <h4>Drawing Tools</h4>
-                <div class="mf-tool-row">
-                    <button class="mf-tool-btn active-tool" id="toolDrawBtn" onclick="setTool('draw')">✏️ Draw</button>
-                    <button class="mf-tool-btn" id="toolEraseBtn" onclick="setTool('erase')">🗑️ Erase</button>
-                </div>
-                <div class="mf-tool-row">
-                    <button class="mf-tool-btn" id="toolSelectBtn" onclick="setTool('select')">↖️ Select</button>
-                    <button class="mf-tool-btn" id="toolUndoBtn" onclick="mimicUndo()">↩️ Undo</button>
-                </div>
-                <button class="mf-tool-btn" style="width:100%!important; margin-top:4px;" onclick="mimicClearAll()">🧹 Clear All</button>
-            </div>
-
-            <!-- Filter / Visibility -->
-            <div class="mf-section">
-                <h4>Risk Filter</h4>
-                <div id="mimicFilterToggles" style="display:flex; flex-wrap:wrap; gap:5px;">
-                    <button class="mf-tool-btn filter-vis" data-risk="1" onclick="toggleRiskVisibility(1)" style="background:rgba(0,120,0,0.35)!important;">Low</button>
-                    <button class="mf-tool-btn filter-vis" data-risk="2" onclick="toggleRiskVisibility(2)" style="background:rgba(120,210,0,0.35)!important;">Slight</button>
-                    <button class="mf-tool-btn filter-vis" data-risk="3" onclick="toggleRiskVisibility(3)" style="background:rgba(255,200,0,0.35)!important;">Enhanced</button>
-                    <button class="mf-tool-btn filter-vis" data-risk="4" onclick="toggleRiskVisibility(4)" style="background:rgba(255,100,0,0.35)!important;">Moderate</button>
-                    <button class="mf-tool-btn filter-vis" data-risk="5" onclick="toggleRiskVisibility(5)" style="background:rgba(200,0,0,0.35)!important;">High</button>
-                </div>
-            </div>
-
-            <!-- Voice Filter -->
-            <div class="mf-section">
-                <h4>🎙️ Voice Commands</h4>
-                <button id="mimicVoiceBtn" onclick="toggleMimicVoice()">🎤 Start Listening</button>
-                <div id="mimicVoiceStatus" style="margin-top:8px; font-size:0.7rem; color:#999; line-height:1.4;">
-                    Say: "low risk", "slight risk", "moderate risk", "draw", "erase", "undo", "clear", "export kml"
-                </div>
-            </div>
-
-            <!-- Anomaly Analysis -->
-            <div class="mf-section">
-                <h4>📊 Anomaly vs Prior HOCOs</h4>
-                <div id="mimicAnomalyStatus" style="font-size:0.72rem; color:#999; margin-bottom:8px;">
-                    Load a run and generate forecast to compare against prior issues.
-                </div>
-                <div id="mimicAnomalyChips"></div>
-            </div>
-
-            <!-- Drawn Polygons List -->
-            <div class="mf-section">
-                <h4>Drawn Polygons</h4>
-                <div id="mimicPolyList"><p style="color:#666; font-size:0.72rem;">None yet — start drawing!</p></div>
-            </div>
-
-            <!-- Actions -->
-            <div class="mf-section">
-                <h4>Actions</h4>
-                <button id="mimicGenerateBtn" onclick="mimicGenerate()" style="margin-bottom:8px;">⚡ Generate from HOCO Data</button>
-                <button id="mimicKmlBtn" onclick="mimicExportKml()">⬇️ Export KML</button>
-            </div>
-
-        </div>
-        <div id="mimicMapArea">
-            <div id="mimicMapEl"></div>
-            <div id="mimicStatusBar">Click "Generate" or draw polygons manually</div>
-        </div>
-    </div>
-</div>
-
-<script>
-// ================================================================
-// MIMIC HUMAN FORECAST — core logic
-// ================================================================
-(function() {
-    const RISK_META = {
-        1: { label:'Low',      color:'#007800', fill:'rgba(0,120,0,0.25)',     stroke:'#007800' },
-        2: { label:'Slight',   color:'#78d200', fill:'rgba(120,210,0,0.25)',   stroke:'#78d200' },
-        3: { label:'Enhanced', color:'#ffc800', fill:'rgba(255,200,0,0.25)',   stroke:'#ffc800' },
-        4: { label:'Moderate', color:'#ff6400', fill:'rgba(255,100,0,0.25)',   stroke:'#ff6400' },
-        5: { label:'High',     color:'#c80000', fill:'rgba(200,0,0,0.3)',      stroke:'#c80000' },
-    };
-
-    let mimicMap = null;
-    let currentMapIndex = 0;
-    let activeRisk = 1;
-    let activeTool = 'draw';
-    let mimicPolygons = []; // { id, risk, coords, hidden, mapSource, layer }
-    let drawingCoords = null;
-    let isDrawing = false;
-    let mimicHistory = []; // snapshots for undo
-    let hiddenRisks = new Set();
-    let voiceRecognition = null;
-    let voiceActive = false;
-    let mimicInitialized = false;
-    let tmpMarkers = [];
-    let selectedPolyId = null;
-
-    // ── OPEN ────────────────────────────────────────────────────
-    window.openMimicForecast = function(mapIndex) {
-        currentMapIndex = mapIndex;
-        document.getElementById('mimicOverlay').classList.add('is-open');
-        if (!mimicInitialized) {
-            initMimicMap();
-            mimicInitialized = true;
-        } else {
-            setTimeout(() => mimicMap && mimicMap.resize(), 100);
+        function gridKey(lon, lat) {
+            const gi = Math.floor((lon - GRID_LON_MIN) / GRID_RES);
+            const gj = Math.floor((lat - GRID_LAT_MIN) / GRID_RES);
+            return `${gi},${gj}`;
         }
-        setStatus('Ready — pick a risk category and draw, or hit Generate');
-    };
 
-    window.closeMimicForecast = function() {
-        document.getElementById('mimicOverlay').classList.remove('is-open');
-        stopVoice();
-    };
+        function gridCellCenter(key) {
+            const [gi, gj] = key.split(',').map(Number);
+            return [
+                GRID_LON_MIN + (gi + 0.5) * GRID_RES,
+                GRID_LAT_MIN + (gj + 0.5) * GRID_RES
+            ];
+        }
 
-    // ── INIT MAP ────────────────────────────────────────────────
-    function initMimicMap() {
-        mapboxgl.accessToken = 'pk.eyJ1IjoiaGFuZHJ5LW91dGxvb2siLCJhIjoiY20yNTVuY3FpMDJ4YTJrc2Nia21xaWR2MiJ9.t6rSRAJrNZuJEtZxoQs5Sg';
-        mimicMap = new mapboxgl.Map({
-            container: 'mimicMapEl',
-            style: 'mapbox://styles/mapbox/dark-v11',
-            bounds: [[-10.5, 49.5],[2.5, 59.0]],
-            interactive: true,
-        });
-        mimicMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
+        // Check if a point is inside a GeoJSON polygon (ray-casting)
+        function pointInPolygon(point, polygon) {
+            const [px, py] = point;
+            const rings = polygon.type === 'Polygon' ? polygon.coordinates : polygon.coordinates[0];
+            const ring = Array.isArray(rings[0][0]) ? rings[0] : rings;
+            let inside = false;
+            for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+                const [xi, yi] = ring[i], [xj, yj] = ring[j];
+                const intersect = ((yi > py) !== (yj > py)) &&
+                    (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
 
-        mimicMap.on('load', () => {
-            mimicMap.setProjection('mercator');
-            // Add source for drawn polygons
-            mimicMap.addSource('mimic-polys', { type:'geojson', data: emptyGeoJSON() });
-            mimicMap.addLayer({
-                id:'mimic-polys-fill', type:'fill', source:'mimic-polys',
-                paint:{
-                    'fill-color':['get','fillColor'],
-                    'fill-opacity':['case',['get','hidden'],0,0.4]
+        // Rasterise a single HOCO geojson onto the grid, returning cell risk values
+        function rasteriseGeojson(geojsonData) {
+            const grid = {};
+            if (!geojsonData || !geojsonData.features) return grid;
+
+            const polygons = geojsonData.features.filter(f =>
+                f.geometry &&
+                (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon') &&
+                f.properties && f.properties.feature_type === 'polygon'
+            );
+
+            for (let lon = GRID_LON_MIN; lon < GRID_LON_MAX; lon += GRID_RES) {
+                for (let lat = GRID_LAT_MIN; lat < GRID_LAT_MAX; lat += GRID_RES) {
+                    const key = gridKey(lon, lat);
+                    const centre = [lon + GRID_RES / 2, lat + GRID_RES / 2];
+                    let maxRisk = 0;
+
+                    for (const feat of polygons) {
+                        const risk = parseFloat(feat.properties.risk || 0);
+                        if (risk <= maxRisk) continue;
+
+                        const geom = feat.geometry;
+                        let inside = false;
+
+                        if (geom.type === 'MultiPolygon') {
+                            inside = geom.coordinates.some(poly =>
+                                pointInPolygon(centre, { type: 'Polygon', coordinates: poly })
+                            );
+                        } else {
+                            inside = pointInPolygon(centre, geom);
+                        }
+
+                        if (inside) maxRisk = risk;
+                    }
+
+                    if (maxRisk > 0) grid[key] = maxRisk;
+                }
+            }
+            return grid;
+        }
+
+        // Weighted ensemble of multiple grids
+        function buildEnsembleGrid(grids, weights) {
+            const totalWeight = weights.reduce((a, b) => a + b, 0);
+            const ensemble = {};
+
+            grids.forEach((grid, idx) => {
+                const w = weights[idx] / totalWeight;
+                for (const [key, risk] of Object.entries(grid)) {
+                    ensemble[key] = (ensemble[key] || 0) + risk * w;
                 }
             });
-            mimicMap.addLayer({
-                id:'mimic-polys-line', type:'line', source:'mimic-polys',
-                paint:{
-                    'line-color':['get','strokeColor'],
-                    'line-width':2,
-                    'line-opacity':['case',['get','hidden'],0,1]
+
+            return ensemble;
+        }
+
+        // Anomaly filter: remove cells that appear in fewer than `minFraction` of runs
+        function filterAnomalies(grids, ensemble, minFraction = 0.3) {
+            const n = grids.length;
+            const filtered = {};
+
+            for (const key of Object.keys(ensemble)) {
+                const count = grids.filter(g => g[key] && g[key] > 0.05).length;
+                if (count / n >= minFraction) {
+                    filtered[key] = ensemble[key];
                 }
-            });
-            // Drawing in-progress line
-            mimicMap.addSource('mimic-draw', { type:'geojson', data: emptyGeoJSON() });
-            mimicMap.addLayer({
-                id:'mimic-draw-line', type:'line', source:'mimic-draw',
-                paint:{ 'line-color':'#ffffff', 'line-width':2, 'line-dasharray':[2,2] }
-            });
-
-            bindMapEvents();
-        });
-    }
-
-    function emptyGeoJSON() {
-        return { type:'FeatureCollection', features:[] };
-    }
-
-    // ── MAP EVENTS ───────────────────────────────────────────────
-    function bindMapEvents() {
-        mimicMap.on('mousedown', onMapMousedown);
-        mimicMap.on('mousemove', onMapMousemove);
-        mimicMap.on('mouseup', onMapMouseup);
-        mimicMap.on('touchstart', onMapTouchstart);
-        mimicMap.on('touchmove', onMapTouchmove);
-        mimicMap.on('touchend', onMapTouchend);
-    }
-
-    function lngLatFromEvent(e) {
-        return [e.lngLat.lng, e.lngLat.lat];
-    }
-
-    function onMapMousedown(e) {
-        if (activeTool === 'erase') { eraseAt(e.lngLat); return; }
-        if (activeTool === 'select') { selectAt(e.lngLat); return; }
-        if (activeTool !== 'draw') return;
-        saveHistory();
-        isDrawing = true;
-        drawingCoords = [lngLatFromEvent(e)];
-        mimicMap.dragPan.disable();
-    }
-    function onMapMousemove(e) {
-        if (!isDrawing || activeTool !== 'draw') return;
-        drawingCoords.push(lngLatFromEvent(e));
-        updateDrawPreview();
-    }
-    function onMapMouseup(e) {
-        if (!isDrawing || activeTool !== 'draw') return;
-        isDrawing = false;
-        mimicMap.dragPan.enable();
-        finalisePolygon();
-    }
-
-    // Touch equivalents
-    function onMapTouchstart(e) {
-        if (e.points.length !== 1) return;
-        if (activeTool !== 'draw') return;
-        saveHistory();
-        isDrawing = true;
-        drawingCoords = [[e.lngLat.lng, e.lngLat.lat]];
-        mimicMap.dragPan.disable();
-    }
-    function onMapTouchmove(e) {
-        if (!isDrawing) return;
-        drawingCoords.push([e.lngLat.lng, e.lngLat.lat]);
-        updateDrawPreview();
-    }
-    function onMapTouchend() {
-        if (!isDrawing) return;
-        isDrawing = false;
-        mimicMap.dragPan.enable();
-        finalisePolygon();
-    }
-
-    function updateDrawPreview() {
-        if (!drawingCoords || drawingCoords.length < 2) return;
-        const coords = [...drawingCoords, drawingCoords[0]];
-        mimicMap.getSource('mimic-draw').setData({
-            type:'FeatureCollection',
-            features:[{ type:'Feature', geometry:{ type:'LineString', coordinates: coords } }]
-        });
-    }
-
-    function finalisePolygon() {
-        // Clear preview
-        mimicMap.getSource('mimic-draw').setData(emptyGeoJSON());
-        if (!drawingCoords || drawingCoords.length < 3) {
-            drawingCoords = null; return;
-        }
-        // Simplify freehand using Ramer-Douglas-Peucker-ish decimation
-        const simplified = decimateCoords(drawingCoords, 0.005);
-        if (simplified.length < 3) { drawingCoords = null; return; }
-
-        addPolygon(simplified, activeRisk);
-        drawingCoords = null;
-    }
-
-    function decimateCoords(coords, tol) {
-        // simple angle-based decimation for smooth-ish human shapes
-        if (coords.length <= 8) return coords;
-        const out = [coords[0]];
-        for (let i=1;i<coords.length-1;i++) {
-            const dx = coords[i][0]-out[out.length-1][0];
-            const dy = coords[i][1]-out[out.length-1][1];
-            if (Math.sqrt(dx*dx+dy*dy) > tol) out.push(coords[i]);
-        }
-        out.push(coords[coords.length-1]);
-        return out;
-    }
-
-    function convexHullOrFreehand(coords) {
-        // Return as-is (freehand polygon)
-        return coords;
-    }
-
-    function addPolygon(coords, risk) {
-        const id = 'poly_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
-        const rm = RISK_META[risk];
-        mimicPolygons.push({ id, risk, coords, hidden: false });
-        refreshPolySource();
-        refreshPolyList();
-        runAnomalyAnalysis();
-        setStatus(`${rm.label} risk polygon added`);
-    }
-
-    function refreshPolySource() {
-        if (!mimicMap || !mimicMap.getSource('mimic-polys')) return;
-        const features = mimicPolygons.map(p => ({
-            type:'Feature',
-            id: p.id,
-            properties:{
-                id: p.id, risk: p.risk,
-                fillColor: RISK_META[p.risk].fill,
-                strokeColor: RISK_META[p.risk].stroke,
-                hidden: p.hidden || hiddenRisks.has(p.risk)
-            },
-            geometry:{
-                type:'Polygon',
-                coordinates:[[...p.coords, p.coords[0]]]
             }
-        }));
-        mimicMap.getSource('mimic-polys').setData({ type:'FeatureCollection', features });
-    }
-
-    function refreshPolyList() {
-        const el = document.getElementById('mimicPolyList');
-        if (mimicPolygons.length === 0) {
-            el.innerHTML = '<p style="color:#666; font-size:0.72rem;">None yet — start drawing!</p>';
-            return;
-        }
-        el.innerHTML = '';
-        mimicPolygons.forEach((p, i) => {
-            const rm = RISK_META[p.risk];
-            const div = document.createElement('div');
-            div.className = 'polygon-list-item';
-            div.innerHTML = `
-                <span class="pl-dot" style="background:${rm.color};"></span>
-                <span>${rm.label} #${i+1}</span>
-                <button class="pl-eye" onclick="togglePolyHide('${p.id}')" title="Show/Hide">${p.hidden ? '👁️‍🗨️':'👁️'}</button>
-                <button class="pl-del" onclick="deletePolygon('${p.id}')" title="Delete">✕</button>
-            `;
-            el.appendChild(div);
-        });
-    }
-
-    // ── ERASER ───────────────────────────────────────────────────
-    function eraseAt(lngLat) {
-        const pt = [lngLat.lng, lngLat.lat];
-        const before = mimicPolygons.length;
-        saveHistory();
-        mimicPolygons = mimicPolygons.filter(p => !pointInPolygon(pt, p.coords));
-        if (mimicPolygons.length < before) {
-            refreshPolySource(); refreshPolyList(); runAnomalyAnalysis();
-            setStatus('Polygon erased');
-        }
-    }
-
-    function selectAt(lngLat) {
-        const pt = [lngLat.lng, lngLat.lat];
-        const found = mimicPolygons.find(p => pointInPolygon(pt, p.coords));
-        if (found) {
-            selectedPolyId = found.id;
-            setStatus(`Selected: ${RISK_META[found.risk].label} polygon`);
-        }
-    }
-
-    function pointInPolygon(pt, poly) {
-        let inside = false;
-        for (let i=0, j=poly.length-1; i<poly.length; j=i++) {
-            const xi=poly[i][0], yi=poly[i][1];
-            const xj=poly[j][0], yj=poly[j][1];
-            if (((yi>pt[1]) !== (yj>pt[1])) && (pt[0] < (xj-xi)*(pt[1]-yi)/(yj-yi)+xi)) inside=!inside;
-        }
-        return inside;
-    }
-
-    // ── CONTROLS ─────────────────────────────────────────────────
-    window.selectRisk = function(r) {
-        activeRisk = r;
-        document.querySelectorAll('.risk-swatch').forEach(s => s.classList.remove('active'));
-        document.querySelector(`.risk-swatch[data-risk="${r}"]`).classList.add('active');
-    };
-
-    window.setTool = function(t) {
-        activeTool = t;
-        ['draw','erase','select'].forEach(name => {
-            const btn = document.getElementById(`tool${name.charAt(0).toUpperCase()+name.slice(1)}Btn`);
-            if (btn) btn.classList.toggle('active-tool', name===t);
-        });
-        mimicMap && mimicMap.dragPan[t==='draw' ? 'enable' : 'enable']();
-        setStatus(`Tool: ${t}`);
-    };
-
-    window.togglePolyHide = function(id) {
-        const p = mimicPolygons.find(x=>x.id===id);
-        if (p) { p.hidden = !p.hidden; refreshPolySource(); refreshPolyList(); }
-    };
-
-    window.deletePolygon = function(id) {
-        saveHistory();
-        mimicPolygons = mimicPolygons.filter(x=>x.id!==id);
-        refreshPolySource(); refreshPolyList(); runAnomalyAnalysis();
-        setStatus('Polygon deleted');
-    };
-
-    window.mimicUndo = function() {
-        if (mimicHistory.length === 0) { setStatus('Nothing to undo'); return; }
-        mimicPolygons = mimicHistory.pop();
-        refreshPolySource(); refreshPolyList(); runAnomalyAnalysis();
-        setStatus('Undo');
-    };
-
-    window.mimicClearAll = function() {
-        saveHistory();
-        mimicPolygons = [];
-        refreshPolySource(); refreshPolyList(); runAnomalyAnalysis();
-        setStatus('Cleared all polygons');
-    };
-
-    function saveHistory() {
-        mimicHistory.push(JSON.parse(JSON.stringify(mimicPolygons)));
-        if (mimicHistory.length > 30) mimicHistory.shift();
-    }
-
-    window.toggleRiskVisibility = function(r) {
-        const btn = document.querySelector(`.filter-vis[data-risk="${r}"]`);
-        if (hiddenRisks.has(r)) {
-            hiddenRisks.delete(r);
-            btn && (btn.style.opacity = '1');
-        } else {
-            hiddenRisks.add(r);
-            btn && (btn.style.opacity = '0.35');
-        }
-        refreshPolySource();
-        setStatus(hiddenRisks.has(r) ? `${RISK_META[r].label} hidden` : `${RISK_META[r].label} shown`);
-    };
-
-    // ── GENERATE FROM HOCO DATA ──────────────────────────────────
-    window.mimicGenerate = function() {
-        const runData = window._mimicRunData && window._mimicRunData[currentMapIndex];
-        if (!runData || !runData.geojsonData) {
-            setStatus('No HOCO data loaded for this map. Load a run first.');
-            return;
-        }
-        saveHistory();
-        mimicPolygons = [];
-
-        // Extract polygon features from HOCO geojson
-        const features = runData.geojsonData.features || [];
-        const polyFeatures = features.filter(f =>
-            f.geometry && f.geometry.type === 'Polygon' &&
-            f.properties && f.properties.feature_type === 'polygon'
-        );
-
-        if (polyFeatures.length === 0) {
-            setStatus('No polygon features found in HOCO data.');
-            return;
+            return filtered;
         }
 
-        // For each HOCO polygon, determine risk from probability
-        polyFeatures.forEach(f => {
-            const prob = f.properties.risk || 0; // 0–1 range
-            let risk = 1; // Low
-            if (prob >= 0.7) risk = 5;
-            else if (prob >= 0.5) risk = 4;
-            else if (prob >= 0.3) risk = 3;
-            else if (prob >= 0.15) risk = 2;
-            else risk = 1;
+        // Convert a set of grid keys to a rough bounding polygon (marching-squares-lite)
+        // Produces a simplified convex-hull-like polygon per contiguous region
+        function gridCellsToPolygon(keys, res) {
+            if (!keys.length) return null;
+            const coords = keys.map(k => gridCellCenter(k));
 
-            const coords = f.geometry.coordinates[0];
-            if (coords && coords.length >= 3) {
-                // Add human-like "wobble" — slightly perturb vertices ±0.01°
-                const wobbled = coords.map((c,i) => {
-                    if (i===0) return c; // keep first
-                    return [
-                        c[0] + (Math.random()-0.5)*0.018,
-                        c[1] + (Math.random()-0.5)*0.012
-                    ];
-                });
-                mimicPolygons.push({
-                    id: 'gen_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),
-                    risk, coords: wobbled, hidden: false
-                });
+            // Build axis-aligned cell rectangles and union them via a simple grid envelope
+            const lons = coords.map(c => c[0]);
+            const lats = coords.map(c => c[1]);
+
+            // Use grid cells as small squares and trace outline via neighbor checks
+            const keySet = new Set(keys);
+
+            function hasNeighbor(gi, gj, dgi, dgj) {
+                return keySet.has(`${gi + dgi},${gj + dgj}`);
             }
-        });
 
-        // Merge overlapping same-risk polygons by simplifying
-        // (basic implementation — combine contiguous regions)
-        mergeSameRisk();
+            // Build a polygon ring from the outer edges of a cluster
+            // Each cell is a square; collect boundary segments, then chain them
+            const segments = [];
+            for (const key of keys) {
+                const [gi, gj] = key.split(',').map(Number);
+                const x0 = GRID_LON_MIN + gi * res;
+                const y0 = GRID_LAT_MIN + gj * res;
+                const x1 = x0 + res;
+                const y1 = y0 + res;
 
-        refreshPolySource();
-        refreshPolyList();
-        runAnomalyAnalysis();
-        setStatus(`Generated ${mimicPolygons.length} human-style risk polygons from HOCO data`);
-    };
-
-    function mergeSameRisk() {
-        // For each risk level, if multiple polygons overlap, keep the union boundary
-        // Simple approach: for each risk, sort polygons by size (largest first)
-        // This is a simplification — true union needs polygon clipping library
-        const grouped = {};
-        mimicPolygons.forEach(p => {
-            if (!grouped[p.risk]) grouped[p.risk] = [];
-            grouped[p.risk].push(p);
-        });
-        // Keep only the highest-risk polygon per area if they overlap
-        const merged = [];
-        Object.keys(grouped).forEach(risk => {
-            grouped[risk].forEach(p => merged.push(p));
-        });
-        mimicPolygons = merged;
-    }
-
-    // ── ANOMALY ANALYSIS ─────────────────────────────────────────
-    function runAnomalyAnalysis() {
-        const statusEl = document.getElementById('mimicAnomalyStatus');
-        const chipsEl = document.getElementById('mimicAnomalyChips');
-
-        if (!window._mimicRunData || !window._mimicRunData[currentMapIndex]) {
-            statusEl.textContent = 'No HOCO run loaded.';
-            chipsEl.innerHTML = '';
-            return;
-        }
-
-        if (mimicPolygons.length === 0) {
-            statusEl.textContent = 'Draw polygons to compare against prior HOCOs.';
-            chipsEl.innerHTML = '';
-            return;
-        }
-
-        const runData = window._mimicRunData[currentMapIndex].runData;
-        const validStart = runData.startTime;
-        const validEnd = runData.endTime;
-
-        // Find prior runs for same valid period from allRuns (accessible via window)
-        const priorRuns = (window._allRunsForMimic || []).filter(r => {
-            return r.startTime === validStart && r.id !== (runData.id || '');
-        });
-
-        if (priorRuns.length === 0) {
-            statusEl.textContent = `No prior HOCOs found for ${validStart || 'this period'}. Comparison unavailable.`;
-            chipsEl.innerHTML = '';
-            return;
-        }
-
-        // Compare risk distribution
-        const currentCounts = {};
-        for (let r=1;r<=5;r++) currentCounts[r] = mimicPolygons.filter(p=>p.risk===r).length;
-
-        // Prior runs: estimate their risk from stored data (use polygon counts if available)
-        const priorSummary = {};
-        priorRuns.forEach(pr => {
-            if (pr.riskSummary) {
-                Object.keys(pr.riskSummary).forEach(r => {
-                    priorSummary[r] = (priorSummary[r]||0) + pr.riskSummary[r];
-                });
+                // Bottom edge (gj-1 missing)
+                if (!hasNeighbor(gi, gj, 0, -1)) segments.push([[x0, y0], [x1, y0]]);
+                // Top edge (gj+1 missing)
+                if (!hasNeighbor(gi, gj, 0, 1)) segments.push([[x1, y1], [x0, y1]]);
+                // Left edge (gi-1 missing)
+                if (!hasNeighbor(gi, gj, -1, 0)) segments.push([[x0, y1], [x0, y0]]);
+                // Right edge (gi+1 missing)
+                if (!hasNeighbor(gi, gj, 1, 0)) segments.push([[x1, y0], [x1, y1]]);
             }
-        });
 
-        chipsEl.innerHTML = '';
-        const chips = [];
+            if (!segments.length) return null;
 
-        for (let r=1;r<=5;r++) {
-            const curr = currentCounts[r] || 0;
-            const prior = priorSummary[r] || 0;
-            const rm = RISK_META[r];
+            // Chain segments into a ring
+            const ring = chainSegments(segments);
+            if (!ring || ring.length < 4) return null;
 
-            if (curr > 0 && prior === 0) {
-                chips.push(`<span class="anomaly-chip new">🆕 New ${rm.label}</span>`);
-            } else if (curr > prior && prior >= 0) {
-                chips.push(`<span class="anomaly-chip upgrade">⬆️ ${rm.label} upgraded (${prior}→${curr})</span>`);
-            } else if (curr < prior) {
-                chips.push(`<span class="anomaly-chip downgrade">⬇️ ${rm.label} downgraded (${prior}→${curr})</span>`);
-            } else if (curr > 0) {
-                chips.push(`<span class="anomaly-chip same">✓ ${rm.label} consistent</span>`);
-            }
-        }
+            // Smooth the polygon slightly (Douglas-Peucker lite)
+            const smoothed = smoothRing(ring, 0.04);
 
-        if (chips.length === 0) {
-            statusEl.textContent = `Compared vs ${priorRuns.length} prior run(s). No significant anomaly detected.`;
-        } else {
-            statusEl.textContent = `Anomaly vs ${priorRuns.length} prior run(s) for same valid period:`;
-            chipsEl.innerHTML = chips.join('');
-        }
-    }
-
-    // Expose allRuns to mimic system when loaded
-    window._registerAllRunsForMimic = function(runs) {
-        window._allRunsForMimic = runs;
-    };
-
-    // ── KML EXPORT ───────────────────────────────────────────────
-    window.mimicExportKml = function() {
-        if (mimicPolygons.length === 0) {
-            setStatus('No polygons to export. Draw some first!');
-            return;
-        }
-
-        const kmlColors = {
-            1: 'ff007800', 2: 'ff00d278', 3: 'ff00c8ff',
-            4: 'ff0064ff', 5: 'ff0000c8'
-        };
-        // KML uses aabbggrr (alpha,blue,green,red) for fill
-        const kmlFills = {
-            1: '4000780',  2: '4000d278', 3: '4000c8ff',
-            4: '400064ff', 5: '400000c8'
-        };
-
-        let placemarksXml = '';
-        const runData = window._mimicRunData && window._mimicRunData[currentMapIndex];
-        const periodStr = runData
-            ? `Valid: ${runData.runData.startTime || 'Unknown'} – ${runData.runData.endTime || 'Unknown'}`
-            : 'Mimic Human Forecast';
-
-        mimicPolygons.forEach((p, i) => {
-            if (p.hidden || hiddenRisks.has(p.risk)) return;
-            const rm = RISK_META[p.risk];
-            const coordStr = p.coords.map(c => `${c[0]},${c[1]},0`).join('\n                        ');
-            const closeCoord = `${p.coords[0][0]},${p.coords[0][1]},0`;
-            const styleId = `risk${p.risk}Style`;
-            placemarksXml += `
-        <Placemark>
-            <name>${rm.label} Risk #${i+1}</name>
-            <description>${periodStr}</description>
-            <styleUrl>#${styleId}</styleUrl>
-            <Polygon>
-                <extrude>0</extrude>
-                <altitudeMode>clampToGround</altitudeMode>
-                <outerBoundaryIs>
-                    <LinearRing>
-                        <coordinates>
-                        ${coordStr}
-                        ${closeCoord}
-                        </coordinates>
-                    </LinearRing>
-                </outerBoundaryIs>
-            </Polygon>
-        </Placemark>`;
-        });
-
-        // Style definitions
-        let stylesXml = '';
-        [1,2,3,4,5].forEach(r => {
-            const rm = RISK_META[r];
-            // Convert hex rgb to KML aabbggrr
-            const hexToKml = (hex) => {
-                const r = hex.slice(1,3), g = hex.slice(3,5), b = hex.slice(5,7);
-                return `99${b}${g}${r}`;
+            return {
+                type: 'Feature',
+                geometry: { type: 'Polygon', coordinates: [smoothed] },
+                properties: {}
             };
-            const lineKml = hexToKml(rm.stroke);
-            const polyKml = `66${rm.stroke.slice(5,7)}${rm.stroke.slice(3,5)}${rm.stroke.slice(1,3)}`;
-            stylesXml += `
-    <Style id="risk${r}Style">
-        <LineStyle>
-            <color>${lineKml}</color>
-            <width>2</width>
-        </LineStyle>
-        <PolyStyle>
-            <color>${polyKml}</color>
-            <fill>1</fill>
-            <outline>1</outline>
-        </PolyStyle>
-    </Style>`;
-        });
+        }
 
-        const kml = `<?xml version="1.0" encoding="UTF-8"?>
+        // Greedy segment chaining
+        function chainSegments(segs) {
+            if (!segs.length) return null;
+            const used = new Array(segs.length).fill(false);
+            const ring = [...segs[0][0], ...segs[0][1]].slice(0, 2); // start point
+            let current = segs[0][1];
+            used[0] = true;
+
+            for (let step = 0; step < segs.length * 2; step++) {
+                let found = false;
+                for (let i = 0; i < segs.length; i++) {
+                    if (used[i]) continue;
+                    const [a, b] = segs[i];
+                    if (Math.abs(a[0] - current[0]) < 1e-9 && Math.abs(a[1] - current[1]) < 1e-9) {
+                        ring.push(b);
+                        current = b;
+                        used[i] = true;
+                        found = true;
+                        break;
+                    }
+                    if (Math.abs(b[0] - current[0]) < 1e-9 && Math.abs(b[1] - current[1]) < 1e-9) {
+                        ring.push(a);
+                        current = a;
+                        used[i] = true;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) break;
+            }
+
+            ring.push(ring[0]); // close ring
+            // Convert flat [x, y, x, y...] or [[x,y]...] to [[x,y]...]
+            if (typeof ring[0] === 'number') {
+                const out = [];
+                for (let i = 0; i < ring.length - 1; i += 2) out.push([ring[i], ring[i + 1]]);
+                out.push(out[0]);
+                return out;
+            }
+            return ring;
+        }
+
+        // Very light smoothing – blend each point with its neighbours
+        function smoothRing(ring, tension = 0.04) {
+            if (ring.length < 4) return ring;
+            const n = ring.length - 1; // last == first
+            const out = [];
+            for (let i = 0; i < n; i++) {
+                const prev = ring[(i - 1 + n) % n];
+                const cur = ring[i];
+                const next = ring[(i + 1) % n];
+                out.push([
+                    cur[0] * (1 - tension) + (prev[0] + next[0]) * tension / 2,
+                    cur[1] * (1 - tension) + (prev[1] + next[1]) * tension / 2
+                ]);
+            }
+            out.push(out[0]);
+            return out;
+        }
+
+        // Find contiguous clusters of cells (flood-fill by grid adjacency)
+        function findClusters(keys) {
+            const keySet = new Set(keys);
+            const visited = new Set();
+            const clusters = [];
+
+            for (const key of keys) {
+                if (visited.has(key)) continue;
+                const cluster = [];
+                const stack = [key];
+                while (stack.length) {
+                    const k = stack.pop();
+                    if (visited.has(k)) continue;
+                    visited.add(k);
+                    cluster.push(k);
+                    const [gi, gj] = k.split(',').map(Number);
+                    for (const [dgi, dgj] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+                        const nk = `${gi+dgi},${gj+dgj}`;
+                        if (keySet.has(nk) && !visited.has(nk)) stack.push(nk);
+                    }
+                }
+                if (cluster.length >= 2) clusters.push(cluster); // min 2 cells
+            }
+            return clusters;
+        }
+
+        async function mimicHumanForecast(mapIndex) {
+            const btn = document.getElementById(`mimic-btn-${mapIndex}`);
+            if (btn) { btn.disabled = true; btn.textContent = '⏳ Analysing ensemble...'; }
+
+            try {
+                // 1. Get the currently loaded run's valid period
+                const descEl = document.getElementById(`meta-desc-${mapIndex}`);
+                if (!descEl) throw new Error("No map loaded");
+
+                const html = descEl.innerHTML;
+                const match = html.match(/Period:<\/strong>\s*([^<]+)/i);
+                if (!match) throw new Error("Could not read forecast period");
+
+                const periodText = match[1].trim();
+                const parts = periodText.split('-');
+                const startStr = parts[0].trim();
+                const endStr = parts.length > 1 ? parts[1].trim() : startStr;
+
+                const startDate = robustParseTime(startStr);
+                const endDate = robustParseTime(endStr);
+                if (!startDate || isNaN(startDate.getTime())) throw new Error("Bad start date");
+
+                showToast("🧠 Finding all HOCOs for this valid period...", "info");
+
+                // 2. Find all runs that overlap this valid period from allRuns
+                const startMs = startDate.getTime();
+                const endMs = endDate.getTime();
+
+                const candidates = allRuns.filter(run => {
+                    if (!run.geojsonUrl || run.status === 'pending') return false;
+                    try {
+                        const rs = robustParseTime(run.startTime);
+                        const re = run.endTime ? robustParseTime(run.endTime) : rs;
+                        if (!rs || isNaN(rs.getTime())) return false;
+                        // Overlap: run overlaps the target valid period
+                        return rs.getTime() <= endMs && re.getTime() >= startMs;
+                    } catch { return false; }
+                });
+
+                if (candidates.length === 0) {
+                    showToast("No previous HOCOs found for this valid period to build ensemble.", "error");
+                    return;
+                }
+
+                // Sort by issue time (oldest first) so weights increase for newer runs
+                candidates.sort((a, b) => {
+                    const da = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+                    const db_ = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+                    return da.getTime() - db_.getTime();
+                });
+
+                showToast(`🧠 Building ensemble from ${candidates.length} run(s)...`, "info");
+
+                // 3. Load and rasterise each candidate's geojson
+                const grids = [];
+                const weights = [];
+                const n = candidates.length;
+
+                for (let idx = 0; idx < candidates.length; idx++) {
+                    const run = candidates[idx];
+                    // Recency weight: exponential – latest runs get most weight
+                    // Runs in the latest third get weight 3x, middle 2x, oldest 1x
+                    const recencyRank = idx / Math.max(n - 1, 1); // 0 (oldest) → 1 (newest)
+                    const weight = 1 + recencyRank * 3; // 1 → 4
+
+                    try {
+                        let geojsonData;
+                        // Try fetching geojson (reuse logic from loadRunIntoMap)
+                        if (run.geojsonUrl && run.geojsonUrl.includes('raw.githubusercontent.com')) {
+                            const parts_ = run.geojsonUrl.split('/');
+                            const owner = parts_[3], repo = parts_[4], ref_ = parts_[5];
+                            const filePath = parts_.slice(6).join('/');
+                            const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}?ref=${ref_}`;
+                            const resp = await fetch(apiUrl, { headers: { 'Accept': 'application/vnd.github.v3.raw' } });
+                            if (resp.ok) geojsonData = await resp.json();
+                        }
+                        if (!geojsonData && run.geojsonUrl) {
+                            let fetchUrl = run.geojsonUrl;
+                            if (fetchUrl.includes('firebasestorage.googleapis.com') || fetchUrl.includes('storage.googleapis.com')) {
+                                try {
+                                    const urlObj = new URL(fetchUrl);
+                                    let decodedPath = '';
+                                    if (fetchUrl.includes('firebasestorage.googleapis.com')) {
+                                        const pathPart = urlObj.pathname.split('/o/')[1];
+                                        if (pathPart) decodedPath = decodeURIComponent(pathPart).split('?')[0];
+                                    } else {
+                                        decodedPath = decodeURIComponent(urlObj.pathname.split('/').slice(2).join('/'));
+                                    }
+                                    if (decodedPath) fetchUrl = await getDownloadURL(ref(storage, decodedPath));
+                                } catch (e) { /* use original */ }
+                            }
+                            const resp = await fetch(fetchUrl);
+                            if (resp.ok) geojsonData = await resp.json();
+                        }
+
+                        if (!geojsonData) continue;
+                        const grid = rasteriseGeojson(geojsonData);
+                        grids.push(grid);
+                        weights.push(weight);
+                    } catch (e) {
+                        console.warn("Mimic: could not load run", run.id, e);
+                    }
+                }
+
+                if (grids.length === 0) throw new Error("Could not load any ensemble members");
+
+                showToast(`🧠 Merging ${grids.length} grids, filtering anomalies...`, "info");
+
+                // 4. Build weighted ensemble and filter anomalies
+                const rawEnsemble = buildEnsembleGrid(grids, weights);
+                // Anomaly filter: require at least 30% of runs to agree
+                const minFraction = grids.length >= 4 ? 0.3 : 0.2;
+                const ensemble = filterAnomalies(grids, rawEnsemble, minFraction);
+
+                // 5. For each risk level, find cells above threshold and build polygons
+                const features = [];
+
+                for (const level of RISK_LEVELS) {
+                    const cellsAbove = Object.entries(ensemble)
+                        .filter(([, v]) => v >= level.minProb)
+                        .map(([k]) => k);
+
+                    if (!cellsAbove.length) continue;
+
+                    const clusters = findClusters(cellsAbove);
+
+                    for (const cluster of clusters) {
+                        const poly = gridCellsToPolygon(cluster, GRID_RES);
+                        if (!poly) continue;
+
+                        const clusterProbs = cluster.map(k => ensemble[k] || 0);
+                        const avgProb = clusterProbs.reduce((a, b) => a + b, 0) / clusterProbs.length;
+
+                        features.push({
+                            type: 'Feature',
+                            geometry: poly.geometry,
+                            properties: {
+                                feature_type: 'polygon',
+                                risk_name: level.name,
+                                risk: avgProb,
+                                fill: level.color,
+                                ensemble_members: grids.length,
+                                cell_count: cluster.length
+                            }
+                        });
+                    }
+                }
+
+                if (!features.length) {
+                    showToast("Ensemble produced no significant risk zones for this period.", "info");
+                    return;
+                }
+
+                const mimicGeojson = { type: 'FeatureCollection', features };
+
+                // 6. Store result and render on map
+                mimicResults[mapIndex] = {
+                    geojson: mimicGeojson,
+                    startStr, endStr,
+                    runCount: grids.length,
+                    levels: [...new Set(features.map(f => f.properties.risk_name))]
+                };
+
+                const targetMap = maps[mapIndex];
+
+                // Remove existing mimic layers
+                ['mimic-polygons-outline','mimic-polygons','mimic-labels'].forEach(id => {
+                    if (targetMap.getLayer(id)) targetMap.removeLayer(id);
+                });
+                if (targetMap.getSource('mimic-source')) targetMap.removeSource('mimic-source');
+
+                targetMap.addSource('mimic-source', { type: 'geojson', data: mimicGeojson });
+
+                targetMap.addLayer({
+                    id: 'mimic-polygons',
+                    type: 'fill',
+                    source: 'mimic-source',
+                    paint: {
+                        'fill-color': ['get', 'fill'],
+                        'fill-opacity': 0.45
+                    }
+                });
+
+                targetMap.addLayer({
+                    id: 'mimic-polygons-outline',
+                    type: 'line',
+                    source: 'mimic-source',
+                    paint: {
+                        'line-color': ['get', 'fill'],
+                        'line-width': 2.5,
+                        'line-opacity': 0.9
+                    }
+                });
+
+                // Risk labels
+                targetMap.addLayer({
+                    id: 'mimic-labels',
+                    type: 'symbol',
+                    source: 'mimic-source',
+                    layout: {
+                        'text-field': ['get', 'risk_name'],
+                        'text-size': 11,
+                        'text-font': ['DIN Offc Pro Bold', 'Arial Unicode MS Bold'],
+                        'text-allow-overlap': false,
+                        'symbol-placement': 'point'
+                    },
+                    paint: {
+                        'text-color': ['get', 'fill'],
+                        'text-halo-color': 'rgba(255,255,255,0.9)',
+                        'text-halo-width': 2
+                    }
+                });
+
+                // Click popup
+                targetMap.on('click', 'mimic-polygons', (e) => {
+                    if (!e.features || !e.features.length) return;
+                    const p = e.features[0].properties;
+                    new mapboxgl.Popup({ closeButton: true, maxWidth: '260px' })
+                        .setLngLat(e.lngLat)
+                        .setHTML(`
+                            <div style="font-family:system-ui;padding:6px 2px;">
+                                <div style="font-weight:800;font-size:1rem;color:${p.fill};margin-bottom:4px;">
+                                    ${p.risk_name} Risk
+                                </div>
+                                <div style="font-size:0.82rem;color:#444;line-height:1.5;">
+                                    <b>Ensemble prob:</b> ${(p.risk * 100).toFixed(0)}%<br>
+                                    <b>Members:</b> ${p.ensemble_members}<br>
+                                    <b>Grid cells:</b> ${p.cell_count}
+                                </div>
+                            </div>
+                        `)
+                        .addTo(targetMap);
+                });
+
+                // Show KML button
+                const kmlBtn = document.getElementById(`kml-btn-${mapIndex}`);
+                if (kmlBtn) kmlBtn.style.display = 'block';
+
+                const levelList = mimicResults[mapIndex].levels.join(', ');
+                showToast(`🧠 Mimic complete! ${grids.length} runs → ${features.length} polygons (${levelList})`, "success");
+
+                // Update map metadata
+                document.getElementById(`meta-title-${mapIndex}`).innerText = `🧠 Mimic Forecast – Map ${mapIndex + 1}`;
+                document.getElementById(`meta-desc-${mapIndex}`).innerHTML = `
+                    <strong>Period:</strong> ${startStr} - ${endStr}<br>
+                    <strong>Ensemble members:</strong> ${grids.length}<br>
+                    <strong>Risk zones:</strong> ${features.length} polygon(s)<br>
+                    <strong>Levels:</strong> ${levelList}
+                `;
+
+            } catch (err) {
+                console.error("Mimic error:", err);
+                showToast(`Mimic failed: ${err.message}`, "error");
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = '🧠 Mimic Human Forecast'; }
+            }
+        }
+
+        // ── KML Export ──────────────────────────────────────────────────────────
+        function exportMimicKML(mapIndex) {
+            const result = mimicResults[mapIndex];
+            if (!result || !result.geojson) {
+                showToast("No mimic forecast to export. Run Mimic first.", "error");
+                return;
+            }
+
+            const { geojson, startStr, endStr, runCount } = result;
+
+            // KML colour: aabbggrr (Mapbox hex #rrggbb → KML ff+bbggrr)
+            function hexToKML(hex) {
+                const r = hex.slice(1, 3), g = hex.slice(3, 5), b = hex.slice(5, 7);
+                return `88${b}${g}${r}`;
+            }
+
+            const placemarks = geojson.features.map((feat, i) => {
+                const p = feat.properties;
+                const coords = feat.geometry.coordinates[0]
+                    .map(([lon, lat]) => `${lon},${lat},0`).join(' ');
+                const kmlColor = hexToKML(p.fill);
+                return `
+    <Placemark>
+        <name>${p.risk_name} Risk (${(p.risk * 100).toFixed(0)}%)</name>
+        <description>Ensemble members: ${p.ensemble_members} | Cells: ${p.cell_count} | Period: ${startStr} – ${endStr}</description>
+        <Style>
+            <LineStyle><color>ff${p.fill.slice(1,3)}${p.fill.slice(3,5)}${p.fill.slice(5,7)}</color><width>2.5</width></LineStyle>
+            <PolyStyle><color>${kmlColor}</color><fill>1</fill><outline>1</outline></PolyStyle>
+        </Style>
+        <Polygon>
+            <outerBoundaryIs><LinearRing>
+                <coordinates>${coords}</coordinates>
+            </LinearRing></outerBoundaryIs>
+        </Polygon>
+    </Placemark>`;
+            }).join('\n');
+
+            const kml = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
 <Document>
-    <name>Mimic Human Forecast — HOCO Thunderstorm Risk</name>
-    <description>Generated by ADV-HOCO Pro — Mimic Human Forecast Engine
-${periodStr}
-Risk levels: Low / Slight / Enhanced / Moderate / High</description>
-    ${stylesXml}
-    ${placemarksXml}
+    <name>ADV-HOCO Mimic Forecast – ${startStr} to ${endStr}</name>
+    <description>Generated by ADV-HOCO Pro. Ensemble of ${runCount} runs. Auto risk classification: Low/Slight/Enhanced/Moderate/High.</description>
+${placemarks}
 </Document>
 </kml>`;
 
-        const blob = new Blob([kml], { type:'application/vnd.google-earth.kml+xml' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `MimicHOCO_${Date.now()}.kml`;
-        a.click();
-        URL.revokeObjectURL(url);
-        setStatus(`KML exported with ${mimicPolygons.filter(p=>!p.hidden && !hiddenRisks.has(p.risk)).length} polygons`);
-    };
+            const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `HOCO_Mimic_${Date.now()}.kml`;
+            a.click();
+            URL.revokeObjectURL(url);
 
-    // ── VOICE COMMANDS ───────────────────────────────────────────
-    window.toggleMimicVoice = function() {
-        if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
-            setStatus('Voice recognition not supported in this browser.');
-            return;
+            showToast("KML exported successfully!", "success");
         }
-        if (voiceActive) { stopVoice(); return; }
-        startVoice();
-    };
-
-    function startVoice() {
-        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        voiceRecognition = new SR();
-        voiceRecognition.lang = 'en-GB';
-        voiceRecognition.continuous = true;
-        voiceRecognition.interimResults = false;
-
-        voiceRecognition.onresult = (e) => {
-            const transcript = e.results[e.results.length-1][0].transcript.toLowerCase().trim();
-            handleVoiceCommand(transcript);
-        };
-        voiceRecognition.onerror = () => stopVoice();
-        voiceRecognition.onend = () => { if (voiceActive) voiceRecognition.start(); };
-
-        voiceRecognition.start();
-        voiceActive = true;
-        const btn = document.getElementById('mimicVoiceBtn');
-        btn.classList.add('listening');
-        btn.textContent = '🔴 Listening...';
-        document.getElementById('mimicVoiceStatus').textContent = 'Listening for commands...';
-    }
-
-    function stopVoice() {
-        if (voiceRecognition) { voiceRecognition.stop(); voiceRecognition = null; }
-        voiceActive = false;
-        const btn = document.getElementById('mimicVoiceBtn');
-        btn.classList.remove('listening');
-        btn.textContent = '🎤 Start Listening';
-        document.getElementById('mimicVoiceStatus').textContent = 'Stopped. Say: "low risk", "slight risk", etc.';
-    }
-
-    function handleVoiceCommand(text) {
-        const statusEl = document.getElementById('mimicVoiceStatus');
-        statusEl.textContent = `Heard: "${text}"`;
-
-        if (text.includes('low risk')) { selectRisk(1); setStatus('Voice: Low Risk selected'); }
-        else if (text.includes('slight risk')) { selectRisk(2); setStatus('Voice: Slight Risk selected'); }
-        else if (text.includes('enhanced risk')) { selectRisk(3); setStatus('Voice: Enhanced Risk selected'); }
-        else if (text.includes('moderate risk')) { selectRisk(4); setStatus('Voice: Moderate Risk selected'); }
-        else if (text.includes('high risk')) { selectRisk(5); setStatus('Voice: High Risk selected'); }
-        else if (text.includes('draw') || text.includes('pencil')) { setTool('draw'); }
-        else if (text.includes('erase') || text.includes('delete')) { setTool('erase'); }
-        else if (text.includes('select')) { setTool('select'); }
-        else if (text.includes('undo')) { mimicUndo(); }
-        else if (text.includes('clear all')) { mimicClearAll(); }
-        else if (text.includes('generate')) { mimicGenerate(); }
-        else if (text.includes('export') || text.includes('kml')) { mimicExportKml(); }
-        else if (text.includes('hide low')) { toggleRiskVisibility(1); }
-        else if (text.includes('hide slight')) { toggleRiskVisibility(2); }
-        else if (text.includes('hide enhanced')) { toggleRiskVisibility(3); }
-        else if (text.includes('hide moderate')) { toggleRiskVisibility(4); }
-        else if (text.includes('hide high')) { toggleRiskVisibility(5); }
-        else { setStatus(`Voice: Unknown command — "${text}"`); }
-    }
-
-    // ── STATUS BAR ───────────────────────────────────────────────
-    function setStatus(msg) {
-        const el = document.getElementById('mimicStatusBar');
-        el.textContent = msg;
-        el.style.opacity = '1';
-    }
-
-})();
-</script>
+    </script>
 </body>
 
 </html>
