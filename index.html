@@ -30,6 +30,7 @@
             --warning: #f39c12;
             --guest: #95a5a6;
             --sidebar-width: 420px;
+            --meta-desc-color: #bbb;
         }
 
         body {
@@ -539,6 +540,7 @@
             --sidebar-width: 460px;
             --muted: #5d7088;
             --panel-shadow: 0 18px 40px rgba(88, 115, 158, 0.18);
+            --meta-desc-color: #5d7088;
         }
 
         body {
@@ -918,6 +920,70 @@
             border: none;
             background: transparent;
             box-shadow: none;
+            touch-action: pan-x;
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            cursor: pointer;
+        }
+
+        /* Prevent iOS from interpreting slider drag as Siri/system gesture */
+        .map-auto-timeline-shell input[type="range"] {
+            touch-action: pan-x;
+            -webkit-appearance: none;
+            appearance: none;
+            cursor: pointer;
+        }
+
+        /* Track — WebKit/Blink (Chrome, Safari, Edge) */
+        .map-auto-timeline-shell input[type="range"]::-webkit-slider-runnable-track {
+            height: 6px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.18);
+        }
+
+        /* Thumb — WebKit/Blink */
+        .map-auto-timeline-shell input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #4e82ef;
+            border: 2px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+            margin-top: -6px; /* centres thumb on track */
+            cursor: pointer;
+        }
+
+        /* Track — Firefox */
+        .map-auto-timeline-shell input[type="range"]::-moz-range-track {
+            height: 6px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.18);
+            border: none;
+        }
+
+        /* Thumb — Firefox */
+        .map-auto-timeline-shell input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #4e82ef;
+            border: 2px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+            cursor: pointer;
+        }
+
+        /* Progress fill (portion left of thumb) — WebKit */
+        .map-auto-timeline-shell input[type="range"]::-webkit-slider-runnable-track {
+            background: linear-gradient(
+                to right,
+                rgba(78, 130, 239, 0.85) 0%,
+                rgba(78, 130, 239, 0.85) var(--track-fill, 0%),
+                rgba(255, 255, 255, 0.18) var(--track-fill, 0%),
+                rgba(255, 255, 255, 0.18) 100%
+            );
         }
 
         .auto-slider-block input[type="range"]:focus {
@@ -942,14 +1008,71 @@
             pointer-events: auto;
             padding: 12px 14px;
             border-radius: 18px;
-            background: rgba(255, 255, 255, 0.94);
-            border: 1px solid rgba(102, 139, 207, 0.2);
-            box-shadow: 0 16px 30px rgba(104, 131, 171, 0.16);
-            backdrop-filter: blur(10px);
+            background: rgba(12, 20, 42, 0.92);
+            border: 1px solid rgba(102, 139, 207, 0.35);
+            box-shadow: 0 16px 30px rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            color: #e8eef8;
         }
 
-        .map-auto-timeline-shell .mobile-auto-selects {
-            display: grid;
+        /* All text inside the dock: readable on the dark frosted background */
+        .map-auto-timeline-shell label,
+        .map-auto-timeline-shell .slider-ticks,
+        .map-auto-timeline-shell .helper-text,
+        .map-auto-timeline-shell .auto-day-label,
+        .map-auto-timeline-shell .auto-day-subtitle {
+            color: #c5d3e8;
+        }
+
+        .map-auto-timeline-shell .slider-ticks {
+            color: #a8bcda;
+        }
+
+        .map-auto-timeline-shell .mobile-run-picker select {
+            background: rgba(30, 46, 80, 0.9);
+            color: #e8eef8;
+            border-color: rgba(102, 139, 207, 0.35);
+        }
+
+        /* btn-outline inside the dock (e.g. +3h +6h +12h +24h if ever rendered there) */
+        .map-auto-timeline-shell .btn-outline {
+            color: #c5d3e8;
+            border-color: rgba(140, 177, 248, 0.4);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .map-auto-timeline-shell .btn-outline:hover:not(:disabled) {
+            background: rgba(77, 125, 223, 0.22);
+        }
+
+        /* Always keep the dock dark — override any theme that tries to lighten it */
+        body.theme-light .map-auto-timeline-shell,
+        body .map-auto-timeline-shell {
+            background: rgba(12, 20, 42, 0.92) !important;
+            color: #e8eef8 !important;
+            border-color: rgba(102, 139, 207, 0.35) !important;
+        }
+
+        body.theme-light .map-auto-timeline-shell label,
+        body.theme-light .map-auto-timeline-shell .slider-ticks,
+        body.theme-light .map-auto-timeline-shell .helper-text,
+        body.theme-light .map-auto-timeline-shell .auto-day-label,
+        body.theme-light .map-auto-timeline-shell .auto-day-subtitle,
+        body.theme-light .map-auto-timeline-shell .auto-run-slider-ticks span {
+            color: #c5d3e8 !important;
+        }
+
+        body.theme-light .map-auto-timeline-shell .btn-outline {
+            color: #c5d3e8 !important;
+            border-color: rgba(140, 177, 248, 0.4) !important;
+            background: rgba(255, 255, 255, 0.06) !important;
+        }
+
+        body.theme-light .map-auto-timeline-shell .mobile-run-picker select {
+            background: rgba(30, 46, 80, 0.9) !important;
+            color: #e8eef8 !important;
+            border-color: rgba(102, 139, 207, 0.35) !important;
         }
 
         body:not(.app-ready) #mapAutoTimelineDock {
@@ -1019,6 +1142,7 @@
             --guest: #6e8098;
             --muted: #5d7088;
             --panel-shadow: 0 18px 40px rgba(88, 115, 158, 0.18);
+            --meta-desc-color: #5d7088;
             background:
                 radial-gradient(circle at top left, rgba(47, 103, 228, 0.16), transparent 34%),
                 radial-gradient(circle at bottom right, rgba(31, 157, 112, 0.12), transparent 30%),
@@ -1084,7 +1208,6 @@
         body.theme-light .run-preview-card,
         body.theme-light .run-browser-card,
         body.theme-light .run-browser-empty,
-        body.theme-light .map-auto-timeline-shell,
         body.theme-light .map-metadata,
         body.theme-light .loading-content {
             background: rgba(255, 255, 255, 0.94);
@@ -1601,7 +1724,7 @@
             #mapAutoTimelineDock {
                 left: 10px;
                 right: 10px;
-                bottom: max(10px, env(safe-area-inset-bottom));
+                bottom: max(54px, calc(env(safe-area-inset-bottom) + 44px));
             }
 
             .map-auto-timeline-shell {
@@ -1626,10 +1749,14 @@
                 min-height: 30px;
                 padding: 4px 8px;
                 font-size: 0.66rem;
+                background: rgba(30, 46, 80, 0.9);
+                color: #e8eef8;
+                border-color: rgba(102, 139, 207, 0.35);
             }
 
             .map-auto-timeline-shell input[type="range"] {
-                min-height: 12px;
+                min-height: 28px;
+                touch-action: pan-x;
             }
 
             .map-auto-timeline-shell .slider-ticks {
@@ -1704,8 +1831,8 @@
 
     <div id="landingPage">
         <div class="landing-container">
-            <h1 style="color: #FFFFFF; margin-bottom: 5px; font-size: 2.8rem;">HOCO 2.0</h1>
-            <p style="color: #fff; font-weight: bold; margin-bottom: 15px; font-size: 1.1rem;">Meteorological Ensemble
+            <h1 style="color: #102238; margin-bottom: 5px; font-size: 2.8rem;">HOCO 2.0</h1>
+            <p style="color: #2f67e4; font-weight: bold; margin-bottom: 15px; font-size: 1.1rem;">Meteorological Ensemble
                 Engine By Handry Outlook</p>
 
             <p class="intro-text">
@@ -1754,9 +1881,9 @@
 
             <div style="display: flex; gap: 15px; justify-content: center; margin-top: 20px;">
                 <button onclick="showAuth('login')" style="width: 150px;">Sign In</button>
-                <button onclick="showAuth('register')" class="btn-outline" style="width: 150px;">Register</button>
+                <button onclick="showAuth('register')" class="btn-outline" style="width: 150px; color: #2f67e4; border-color: #2f67e4;">Register</button>
                 <button onclick="document.getElementById('tutorialModal').style.display='flex'"
-                    style="width: 150px; background: #333; border: 1px solid #555;">Quick Tutorial</button>
+                    style="width: 150px; background: #4c617d; border: 1px solid #35506c; color: #ffffff;">Quick Tutorial</button>
             </div>
         </div>
     </div>
@@ -1803,7 +1930,7 @@
                         manual runs when you need a deeper comparison.</p>
                     <span id="roleBadge" class="role-badge">...</span>
                 </div>
-                <button id="showAccuracyBtn" class="btn-outline secondary-action">
+                <button id="showAccuracyBtn" class="btn-outline secondary-action" style="color: #2f67e4; border-color: rgba(47,103,228,0.5);">
                     📊 View AUTO-HOCO Accuracy
                 </button>
                 <div id="workspacePanel" class="panel dashboard-panel workspace-panel collapsible-panel">
@@ -2032,13 +2159,13 @@
                         </div>
                         <div
                             style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 5px; margin-bottom: 10px;">
-                            <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem;"
+                            <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem; color: #2f67e4;"
                                 onclick="setTimeRange(3)">+3h</button>
-                            <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem;"
+                            <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem; color: #2f67e4;"
                                 onclick="setTimeRange(6)">+6h</button>
-                            <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem;"
+                            <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem; color: #2f67e4;"
                                 onclick="setTimeRange(12)">+12h</button>
-                            <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem;"
+                            <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem; color: #2f67e4;"
                                 onclick="setTimeRange(24)">+24h</button>
                         </div>
                         <label>Hazards</label>
@@ -2457,7 +2584,7 @@
                 <div id="meta-title-0"
                     style="font-weight: bold; font-size: 0.8rem; margin-bottom: 4px; color: var(--primary);">Map 1 -
                     Idle</div>
-                <div id="meta-desc-0" style="font-size: 0.65rem; color: #ccc; line-height: 1.4;">Waiting for data...
+                <div id="meta-desc-0" style="font-size: 0.65rem; color: var(--meta-desc-color, #5d7088); line-height: 1.4;">Waiting for data...
                 </div>
                 <div id="meta-scale-0" style="display: none; align-items: center; gap: 5px; margin-top: 6px;">
                     <span style="font-size: 0.55rem;">Low</span>
@@ -2499,7 +2626,7 @@
                 <div id="meta-title-1"
                     style="font-weight: bold; font-size: 0.8rem; margin-bottom: 4px; color: var(--primary);">Map 2 -
                     Idle</div>
-                <div id="meta-desc-1" style="font-size: 0.65rem; color: #ccc; line-height: 1.4;">Waiting for data...
+                <div id="meta-desc-1" style="font-size: 0.65rem; color: var(--meta-desc-color, #5d7088); line-height: 1.4;">Waiting for data...
                 </div>
                 <div id="meta-scale-1" style="display: none; align-items: center; gap: 5px; margin-top: 6px;">
                     <span style="font-size: 0.55rem;">Low</span>
@@ -2541,7 +2668,7 @@
                 <div id="meta-title-2"
                     style="font-weight: bold; font-size: 0.8rem; margin-bottom: 4px; color: var(--primary);">Map 3 -
                     Idle</div>
-                <div id="meta-desc-2" style="font-size: 0.65rem; color: #ccc; line-height: 1.4;">Waiting for data...
+                <div id="meta-desc-2" style="font-size: 0.65rem; color: var(--meta-desc-color, #5d7088); line-height: 1.4;">Waiting for data...
                 </div>
                 <div id="meta-scale-2" style="display: none; align-items: center; gap: 5px; margin-top: 6px;">
                     <span style="font-size: 0.55rem;">Low</span>
@@ -2583,7 +2710,7 @@
                 <div id="meta-title-3"
                     style="font-weight: bold; font-size: 0.8rem; margin-bottom: 4px; color: var(--primary);">Map 4 -
                     Idle</div>
-                <div id="meta-desc-3" style="font-size: 0.65rem; color: #ccc; line-height: 1.4;">Waiting for data...
+                <div id="meta-desc-3" style="font-size: 0.65rem; color: var(--meta-desc-color, #5d7088); line-height: 1.4;">Waiting for data...
                 </div>
                 <div id="meta-scale-3" style="display: none; align-items: center; gap: 5px; margin-top: 6px;">
                     <span style="font-size: 0.55rem;">Low</span>
@@ -3507,6 +3634,7 @@
             runSlider.max = String(Math.max(runs.length - 1, 0));
             runSlider.value = String(selectedIndex);
             runSlider.disabled = false;
+            updateSliderTrackFill(runSlider);
             if (mobileSelect) {
                 mobileSelect.innerHTML = runs.map((run, index) => {
                     const label = formatMobileIssuedLabel(run);
@@ -3696,17 +3824,17 @@
                     paint: {
                         'text-color': [
                             'step', ['get', 'ageFraction'],
-                            '#ff1a1a',          // < 0.05 — newest  (vivid red)
-                            0.05, '#ff6600',    // 0.05–0.2         (orange)
-                            0.2,  '#ffcc00',    // 0.2–0.4          (amber)
-                            0.4,  '#33cc66',    // 0.4–0.6          (green)
-                            0.6,  '#0088ff',    // 0.6–0.8          (blue)
-                            0.8,  '#7700cc'     // > 0.8 — oldest   (purple)
+                            '#ff0000',          // < 0.05 — newest  (vivid red)
+                            0.05, '#ffd700',    // 0.05–0.2         (gold)
+                            0.2,  '#ff69b4',    // 0.2–0.4          (hot pink)
+                            0.4,  '#ff00ff',    // 0.4–0.6          (magenta)
+                            0.6,  '#800080',    // 0.6–0.8          (purple)
+                            0.8,  '#4b0082'     // > 0.8 — oldest   (indigo)
                         ],
                         'text-halo-color': 'rgba(255,255,255,0.75)',
                         'text-halo-width': 1.5
                     }
-                }, 'hoco-polygons');
+                });
 
                 lightningSources[mapIndex] = { sourceId, layerId, data: geojson };
                 lightningVisible[mapIndex] = true;
@@ -3723,12 +3851,12 @@
                     // Build age label and colour
                     let ageLabel = 'Unknown', ageColor = '#555';
                     if (af !== null) {
-                        if      (af < 0.05) { ageLabel = 'Newest (<5%)';    ageColor = '#ff1a1a'; }
-                        else if (af < 0.2 ) { ageLabel = 'Recent (5–20%)';  ageColor = '#ff6600'; }
-                        else if (af < 0.4 ) { ageLabel = 'Moderate (20–40%)'; ageColor = '#ccaa00'; }
-                        else if (af < 0.6 ) { ageLabel = 'Older (40–60%)'; ageColor = '#229944'; }
-                        else if (af < 0.8 ) { ageLabel = 'Old (60–80%)';   ageColor = '#0066cc'; }
-                        else               { ageLabel = 'Oldest (>80%)';   ageColor = '#5500aa'; }
+                        if      (af < 0.05) { ageLabel = 'Newest (<5%)';    ageColor = '#ff0000'; }
+                        else if (af < 0.2 ) { ageLabel = 'Recent (5–20%)';  ageColor = '#ffd700'; }
+                        else if (af < 0.4 ) { ageLabel = 'Moderate (20–40%)'; ageColor = '#ff69b4'; }
+                        else if (af < 0.6 ) { ageLabel = 'Older (40–60%)'; ageColor = '#ff00ff'; }
+                        else if (af < 0.8 ) { ageLabel = 'Old (60–80%)';   ageColor = '#800080'; }
+                        else               { ageLabel = 'Oldest (>80%)';   ageColor = '#4b0082'; }
                     }
 
                     // Format strike time
@@ -4374,8 +4502,18 @@
             renderAutoTimeline();
         });
 
+        // Update the visual fill of the range track
+        function updateSliderTrackFill(slider) {
+            const min = Number(slider.min) || 0;
+            const max = Number(slider.max) || 1;
+            const val = Number(slider.value) || 0;
+            const pct = max > min ? ((val - min) / (max - min)) * 100 : 0;
+            slider.style.setProperty('--track-fill', pct.toFixed(1) + '%');
+        }
+
         document.getElementById('autoRunSlider').addEventListener('input', (e) => {
             autoRunSelectionByDay[autoDaySelection] = Number(e.target.value || 0);
+            updateSliderTrackFill(e.target);
             renderAutoTimeline();
         });
 
@@ -4981,6 +5119,12 @@
                 targetMap.moveLayer('hoco-polygons', labelLayer.id);
                 targetMap.moveLayer('hoco-polygons-outline', labelLayer.id);
             }
+
+            // Always keep lightning strikes on top of risk polygons
+            const lightningLayerId = `lightning-layer-${mapIndex}`;
+            if (targetMap.getLayer(lightningLayerId)) {
+                targetMap.moveLayer(lightningLayerId);
+            }
         }
 
         // ==========================================
@@ -5537,12 +5681,12 @@
                     <div style="flex:1.2;min-width:0;border-left:1px solid rgba(102,139,207,0.18);padding-left:24px;">
                         <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;color:#35506c;margin-bottom:6px;">⚡ Strike Age</div>
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 14px;font-size:10.5px;">
-                            <span style="color:#ff1a1a;font-weight:700;">+ Newest (&lt;5%)</span>
-                            <span style="color:#ff6600;font-weight:700;">+ Recent (5–20%)</span>
-                            <span style="color:#ccaa00;font-weight:700;">+ Moderate (20–40%)</span>
-                            <span style="color:#229944;font-weight:700;">+ Older (40–60%)</span>
-                            <span style="color:#0066cc;font-weight:700;">+ Old (60–80%)</span>
-                            <span style="color:#5500aa;font-weight:700;">+ Oldest (&gt;80%)</span>
+                            <span style="color:#ff0000;font-weight:700;">+ Newest (&lt;5%)</span>
+                            <span style="color:#ffd700;font-weight:700;">+ Recent (5–20%)</span>
+                            <span style="color:#ff69b4;font-weight:700;">+ Moderate (20–40%)</span>
+                            <span style="color:#ff00ff;font-weight:700;">+ Older (40–60%)</span>
+                            <span style="color:#800080;font-weight:700;">+ Old (60–80%)</span>
+                            <span style="color:#4b0082;font-weight:700;">+ Oldest (&gt;80%)</span>
                         </div>
                         <div style="font-size:9.5px;color:#9aabb8;margin-top:4px;">Age = % of forecast period elapsed at strike time</div>
                     </div>` : ''}
@@ -5578,7 +5722,7 @@
                             'filter': ['==', ['get', 'feature_type'], 'polygon'],
                             'paint': {
                                 'fill-extrusion-color': ['get', 'fill'],
-                                'fill-extrusion-opacity': currentOpacity,
+                                'fill-extrusion-opacity': 0.5,
                                 'fill-extrusion-height': ['*', ['coalesce', ['get', 'risk'], 0], currentHeightScale]
                             }
                         });
@@ -5591,7 +5735,7 @@
                             'paint': {
                                 'line-color': '#ffffff',
                                 'line-width': 1.5,
-                                'line-opacity': Math.min(currentOpacity * 2, 1.0)
+                                'line-opacity': 1.0
                             }
                         });
 
