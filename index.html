@@ -1422,6 +1422,122 @@
             background: rgba(255, 255, 255, 0.6);
         }
 
+        .human-mimic-panel {
+            order: 6;
+        }
+
+        .human-source-list {
+            display: grid;
+            gap: 8px;
+            margin: 12px 0;
+            max-height: 290px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .human-source-card {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 12px;
+            border-radius: 14px;
+            border: 1px solid rgba(102, 139, 207, 0.2);
+            background: rgba(255, 255, 255, 0.88);
+        }
+
+        .human-source-card input[type="checkbox"] {
+            width: auto;
+            margin: 3px 0 0;
+            accent-color: var(--primary);
+        }
+
+        .human-source-main {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .human-source-title {
+            color: #102238;
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .human-source-meta {
+            color: var(--muted);
+            font-size: 0.77rem;
+            line-height: 1.5;
+        }
+
+        .selection-toolbar,
+        .toggle-row,
+        .risk-band-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .selection-toolbar {
+            margin-top: 10px;
+        }
+
+        .selection-toolbar button {
+            width: auto;
+            min-height: 34px;
+            padding: 0 12px;
+            font-size: 0.76rem;
+        }
+
+        .toggle-row {
+            margin: 12px 0;
+        }
+
+        .toggle-check {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(102, 139, 207, 0.18);
+            background: rgba(24, 47, 82, 0.05);
+            color: #35506c;
+            font-size: 0.78rem;
+            line-height: 1.35;
+        }
+
+        .toggle-check input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+            accent-color: var(--primary);
+        }
+
+        .risk-band-row {
+            margin-top: 12px;
+        }
+
+        .risk-band-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 30px;
+            padding: 0 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(102, 139, 207, 0.18);
+            background: rgba(24, 47, 82, 0.05);
+            color: #35506c;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .risk-band-swatch {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            flex: 0 0 auto;
+        }
+
         .run-status-line,
         #runStatus {
             margin-top: 8px;
@@ -1434,7 +1550,7 @@
         }
 
         .execution-panel {
-            order: 6;
+            order: 7;
             margin-top: 2px;
         }
 
@@ -2117,6 +2233,64 @@
                 </div>
 
                 <div id="executionPanel" style="display:none;">
+                    <div class="panel dashboard-panel human-mimic-panel">
+                        <div class="panel-heading panel-heading-spread">
+                            <div>
+                                <div class="panel-kicker">Human Blend</div>
+                                <h3 class="panel-title">Mimic SPC-style thunderstorm polygons</h3>
+                            </div>
+                            <span class="status-chip subtle">Firebase archive</span>
+                        </div>
+
+                        <p class="helper-text" style="margin-top: 0;">Blend previously issued HOCO runs for the same valid period, smooth the field into cleaner hand-drawn style polygons, then save the ensemble back into Firebase as a loadable run.</p>
+
+                        <div class="control-grid">
+                            <div class="field-shell">
+                                <label for="humanValidPeriodSelect">Valid period</label>
+                                <select id="humanValidPeriodSelect"></select>
+                            </div>
+                            <div class="field-shell">
+                                <label for="humanTargetMapSelect">Load target map</label>
+                                <select id="humanTargetMapSelect">
+                                    <option value="0">Load into Map 1</option>
+                                    <option value="1">Load into Map 2</option>
+                                    <option value="2">Load into Map 3</option>
+                                    <option value="3">Load into Map 4</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="selection-toolbar">
+                            <button type="button" id="humanSelectAllBtn" class="btn-outline">Select all</button>
+                            <button type="button" id="humanClearAllBtn" class="btn-outline">Clear all</button>
+                        </div>
+
+                        <div id="humanSelectionSummary" class="helper-text" style="margin-top: 10px;">Scanning valid periods...</div>
+                        <div id="humanSourceList" class="human-source-list"></div>
+
+                        <div class="toggle-row">
+                            <label class="toggle-check">
+                                <input type="checkbox" id="humanNoiseFilter" checked>
+                                <span>Filter isolated noisy pockets before drawing polygons</span>
+                            </label>
+                            <label class="toggle-check">
+                                <input type="checkbox" id="humanAnomalyFilter" checked>
+                                <span>Adjust risk by comparing earlier HOCO issuances in the same valid period</span>
+                            </label>
+                        </div>
+
+                        <div class="risk-band-row">
+                            <span class="risk-band-pill"><span class="risk-band-swatch" style="background:#5bbf5f;"></span>Low &lt; 20%</span>
+                            <span class="risk-band-pill"><span class="risk-band-swatch" style="background:#f2c94c;"></span>Slight &lt; 40%</span>
+                            <span class="risk-band-pill"><span class="risk-band-swatch" style="background:#f2994a;"></span>Enhanced &lt; 60%</span>
+                            <span class="risk-band-pill"><span class="risk-band-swatch" style="background:#eb5757;"></span>Moderate &lt; 75%</span>
+                            <span class="risk-band-pill"><span class="risk-band-swatch" style="background:#c03fa5;"></span>High 75%+</span>
+                        </div>
+
+                        <button type="button" id="humanMimicBtn" style="margin-top: 14px; background: linear-gradient(135deg, #1f9d70, #216ba5);">Mimic Human Forecast</button>
+                        <div id="humanMimicStatus" class="helper-text" style="margin-top: 10px;">Select a valid period to build the ensemble source list.</div>
+                    </div>
+
                     <form id="hocoForm" class="panel dashboard-panel execution-panel"
                         style="border-color: var(--primary);">
                         <div class="panel-heading panel-heading-spread">
@@ -2595,16 +2769,21 @@
                     </div>
                     <span style="font-size: 0.55rem;">High</span>
                 </div>
-                <div style="display: flex; gap: 5px; margin-top: 8px;">
+                <div style="display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap;">
                     <button id="lightning-btn-0"
-                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        style="flex: 1 1 110px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
                         onclick="toggleLightningLayer(0)">
                         ⚡ Show Lightning
                     </button>
                     <button id="export-btn-0"
-                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: #2980b9; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        style="flex: 1 1 110px; padding: 6px 10px; font-size: 0.75rem; background: #2980b9; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
                         onclick="exportMapToPNG(0)">
                         📷 Export PNG
+                    </button>
+                    <button id="export-kml-btn-0"
+                        style="flex: 1 1 110px; padding: 6px 10px; font-size: 0.75rem; background: #0f766e; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        onclick="exportMapToKML(0)">
+                        Export KML
                     </button>
                 </div>
             </div>
@@ -2637,16 +2816,21 @@
                     </div>
                     <span style="font-size: 0.55rem;">High</span>
                 </div>
-                <div style="display: flex; gap: 5px; margin-top: 8px;">
+                <div style="display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap;">
                     <button id="lightning-btn-1"
-                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        style="flex: 1 1 110px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
                         onclick="toggleLightningLayer(1)">
                         ⚡ Show Lightning
                     </button>
                     <button id="export-btn-1"
-                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: #2980b9; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        style="flex: 1 1 110px; padding: 6px 10px; font-size: 0.75rem; background: #2980b9; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
                         onclick="exportMapToPNG(1)">
                         📷 Export PNG
+                    </button>
+                    <button id="export-kml-btn-1"
+                        style="flex: 1 1 110px; padding: 6px 10px; font-size: 0.75rem; background: #0f766e; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        onclick="exportMapToKML(1)">
+                        Export KML
                     </button>
                 </div>
             </div>
@@ -2679,16 +2863,21 @@
                     </div>
                     <span style="font-size: 0.55rem;">High</span>
                 </div>
-                <div style="display: flex; gap: 5px; margin-top: 8px;">
+                <div style="display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap;">
                     <button id="lightning-btn-2"
-                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        style="flex: 1 1 110px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
                         onclick="toggleLightningLayer(2)">
                         ⚡ Show Lightning
                     </button>
                     <button id="export-btn-2"
-                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: #2980b9; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        style="flex: 1 1 110px; padding: 6px 10px; font-size: 0.75rem; background: #2980b9; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
                         onclick="exportMapToPNG(2)">
                         📷 Export PNG
+                    </button>
+                    <button id="export-kml-btn-2"
+                        style="flex: 1 1 110px; padding: 6px 10px; font-size: 0.75rem; background: #0f766e; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        onclick="exportMapToKML(2)">
+                        Export KML
                     </button>
                 </div>
             </div>
@@ -2721,16 +2910,21 @@
                     </div>
                     <span style="font-size: 0.55rem;">High</span>
                 </div>
-                <div style="display: flex; gap: 5px; margin-top: 8px;">
+                <div style="display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap;">
                     <button id="lightning-btn-3"
-                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        style="flex: 1 1 110px; padding: 6px 10px; font-size: 0.75rem; background: #8e44ad; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
                         onclick="toggleLightningLayer(3)">
                         ⚡ Show Lightning
                     </button>
                     <button id="export-btn-3"
-                        style="flex: 1; padding: 6px 10px; font-size: 0.75rem; background: #2980b9; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        style="flex: 1 1 110px; padding: 6px 10px; font-size: 0.75rem; background: #2980b9; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
                         onclick="exportMapToPNG(3)">
                         📷 Export PNG
+                    </button>
+                    <button id="export-kml-btn-3"
+                        style="flex: 1 1 110px; padding: 6px 10px; font-size: 0.75rem; background: #0f766e; border: none; border-radius: 4px; color: white; cursor: pointer; display: none; pointer-events: auto;"
+                        onclick="exportMapToKML(3)">
+                        Export KML
                     </button>
                 </div>
             </div>
@@ -3403,14 +3597,24 @@
         let runBrowserFilter = 'all';
         let activeMapData = [null, null, null, null];
         let isInitialLoad = true;
+        let humanMimicPeriodKey = '';
+        let humanMimicSelectedRunIds = new Set();
         let pendingRunTimers = {};      // { mapIndex: { runId, createdAtMs, estSeconds, intervalId, timeoutId, ... } }
         let progressIntervals = {};
+        const runGeojsonCache = new Map();
         const models = {
             swisseu: { name: "SWISS-EU", freq: 3 }, harmi: { name: "HARMONIE", freq: 3 },
             swissnow: { name: "SWISS-NOW", freq: 1 }, ez: { name: "ECMWF EZ", freq: 12 },
             ukmo2km: { name: "UKMO 2KM", freq: 6 }, rpdid2: { name: "RPDID2", freq: 3 }
         };
         const defaultWeights = { 'harmi': 1.0, 'rpdid2': 0.8, 'swisseu': 1.1, 'ez': 1.1, 'ukmo2km': 0.9, 'swissnow': 1.0 };
+        const HUMAN_RISK_BANDS = [
+            { key: 'low', label: 'Low Risk', threshold: 5, representativeRisk: 15, fill: '#5bbf5f', kmlColor: '8a5fbf5b', minCells: 10, scale: 1.06, smoothingPasses: 2 },
+            { key: 'slight', label: 'Slight Risk', threshold: 20, representativeRisk: 30, fill: '#f2c94c', kmlColor: '8a4cc9f2', minCells: 8, scale: 1.04, smoothingPasses: 2 },
+            { key: 'enhanced', label: 'Enhanced Risk', threshold: 40, representativeRisk: 50, fill: '#f2994a', kmlColor: '8a4a99f2', minCells: 6, scale: 1.03, smoothingPasses: 2 },
+            { key: 'moderate', label: 'Moderate Risk', threshold: 60, representativeRisk: 68, fill: '#eb5757', kmlColor: '8a5757eb', minCells: 5, scale: 1.02, smoothingPasses: 1 },
+            { key: 'high', label: 'High Risk', threshold: 75, representativeRisk: 85, fill: '#c03fa5', kmlColor: '8aa53fc0', minCells: 4, scale: 1.01, smoothingPasses: 1 }
+        ];
 
         function normalizeUiLabels() {
             const accuracyBtn = document.getElementById('showAccuracyBtn');
@@ -3425,6 +3629,9 @@
 
                 const exportBtn = document.getElementById(`export-btn-${i}`);
                 if (exportBtn) exportBtn.textContent = 'Export PNG';
+
+                const exportKmlBtn = document.getElementById(`export-kml-btn-${i}`);
+                if (exportKmlBtn) exportKmlBtn.textContent = 'Export KML';
 
                 const loadingTitle = document.querySelector(`#loading-${i} .loading-title`);
                 if (loadingTitle) loadingTitle.textContent = 'Preparing HOCO...';
@@ -3521,6 +3728,7 @@
 
         function getRunTag(run) {
             if (run?.type === 'automated') return 'AUTO';
+            if (run?.type === 'human-mimic') return 'HUMAN';
             if (run?.public === true) return 'PUBLIC';
             if (auth.currentUser?.uid && run?.userId === auth.currentUser.uid) return 'MINE';
             return 'PRIVATE';
@@ -3678,12 +3886,12 @@
 
             container.innerHTML = visibleRuns.map((run) => {
                 const created = getRunCreatedDate(run);
-                const chipClass = run.type === 'automated' ? 'auto' : 'neutral';
+                const chipClass = run.type === 'automated' ? 'auto' : run.type === 'human-mimic' ? 'neutral' : 'neutral';
                 return `
                     <div class="run-browser-card">
                         <div class="run-browser-top">
                             <div>
-                                <div class="run-browser-title">${run.region || 'UK'} ${run.type === 'automated' ? 'AUTO-HOCO' : 'HOCO'}</div>
+                                <div class="run-browser-title">${run.region || 'UK'} ${getRunModeLabel(run)}</div>
                                 <div class="run-browser-meta">${formatRunPeriodLabel(run)}<br>Issued: ${created ? created.toLocaleString() : 'Unknown'}<br>Hazards: ${run.weather || 'None'}</div>
                             </div>
                             <span class="run-chip ${chipClass}">${getRunTag(run)}</span>
@@ -3696,7 +3904,809 @@
             }).join('');
         }
 
+        function getRunPeriodKey(run) {
+            return `${run?.region || 'UK'}|${run?.startTime || ''}|${run?.endTime || run?.startTime || ''}`;
+        }
+
+        function getRunModeLabel(run) {
+            if (run?.type === 'automated') return 'AUTO-HOCO';
+            if (run?.type === 'human-mimic') return 'Human Mimic';
+            return 'HOCO';
+        }
+
+        function getRunDisplayTag(run) {
+            if (run?.type === 'human-mimic') return 'HUMAN';
+            return getRunTag(run);
+        }
+
+        function getHumanMimicSourceRuns() {
+            return getVisibleRuns()
+                .filter((run) => run?.status !== 'pending')
+                .filter((run) => run?.type !== 'human-mimic')
+                .filter((run) => !!(run?.geojsonUrl || run?.inlineGeojson || run?.geojson || run?.ensembleGeojson))
+                .filter((run) => !!run?.startTime)
+                .filter((run) => {
+                    const weather = String(run?.weather || '').toLowerCase();
+                    return !weather || weather.includes('lightning') || weather.includes('thunder');
+                })
+                .sort((a, b) => (getRunCreatedDate(b)?.getTime?.() || 0) - (getRunCreatedDate(a)?.getTime?.() || 0));
+        }
+
+        function getHumanMimicPeriodGroups() {
+            const groups = new Map();
+            getHumanMimicSourceRuns().forEach((run) => {
+                const key = getRunPeriodKey(run);
+                if (!groups.has(key)) {
+                    groups.set(key, { key, run, runs: [] });
+                }
+                groups.get(key).runs.push(run);
+            });
+
+            return Array.from(groups.values())
+                .map((group) => ({
+                    ...group,
+                    runs: group.runs.sort((a, b) => (getRunCreatedDate(b)?.getTime?.() || 0) - (getRunCreatedDate(a)?.getTime?.() || 0))
+                }))
+                .sort((a, b) => (getRunCreatedDate(a.runs[0])?.getTime?.() || 0) - (getRunCreatedDate(b.runs[0])?.getTime?.() || 0))
+                .reverse();
+        }
+
+        function renderHumanMimicPanel() {
+            const periodSelect = document.getElementById('humanValidPeriodSelect');
+            const sourceList = document.getElementById('humanSourceList');
+            const summary = document.getElementById('humanSelectionSummary');
+            const status = document.getElementById('humanMimicStatus');
+            const actionBtn = document.getElementById('humanMimicBtn');
+            if (!periodSelect || !sourceList || !summary || !status || !actionBtn) return;
+
+            const groups = getHumanMimicPeriodGroups();
+            if (!groups.length) {
+                periodSelect.innerHTML = '<option value="">No archived valid periods available</option>';
+                periodSelect.disabled = true;
+                sourceList.innerHTML = '<div class="run-browser-empty">No completed lightning HOCO runs are currently available for a human-mimic blend.</div>';
+                summary.textContent = 'Archive is waiting for completed HOCO runs.';
+                status.textContent = 'Run an AUTO-HOCO or load more archived HOCO runs to generate a human-mimic ensemble.';
+                actionBtn.disabled = true;
+                humanMimicPeriodKey = '';
+                humanMimicSelectedRunIds = new Set();
+                return;
+            }
+
+            const activeKey = groups.some((group) => group.key === humanMimicPeriodKey) ? humanMimicPeriodKey : groups[0].key;
+            humanMimicPeriodKey = activeKey;
+
+            periodSelect.innerHTML = groups.map((group) => {
+                const issuedCount = group.runs.length;
+                const label = `${formatRunPeriodLabel(group.run)} | ${group.run.region || 'UK'} | ${issuedCount} HOCO${issuedCount === 1 ? '' : 's'}`;
+                return `<option value="${group.key}">${label}</option>`;
+            }).join('');
+            periodSelect.value = activeKey;
+            periodSelect.disabled = false;
+
+            const activeGroup = groups.find((group) => group.key === activeKey) || groups[0];
+            const validIds = new Set(activeGroup.runs.map((run) => run.id));
+            humanMimicSelectedRunIds = new Set(Array.from(humanMimicSelectedRunIds).filter((id) => validIds.has(id)));
+            if (!humanMimicSelectedRunIds.size) {
+                humanMimicSelectedRunIds = new Set(activeGroup.runs.map((run) => run.id));
+            }
+
+            const selectedCount = Array.from(humanMimicSelectedRunIds).filter((id) => validIds.has(id)).length;
+            const earliestIssued = getRunCreatedDate(activeGroup.runs[activeGroup.runs.length - 1]);
+            const latestIssued = getRunCreatedDate(activeGroup.runs[0]);
+            summary.textContent = `${selectedCount} of ${activeGroup.runs.length} HOCOs selected. Issued ${earliestIssued ? earliestIssued.toLocaleString() : 'unknown'} to ${latestIssued ? latestIssued.toLocaleString() : 'unknown'}.`;
+            status.textContent = selectedCount
+                ? 'The blend will weight recency, compare earlier issuances in the same valid period, and smooth the result into broader human-style polygons.'
+                : 'Select at least one HOCO run to build a human-mimic ensemble.';
+            actionBtn.disabled = selectedCount === 0;
+
+            sourceList.innerHTML = activeGroup.runs.map((run) => {
+                const checked = humanMimicSelectedRunIds.has(run.id) ? 'checked' : '';
+                const issuedAt = getRunCreatedDate(run);
+                return `
+                    <label class="human-source-card">
+                        <input type="checkbox" data-human-run-id="${run.id}" ${checked}>
+                        <div class="human-source-main">
+                            <div class="human-source-title">${run.region || 'UK'} ${getRunModeLabel(run)}</div>
+                            <div class="human-source-meta">${formatRunPeriodLabel(run)}<br>Issued: ${issuedAt ? issuedAt.toLocaleString() : 'Unknown'}<br>Hazards: ${run.weather || 'lightning'} | Tag: ${getRunDisplayTag(run)}</div>
+                        </div>
+                    </label>
+                `;
+            }).join('');
+        }
+
+        function parseRiskValue(properties = {}) {
+            const rawValue = properties.risk ?? properties.risk_pct ?? properties.prob ?? properties.probability ?? properties.percent ?? properties.percentage;
+            const risk = Number.parseFloat(rawValue);
+            return Number.isFinite(risk) ? Math.max(0, Math.min(100, risk)) : 0;
+        }
+
+        function quantizeCoord(value) {
+            return Number.parseFloat(Number(value).toFixed(4));
+        }
+
+        function computeRingCentroid(ring) {
+            if (!Array.isArray(ring) || ring.length < 3) return null;
+            let areaAcc = 0;
+            let xAcc = 0;
+            let yAcc = 0;
+
+            for (let i = 0; i < ring.length - 1; i++) {
+                const [x1, y1] = ring[i];
+                const [x2, y2] = ring[i + 1];
+                const cross = (x1 * y2) - (x2 * y1);
+                areaAcc += cross;
+                xAcc += (x1 + x2) * cross;
+                yAcc += (y1 + y2) * cross;
+            }
+
+            const area = areaAcc / 2;
+            if (!Number.isFinite(area) || Math.abs(area) < 1e-9) {
+                const lon = ring.reduce((sum, point) => sum + point[0], 0) / ring.length;
+                const lat = ring.reduce((sum, point) => sum + point[1], 0) / ring.length;
+                return [lon, lat];
+            }
+
+            return [xAcc / (6 * area), yAcc / (6 * area)];
+        }
+
+        function extractRiskPointsFromGeojson(geojsonData) {
+            const features = Array.isArray(geojsonData?.features) ? geojsonData.features : [];
+            const pointFeatures = features.filter((feature) => feature?.geometry?.type === 'Point' && parseRiskValue(feature.properties) > 0);
+            if (pointFeatures.length) {
+                return pointFeatures.map((feature) => ({
+                    lon: quantizeCoord(feature.geometry.coordinates[0]),
+                    lat: quantizeCoord(feature.geometry.coordinates[1]),
+                    risk: parseRiskValue(feature.properties)
+                }));
+            }
+
+            return features.flatMap((feature) => {
+                const risk = parseRiskValue(feature.properties);
+                if (risk <= 0) return [];
+
+                if (feature?.geometry?.type === 'Polygon' && Array.isArray(feature.geometry.coordinates?.[0])) {
+                    const centroid = computeRingCentroid(feature.geometry.coordinates[0]);
+                    return centroid ? [{ lon: quantizeCoord(centroid[0]), lat: quantizeCoord(centroid[1]), risk }] : [];
+                }
+
+                if (feature?.geometry?.type === 'MultiPolygon') {
+                    return feature.geometry.coordinates.flatMap((polygon) => {
+                        const centroid = computeRingCentroid(polygon?.[0] || []);
+                        return centroid ? [{ lon: quantizeCoord(centroid[0]), lat: quantizeCoord(centroid[1]), risk }] : [];
+                    });
+                }
+
+                return [];
+            });
+        }
+
+        function getMedian(values) {
+            if (!values.length) return 0;
+            const sorted = values.slice().sort((a, b) => a - b);
+            const mid = Math.floor(sorted.length / 2);
+            return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+        }
+
+        function combineHumanRiskValues(values, weights, anomalyAware) {
+            if (!values.length) return 0;
+            if (values.length === 1) return Math.max(0, Math.min(100, values[0]));
+
+            let weightedSum = 0;
+            let weightTotal = 0;
+            values.forEach((value, index) => {
+                const weight = Number.isFinite(weights[index]) ? weights[index] : 1;
+                weightedSum += value * weight;
+                weightTotal += weight;
+            });
+
+            const weightedMean = weightTotal ? weightedSum / weightTotal : 0;
+            const median = getMedian(values);
+            const latest = values[values.length - 1];
+            const consensus = values.filter((value) => value >= 20).length / values.length;
+            const variance = values.reduce((sum, value) => sum + Math.pow(value - weightedMean, 2), 0) / values.length;
+            const spread = Math.sqrt(variance);
+
+            let blended = (weightedMean * 0.68) + (median * 0.2) + (latest * 0.12);
+            if (anomalyAware) {
+                const trend = latest - median;
+                const positiveBoost = Math.max(0, trend) * (0.16 + (consensus * 0.12));
+                const disagreementPenalty = Math.max(0, spread - 16) * (1 - consensus) * 0.28;
+                const downwardDrag = Math.max(0, median - latest) * 0.06;
+                blended = blended + positiveBoost - disagreementPenalty - downwardDrag;
+            }
+
+            return Math.max(0, Math.min(100, blended));
+        }
+
+        function createMatrix(rows, cols, fill = 0) {
+            return Array.from({ length: rows }, () => Array(cols).fill(fill));
+        }
+
+        function applyMatrixSmoothing(matrix, passes = 1) {
+            const rows = matrix.length;
+            const cols = matrix[0]?.length || 0;
+            if (!rows || !cols) return matrix;
+
+            let output = matrix.map((row) => row.slice());
+            const kernel = [
+                [1, 2, 1],
+                [2, 4, 2],
+                [1, 2, 1]
+            ];
+
+            for (let pass = 0; pass < passes; pass++) {
+                const next = createMatrix(rows, cols, 0);
+                for (let row = 0; row < rows; row++) {
+                    for (let col = 0; col < cols; col++) {
+                        let weighted = 0;
+                        let weightTotal = 0;
+                        let activeWeight = 0;
+                        for (let y = -1; y <= 1; y++) {
+                            for (let x = -1; x <= 1; x++) {
+                                const nRow = row + y;
+                                const nCol = col + x;
+                                if (nRow < 0 || nRow >= rows || nCol < 0 || nCol >= cols) continue;
+                                const weight = kernel[y + 1][x + 1];
+                                const value = output[nRow][nCol];
+                                weighted += value * weight;
+                                weightTotal += weight;
+                                if (value > 0.1) activeWeight += weight;
+                            }
+                        }
+                        next[row][col] = activeWeight < 4 ? output[row][col] * 0.6 : weighted / Math.max(weightTotal, 1);
+                    }
+                }
+                output = next;
+            }
+
+            return output;
+        }
+
+        function buildAxisEdges(values, descending = false) {
+            if (!values.length) return [];
+            const sorted = values.slice().sort((a, b) => descending ? b - a : a - b);
+            if (sorted.length === 1) {
+                const step = 0.1;
+                return descending
+                    ? [sorted[0] + step, sorted[0] - step]
+                    : [sorted[0] - step, sorted[0] + step];
+            }
+
+            const edges = [];
+            if (descending) {
+                edges.push(sorted[0] + ((sorted[0] - sorted[1]) / 2));
+                for (let i = 1; i < sorted.length; i++) {
+                    edges.push((sorted[i - 1] + sorted[i]) / 2);
+                }
+                edges.push(sorted[sorted.length - 1] - ((sorted[sorted.length - 2] - sorted[sorted.length - 1]) / 2));
+                return edges;
+            }
+
+            edges.push(sorted[0] - ((sorted[1] - sorted[0]) / 2));
+            for (let i = 1; i < sorted.length; i++) {
+                edges.push((sorted[i - 1] + sorted[i]) / 2);
+            }
+            edges.push(sorted[sorted.length - 1] + ((sorted[sorted.length - 1] - sorted[sorted.length - 2]) / 2));
+            return edges;
+        }
+
+        function ringArea(ring) {
+            let area = 0;
+            for (let i = 0; i < ring.length - 1; i++) {
+                area += (ring[i][0] * ring[i + 1][1]) - (ring[i + 1][0] * ring[i][1]);
+            }
+            return area / 2;
+        }
+
+        function scaleRingFromCentroid(ring, factor) {
+            if (ring.length < 4 || factor === 1) return ring;
+            const centroid = computeRingCentroid(ring);
+            if (!centroid) return ring;
+
+            const scaled = ring.slice(0, -1).map(([lon, lat]) => {
+                const nextLon = centroid[0] + ((lon - centroid[0]) * factor);
+                const nextLat = centroid[1] + ((lat - centroid[1]) * factor);
+                return [Number(nextLon.toFixed(5)), Number(nextLat.toFixed(5))];
+            });
+            scaled.push(scaled[0]);
+            return scaled;
+        }
+
+        function smoothRing(ring, passes = 1) {
+            if (ring.length < 4) return ring;
+            let current = ring.slice(0, -1);
+
+            for (let pass = 0; pass < passes; pass++) {
+                const next = [];
+                for (let i = 0; i < current.length; i++) {
+                    const a = current[i];
+                    const b = current[(i + 1) % current.length];
+                    next.push([
+                        Number(((0.75 * a[0]) + (0.25 * b[0])).toFixed(5)),
+                        Number(((0.75 * a[1]) + (0.25 * b[1])).toFixed(5))
+                    ]);
+                    next.push([
+                        Number(((0.25 * a[0]) + (0.75 * b[0])).toFixed(5)),
+                        Number(((0.25 * a[1]) + (0.75 * b[1])).toFixed(5))
+                    ]);
+                }
+                current = next;
+            }
+
+            current.push(current[0]);
+            return current;
+        }
+
+        function simplifyRingByDistance(ring, minDistance) {
+            if (ring.length < 4) return ring;
+            const simplified = [ring[0]];
+            for (let i = 1; i < ring.length - 1; i++) {
+                const prev = simplified[simplified.length - 1];
+                const current = ring[i];
+                const distance = Math.hypot(current[0] - prev[0], current[1] - prev[1]);
+                if (distance >= minDistance) {
+                    simplified.push(current);
+                }
+            }
+
+            const last = ring[ring.length - 1];
+            if (simplified.length < 3) return ring;
+            simplified.push(last);
+            return simplified;
+        }
+
+        function pointKey(point) {
+            return `${point[0].toFixed(6)},${point[1].toFixed(6)}`;
+        }
+
+        function assembleRingsFromEdges(edges) {
+            const edgesByStart = new Map();
+            const visited = new Set();
+
+            edges.forEach((edge, index) => {
+                edge.id = index;
+                edge.startKey = pointKey(edge.start);
+                edge.endKey = pointKey(edge.end);
+                if (!edgesByStart.has(edge.startKey)) edgesByStart.set(edge.startKey, []);
+                edgesByStart.get(edge.startKey).push(edge);
+            });
+
+            const rings = [];
+            for (const edge of edges) {
+                if (visited.has(edge.id)) continue;
+
+                const ring = [edge.start];
+                visited.add(edge.id);
+                let current = edge;
+                let guard = 0;
+
+                while (guard < edges.length + 4) {
+                    ring.push(current.end);
+                    if (current.endKey === edge.startKey) break;
+                    const options = (edgesByStart.get(current.endKey) || []).filter((candidate) => !visited.has(candidate.id));
+                    if (!options.length) break;
+                    current = options[0];
+                    visited.add(current.id);
+                    guard++;
+                }
+
+                if (ring.length >= 4 && pointKey(ring[0]) === pointKey(ring[ring.length - 1])) {
+                    rings.push(ring);
+                }
+            }
+
+            return rings;
+        }
+
+        function getMaskComponents(mask) {
+            const rows = mask.length;
+            const cols = mask[0]?.length || 0;
+            const visited = createMatrix(rows, cols, false);
+            const components = [];
+            const directions = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    if (!mask[row][col] || visited[row][col]) continue;
+
+                    const queue = [[row, col]];
+                    const component = [];
+                    visited[row][col] = true;
+
+                    while (queue.length) {
+                        const [currentRow, currentCol] = queue.shift();
+                        component.push([currentRow, currentCol]);
+                        directions.forEach(([dRow, dCol]) => {
+                            const nextRow = currentRow + dRow;
+                            const nextCol = currentCol + dCol;
+                            if (nextRow < 0 || nextRow >= rows || nextCol < 0 || nextCol >= cols) return;
+                            if (!mask[nextRow][nextCol] || visited[nextRow][nextCol]) return;
+                            visited[nextRow][nextCol] = true;
+                            queue.push([nextRow, nextCol]);
+                        });
+                    }
+
+                    components.push(component);
+                }
+            }
+
+            return components;
+        }
+
+        function buildComponentRings(component, lonEdges, latEdges, simplifyDistance, smoothingPasses) {
+            const cellSet = new Set(component.map(([row, col]) => `${row},${col}`));
+            const edges = [];
+
+            component.forEach(([row, col]) => {
+                if (!cellSet.has(`${row - 1},${col}`)) {
+                    edges.push({ start: [lonEdges[col], latEdges[row]], end: [lonEdges[col + 1], latEdges[row]] });
+                }
+                if (!cellSet.has(`${row},${col + 1}`)) {
+                    edges.push({ start: [lonEdges[col + 1], latEdges[row]], end: [lonEdges[col + 1], latEdges[row + 1]] });
+                }
+                if (!cellSet.has(`${row + 1},${col}`)) {
+                    edges.push({ start: [lonEdges[col + 1], latEdges[row + 1]], end: [lonEdges[col], latEdges[row + 1]] });
+                }
+                if (!cellSet.has(`${row},${col - 1}`)) {
+                    edges.push({ start: [lonEdges[col], latEdges[row + 1]], end: [lonEdges[col], latEdges[row]] });
+                }
+            });
+
+            return assembleRingsFromEdges(edges)
+                .map((ring) => smoothRing(ring, smoothingPasses))
+                .map((ring) => simplifyRingByDistance(ring, simplifyDistance))
+                .filter((ring) => ring.length >= 4 && Math.abs(ringArea(ring)) > 0.01);
+        }
+
+        function buildHumanRiskField(runEntries, anomalyAware) {
+            const sortedEntries = runEntries.slice().sort((a, b) => (getRunCreatedDate(a.run)?.getTime?.() || 0) - (getRunCreatedDate(b.run)?.getTime?.() || 0));
+            const weights = sortedEntries.map((_, index) => 1 + ((sortedEntries.length > 1 ? index / (sortedEntries.length - 1) : 0) * 0.4));
+            const coordLookup = new Map();
+            const runRiskMaps = sortedEntries.map(({ geojson }) => {
+                const riskMap = new Map();
+                extractRiskPointsFromGeojson(geojson).forEach((point) => {
+                    const key = `${quantizeCoord(point.lon)},${quantizeCoord(point.lat)}`;
+                    coordLookup.set(key, { lon: quantizeCoord(point.lon), lat: quantizeCoord(point.lat) });
+                    const existing = riskMap.get(key) || 0;
+                    if (point.risk > existing) {
+                        riskMap.set(key, point.risk);
+                    }
+                });
+                return riskMap;
+            });
+
+            const coords = Array.from(coordLookup.values());
+            if (!coords.length) {
+                throw new Error('The selected HOCO runs did not contain any usable risk points.');
+            }
+
+            const lonValues = Array.from(new Set(coords.map((coord) => coord.lon))).sort((a, b) => a - b);
+            const latValues = Array.from(new Set(coords.map((coord) => coord.lat))).sort((a, b) => b - a);
+            const lonIndex = new Map(lonValues.map((value, index) => [value, index]));
+            const latIndex = new Map(latValues.map((value, index) => [value, index]));
+            const matrix = createMatrix(latValues.length, lonValues.length, 0);
+
+            coordLookup.forEach((coord, key) => {
+                const values = runRiskMaps.map((riskMap) => riskMap.get(key) ?? 0);
+                const combinedRisk = combineHumanRiskValues(values, weights, anomalyAware);
+                if (combinedRisk <= 0.5) return;
+                const row = latIndex.get(coord.lat);
+                const col = lonIndex.get(coord.lon);
+                if (row === undefined || col === undefined) return;
+                matrix[row][col] = combinedRisk;
+            });
+
+            const lonEdges = buildAxisEdges(lonValues, false);
+            const latEdges = buildAxisEdges(latValues, true);
+            const lonStep = lonValues.length > 1 ? Math.abs(lonValues[1] - lonValues[0]) : 0.15;
+            const latStep = latValues.length > 1 ? Math.abs(latValues[0] - latValues[1]) : 0.15;
+
+            return { matrix, lonValues, latValues, lonEdges, latEdges, simplifyDistance: Math.max(0.025, Math.min(0.1, Math.max(lonStep, latStep) * 0.85)) };
+        }
+
+        function buildHumanMimicGeojson(field, options = {}) {
+            const { noiseFilter = true } = options;
+            const smoothedMatrix = applyMatrixSmoothing(field.matrix, noiseFilter ? 3 : 2);
+            const features = [];
+
+            HUMAN_RISK_BANDS.forEach((band) => {
+                const mask = smoothedMatrix.map((row) => row.map((value) => value >= band.threshold));
+                const components = getMaskComponents(mask).filter((component) => component.length >= band.minCells);
+                components.forEach((component) => {
+                    const rings = buildComponentRings(component, field.lonEdges, field.latEdges, field.simplifyDistance, band.smoothingPasses)
+                        .map((ring) => scaleRingFromCentroid(ring, band.scale))
+                        .filter((ring) => ring.length >= 4);
+
+                    if (!rings.length) return;
+
+                    const peakRisk = component.reduce((peak, [row, col]) => Math.max(peak, smoothedMatrix[row][col] || 0), 0);
+                    rings.forEach((ring) => {
+                        features.push({
+                            type: 'Feature',
+                            geometry: { type: 'Polygon', coordinates: [ring] },
+                            properties: {
+                                feature_type: 'polygon',
+                                risk: band.representativeRisk,
+                                peak_risk: Number(peakRisk.toFixed(1)),
+                                risk_band: band.key,
+                                label: band.label,
+                                fill: band.fill,
+                                'fill-opacity': 0.46,
+                                stroke: band.fill,
+                                'stroke-width': 1.3
+                            }
+                        });
+                    });
+                });
+            });
+
+            features.sort((a, b) => (a.properties?.risk || 0) - (b.properties?.risk || 0));
+            return { type: 'FeatureCollection', features };
+        }
+
+        function escapeXml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&apos;');
+        }
+
+        function getRiskBandForRisk(risk) {
+            if (risk >= 75) return HUMAN_RISK_BANDS[4];
+            if (risk >= 60) return HUMAN_RISK_BANDS[3];
+            if (risk >= 40) return HUMAN_RISK_BANDS[2];
+            if (risk >= 20) return HUMAN_RISK_BANDS[1];
+            return HUMAN_RISK_BANDS[0];
+        }
+
+        function polygonCoordinatesToKml(rings) {
+            if (!Array.isArray(rings) || !rings.length) return '';
+            const outer = `<outerBoundaryIs><LinearRing><coordinates>${rings[0].map(([lon, lat]) => `${lon},${lat},0`).join(' ')}</coordinates></LinearRing></outerBoundaryIs>`;
+            const inner = rings.slice(1).map((ring) => `<innerBoundaryIs><LinearRing><coordinates>${ring.map(([lon, lat]) => `${lon},${lat},0`).join(' ')}</coordinates></LinearRing></innerBoundaryIs>`).join('');
+            return `<Polygon>${outer}${inner}</Polygon>`;
+        }
+
+        function buildKmlFromGeojson(geojsonData, documentName) {
+            const polygonFeatures = (geojsonData?.features || []).filter((feature) => {
+                const type = feature?.geometry?.type;
+                return type === 'Polygon' || type === 'MultiPolygon';
+            });
+
+            const styles = HUMAN_RISK_BANDS.map((band) => `
+                <Style id="${band.key}">
+                    <LineStyle><color>ff${band.kmlColor.slice(2)}</color><width>2.1</width></LineStyle>
+                    <PolyStyle><color>${band.kmlColor}</color></PolyStyle>
+                </Style>
+            `).join('');
+
+            const placemarks = polygonFeatures.map((feature, index) => {
+                const risk = parseRiskValue(feature.properties);
+                const band = getRiskBandForRisk(risk);
+                const geometryType = feature.geometry.type;
+                const polygons = geometryType === 'Polygon' ? [feature.geometry.coordinates] : feature.geometry.coordinates;
+                const geometryKml = polygons.map((polygon) => polygonCoordinatesToKml(polygon)).join('');
+                const peakRisk = Number.parseFloat(feature.properties?.peak_risk ?? risk);
+                return `
+                    <Placemark>
+                        <name>${escapeXml(`${band.label} ${Math.round(Math.max(risk, peakRisk))}%`)}</name>
+                        <styleUrl>#${band.key}</styleUrl>
+                        <description>${escapeXml(`${documentName} | ${band.label} | Peak risk ${peakRisk.toFixed(1)}%`)}</description>
+                        <ExtendedData>
+                            <Data name="risk_band"><value>${band.key}</value></Data>
+                            <Data name="risk"><value>${risk}</value></Data>
+                            <Data name="peak_risk"><value>${peakRisk.toFixed(1)}</value></Data>
+                            <Data name="feature_index"><value>${index + 1}</value></Data>
+                        </ExtendedData>
+                        ${geometryKml}
+                    </Placemark>
+                `;
+            }).join('');
+
+            return `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+    <Document>
+        <name>${escapeXml(documentName)}</name>
+        ${styles}
+        ${placemarks}
+    </Document>
+</kml>`;
+        }
+
+        function downloadTextFile(filename, content, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 0);
+        }
+
+        async function fetchRunGeojsonData(runId, runData) {
+            if (runGeojsonCache.has(runId)) {
+                return runGeojsonCache.get(runId);
+            }
+
+            let geojsonData;
+            if (runData.inlineGeojson || runData.geojson || runData.ensembleGeojson) {
+                geojsonData = runData.inlineGeojson || runData.geojson || runData.ensembleGeojson;
+            } else if (runData.geojsonUrl && runData.geojsonUrl.includes('raw.githubusercontent.com')) {
+                try {
+                    const parts = runData.geojsonUrl.split('/');
+                    const owner = parts[3];
+                    const repo = parts[4];
+                    const refName = parts[5];
+                    const filePath = parts.slice(6).join('/');
+                    const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}?ref=${refName}`;
+
+                    const response = await fetch(apiUrl, { headers: { Accept: 'application/vnd.github.v3.raw' } });
+                    if (!response.ok) throw new Error(`GitHub API returned ${response.status}`);
+                    geojsonData = await response.json();
+                } catch (error) {
+                    const fallbackResponse = await fetch(runData.geojsonUrl);
+                    if (!fallbackResponse.ok) throw new Error(`Could not fetch GeoJSON for ${runId}: ${fallbackResponse.status}`);
+                    geojsonData = await fallbackResponse.json();
+                }
+            } else if (runData.geojsonUrl) {
+                let fetchUrl = runData.geojsonUrl;
+
+                if (fetchUrl.includes('firebasestorage.googleapis.com') || fetchUrl.includes('storage.googleapis.com')) {
+                    try {
+                        let decodedPath = '';
+                        const urlObj = new URL(fetchUrl);
+                        if (fetchUrl.includes('firebasestorage.googleapis.com')) {
+                            const pathPart = urlObj.pathname.split('/o/')[1];
+                            if (pathPart) decodedPath = decodeURIComponent(pathPart);
+                        } else {
+                            const parts = urlObj.pathname.split('/');
+                            if (parts.length > 2) decodedPath = decodeURIComponent(parts.slice(2).join('/'));
+                        }
+                        if (decodedPath) {
+                            decodedPath = decodedPath.split('?')[0];
+                            fetchUrl = await getDownloadURL(ref(storage, decodedPath));
+                        }
+                    } catch (storageErr) {
+                        console.warn('Could not generate fresh storage URL for', runId, storageErr);
+                    }
+                }
+
+                const response = await fetch(fetchUrl);
+                if (!response.ok) throw new Error(`Could not fetch GeoJSON for ${runId}: ${response.status}`);
+                geojsonData = await response.json();
+            } else {
+                throw new Error(`Run ${runId} does not have GeoJSON data attached.`);
+            }
+
+            if (!geojsonData || !Array.isArray(geojsonData.features)) {
+                throw new Error(`Run ${runId} returned invalid GeoJSON.`);
+            }
+
+            runGeojsonCache.set(runId, geojsonData);
+            return geojsonData;
+        }
+
+        function ensureMapSlotVisible(mapIndex) {
+            const layoutSelect = document.getElementById('layoutSelect');
+            const currentLayout = Number(layoutSelect?.value || 1);
+            const requiredLayout = mapIndex <= 0 ? 1 : mapIndex === 1 ? 2 : 4;
+            if (layoutSelect && currentLayout < requiredLayout) {
+                layoutSelect.value = String(requiredLayout);
+                layoutSelect.dispatchEvent(new Event('change'));
+            }
+            const targetMapSelect = document.getElementById('targetMapSelect');
+            if (targetMapSelect) targetMapSelect.value = String(mapIndex);
+            const humanTargetMapSelect = document.getElementById('humanTargetMapSelect');
+            if (humanTargetMapSelect) humanTargetMapSelect.value = String(mapIndex);
+        }
+
+        async function triggerHumanMimicForecast() {
+            if (!auth.currentUser) {
+                showToast('Sign in to build a human-mimic ensemble.', 'error');
+                return;
+            }
+            if (userRole === 'guest') {
+                showToast('Guests cannot create saved ensembles.', 'error');
+                return;
+            }
+
+            const groups = getHumanMimicPeriodGroups();
+            const activeGroup = groups.find((group) => group.key === humanMimicPeriodKey);
+            if (!activeGroup) {
+                showToast('No valid-period source runs are available right now.', 'error');
+                return;
+            }
+
+            const selectedRuns = activeGroup.runs
+                .filter((run) => humanMimicSelectedRunIds.has(run.id))
+                .sort((a, b) => (getRunCreatedDate(a)?.getTime?.() || 0) - (getRunCreatedDate(b)?.getTime?.() || 0));
+
+            if (!selectedRuns.length) {
+                showToast('Select at least one HOCO run for the blend.', 'warning');
+                return;
+            }
+
+            const actionBtn = document.getElementById('humanMimicBtn');
+            const status = document.getElementById('humanMimicStatus');
+            const anomalyAware = document.getElementById('humanAnomalyFilter')?.checked ?? true;
+            const noiseFilter = document.getElementById('humanNoiseFilter')?.checked ?? true;
+            const targetMapIndex = Number(document.getElementById('humanTargetMapSelect')?.value || 0);
+
+            actionBtn.disabled = true;
+            actionBtn.textContent = 'Building...';
+            status.textContent = `Loading ${selectedRuns.length} source HOCO${selectedRuns.length === 1 ? '' : 's'} for ${formatRunPeriodLabel(activeGroup.run)}.`;
+
+            try {
+                const settled = await Promise.allSettled(selectedRuns.map(async (run) => ({
+                    run,
+                    geojson: await fetchRunGeojsonData(run.id, run)
+                })));
+
+                const loadedRuns = settled
+                    .filter((result) => result.status === 'fulfilled')
+                    .map((result) => result.value);
+                const failedCount = settled.length - loadedRuns.length;
+
+                if (!loadedRuns.length) {
+                    throw new Error('None of the selected HOCO runs could be loaded.');
+                }
+
+                if (failedCount) {
+                    showToast(`${failedCount} source HOCO${failedCount === 1 ? '' : 's'} could not be loaded and were skipped.`, 'warning');
+                }
+
+                status.textContent = `Blending ${loadedRuns.length} source HOCO${loadedRuns.length === 1 ? '' : 's'} into a smoother human-style field.`;
+                const riskField = buildHumanRiskField(loadedRuns, anomalyAware);
+                const humanGeojson = buildHumanMimicGeojson(riskField, { noiseFilter });
+
+                if (!humanGeojson.features.length) {
+                    throw new Error('The blended field did not produce any polygons above the configured risk thresholds.');
+                }
+
+                status.textContent = 'Saving the generated ensemble to Firebase and loading it into the selected map.';
+                const payload = {
+                    region: activeGroup.run.region || 'UK',
+                    startTime: activeGroup.run.startTime,
+                    endTime: activeGroup.run.endTime || activeGroup.run.startTime,
+                    weather: 'lightning',
+                    userId: auth.currentUser.uid,
+                    createdAt: new Date(),
+                    status: 'complete',
+                    public: false,
+                    type: 'human-mimic',
+                    sourceRunIds: loadedRuns.map(({ run }) => run.id),
+                    sourceRunCount: loadedRuns.length,
+                    inlineGeojson: humanGeojson,
+                    humanMimic: {
+                        anomalyAware,
+                        noiseFilter,
+                        validPeriodKey: activeGroup.key,
+                        latestIssuedAt: getRunCreatedDate(selectedRuns[selectedRuns.length - 1])?.toISOString?.() || null,
+                        earliestIssuedAt: getRunCreatedDate(selectedRuns[0])?.toISOString?.() || null
+                    }
+                };
+
+                const docRef = await addDoc(collection(db, 'hoco_requests'), payload);
+                runGeojsonCache.set(docRef.id, humanGeojson);
+                ensureMapSlotVisible(targetMapIndex);
+                await loadRunIntoMap(docRef.id, targetMapIndex);
+                status.textContent = `Saved as ${docRef.id} and loaded into Map ${targetMapIndex + 1}.`;
+                showToast('Human-mimic ensemble saved to Firebase and loaded onto the map.', 'success');
+            } catch (error) {
+                console.error('Human mimic forecast failed:', error);
+                status.textContent = error.message || 'Human-mimic ensemble build failed.';
+                showToast(error.message || 'Human-mimic ensemble build failed.', 'error');
+            } finally {
+                actionBtn.disabled = false;
+                actionBtn.textContent = 'Mimic Human Forecast';
+            }
+        }
+
         normalizeUiLabels();
+        renderHumanMimicPanel();
         // ────────────────────────────────────────────────
         // Lightning overlay management (updated 2025/2026)
         // ────────────────────────────────────────────────
@@ -4588,6 +5598,46 @@
             await loadRunIntoMap(runId, mapIndex);
         });
 
+        document.getElementById('humanValidPeriodSelect').addEventListener('change', (event) => {
+            humanMimicPeriodKey = event.target.value;
+            const activeGroup = getHumanMimicPeriodGroups().find((group) => group.key === humanMimicPeriodKey);
+            humanMimicSelectedRunIds = new Set((activeGroup?.runs || []).map((run) => run.id));
+            renderHumanMimicPanel();
+        });
+
+        document.getElementById('humanSourceList').addEventListener('change', (event) => {
+            const checkbox = event.target.closest('input[data-human-run-id]');
+            if (!checkbox) return;
+            const runId = checkbox.dataset.humanRunId;
+            if (!runId) return;
+            if (checkbox.checked) humanMimicSelectedRunIds.add(runId);
+            else humanMimicSelectedRunIds.delete(runId);
+            renderHumanMimicPanel();
+        });
+
+        document.getElementById('humanSelectAllBtn').addEventListener('click', () => {
+            const activeGroup = getHumanMimicPeriodGroups().find((group) => group.key === humanMimicPeriodKey);
+            humanMimicSelectedRunIds = new Set((activeGroup?.runs || []).map((run) => run.id));
+            renderHumanMimicPanel();
+        });
+
+        document.getElementById('humanClearAllBtn').addEventListener('click', () => {
+            humanMimicSelectedRunIds = new Set();
+            renderHumanMimicPanel();
+        });
+
+        document.getElementById('humanMimicBtn').addEventListener('click', triggerHumanMimicForecast);
+
+        document.getElementById('humanTargetMapSelect').addEventListener('change', (event) => {
+            const targetMapSelect = document.getElementById('targetMapSelect');
+            if (targetMapSelect) targetMapSelect.value = event.target.value;
+        });
+
+        document.getElementById('targetMapSelect').addEventListener('change', (event) => {
+            const humanTargetMapSelect = document.getElementById('humanTargetMapSelect');
+            if (humanTargetMapSelect) humanTargetMapSelect.value = event.target.value;
+        });
+
         // ==========================================
         // AUTHENTICATION & ROLES
         // ==========================================
@@ -4672,6 +5722,7 @@
                 userRole = 'guest';
                 allRuns = [];
                 renderArchiveDropdown();
+                renderHumanMimicPanel();
             }
         });
 
@@ -4788,6 +5839,7 @@
                 }
 
                 renderArchiveDropdown();
+                renderHumanMimicPanel();
 
                 if (isInitialLoad && allRuns.length > 0) {
                     isInitialLoad = false;
@@ -4837,6 +5889,7 @@
 
                     let tag = "[PVT]";
                     if (r.type === 'automated') tag = "[AUTO]";
+                    else if (r.type === 'human-mimic') tag = "[HUMAN]";
                     else if (r.public === true) tag = "[PUB]";
                     else if (currentUid && r.userId === currentUid) tag = "[MINE]";
 
@@ -4907,7 +5960,8 @@
             }
 
             const runData = docSnap.data();
-            const isPending = (runData.status === 'pending' || !runData.geojsonUrl);
+            const hasGeojson = !!(runData.geojsonUrl || runData.inlineGeojson || runData.geojson || runData.ensembleGeojson);
+            const isPending = (runData.status === 'pending' || !hasGeojson);
 
             if (isPending) {
                 // ... (your existing pending logic - no change needed)
@@ -4933,6 +5987,8 @@
                 if (lightningBtn) lightningBtn.style.display = 'none';
                 const exportBtn = document.getElementById(`export-btn-${mapIndex}`);
                 if (exportBtn) exportBtn.style.display = 'none';
+                const exportKmlBtn = document.getElementById(`export-kml-btn-${mapIndex}`);
+                if (exportKmlBtn) exportKmlBtn.style.display = 'none';
 
                 return;
             }
@@ -4940,79 +5996,7 @@
             hideMapLoading(mapIndex);
 
             try {
-                let geojsonData;
-
-                // === FIXED FETCHING LOGIC FOR OLD RUNS ===
-                if (runData.geojsonUrl && runData.geojsonUrl.includes('raw.githubusercontent.com')) {
-                    try {
-                        // Extract parts from raw.githubusercontent.com URL
-                        const parts = runData.geojsonUrl.split('/');
-                        const owner = parts[3];
-                        const repo = parts[4];
-                        const ref = parts[5];                    // branch or commit
-                        const filePath = parts.slice(6).join('/'); // the rest of the path
-
-                        const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}?ref=${ref}`;
-
-                        const resp = await fetch(apiUrl, {
-                            headers: {
-                                'Accept': 'application/vnd.github.v3.raw',
-                                // Optional: Add your GitHub token here later for higher rate limits
-                                // 'Authorization': 'token ghp_xxxxxxxxxxxxxxxx'
-                            }
-                        });
-
-                        if (!resp.ok) {
-                            throw new Error(`GitHub API returned ${resp.status}`);
-                        }
-
-                        geojsonData = await resp.json();
-                        console.log(`Loaded old run via GitHub API for run ${runId}`);
-                    }
-                    catch (apiError) {
-                        console.warn("GitHub API fetch failed, falling back to raw URL:", apiError);
-                        // Fallback to original raw URL (for very recent runs)
-                        const fallbackResp = await fetch(runData.geojsonUrl);
-                        if (!fallbackResp.ok) throw new Error(`Raw URL also failed: ${fallbackResp.status}`);
-                        geojsonData = await fallbackResp.json();
-                    }
-                }
-                else if (runData.geojsonUrl) {
-                    let fetchUrl = runData.geojsonUrl;
-
-                    // FIX: Prevent 7-day expiration by generating a fresh token for Firebase/Google Storage links
-                    if (fetchUrl.includes('firebasestorage.googleapis.com') || fetchUrl.includes('storage.googleapis.com')) {
-                        try {
-                            let decodedPath = '';
-                            const urlObj = new URL(fetchUrl);
-
-                            if (fetchUrl.includes('firebasestorage.googleapis.com')) {
-                                // Extract path from standard Firebase Storage /o/ format
-                                const pathPart = urlObj.pathname.split('/o/')[1];
-                                if (pathPart) decodedPath = decodeURIComponent(pathPart);
-                            } else {
-                                // Extract path from Google Cloud Storage URL format
-                                const parts = urlObj.pathname.split('/');
-                                if (parts.length > 2) decodedPath = decodeURIComponent(parts.slice(2).join('/'));
-                            }
-
-                            if (decodedPath) {
-                                decodedPath = decodedPath.split('?')[0]; // Clean query params if any
-                                // Generate a fresh, valid Firebase Storage URL
-                                fetchUrl = await getDownloadURL(ref(storage, decodedPath));
-                            }
-                        } catch (storageErr) {
-                            console.warn("Could not generate fresh URL, falling back to original:", storageErr);
-                        }
-                    }
-
-                    const response = await fetch(fetchUrl);
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    geojsonData = await response.json();
-                }
-                else {
-                    throw new Error("No geojsonUrl found in run data");
-                }
+                const geojsonData = await fetchRunGeojsonData(runId, runData);
 
                 // Success!
                 activeMapData[mapIndex] = geojsonData;
@@ -5025,15 +6009,22 @@
                     new Date();
 
                 const isNormal = runData.type === 'automated';
+                const isHumanMimic = runData.type === 'human-mimic';
                 const displayUser = runData.userId ? runData.userId.substring(0, 6) : 'System';
+                const displayUserLabel = displayUser === 'System' ? 'System' : `User ${displayUser}`;
+                const modeLabel = isNormal ? 'Normal Mode (Auto)' : isHumanMimic ? 'Human Mimic Ensemble' : 'Custom Weighting';
+                const sourceLine = isHumanMimic
+                    ? `<strong>Sources:</strong> ${runData.sourceRunCount || runData.sourceRunIds?.length || 0} HOCOs<br>`
+                    : '';
 
                 // ... (inside the try block of loadRunIntoMap)
                 document.getElementById(`meta-title-${mapIndex}`).innerText = `Loaded: ${runData.region || 'Unknown'}`;
                 document.getElementById(`meta-desc-${mapIndex}`).innerHTML = `
             <strong>Period:</strong> ${runData.startTime || 'N/A'} - ${runData.endTime || 'N/A'}<br>
             <strong>Hazards:</strong> <span style="text-transform: capitalize">${runData.weather || 'None'}</span><br>
-            <strong>Mode:</strong> ${isNormal ? 'Normal Mode (Auto)' : 'Custom Weighting'}<br>
-            <strong>Ran by:</strong> User ${displayUser}<br>
+            <strong>Mode:</strong> ${modeLabel}<br>
+            ${sourceLine}
+            <strong>Ran by:</strong> ${displayUserLabel}<br>
             <strong>Time:</strong> ${creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
         `;
 
@@ -5042,6 +6033,7 @@
                 // Show action buttons
                 document.getElementById(`lightning-btn-${mapIndex}`).style.display = 'block';
                 document.getElementById(`export-btn-${mapIndex}`).style.display = 'block';
+                document.getElementById(`export-kml-btn-${mapIndex}`).style.display = 'block';
 
                 // AUTO-REPLOT LIGHTNING: if it was previously visible, fetch the new times and replot
                 if (lightningVisible[mapIndex]) {
@@ -5051,14 +6043,16 @@
 
             } catch (err) {
                 console.error("Map load error for run", runId, ":", err);
-                statusUI.innerText = "Failed to load data. Link may have expired.";
-                showToast("Could not load this old run. The data link has likely expired.", "error");
+                statusUI.innerText = "Failed to load run data.";
+                showToast("Could not load this run into the map.", "error");
 
                 // Hide buttons on failure
                 const lightningBtn = document.getElementById(`lightning-btn-${mapIndex}`);
                 if (lightningBtn) lightningBtn.style.display = 'none';
                 const exportBtn = document.getElementById(`export-btn-${mapIndex}`);
                 if (exportBtn) exportBtn.style.display = 'none';
+                const exportKmlBtn = document.getElementById(`export-kml-btn-${mapIndex}`);
+                if (exportKmlBtn) exportKmlBtn.style.display = 'none';
             }
         }
         async function renderHocoLayers(targetMap, geojsonData, mapIndex) {
@@ -5336,6 +6330,8 @@
                 }
 
                 document.getElementById('targetMapSelect').value = targetIndex.toString();
+                const humanTargetMapSelect = document.getElementById('humanTargetMapSelect');
+                if (humanTargetMapSelect) humanTargetMapSelect.value = targetIndex.toString();
                 await loadRunIntoMap(docRef.id, targetIndex);
                 // === END AUTO-LOAD ===
 
@@ -5458,6 +6454,35 @@
             endInput.value = localISOTime;
         };
         window.toggleLightningLayer = toggleLightningLayer;
+        window.exportMapToKML = async (mapIndex) => {
+            const geojsonData = activeMapData[mapIndex];
+            if (!geojsonData) {
+                showToast("No data to export on this map", "error");
+                return;
+            }
+
+            const btn = document.getElementById(`export-kml-btn-${mapIndex}`);
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = "Exporting...";
+            }
+
+            try {
+                const title = document.getElementById(`meta-title-${mapIndex}`)?.textContent?.trim() || `HOCO Map ${mapIndex + 1}`;
+                const kml = buildKmlFromGeojson(geojsonData, title);
+                const fileStem = title.replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') || `HOCO_Map_${mapIndex + 1}`;
+                downloadTextFile(`${fileStem}_${Date.now()}.kml`, kml, 'application/vnd.google-earth.kml+xml');
+                showToast("KML exported successfully.", "success");
+            } catch (error) {
+                console.error("KML export failed:", error);
+                showToast("Failed to export KML.", "error");
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = "Export KML";
+                }
+            }
+        };
 
         // ==========================================
         // EXPORT TO PNG LOGIC
