@@ -48,23 +48,25 @@
         }
 
         ::-webkit-scrollbar-track {
-            background: var(--bg);
+            background: rgba(230, 238, 250, 0.5);
         }
 
         ::-webkit-scrollbar-thumb {
-            background: var(--border);
+            background: rgba(102, 139, 207, 0.4);
             border-radius: 4px;
         }
 
         ::-webkit-scrollbar-thumb:hover {
-            background: #555;
+            background: rgba(102, 139, 207, 0.65);
         }
 
         /* Landing Page Enhancements */
         #landingPage {
             position: fixed;
             inset: 0;
-            background: radial-gradient(circle at center, #1a252f 0%, #000 100%);
+            background: radial-gradient(circle at top left, rgba(47, 103, 228, 0.14), transparent 36%),
+                        radial-gradient(circle at bottom right, rgba(31, 157, 112, 0.10), transparent 30%),
+                        linear-gradient(180deg, #f0f6ff 0%, #e4eefb 100%);
             z-index: 5000;
             display: flex;
             flex-direction: column;
@@ -78,16 +80,16 @@
             max-width: 900px;
             width: 100%;
             text-align: center;
-            background: rgba(15, 15, 15, 0.85);
+            background: rgba(255, 255, 255, 0.97);
             backdrop-filter: blur(10px);
             padding: 40px;
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+            border-radius: 20px;
+            border: 1px solid rgba(102, 139, 207, 0.22);
+            box-shadow: 0 20px 50px rgba(88, 115, 158, 0.18);
         }
 
         .intro-text {
-            color: #aaa;
+            color: #5d7088;
             margin: 0 auto 30px auto;
             font-size: 0.95rem;
             max-width: 600px;
@@ -107,10 +109,10 @@
         }
 
         .role-card {
-            background: rgba(17, 17, 17, 0.9);
+            background: rgba(247, 250, 255, 0.97);
             padding: 20px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
+            border-radius: 14px;
+            border: 1px solid rgba(102, 139, 207, 0.2);
             text-align: left;
             transition: transform 0.2s;
         }
@@ -125,25 +127,25 @@
         }
 
         .role-card.guest h4 {
-            color: var(--guest);
+            color: #6e8098;
         }
 
         .role-card.normal h4 {
-            color: #5c70c7
+            color: #2f67e4;
         }
 
         .role-card.exclusive h4 {
-            color: var(--warning);
+            color: #c88c16;
         }
 
         .role-card.dev h4 {
-            color: var(--danger);
+            color: #d45d5d;
         }
 
         .role-card ul {
             padding-left: 20px;
             font-size: 0.8rem;
-            color: #ccc;
+            color: #5d7088;
             margin: 0;
             line-height: 1.6;
         }
@@ -152,7 +154,8 @@
         .overlay-modal {
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(30, 50, 90, 0.45);
+            backdrop-filter: blur(6px);
             z-index: 6000;
             display: none;
             align-items: center;
@@ -161,20 +164,21 @@
         }
 
         .modal-card {
-            background: #111;
+            background: #ffffff;
             padding: 40px;
-            border-radius: 12px;
+            border-radius: 20px;
             width: 100%;
             max-width: 400px;
-            border: 1px solid var(--border);
+            border: 1px solid rgba(102, 139, 207, 0.22);
             text-align: center;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+            box-shadow: 0 20px 50px rgba(88, 115, 158, 0.22);
             box-sizing: border-box;
+            color: #102238;
         }
 
         .tutorial-text {
             text-align: left;
-            color: #ccc;
+            color: #5d7088;
             font-size: 0.9rem;
             line-height: 1.5;
             margin-bottom: 20px;
@@ -216,7 +220,7 @@
             position: relative;
             display: grid;
             gap: 2px;
-            background: #222;
+            background: #d8e5f4;
             transition: height 0.24s ease, min-height 0.24s ease;
         }
 
@@ -444,13 +448,14 @@
         }
 
         .toast {
-            background: var(--card);
+            background: #ffffff;
             border-left: 4px solid var(--primary);
-            color: #fff;
+            color: #102238;
             padding: 12px 20px;
             border-radius: 4px;
             font-size: 0.85rem;
             animation: slideIn 0.3s ease forwards;
+            box-shadow: 0 8px 24px rgba(88, 115, 158, 0.18);
         }
 
         .toast.error {
@@ -484,15 +489,16 @@
         }
 
         .list-row {
-            background: #0a0a0a;
+            background: rgba(244, 248, 253, 0.97);
             padding: 10px;
             border-radius: 6px;
             margin-bottom: 8px;
-            border: 1px solid #222;
+            border: 1px solid rgba(102, 139, 207, 0.18);
             font-size: 0.8rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            color: #102238;
         }
 
         @media (max-width: 768px) {
@@ -520,36 +526,36 @@
         }
 
         :root {
-            --primary: #3f7cff;
-            --primary-hover: #6aa0ff;
-            --bg: #06101d;
-            --card: rgba(9, 19, 34, 0.94);
-            --text: #f5f7fb;
-            --border: rgba(126, 166, 238, 0.18);
-            --accent: #63e6be;
-            --danger: #ff7b7b;
-            --warning: #ffd166;
-            --guest: #91a6c8;
+            --primary: #2f67e4;
+            --primary-hover: #4e82ef;
+            --bg: #eef4fb;
+            --card: rgba(255, 255, 255, 0.95);
+            --text: #102238;
+            --border: rgba(102, 139, 207, 0.22);
+            --accent: #1f9d70;
+            --danger: #d45d5d;
+            --warning: #c88c16;
+            --guest: #6e8098;
             --sidebar-width: 460px;
-            --muted: #9bb0d0;
-            --panel-shadow: 0 22px 50px rgba(0, 0, 0, 0.35);
+            --muted: #5d7088;
+            --panel-shadow: 0 18px 40px rgba(88, 115, 158, 0.18);
         }
 
         body {
             min-height: 100vh;
             height: 100dvh;
             background:
-                radial-gradient(circle at top left, rgba(63, 124, 255, 0.22), transparent 34%),
-                radial-gradient(circle at bottom right, rgba(99, 230, 190, 0.14), transparent 28%),
-                linear-gradient(180deg, #07101b 0%, #091829 100%);
+                radial-gradient(circle at top left, rgba(47, 103, 228, 0.16), transparent 34%),
+                radial-gradient(circle at bottom right, rgba(31, 157, 112, 0.12), transparent 30%),
+                linear-gradient(180deg, #f6faff 0%, #e9f1fb 100%);
             font-family: "Segoe UI", "Aptos", system-ui, sans-serif;
         }
 
         #sidebar {
             width: min(var(--sidebar-width), 100vw);
-            background: linear-gradient(180deg, rgba(8, 18, 33, 0.98) 0%, rgba(10, 22, 39, 0.94) 100%);
-            border-right: 1px solid var(--border);
-            box-shadow: 12px 0 40px rgba(0, 0, 0, 0.35);
+            background: linear-gradient(180deg, rgba(251, 253, 255, 0.98) 0%, rgba(240, 246, 252, 0.96) 100%);
+            border-right: 1px solid rgba(102, 139, 207, 0.2);
+            box-shadow: 12px 0 34px rgba(112, 139, 181, 0.14);
         }
 
         #scroll-area {
@@ -558,8 +564,8 @@
 
         .panel,
         .dashboard-panel {
-            background: linear-gradient(180deg, rgba(13, 25, 44, 0.96) 0%, rgba(10, 20, 36, 0.98) 100%);
-            border: 1px solid var(--border);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(244, 248, 253, 0.99) 100%);
+            border: 1px solid rgba(102, 139, 207, 0.22);
             border-radius: 20px;
             box-shadow: var(--panel-shadow);
             padding: 18px;
@@ -567,7 +573,7 @@
         }
 
         label {
-            color: #c9d5ea;
+            color: #4c617d;
             letter-spacing: 0.11em;
         }
 
@@ -576,16 +582,16 @@
         textarea {
             min-height: 46px;
             border-radius: 14px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(152, 185, 245, 0.18);
-            color: var(--text);
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+            background: rgba(255, 255, 255, 0.98);
+            border: 1px solid rgba(102, 139, 207, 0.24);
+            color: #102238;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
         }
 
-        /* Add this to fix the white-on-white dropdown issue */
+        /* Fix dropdown option readability */
         select option {
-            background-color: #0b1627;
-            color: #f5f7fb;
+            background-color: #ffffff;
+            color: #102238;
         }
 
         button {
@@ -678,10 +684,10 @@
             padding: 18px 18px 16px;
             margin-bottom: 16px;
             border-radius: 24px;
-            border: 1px solid rgba(123, 164, 246, 0.18);
+            border: 1px solid rgba(102, 139, 207, 0.2);
             background:
-                radial-gradient(circle at top right, rgba(99, 230, 190, 0.17), transparent 34%),
-                linear-gradient(135deg, rgba(23, 44, 78, 0.95), rgba(8, 20, 38, 0.98));
+                radial-gradient(circle at top right, rgba(31, 157, 112, 0.14), transparent 36%),
+                linear-gradient(135deg, rgba(224, 235, 255, 0.96), rgba(248, 251, 255, 0.99));
             box-shadow: var(--panel-shadow);
         }
 
@@ -707,14 +713,14 @@
 
         .hero-title {
             margin: 6px 0 8px;
-            color: #ffffff;
+            color: #102238;
             font-size: 1.72rem;
             line-height: 1.02;
         }
 
         .hero-text {
             margin: 0 0 12px;
-            color: #d7e0f0;
+            color: #5d7088;
             font-size: 0.86rem;
             line-height: 1.45;
             max-width: none;
@@ -768,7 +774,7 @@
         .panel-title {
             margin: 4px 0 0;
             font-size: 1.1rem;
-            color: #ffffff;
+            color: #102238;
         }
 
         .collapsible-panel-body {
@@ -935,9 +941,9 @@
             pointer-events: auto;
             padding: 12px 14px;
             border-radius: 18px;
-            background: rgba(5, 14, 27, 0.9);
-            border: 1px solid rgba(136, 172, 245, 0.18);
-            box-shadow: 0 16px 30px rgba(0, 0, 0, 0.28);
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid rgba(102, 139, 207, 0.2);
+            box-shadow: 0 16px 30px rgba(104, 131, 171, 0.16);
             backdrop-filter: blur(10px);
         }
 
@@ -958,9 +964,10 @@
             min-height: 36px;
             padding: 0 12px;
             border-radius: 999px;
-            background: rgba(5, 14, 27, 0.88);
+            background: rgba(255, 255, 255, 0.92);
             backdrop-filter: blur(10px);
-            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.24);
+            box-shadow: 0 8px 20px rgba(104, 131, 171, 0.18);
+            color: #102238;
         }
 
         body:not(.app-ready) .sidebar-toggle-btn {
@@ -1113,10 +1120,9 @@
             margin: 14px 0;
             padding: 16px;
             border-radius: 18px;
-            border: 1px solid rgba(136, 172, 245, 0.18);
-            background:
-                linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
-                rgba(5, 13, 25, 0.72);
+            border: 1px solid rgba(102, 139, 207, 0.2);
+            background: rgba(255, 255, 255, 0.94);
+            box-shadow: 0 8px 24px rgba(104, 131, 171, 0.1);
         }
 
         .run-preview-card.is-empty {
@@ -1155,13 +1161,13 @@
 
         .run-preview-card h4 {
             margin: 0 0 8px;
-            color: #ffffff;
+            color: #102238;
             font-size: 1rem;
         }
 
         .run-preview-card p {
             margin: 0;
-            color: #c9d5ea;
+            color: #5d7088;
             font-size: 0.88rem;
             line-height: 1.5;
         }
@@ -1176,8 +1182,8 @@
         .preview-stat {
             padding: 10px 12px;
             border-radius: 14px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(24, 47, 82, 0.05);
+            border: 1px solid rgba(102, 139, 207, 0.18);
         }
 
         .preview-stat-label {
@@ -1190,7 +1196,7 @@
         }
 
         .preview-stat strong {
-            color: #ffffff;
+            color: #102238;
             font-size: 0.88rem;
             line-height: 1.45;
         }
@@ -1213,16 +1219,16 @@
             width: auto;
             min-height: 38px;
             padding: 0 14px;
-            background: rgba(255, 255, 255, 0.04);
-            color: #d7e0f0;
-            border: 1px solid rgba(144, 178, 245, 0.18);
+            background: rgba(24, 47, 82, 0.05);
+            color: #5d7088;
+            border: 1px solid rgba(102, 139, 207, 0.2);
             box-shadow: none;
         }
 
         .filter-tab.is-active {
-            background: rgba(63, 124, 255, 0.18);
-            border-color: rgba(110, 156, 255, 0.4);
-            color: #ffffff;
+            background: rgba(47, 103, 228, 0.12);
+            border-color: rgba(47, 103, 228, 0.3);
+            color: #2f67e4;
         }
 
         .run-browser-list {
@@ -1237,8 +1243,8 @@
         .run-browser-card {
             padding: 14px;
             border-radius: 16px;
-            border: 1px solid rgba(141, 176, 244, 0.18);
-            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(102, 139, 207, 0.2);
+            background: rgba(255, 255, 255, 0.9);
         }
 
         .run-browser-top {
@@ -1250,7 +1256,7 @@
         }
 
         .run-browser-title {
-            color: #ffffff;
+            color: #102238;
             font-size: 0.95rem;
             font-weight: 700;
         }
@@ -1277,10 +1283,10 @@
         .run-browser-empty {
             padding: 16px;
             border-radius: 16px;
-            border: 1px dashed rgba(144, 178, 245, 0.2);
+            border: 1px dashed rgba(102, 139, 207, 0.3);
             color: var(--muted);
             text-align: center;
-            background: rgba(255, 255, 255, 0.03);
+            background: rgba(255, 255, 255, 0.6);
         }
 
         .run-status-line,
@@ -1316,9 +1322,10 @@
             left: 12px;
             border-radius: 16px;
             padding: 12px 14px;
-            background: rgba(5, 14, 27, 0.82);
-            border: 1px solid rgba(136, 172, 245, 0.18);
-            box-shadow: 0 16px 32px rgba(0, 0, 0, 0.28);
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid rgba(102, 139, 207, 0.2);
+            box-shadow: 0 16px 32px rgba(104, 131, 171, 0.15);
+            color: #102238;
         }
 
         #map-wrapper button[id^="lightning-btn-"],
@@ -1329,7 +1336,7 @@
         }
 
         .loading-overlay {
-            background: rgba(4, 10, 20, 0.82);
+            background: rgba(233, 240, 250, 0.82);
             backdrop-filter: blur(10px);
         }
 
@@ -1338,19 +1345,19 @@
             width: calc(100% - 32px);
             padding: 22px;
             border-radius: 22px;
-            background: linear-gradient(180deg, rgba(8, 19, 34, 0.96), rgba(12, 24, 42, 0.98));
-            border: 1px solid rgba(126, 166, 238, 0.18);
-            box-shadow: 0 22px 40px rgba(0, 0, 0, 0.32);
+            background: rgba(255, 255, 255, 0.97);
+            border: 1px solid rgba(102, 139, 207, 0.22);
+            box-shadow: 0 22px 40px rgba(104, 131, 171, 0.18);
         }
 
         .loading-title {
-            color: #ffffff;
+            color: #102238;
             font-size: 1.14rem;
             margin-bottom: 10px;
         }
 
         .est-time {
-            color: #dffbf1;
+            color: #1f9d70;
             margin-bottom: 14px;
         }
 
@@ -1358,12 +1365,12 @@
             width: 100%;
             height: 10px;
             border-radius: 999px;
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(102, 139, 207, 0.15);
         }
 
         .loading-bar {
             border-radius: 999px;
-            background: linear-gradient(90deg, #3f7cff 0%, #63e6be 50%, #8eb2ff 100%);
+            background: linear-gradient(90deg, #2f67e4 0%, #1f9d70 50%, #4e82ef 100%);
         }
 
         .loading-meta-row {
@@ -1372,13 +1379,13 @@
             gap: 10px;
             margin: 14px 0 10px;
             font-size: 0.75rem;
-            color: #d7e0f0;
+            color: #5d7088;
         }
 
         .loading-phase {
             padding: 4px 10px;
             border-radius: 999px;
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(24, 47, 82, 0.07);
         }
 
         .loading-elapsed {
@@ -1386,7 +1393,7 @@
         }
 
         .loading-note {
-            color: #b5c5df;
+            color: #5d7088;
             line-height: 1.45;
         }
 
@@ -3637,13 +3644,19 @@
                     return;
                 }
 
+                const totalDuration = Math.max(endUnix - startUnix, 1);
                 const geojson = {
                     type: "FeatureCollection",
-                    features: allStrikes.map(s => ({
-                        type: "Feature",
-                        geometry: { type: "Point", coordinates: [s.coordinates[0], s.coordinates[1]] },
-                        properties: { time: s.strike_time, peak_current: null, cloud: "?" }
-                    }))
+                    features: allStrikes.map(s => {
+                        const strikeUnix = Math.floor(new Date(s.strike_time).getTime() / 1000);
+                        // ageFraction: 0 = newest (at endUnix), 1 = oldest (at startUnix)
+                        const ageFraction = Math.min(1, Math.max(0, (endUnix - strikeUnix) / totalDuration));
+                        return {
+                            type: "Feature",
+                            geometry: { type: "Point", coordinates: [s.coordinates[0], s.coordinates[1]] },
+                            properties: { time: s.strike_time, peak_current: null, cloud: "?", ageFraction }
+                        };
+                    })
                 };
 
                 const map = maps[mapIndex];
@@ -3663,17 +3676,30 @@
                     cluster: false
                 });
 
-                // Add the single, unclustered layer
+                // Add the single, unclustered layer — "+" symbols coloured by strike age
                 map.addLayer({
                     id: layerId,
-                    type: 'circle',
+                    type: 'symbol',
                     source: sourceId,
+                    layout: {
+                        'text-field': '+',
+                        'text-size': 18,
+                        'text-font': ['DIN Offc Pro Bold', 'Arial Unicode MS Bold'],
+                        'text-allow-overlap': true,
+                        'text-ignore-placement': true
+                    },
                     paint: {
-                        'circle-radius': 7,
-                        'circle-color': '#d63031',
-                        'circle-stroke-color': '#fff',
-                        'circle-stroke-width': 1.5,
-                        'circle-opacity': 0.9
+                        'text-color': [
+                            'step', ['get', 'ageFraction'],
+                            '#ff0000',          // < 0.05 — newest
+                            0.05, '#ffd700',
+                            0.2,  '#ff69b4',
+                            0.4,  '#ff00ff',
+                            0.6,  '#800080',
+                            0.8,  '#4b0082'     // oldest
+                        ],
+                        'text-halo-color': 'rgba(255,255,255,0.65)',
+                        'text-halo-width': 1.5
                     }
                 }, 'hoco-polygons');
 
@@ -4188,9 +4214,9 @@
         }
 
         try {
-            applyTheme(localStorage.getItem('hocoThemeMode') || 'dark');
+            applyTheme(localStorage.getItem('hocoThemeMode') || 'light');
         } catch (error) {
-            applyTheme('dark');
+            applyTheme('light');
         }
 
         if (themeSelect) {
@@ -5305,21 +5331,29 @@
                 exportContainer.style.flexDirection = 'column';
                 document.body.appendChild(exportContainer);
 
-                // 2. Header (Blue Light Theme)
+                // 2. Header — professional two-tone design
                 const header = document.createElement('div');
-                header.style.background = 'linear-gradient(135deg, #2f67e4 0%, #4e82ef 100%)';
+                header.style.background = 'linear-gradient(135deg, #162d5e 0%, #2f67e4 60%, #4e82ef 100%)';
                 header.style.color = '#ffffff';
-                header.style.padding = '24px 30px 18px 30px';
+                header.style.padding = '22px 30px 20px 30px';
                 header.style.display = 'flex';
-                header.style.alignItems = 'flex-start';
+                header.style.alignItems = 'center';
                 header.style.justifyContent = 'space-between';
                 header.style.gap = '20px';
+                header.style.position = 'relative';
+                header.style.overflow = 'hidden';
                 header.innerHTML = `
-            <div>
-                <div style="font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.8); margin-bottom: 8px;">Handry Outlook</div>
-                <div style="font-size: 31px; font-weight: 800; line-height: 1.05;">${mainTitleText}</div>
+            <div style="display:flex;align-items:center;gap:18px;">
+                <div style="width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,0.15);border:2px solid rgba(255,255,255,0.35);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">⚡</div>
+                <div>
+                    <div style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(255,255,255,0.7);margin-bottom:5px;">Handry Outlook · ADV-HOCO Pro</div>
+                    <div style="font-size:28px;font-weight:800;line-height:1.05;letter-spacing:-0.01em;">${mainTitleText}</div>
+                </div>
             </div>
-            <div style="padding: 8px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.2); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;">${exportModeLabel}</div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+                <div style="padding:7px 16px;border-radius:999px;border:1.5px solid rgba(255,255,255,0.35);background:rgba(255,255,255,0.15);font-size:12px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;">${exportModeLabel}</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.6);letter-spacing:0.06em;">handry-outlook.github.io</div>
+            </div>
         `;
                 exportContainer.appendChild(header);
 
@@ -5356,6 +5390,33 @@
             </div>
         `;
                 exportContainer.appendChild(summaryStrip);
+
+                // 3b. Lightning age legend (only when lightning is loaded)
+                if (activeLightningGeojson) {
+                    const lightningLegend = document.createElement('div');
+                    lightningLegend.style.margin = '12px 30px 0 30px';
+                    lightningLegend.style.padding = '12px 18px';
+                    lightningLegend.style.background = '#ffffff';
+                    lightningLegend.style.border = '1px solid rgba(102,139,207,0.22)';
+                    lightningLegend.style.borderRadius = '14px';
+                    lightningLegend.style.display = 'flex';
+                    lightningLegend.style.alignItems = 'center';
+                    lightningLegend.style.gap = '20px';
+                    lightningLegend.style.flexWrap = 'wrap';
+                    lightningLegend.innerHTML = `
+                        <span style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;color:#5d7088;flex-shrink:0;">⚡ Lightning Age</span>
+                        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex:1;">
+                            <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#374151;"><span style="color:#ff0000;font-weight:900;font-size:16px;">+</span> &lt;5% (Newest)</span>
+                            <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#374151;"><span style="color:#ffd700;font-weight:900;font-size:16px;">+</span> 5–20%</span>
+                            <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#374151;"><span style="color:#ff69b4;font-weight:900;font-size:16px;">+</span> 20–40%</span>
+                            <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#374151;"><span style="color:#ff00ff;font-weight:900;font-size:16px;">+</span> 40–60%</span>
+                            <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#374151;"><span style="color:#800080;font-weight:900;font-size:16px;">+</span> 60–80%</span>
+                            <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#374151;"><span style="color:#4b0082;font-weight:900;font-size:16px;">+</span> &gt;80% (Oldest)</span>
+                        </div>
+                        <span style="font-size:10px;color:#9aabb8;flex-shrink:0;">Age = fraction of valid period elapsed</span>
+                    `;
+                    exportContainer.appendChild(lightningLegend);
+                }
 
                 // 4. Warning Bar
                 if (!isAuto) {
@@ -5432,21 +5493,8 @@
                 logo.crossOrigin = 'anonymous';
                 mapDiv.appendChild(logo);
 
-                // Overlay: Footer URL (Light version)
-                const footerUrl = document.createElement('div');
-                footerUrl.style.position = 'absolute';
-                footerUrl.style.bottom = '24px';
-                footerUrl.style.right = '22px';
-                footerUrl.style.padding = '10px 14px';
-                footerUrl.style.borderRadius = '14px';
-                footerUrl.style.background = 'rgba(255, 255, 255, 0.9)';
-                footerUrl.style.border = '1px solid rgba(102,139,207,0.3)';
-                footerUrl.style.color = '#102238';
-                footerUrl.style.fontSize = '12px';
-                footerUrl.style.fontWeight = '700';
-                footerUrl.style.zIndex = '10';
-                footerUrl.innerText = 'handry-outlook.github.io/HOCO-V2.0';
-                mapDiv.appendChild(footerUrl);
+                // Overlay: Footer URL — hidden (URL is already in export header)
+                // (removed to avoid visual clutter on the map overlay)
 
                 // 6. Legend Bar (Light version)
                 const legendBar = document.createElement('div');
@@ -5530,13 +5578,22 @@
                                 'layout': {
                                     'text-field': '+',
                                     'text-size': 20,
+                                    'text-font': ['DIN Offc Pro Bold', 'Arial Unicode MS Bold'],
                                     'text-allow-overlap': true,
                                     'text-ignore-placement': true
                                 },
                                 'paint': {
-                                    'text-color': '#000000', // Switch lightning ticks to dark/black on light background if necessary
+                                    'text-color': [
+                                        'step', ['get', 'ageFraction'],
+                                        '#ff0000',
+                                        0.05, '#ffd700',
+                                        0.2,  '#ff69b4',
+                                        0.4,  '#ff00ff',
+                                        0.6,  '#800080',
+                                        0.8,  '#4b0082'
+                                    ],
                                     'text-halo-color': 'rgba(255,255,255,0.7)',
-                                    'text-halo-width': 1
+                                    'text-halo-width': 1.5
                                 }
                             });
                         }
