@@ -1292,6 +1292,12 @@
             color: #35506c;
         }
 
+        .run-chip.ensemble {
+            background: rgba(192, 63, 165, 0.1);
+            border-color: rgba(192, 63, 165, 0.22);
+            color: #9a2f82;
+        }
+
         .run-preview-card h4 {
             margin: 0 0 8px;
             color: #102238;
@@ -1456,17 +1462,59 @@
             flex: 1;
         }
 
+        .human-source-heading {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+
         .human-source-title {
             color: #102238;
             font-size: 0.9rem;
             font-weight: 700;
-            margin-bottom: 4px;
+            min-width: 0;
+        }
+
+        .human-source-card.is-previewing {
+            border-color: rgba(47, 103, 228, 0.38);
+            box-shadow: 0 12px 24px rgba(86, 122, 194, 0.16);
+            background: rgba(242, 247, 255, 0.98);
         }
 
         .human-source-meta {
             color: var(--muted);
             font-size: 0.77rem;
             line-height: 1.5;
+        }
+
+        .human-preview-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+            min-height: 28px;
+            padding: 0 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(31, 157, 112, 0.26);
+            background: rgba(31, 157, 112, 0.1);
+            color: #0f6e4a;
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+        }
+
+        .human-preview-chip:hover,
+        .human-preview-chip:focus-visible {
+            background: rgba(31, 157, 112, 0.16);
+            box-shadow: 0 0 0 3px rgba(47, 103, 228, 0.12);
+            outline: none;
+            transform: translateY(-1px);
         }
 
         .selection-toolbar,
@@ -1486,6 +1534,16 @@
             min-height: 34px;
             padding: 0 12px;
             font-size: 0.76rem;
+        }
+
+        .modal-card .auth-cancel-btn {
+            color: #35506c;
+            border-color: rgba(76, 97, 125, 0.35);
+            background: rgba(76, 97, 125, 0.08);
+        }
+
+        .modal-card .auth-cancel-btn:hover:not(:disabled) {
+            background: rgba(76, 97, 125, 0.14);
         }
 
         .toggle-row {
@@ -2035,7 +2093,7 @@
             <input type="email" id="emailIn" placeholder="Email Address" required>
             <input type="password" id="passIn" placeholder="Password" required>
             <button id="authSubmitBtn">Submit</button>
-            <button onclick="document.getElementById('authOverlay').style.display='none'" class="btn-outline"
+            <button onclick="document.getElementById('authOverlay').style.display='none'" class="btn-outline auth-cancel-btn"
                 style="margin-top: 10px;">Cancel</button>
             <p id="authError" style="color:var(--danger); font-size:0.8rem; margin-top:15px; min-height: 16px;"></p>
         </div>
@@ -2189,17 +2247,17 @@
                     </div>
                 </div>
 
-                <div class="panel dashboard-panel browse-dashboard">
-                    <div class="panel-heading">
-                        <div>
-                            <div class="panel-kicker">Run Browser</div>
-                            <h3 class="panel-title">Other HOCO and manual runs</h3>
+                    <div class="panel dashboard-panel browse-dashboard">
+                        <div class="panel-heading">
+                            <div>
+                                <div class="panel-kicker">Run Browser</div>
+                            <h3 class="panel-title">Other HOCO, Ensemble and manual runs</h3>
+                            </div>
                         </div>
-                    </div>
 
                     <div id="runBrowserFilters" class="filter-tabs">
                         <button type="button" class="filter-tab is-active" data-filter="all">All visible</button>
-                        <button type="button" class="filter-tab" data-filter="manual">Manual</button>
+                        <button type="button" class="filter-tab" data-filter="manual">Manual + Ensemble</button>
                         <button type="button" class="filter-tab" data-filter="auto">AUTO only</button>
                         <button type="button" class="filter-tab" data-filter="mine">My runs</button>
                     </div>
@@ -2236,18 +2294,19 @@
                     <div class="panel dashboard-panel human-mimic-panel">
                         <div class="panel-heading panel-heading-spread">
                             <div>
-                                <div class="panel-kicker">Human Blend</div>
-                                <h3 class="panel-title">Mimic SPC-style thunderstorm polygons</h3>
+                                <div class="panel-kicker">HOCO Ensemble</div>
+                                <h3 class="panel-title">Blend AUTO-HOCO into SPC-style polygons</h3>
                             </div>
                             <span class="status-chip subtle">Firebase archive</span>
                         </div>
 
-                        <p class="helper-text" style="margin-top: 0;">Blend previously issued HOCO runs for the same valid period, smooth the field into cleaner hand-drawn style polygons, then save the ensemble back into Firebase as a loadable run.</p>
+                        <p class="helper-text" style="margin-top: 0;">Blend previously issued AUTO-HOCO runs for the same 06:00 to next-day 05:59 valid period, smooth the field into cleaner hand-drawn style polygons, then save the ensemble back into Firebase as a loadable run.</p>
 
                         <div class="control-grid">
                             <div class="field-shell">
-                                <label for="humanValidPeriodSelect">Valid period</label>
-                                <select id="humanValidPeriodSelect"></select>
+                                <label for="humanValidPeriodSelect">Valid day</label>
+                                <input type="date" id="humanValidPeriodSelect">
+                                <div id="humanValidPeriodLabel" class="helper-text">Calendar loading...</div>
                             </div>
                             <div class="field-shell">
                                 <label for="humanTargetMapSelect">Load target map</label>
@@ -2260,24 +2319,9 @@
                             </div>
                         </div>
 
-                        <div class="selection-toolbar">
-                            <button type="button" id="humanSelectAllBtn" class="btn-outline">Select all</button>
-                            <button type="button" id="humanClearAllBtn" class="btn-outline">Clear all</button>
-                        </div>
-
                         <div id="humanSelectionSummary" class="helper-text" style="margin-top: 10px;">Scanning valid periods...</div>
+                        <div class="helper-text" style="margin-top: 8px;">All AUTO-HOCO runs in the selected valid period start selected. Noise filtering and earlier-issuance comparison are always applied.</div>
                         <div id="humanSourceList" class="human-source-list"></div>
-
-                        <div class="toggle-row">
-                            <label class="toggle-check">
-                                <input type="checkbox" id="humanNoiseFilter" checked>
-                                <span>Filter isolated noisy pockets before drawing polygons</span>
-                            </label>
-                            <label class="toggle-check">
-                                <input type="checkbox" id="humanAnomalyFilter" checked>
-                                <span>Adjust risk by comparing earlier HOCO issuances in the same valid period</span>
-                            </label>
-                        </div>
 
                         <div class="risk-band-row">
                             <span class="risk-band-pill"><span class="risk-band-swatch" style="background:#5bbf5f;"></span>Low &lt; 20%</span>
@@ -2287,7 +2331,7 @@
                             <span class="risk-band-pill"><span class="risk-band-swatch" style="background:#c03fa5;"></span>High 75%+</span>
                         </div>
 
-                        <button type="button" id="humanMimicBtn" style="margin-top: 14px; background: linear-gradient(135deg, #1f9d70, #216ba5);">Mimic Human Forecast</button>
+                        <button type="button" id="humanMimicBtn" style="margin-top: 14px; background: linear-gradient(135deg, #1f9d70, #216ba5);">Build HOCO Ensemble</button>
                         <div id="humanMimicStatus" class="helper-text" style="margin-top: 10px;">Select a valid period to build the ensemble source list.</div>
                     </div>
 
@@ -3596,12 +3640,18 @@
         let autoRunSelectionByDay = [null, null, null];
         let runBrowserFilter = 'all';
         let activeMapData = [null, null, null, null];
+        let activeMapRuns = [null, null, null, null];
         let isInitialLoad = true;
         let humanMimicPeriodKey = '';
         let humanMimicSelectedRunIds = new Set();
+        let humanPreviewState = { runId: '', mapIndex: null, token: 0 };
         let pendingRunTimers = {};      // { mapIndex: { runId, createdAtMs, estSeconds, intervalId, timeoutId, ... } }
         let progressIntervals = {};
         const runGeojsonCache = new Map();
+        const HUMAN_PREVIEW_SOURCE_ID = 'human-preview-source';
+        const HUMAN_PREVIEW_POLYGON_LAYER_ID = 'human-preview-polygons';
+        const HUMAN_PREVIEW_OUTLINE_LAYER_ID = 'human-preview-polygons-outline';
+        const HUMAN_PREVIEW_POINT_LAYER_ID = 'human-preview-points';
         const models = {
             swisseu: { name: "SWISS-EU", freq: 3 }, harmi: { name: "HARMONIE", freq: 3 },
             swissnow: { name: "SWISS-NOW", freq: 1 }, ez: { name: "ECMWF EZ", freq: 12 },
@@ -3695,6 +3745,53 @@
             return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
 
+        function formatPeriodLabel(start, end) {
+            if (!(start instanceof Date) || Number.isNaN(start.getTime())) return 'Unknown period';
+            if (!(end instanceof Date) || Number.isNaN(end.getTime())) {
+                return `${formatShortDay(start)} ${formatShortTime(start)}`;
+            }
+
+            const sameDay = formatDateKey(start) === formatDateKey(end);
+            if (sameDay) {
+                return `${formatShortDay(start)} ${formatShortTime(start)}-${formatShortTime(end)}`;
+            }
+            return `${formatShortDay(start)} ${formatShortTime(start)} to ${formatShortDay(end)} ${formatShortTime(end)}`;
+        }
+
+        function formatHocoDateTime(date) {
+            if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            const hour = String(date.getHours()).padStart(2, '0');
+            const minute = String(date.getMinutes()).padStart(2, '0');
+            return `${day}/${month}/${year} ${hour}:${minute}`;
+        }
+
+        function getNormalizedAutoValidPeriod(run) {
+            if (run?.type !== 'automated') return null;
+
+            const start = getRunStartDate(run);
+            const end = getRunEndDate(run);
+            if (!(start instanceof Date) || Number.isNaN(start.getTime())) return null;
+            if (!(end instanceof Date) || Number.isNaN(end.getTime())) return null;
+            if (end.getHours() !== 5 || end.getMinutes() !== 59) return null;
+
+            const normalizedStart = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 6, 0, 0, 0);
+            const normalizedEnd = new Date(normalizedStart);
+            normalizedEnd.setDate(normalizedEnd.getDate() + 1);
+            normalizedEnd.setHours(5, 59, 0, 0);
+
+            if (Math.abs(end.getTime() - normalizedEnd.getTime()) > 60 * 1000) return null;
+
+            return {
+                start: normalizedStart,
+                end: normalizedEnd,
+                key: `${run?.region || 'UK'}|${formatDateKey(normalizedStart)}|${formatDateKey(normalizedEnd)}`,
+                displayLabel: `${formatShortDay(normalizedStart)} ${formatShortTime(normalizedStart)} - next day ${formatShortTime(normalizedEnd)}`
+            };
+        }
+
         function formatCompactDate(date) {
             if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '--/--/--';
             const day = String(date.getDate()).padStart(2, '0');
@@ -3716,19 +3813,12 @@
         function formatRunPeriodLabel(run) {
             const start = getRunStartDate(run);
             const end = getRunEndDate(run);
-            if (!start || Number.isNaN(start.getTime())) return 'Unknown period';
-            if (!end || Number.isNaN(end.getTime())) return start.toLocaleString();
-
-            const sameDay = formatDateKey(start) === formatDateKey(end);
-            if (sameDay) {
-                return `${formatShortDay(start)} ${formatShortTime(start)}-${formatShortTime(end)}`;
-            }
-            return `${formatShortDay(start)} ${formatShortTime(start)} to ${formatShortDay(end)} ${formatShortTime(end)}`;
+            return formatPeriodLabel(start, end);
         }
 
         function getRunTag(run) {
             if (run?.type === 'automated') return 'AUTO';
-            if (run?.type === 'human-mimic') return 'HUMAN';
+            if (run?.type === 'human-mimic') return 'ENSEMBLE';
             if (run?.public === true) return 'PUBLIC';
             if (auth.currentUser?.uid && run?.userId === auth.currentUser.uid) return 'MINE';
             return 'PRIVATE';
@@ -3886,7 +3976,7 @@
 
             container.innerHTML = visibleRuns.map((run) => {
                 const created = getRunCreatedDate(run);
-                const chipClass = run.type === 'automated' ? 'auto' : run.type === 'human-mimic' ? 'neutral' : 'neutral';
+                const chipClass = run.type === 'automated' ? 'auto' : run.type === 'human-mimic' ? 'ensemble' : 'neutral';
                 return `
                     <div class="run-browser-card">
                         <div class="run-browser-top">
@@ -3910,34 +4000,37 @@
 
         function getRunModeLabel(run) {
             if (run?.type === 'automated') return 'AUTO-HOCO';
-            if (run?.type === 'human-mimic') return 'Human Mimic';
+            if (run?.type === 'human-mimic') return 'HOCO Ensemble';
             return 'HOCO';
         }
 
         function getRunDisplayTag(run) {
-            if (run?.type === 'human-mimic') return 'HUMAN';
+            if (run?.type === 'human-mimic') return 'ENSEMBLE';
             return getRunTag(run);
         }
 
         function getHumanMimicSourceRuns() {
             return getVisibleRuns()
                 .filter((run) => run?.status !== 'pending')
-                .filter((run) => run?.type !== 'human-mimic')
+                .filter((run) => run?.type === 'automated')
                 .filter((run) => !!(run?.geojsonUrl || run?.inlineGeojson || run?.inlineGeojsonText || run?.geojson || run?.ensembleGeojson))
                 .filter((run) => !!run?.startTime)
                 .filter((run) => {
                     const weather = String(run?.weather || '').toLowerCase();
                     return !weather || weather.includes('lightning') || weather.includes('thunder');
                 })
+                .filter((run) => !!getNormalizedAutoValidPeriod(run))
                 .sort((a, b) => (getRunCreatedDate(b)?.getTime?.() || 0) - (getRunCreatedDate(a)?.getTime?.() || 0));
         }
 
         function getHumanMimicPeriodGroups() {
             const groups = new Map();
             getHumanMimicSourceRuns().forEach((run) => {
-                const key = getRunPeriodKey(run);
+                const periodInfo = getNormalizedAutoValidPeriod(run);
+                if (!periodInfo) return;
+                const key = periodInfo.key;
                 if (!groups.has(key)) {
-                    groups.set(key, { key, run, runs: [] });
+                    groups.set(key, { key, run, periodInfo, runs: [] });
                 }
                 groups.get(key).runs.push(run);
             });
@@ -3947,25 +4040,171 @@
                     ...group,
                     runs: group.runs.sort((a, b) => (getRunCreatedDate(b)?.getTime?.() || 0) - (getRunCreatedDate(a)?.getTime?.() || 0))
                 }))
-                .sort((a, b) => (getRunCreatedDate(a.runs[0])?.getTime?.() || 0) - (getRunCreatedDate(b.runs[0])?.getTime?.() || 0))
-                .reverse();
+                .sort((a, b) => {
+                    const byPeriod = (b.periodInfo?.start?.getTime?.() || 0) - (a.periodInfo?.start?.getTime?.() || 0);
+                    if (byPeriod !== 0) return byPeriod;
+                    return (getRunCreatedDate(b.runs[0])?.getTime?.() || 0) - (getRunCreatedDate(a.runs[0])?.getTime?.() || 0);
+                });
+        }
+
+        function getHumanMimicCalendarValue(group) {
+            return formatDateKey(group?.periodInfo?.start);
+        }
+
+        function getHumanMimicGroupForCalendarDate(dateValue, groups = getHumanMimicPeriodGroups()) {
+            return groups.find((group) => getHumanMimicCalendarValue(group) === dateValue) || null;
+        }
+
+        function clearHumanPreviewHighlight() {
+            document.querySelectorAll('#humanSourceList .human-source-card.is-previewing').forEach((card) => {
+                card.classList.remove('is-previewing');
+            });
+        }
+
+        function removeHumanPreviewLayers(targetMap) {
+            if (!targetMap) return;
+            if (targetMap.getLayer(HUMAN_PREVIEW_POINT_LAYER_ID)) targetMap.removeLayer(HUMAN_PREVIEW_POINT_LAYER_ID);
+            if (targetMap.getLayer(HUMAN_PREVIEW_OUTLINE_LAYER_ID)) targetMap.removeLayer(HUMAN_PREVIEW_OUTLINE_LAYER_ID);
+            if (targetMap.getLayer(HUMAN_PREVIEW_POLYGON_LAYER_ID)) targetMap.removeLayer(HUMAN_PREVIEW_POLYGON_LAYER_ID);
+            if (targetMap.getSource(HUMAN_PREVIEW_SOURCE_ID)) targetMap.removeSource(HUMAN_PREVIEW_SOURCE_ID);
+        }
+
+        function resetHumanSourcePreviewVisuals() {
+            maps.forEach((mapInstance) => removeHumanPreviewLayers(mapInstance));
+            clearHumanPreviewHighlight();
+        }
+
+        function clearHumanSourcePreview() {
+            humanPreviewState = {
+                runId: '',
+                mapIndex: null,
+                token: humanPreviewState.token + 1
+            };
+            resetHumanSourcePreviewVisuals();
+        }
+
+        function getHumanPreviewFillOpacity() {
+            const currentOpacity = parseInt(document.getElementById('opacitySlider')?.value || '50', 10) / 100;
+            return Math.min(Math.max(currentOpacity * 0.55, 0.16), 0.42);
+        }
+
+        async function renderHumanSourcePreviewLayers(targetMap, geojsonData, mapIndex) {
+            removeHumanPreviewLayers(targetMap);
+
+            targetMap.addSource(HUMAN_PREVIEW_SOURCE_ID, { type: 'geojson', data: geojsonData });
+
+            const is3dMode = document.getElementById('visTypeSelect').value === '3d';
+            const currentHeightScale = parseInt(document.getElementById('heightSlider').value, 10);
+            const previewOpacity = getHumanPreviewFillOpacity();
+
+            targetMap.addLayer({
+                id: HUMAN_PREVIEW_POLYGON_LAYER_ID,
+                type: is3dMode ? 'fill-extrusion' : 'fill',
+                source: HUMAN_PREVIEW_SOURCE_ID,
+                filter: ['==', ['get', 'feature_type'], 'polygon'],
+                paint: is3dMode ? {
+                    'fill-extrusion-color': ['get', 'fill'],
+                    'fill-extrusion-opacity': previewOpacity,
+                    'fill-extrusion-height': ['*', ['coalesce', ['get', 'risk'], 0], Math.max(currentHeightScale * 0.75, 1)]
+                } : {
+                    'fill-color': ['get', 'fill'],
+                    'fill-opacity': previewOpacity
+                }
+            });
+
+            targetMap.addLayer({
+                id: HUMAN_PREVIEW_OUTLINE_LAYER_ID,
+                type: 'line',
+                source: HUMAN_PREVIEW_SOURCE_ID,
+                filter: ['==', ['get', 'feature_type'], 'polygon'],
+                paint: {
+                    'line-color': '#102238',
+                    'line-width': 2,
+                    'line-opacity': Math.min(previewOpacity + 0.35, 0.92),
+                    'line-dasharray': [2, 1]
+                }
+            });
+
+            targetMap.addLayer({
+                id: HUMAN_PREVIEW_POINT_LAYER_ID,
+                type: 'circle',
+                source: HUMAN_PREVIEW_SOURCE_ID,
+                filter: ['==', ['get', 'feature_type'], 'point'],
+                paint: {
+                    'circle-radius': 4,
+                    'circle-color': '#102238',
+                    'circle-stroke-color': '#ffffff',
+                    'circle-stroke-width': 1.2,
+                    'circle-opacity': 0.82
+                }
+            });
+
+            const lightningLayerId = `lightning-layer-${mapIndex}`;
+            if (targetMap.getLayer(lightningLayerId)) {
+                targetMap.moveLayer(lightningLayerId);
+            }
+        }
+
+        async function previewHumanSourceRun(runId, sourceCard) {
+            const mapIndex = Number(document.getElementById('humanTargetMapSelect')?.value || 0);
+            const targetMap = maps[mapIndex];
+            const runData = allRuns.find((run) => run.id === runId);
+            if (!targetMap || !runData) return;
+
+            const previewAlreadyVisible =
+                humanPreviewState.runId === runId &&
+                humanPreviewState.mapIndex === mapIndex &&
+                !!targetMap.getSource(HUMAN_PREVIEW_SOURCE_ID);
+
+            if (previewAlreadyVisible) {
+                clearHumanPreviewHighlight();
+                sourceCard?.classList.add('is-previewing');
+                return;
+            }
+
+            const requestToken = humanPreviewState.token + 1;
+            humanPreviewState = { runId, mapIndex, token: requestToken };
+            resetHumanSourcePreviewVisuals();
+            sourceCard?.classList.add('is-previewing');
+
+            try {
+                const geojsonData = await fetchRunGeojsonData(runId, runData);
+                if (humanPreviewState.token !== requestToken || humanPreviewState.runId !== runId || humanPreviewState.mapIndex !== mapIndex) {
+                    return;
+                }
+                await renderHumanSourcePreviewLayers(targetMap, geojsonData, mapIndex);
+            } catch (error) {
+                console.error('Preview map load failed for HOCO Ensemble source run:', error);
+                if (humanPreviewState.token === requestToken) {
+                    clearHumanSourcePreview();
+                }
+            }
+        }
+
+        function getHumanPreviewChipFromEventTarget(target) {
+            return target instanceof Element ? target.closest('[data-human-preview-run-id]') : null;
         }
 
         function renderHumanMimicPanel() {
             const periodSelect = document.getElementById('humanValidPeriodSelect');
+            const periodLabel = document.getElementById('humanValidPeriodLabel');
             const sourceList = document.getElementById('humanSourceList');
             const summary = document.getElementById('humanSelectionSummary');
             const status = document.getElementById('humanMimicStatus');
             const actionBtn = document.getElementById('humanMimicBtn');
-            if (!periodSelect || !sourceList || !summary || !status || !actionBtn) return;
+            if (!periodSelect || !periodLabel || !sourceList || !summary || !status || !actionBtn) return;
+            clearHumanSourcePreview();
 
             const groups = getHumanMimicPeriodGroups();
             if (!groups.length) {
-                periodSelect.innerHTML = '<option value="">No archived valid periods available</option>';
+                periodSelect.value = '';
+                periodSelect.min = '';
+                periodSelect.max = '';
                 periodSelect.disabled = true;
-                sourceList.innerHTML = '<div class="run-browser-empty">No completed lightning HOCO runs are currently available for a human-mimic blend.</div>';
-                summary.textContent = 'Archive is waiting for completed HOCO runs.';
-                status.textContent = 'Run an AUTO-HOCO or load more archived HOCO runs to generate a human-mimic ensemble.';
+                periodLabel.textContent = 'No AUTO-HOCO calendar days are available yet.';
+                sourceList.innerHTML = '<div class="run-browser-empty">No completed lightning AUTO-HOCO runs are currently available for a HOCO Ensemble blend.</div>';
+                summary.textContent = 'Archive is waiting for completed AUTO-HOCO runs.';
+                status.textContent = 'Run an AUTO-HOCO or load more archived AUTO-HOCO runs to generate a HOCO Ensemble.';
                 actionBtn.disabled = true;
                 humanMimicPeriodKey = '';
                 humanMimicSelectedRunIds = new Set();
@@ -3975,15 +4214,18 @@
             const activeKey = groups.some((group) => group.key === humanMimicPeriodKey) ? humanMimicPeriodKey : groups[0].key;
             humanMimicPeriodKey = activeKey;
 
-            periodSelect.innerHTML = groups.map((group) => {
-                const issuedCount = group.runs.length;
-                const label = `${formatRunPeriodLabel(group.run)} | ${group.run.region || 'UK'} | ${issuedCount} HOCO${issuedCount === 1 ? '' : 's'}`;
-                return `<option value="${group.key}">${label}</option>`;
-            }).join('');
-            periodSelect.value = activeKey;
-            periodSelect.disabled = false;
-
             const activeGroup = groups.find((group) => group.key === activeKey) || groups[0];
+            const calendarValues = groups
+                .map((group) => getHumanMimicCalendarValue(group))
+                .filter(Boolean)
+                .sort();
+            const activeCalendarValue = getHumanMimicCalendarValue(activeGroup);
+            periodSelect.value = activeCalendarValue || '';
+            periodSelect.min = calendarValues[0] || '';
+            periodSelect.max = calendarValues[calendarValues.length - 1] || '';
+            periodSelect.disabled = false;
+            periodLabel.textContent = `Selected outlook: ${activeGroup.periodInfo.displayLabel}`;
+
             const validIds = new Set(activeGroup.runs.map((run) => run.id));
             humanMimicSelectedRunIds = new Set(Array.from(humanMimicSelectedRunIds).filter((id) => validIds.has(id)));
             if (!humanMimicSelectedRunIds.size) {
@@ -3993,10 +4235,10 @@
             const selectedCount = Array.from(humanMimicSelectedRunIds).filter((id) => validIds.has(id)).length;
             const earliestIssued = getRunCreatedDate(activeGroup.runs[activeGroup.runs.length - 1]);
             const latestIssued = getRunCreatedDate(activeGroup.runs[0]);
-            summary.textContent = `${selectedCount} of ${activeGroup.runs.length} HOCOs selected. Issued ${earliestIssued ? earliestIssued.toLocaleString() : 'unknown'} to ${latestIssued ? latestIssued.toLocaleString() : 'unknown'}.`;
+            summary.textContent = `${selectedCount} of ${activeGroup.runs.length} AUTO-HOCO runs selected. Issued ${earliestIssued ? earliestIssued.toLocaleString() : 'unknown'} to ${latestIssued ? latestIssued.toLocaleString() : 'unknown'}.`;
             status.textContent = selectedCount
-                ? 'The blend will weight recency, compare earlier issuances in the same valid period, and smooth the result into broader human-style polygons.'
-                : 'Select at least one HOCO run to build a human-mimic ensemble.';
+                ? 'The ensemble will weight recency, compare earlier issuances in the same valid period, and smooth the result into broader SPC-style polygons.'
+                : 'Select at least one AUTO-HOCO run to build a HOCO Ensemble.';
             actionBtn.disabled = selectedCount === 0;
 
             sourceList.innerHTML = activeGroup.runs.map((run) => {
@@ -4006,8 +4248,11 @@
                     <label class="human-source-card">
                         <input type="checkbox" data-human-run-id="${run.id}" ${checked}>
                         <div class="human-source-main">
-                            <div class="human-source-title">${run.region || 'UK'} ${getRunModeLabel(run)}</div>
-                            <div class="human-source-meta">${formatRunPeriodLabel(run)}<br>Issued: ${issuedAt ? issuedAt.toLocaleString() : 'Unknown'}<br>Hazards: ${run.weather || 'lightning'} | Tag: ${getRunDisplayTag(run)}</div>
+                            <div class="human-source-heading">
+                                <div class="human-source-title">${run.region || 'UK'} ${getRunModeLabel(run)}</div>
+                                <span class="human-preview-chip" data-human-preview-run-id="${run.id}" tabindex="0" role="button" aria-label="Preview ${run.region || 'UK'} ${getRunModeLabel(run)} on the selected map" title="Hover to preview on the selected map">${getRunDisplayTag(run)}</span>
+                            </div>
+                            <div class="human-source-meta">Valid: ${activeGroup.periodInfo.displayLabel}<br>Issued: ${issuedAt ? issuedAt.toLocaleString() : 'Unknown'}<br>Hazards: ${run.weather || 'lightning'}</div>
                         </div>
                     </label>
                 `;
@@ -4461,6 +4706,44 @@
             return HUMAN_RISK_BANDS[0];
         }
 
+        function buildHocoFeaturePopupHtml(feature) {
+            const risk = parseRiskValue(feature?.properties);
+            const explicitLabel = String(feature?.properties?.label || '').trim();
+            const band = explicitLabel ? { label: explicitLabel } : getRiskBandForRisk(risk);
+            const peakRisk = Number.parseFloat(feature?.properties?.peak_risk);
+            const hasPeakRisk = Number.isFinite(peakRisk);
+            const isEnsembleFeature = Boolean(feature?.properties?.risk_band || explicitLabel);
+
+            if (isEnsembleFeature) {
+                return `
+                    <div style="color:#102238; padding:10px 12px; min-width:220px;">
+                        <div style="font-size:15px; font-weight:800; margin-bottom:8px;">${band.label}</div>
+                        <div style="font-size:12px; color:#5d7088; line-height:1.5;">
+                            <div><strong style="color:#102238;">Representative risk:</strong> ${Math.round(risk)}%</div>
+                            ${hasPeakRisk ? `<div><strong style="color:#102238;">Peak blended risk:</strong> ${peakRisk.toFixed(1)}%</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            return `
+                <div style="color:#102238; padding:10px 12px; min-width:180px;">
+                    <div style="font-size:15px; font-weight:800; margin-bottom:8px;">Risk Level</div>
+                    <div style="font-size:12px; color:#5d7088; line-height:1.5;">
+                        <div><strong style="color:#102238;">Forecast risk:</strong> ${Math.round(risk)}%</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showHocoFeaturePopup(map, event) {
+            if (!event?.features?.length) return;
+            new mapboxgl.Popup({ closeButton: false, focusAfterOpen: false })
+                .setLngLat(event.lngLat)
+                .setHTML(buildHocoFeaturePopupHtml(event.features[0]))
+                .addTo(map);
+        }
+
         function polygonCoordinatesToKml(rings) {
             if (!Array.isArray(rings) || !rings.length) return '';
             const outer = `<outerBoundaryIs><LinearRing><coordinates>${rings[0].map(([lon, lat]) => `${lon},${lat},0`).join(' ')}</coordinates></LinearRing></outerBoundaryIs>`;
@@ -4619,8 +4902,9 @@
         }
 
         async function triggerHumanMimicForecast() {
+            clearHumanSourcePreview();
             if (!auth.currentUser) {
-                showToast('Sign in to build a human-mimic ensemble.', 'error');
+                showToast('Sign in to build a HOCO Ensemble.', 'error');
                 return;
             }
             if (userRole === 'guest') {
@@ -4646,13 +4930,13 @@
 
             const actionBtn = document.getElementById('humanMimicBtn');
             const status = document.getElementById('humanMimicStatus');
-            const anomalyAware = document.getElementById('humanAnomalyFilter')?.checked ?? true;
-            const noiseFilter = document.getElementById('humanNoiseFilter')?.checked ?? true;
+            const anomalyAware = true;
+            const noiseFilter = true;
             const targetMapIndex = Number(document.getElementById('humanTargetMapSelect')?.value || 0);
 
             actionBtn.disabled = true;
             actionBtn.textContent = 'Building...';
-            status.textContent = `Loading ${selectedRuns.length} source HOCO${selectedRuns.length === 1 ? '' : 's'} for ${formatRunPeriodLabel(activeGroup.run)}.`;
+            status.textContent = `Loading ${selectedRuns.length} source AUTO-HOCO${selectedRuns.length === 1 ? '' : 's'} for ${activeGroup.periodInfo.displayLabel}.`;
 
             try {
                 const settled = await Promise.allSettled(selectedRuns.map(async (run) => ({
@@ -4670,10 +4954,10 @@
                 }
 
                 if (failedCount) {
-                    showToast(`${failedCount} source HOCO${failedCount === 1 ? '' : 's'} could not be loaded and were skipped.`, 'warning');
+                    showToast(`${failedCount} source AUTO-HOCO${failedCount === 1 ? '' : 's'} could not be loaded and were skipped.`, 'warning');
                 }
 
-                status.textContent = `Blending ${loadedRuns.length} source HOCO${loadedRuns.length === 1 ? '' : 's'} into a smoother human-style field.`;
+                status.textContent = `Blending ${loadedRuns.length} source AUTO-HOCO${loadedRuns.length === 1 ? '' : 's'} into a smoother ensemble field.`;
                 const riskField = buildHumanRiskField(loadedRuns, anomalyAware);
                 const humanGeojson = buildHumanMimicGeojson(riskField, { noiseFilter });
 
@@ -4684,14 +4968,15 @@
                 status.textContent = 'Saving the generated ensemble to Firebase and loading it into the selected map.';
                 const payload = {
                     region: activeGroup.run.region || 'UK',
-                    startTime: activeGroup.run.startTime,
-                    endTime: activeGroup.run.endTime || activeGroup.run.startTime,
+                    startTime: formatHocoDateTime(activeGroup.periodInfo.start),
+                    endTime: formatHocoDateTime(activeGroup.periodInfo.end),
                     weather: 'lightning',
                     userId: auth.currentUser.uid,
                     createdAt: new Date(),
                     status: 'complete',
                     public: false,
                     type: 'human-mimic',
+                    tag: 'ENSEMBLE',
                     sourceRunIds: loadedRuns.map(({ run }) => run.id),
                     sourceRunCount: loadedRuns.length,
                     inlineGeojsonText: JSON.stringify(humanGeojson),
@@ -4709,14 +4994,14 @@
                 ensureMapSlotVisible(targetMapIndex);
                 await loadRunIntoMap(docRef.id, targetMapIndex);
                 status.textContent = `Saved as ${docRef.id} and loaded into Map ${targetMapIndex + 1}.`;
-                showToast('Human-mimic ensemble saved to Firebase and loaded onto the map.', 'success');
+                showToast('HOCO Ensemble saved to Firebase and loaded onto the map.', 'success');
             } catch (error) {
-                console.error('Human mimic forecast failed:', error);
-                status.textContent = error.message || 'Human-mimic ensemble build failed.';
-                showToast(error.message || 'Human-mimic ensemble build failed.', 'error');
+                console.error('HOCO Ensemble build failed:', error);
+                status.textContent = error.message || 'HOCO Ensemble build failed.';
+                showToast(error.message || 'HOCO Ensemble build failed.', 'error');
             } finally {
                 actionBtn.disabled = false;
-                actionBtn.textContent = 'Mimic Human Forecast';
+                actionBtn.textContent = 'Build HOCO Ensemble';
             }
         }
 
@@ -5333,14 +5618,16 @@
                     });
                 });
 
-                maps[i].on('click', 'hoco-points', (e) => {
-                    if (!e.features || e.features.length === 0) return;
-                    const rawRisk = e.features[0].properties.risk || 0;
-                    new mapboxgl.Popup({ closeButton: false, focusAfterOpen: false }) // <-- Changed to false
-                        .setLngLat(e.lngLat)
-                        .setHTML(`<div style="color:#000; padding: 10px;"><strong>Risk Level:</strong> ${rawRisk}%</div>`)
-                        .addTo(maps[i]);
+                maps[i].on('click', 'hoco-points', (e) => showHocoFeaturePopup(maps[i], e));
+                maps[i].on('click', 'hoco-polygons', (e) => {
+                    const pointHits = maps[i].queryRenderedFeatures(e.point, { layers: ['hoco-points'] });
+                    if (pointHits.length) return;
+                    showHocoFeaturePopup(maps[i], e);
                 });
+                maps[i].on('mouseenter', 'hoco-points', () => { maps[i].getCanvas().style.cursor = 'pointer'; });
+                maps[i].on('mouseleave', 'hoco-points', () => { maps[i].getCanvas().style.cursor = ''; });
+                maps[i].on('mouseenter', 'hoco-polygons', () => { maps[i].getCanvas().style.cursor = 'pointer'; });
+                maps[i].on('mouseleave', 'hoco-polygons', () => { maps[i].getCanvas().style.cursor = ''; });
 
                 maps[i].on('move', (e) => {
                     if (e.originalEvent) {
@@ -5357,6 +5644,7 @@
 
         // Style Switcher
         document.getElementById('mapStyleSelect').addEventListener('change', (e) => {
+            clearHumanSourcePreview();
             const styleUrl = e.target.value;
             maps.forEach((m, i) => {
                 m.setStyle(styleUrl);
@@ -5370,6 +5658,7 @@
 
         // Visualization Type Switcher
         document.getElementById('visTypeSelect').addEventListener('change', () => {
+            clearHumanSourcePreview();
             maps.forEach((m, i) => {
                 if (activeMapData[i]) {
                     renderHocoLayers(m, activeMapData[i], i);
@@ -5379,6 +5668,7 @@
 
         // Layout Switcher
         document.getElementById('layoutSelect').addEventListener('change', (e) => {
+            clearHumanSourcePreview();
             const val = parseInt(e.target.value);
             document.getElementById('map-wrapper').className = `grid-${val}`;
             for (let i = 0; i < 4; i++) {
@@ -5614,9 +5904,19 @@
         });
 
         document.getElementById('humanValidPeriodSelect').addEventListener('change', (event) => {
-            humanMimicPeriodKey = event.target.value;
-            const activeGroup = getHumanMimicPeriodGroups().find((group) => group.key === humanMimicPeriodKey);
-            humanMimicSelectedRunIds = new Set((activeGroup?.runs || []).map((run) => run.id));
+            clearHumanSourcePreview();
+            const groups = getHumanMimicPeriodGroups();
+            const activeGroup = getHumanMimicGroupForCalendarDate(event.target.value, groups);
+            if (!activeGroup) {
+                renderHumanMimicPanel();
+                const status = document.getElementById('humanMimicStatus');
+                if (status && event.target.value) {
+                    status.textContent = `No HOCO Ensemble source runs are stored for ${event.target.value}. Pick a highlighted AUTO-HOCO day from the calendar range.`;
+                }
+                return;
+            }
+            humanMimicPeriodKey = activeGroup.key;
+            humanMimicSelectedRunIds = new Set((activeGroup.runs || []).map((run) => run.id));
             renderHumanMimicPanel();
         });
 
@@ -5630,25 +5930,47 @@
             renderHumanMimicPanel();
         });
 
-        document.getElementById('humanSelectAllBtn').addEventListener('click', () => {
-            const activeGroup = getHumanMimicPeriodGroups().find((group) => group.key === humanMimicPeriodKey);
-            humanMimicSelectedRunIds = new Set((activeGroup?.runs || []).map((run) => run.id));
-            renderHumanMimicPanel();
+        document.getElementById('humanSourceList').addEventListener('mouseover', (event) => {
+            const previewChip = getHumanPreviewChipFromEventTarget(event.target);
+            if (!previewChip || previewChip.contains(event.relatedTarget)) return;
+            previewHumanSourceRun(previewChip.dataset.humanPreviewRunId, previewChip.closest('.human-source-card'));
         });
 
-        document.getElementById('humanClearAllBtn').addEventListener('click', () => {
-            humanMimicSelectedRunIds = new Set();
-            renderHumanMimicPanel();
+        document.getElementById('humanSourceList').addEventListener('mouseout', (event) => {
+            const previewChip = getHumanPreviewChipFromEventTarget(event.target);
+            if (!previewChip || previewChip.contains(event.relatedTarget)) return;
+            clearHumanSourcePreview();
+        });
+
+        document.getElementById('humanSourceList').addEventListener('focusin', (event) => {
+            const previewChip = getHumanPreviewChipFromEventTarget(event.target);
+            if (!previewChip) return;
+            previewHumanSourceRun(previewChip.dataset.humanPreviewRunId, previewChip.closest('.human-source-card'));
+        });
+
+        document.getElementById('humanSourceList').addEventListener('focusout', (event) => {
+            const previewChip = getHumanPreviewChipFromEventTarget(event.target);
+            if (!previewChip || previewChip.contains(event.relatedTarget)) return;
+            clearHumanSourcePreview();
+        });
+
+        document.getElementById('humanSourceList').addEventListener('click', (event) => {
+            const previewChip = getHumanPreviewChipFromEventTarget(event.target);
+            if (!previewChip) return;
+            event.preventDefault();
+            event.stopPropagation();
         });
 
         document.getElementById('humanMimicBtn').addEventListener('click', triggerHumanMimicForecast);
 
         document.getElementById('humanTargetMapSelect').addEventListener('change', (event) => {
+            clearHumanSourcePreview();
             const targetMapSelect = document.getElementById('targetMapSelect');
             if (targetMapSelect) targetMapSelect.value = event.target.value;
         });
 
         document.getElementById('targetMapSelect').addEventListener('change', (event) => {
+            clearHumanSourcePreview();
             const humanTargetMapSelect = document.getElementById('humanTargetMapSelect');
             if (humanTargetMapSelect) humanTargetMapSelect.value = event.target.value;
         });
@@ -5904,7 +6226,7 @@
 
                     let tag = "[PVT]";
                     if (r.type === 'automated') tag = "[AUTO]";
-                    else if (r.type === 'human-mimic') tag = "[HUMAN]";
+                    else if (r.type === 'human-mimic') tag = "[ENSEMBLE]";
                     else if (r.public === true) tag = "[PUB]";
                     else if (currentUid && r.userId === currentUid) tag = "[MINE]";
 
@@ -5964,6 +6286,7 @@
         });
 
         async function loadRunIntoMap(runId, mapIndex) {
+            clearHumanSourcePreview();
             const targetMap = maps[mapIndex];
             const statusUI = document.getElementById('runStatus');
             statusUI.innerText = `Fetching data for Map ${mapIndex + 1}...`;
@@ -6015,6 +6338,7 @@
 
                 // Success!
                 activeMapData[mapIndex] = geojsonData;
+                activeMapRuns[mapIndex] = { id: runId, ...runData };
                 await renderHocoLayers(targetMap, geojsonData, mapIndex);
 
                 statusUI.innerText = "Loaded successfully.";
@@ -6027,10 +6351,11 @@
                 const isHumanMimic = runData.type === 'human-mimic';
                 const displayUser = runData.userId ? runData.userId.substring(0, 6) : 'System';
                 const displayUserLabel = displayUser === 'System' ? 'System' : `User ${displayUser}`;
-                const modeLabel = isNormal ? 'Normal Mode (Auto)' : isHumanMimic ? 'Human Mimic Ensemble' : 'Custom Weighting';
+                const modeLabel = isNormal ? 'Normal Mode (Auto)' : isHumanMimic ? 'HOCO Ensemble' : 'Custom Weighting';
                 const sourceLine = isHumanMimic
-                    ? `<strong>Sources:</strong> ${runData.sourceRunCount || runData.sourceRunIds?.length || 0} HOCOs<br>`
+                    ? `<strong>Sources:</strong> ${runData.sourceRunCount || runData.sourceRunIds?.length || 0} AUTO-HOCOs<br>`
                     : '';
+                const tagLine = `<strong>Tag:</strong> ${getRunDisplayTag(runData)}<br>`;
 
                 // ... (inside the try block of loadRunIntoMap)
                 document.getElementById(`meta-title-${mapIndex}`).innerText = `Loaded: ${runData.region || 'Unknown'}`;
@@ -6038,6 +6363,7 @@
             <strong>Period:</strong> ${runData.startTime || 'N/A'} - ${runData.endTime || 'N/A'}<br>
             <strong>Hazards:</strong> <span style="text-transform: capitalize">${runData.weather || 'None'}</span><br>
             <strong>Mode:</strong> ${modeLabel}<br>
+            ${tagLine}
             ${sourceLine}
             <strong>Ran by:</strong> ${displayUserLabel}<br>
             <strong>Time:</strong> ${creationDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
@@ -6521,22 +6847,35 @@
                 const heightSlider = document.getElementById('heightSlider');
                 const currentHeightScale = heightSlider ? parseInt(heightSlider.value) : 500;
 
+                const runMeta = activeMapRuns[mapIndex] || null;
                 const descEl = document.getElementById(`meta-desc-${mapIndex}`);
                 let periodText = "Unknown Period";
                 let issueText = new Date().toLocaleString();
-                let isAuto = true;
+                let isAuto = runMeta ? runMeta.type === 'automated' : true;
+                let isHumanMimic = runMeta ? runMeta.type === 'human-mimic' : false;
                 let creatorId = "Unknown";
+
+                if (runMeta) {
+                    const createdAt = getRunCreatedDate(runMeta);
+                    periodText = `${runMeta.startTime || 'N/A'} - ${runMeta.endTime || runMeta.startTime || 'N/A'}`;
+                    issueText = createdAt ? createdAt.toLocaleString() : issueText;
+                    const displayUser = runMeta.userId ? runMeta.userId.substring(0, 6) : 'System';
+                    creatorId = displayUser === 'System' ? 'System' : `User ${displayUser}`;
+                }
 
                 if (descEl) {
                     const html = descEl.innerHTML;
-                    const timeMatch = html.match(/<strong>Period:<\/strong>\s*([^<]+)/i);
-                    if (timeMatch && timeMatch[1]) periodText = timeMatch[1].trim();
-                    const issueMatch = html.match(/<strong>Time:<\/strong>\s*([^<]+)/i);
-                    if (issueMatch && issueMatch[1]) issueText = issueMatch[1].trim();
+                    if (!runMeta) {
+                        const timeMatch = html.match(/<strong>Period:<\/strong>\s*([^<]+)/i);
+                        if (timeMatch && timeMatch[1]) periodText = timeMatch[1].trim();
+                        const issueMatch = html.match(/<strong>Time:<\/strong>\s*([^<]+)/i);
+                        if (issueMatch && issueMatch[1]) issueText = issueMatch[1].trim();
 
-                    isAuto = html.includes('Normal Mode (Auto)');
-                    const ranByMatch = html.match(/<strong>Ran by:<\/strong>\s*(User\s*[^\s<]+|System)/i);
-                    if (ranByMatch && ranByMatch[1]) creatorId = ranByMatch[1];
+                        isAuto = html.includes('Normal Mode (Auto)');
+                        isHumanMimic = html.includes('HOCO Ensemble');
+                        const ranByMatch = html.match(/<strong>Ran by:<\/strong>\s*(User\s*[^\s<]+|System)/i);
+                        if (ranByMatch && ranByMatch[1]) creatorId = ranByMatch[1];
+                    }
                 }
 
                 if (isAuto && /^(?:System|User System)$/i.test((creatorId || '').trim())) {
@@ -6563,12 +6902,15 @@
                     }
                 });
 
-                let maxRiskString = maxRisk < 5
-                    ? "Peak risk is below 5%. The red star marks the highest-risk point on the map."
-                    : `Peak risk reaches ${maxRisk}%. The red star marks the highest-risk point on the map.`;
+                const showPeakMarker = !isHumanMimic && !!maxRiskCoords;
+                let maxRiskString = isHumanMimic
+                    ? (maxRisk < 5 ? "Peak blended risk is below 5%." : `Peak blended risk reaches ${maxRisk}%.`)
+                    : (maxRisk < 5
+                        ? "Peak risk is below 5%. The red star marks the highest-risk point on the map."
+                        : `Peak risk reaches ${maxRisk}%. The red star marks the highest-risk point on the map.`);
 
-                const mainTitleText = isAuto ? 'AUTO-HOCO Forecast' : 'Manual HOCO Forecast';
-                const exportModeLabel = isAuto ? 'Auto guidance' : 'Manual blend';
+                const mainTitleText = isAuto ? 'AUTO-HOCO Forecast' : isHumanMimic ? 'HOCO Ensemble Forecast' : 'Manual HOCO Forecast';
+                const exportModeLabel = isAuto ? 'Auto guidance' : isHumanMimic ? 'Ensemble blend' : 'Manual blend';
 
                 // 1. Create Export Container
                 const exportContainer = document.createElement('div');
@@ -6611,7 +6953,7 @@
                     </div>
                     <div style="display:flex;align-items:center;gap:12px;">
                         ${strikeCount > 0 ? `<div style="padding:6px 14px;border-radius:999px;background:rgba(255,200,0,0.15);border:1px solid rgba(255,200,0,0.35);font-size:11.5px;font-weight:700;letter-spacing:0.06em;color:#ffd060;">⚡ ${strikeCount.toLocaleString()} strikes</div>` : ''}
-                        <div style="padding:6px 14px;border-radius:999px;background:${isAuto ? 'rgba(31,157,112,0.18)' : 'rgba(212,93,93,0.18)'};border:1px solid ${isAuto ? 'rgba(31,157,112,0.45)' : 'rgba(212,93,93,0.45)'};font-size:11.5px;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;color:${isAuto ? '#63e8be' : '#ff9f9f'};">${exportModeLabel}</div>
+                        <div style="padding:6px 14px;border-radius:999px;background:${isAuto ? 'rgba(31,157,112,0.18)' : isHumanMimic ? 'rgba(192,63,165,0.18)' : 'rgba(212,93,93,0.18)'};border:1px solid ${isAuto ? 'rgba(31,157,112,0.45)' : isHumanMimic ? 'rgba(192,63,165,0.45)' : 'rgba(212,93,93,0.45)'};font-size:11.5px;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;color:${isAuto ? '#63e8be' : isHumanMimic ? '#f4a3e6' : '#ff9f9f'};">${exportModeLabel}</div>
                     </div>
                 `;
                 exportContainer.appendChild(header);
@@ -6642,7 +6984,7 @@
                 exportContainer.appendChild(metaStrip);
 
                 // ── 5. Manual warning ───────────────────────────────────────
-                if (!isAuto) {
+                if (!isAuto && !isHumanMimic) {
                     const warningDiv = document.createElement('div');
                     warningDiv.style.cssText = 'flex-shrink:0;margin:10px 32px 0 32px;background:#fff3e0;color:#7c4e00;padding:9px 14px;border-radius:10px;border:1px solid #f0c060;font-size:12px;font-weight:700;';
                     warningDiv.innerText = `⚠️  MANUAL-HOCO — Custom weighted. May not reflect official AUTO-HOCO. Creator: ${creatorId}`;
@@ -6675,11 +7017,11 @@
                 const modeBadge = document.createElement('div');
                 modeBadge.style.cssText = `position:absolute;top:14px;right:14px;z-index:10;
                     padding:8px 14px;border-radius:999px;
-                    background:${isAuto ? 'rgba(232,248,242,0.95)' : 'rgba(253,237,237,0.95)'};
-                    border:1.5px solid ${isAuto ? '#1f9d70' : '#d45d5d'};
-                    color:${isAuto ? '#0f6e4a' : '#b03030'};
+                    background:${isAuto ? 'rgba(232,248,242,0.95)' : isHumanMimic ? 'rgba(251,235,247,0.95)' : 'rgba(253,237,237,0.95)'};
+                    border:1.5px solid ${isAuto ? '#1f9d70' : isHumanMimic ? '#c03fa5' : '#d45d5d'};
+                    color:${isAuto ? '#0f6e4a' : isHumanMimic ? '#9a2f82' : '#b03030'};
                     font-size:11px;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;`;
-                modeBadge.innerText = isAuto ? '✓ AUTO-HOCO' : '⚠ MANUAL-HOCO';
+                modeBadge.innerText = isAuto ? 'AUTO-HOCO' : isHumanMimic ? 'HOCO ENSEMBLE' : 'MANUAL-HOCO';
                 mapDiv.appendChild(modeBadge);
 
                 // — logo (bottom-left)
@@ -6814,7 +7156,7 @@
                             });
                         }
 
-                        if (maxRiskCoords) {
+                        if (showPeakMarker) {
                             const starEl = document.createElement('div');
                             starEl.innerHTML = '★';
                             starEl.style.color = '#e74c3c';
