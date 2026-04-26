@@ -1449,7 +1449,6 @@
             border-radius: 14px;
             border: 1px solid rgba(102, 139, 207, 0.2);
             background: rgba(255, 255, 255, 0.88);
-            cursor: pointer;
             transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
         }
 
@@ -1489,6 +1488,19 @@
             color: var(--muted);
             font-size: 0.77rem;
             line-height: 1.5;
+        }
+
+        .human-source-actions {
+            display: flex;
+            margin-top: 10px;
+        }
+
+        .human-source-load-btn {
+            width: auto;
+            min-width: 110px;
+            min-height: 34px;
+            padding: 0 12px;
+            font-size: 0.76rem;
         }
 
         .human-preview-chip {
@@ -2038,6 +2050,7 @@
                         <li>72-Hour Forecast Limit</li>
                         <li>7 Runs / Day Cap</li>
                         <li>Standard Models Only</li>
+                        <li>HOCO Ensemble</li>
                     </ul>
                 </div>
                 <div class="role-card exclusive">
@@ -2047,6 +2060,7 @@
                         <li>Custom Model Weighting</li>
                         <li>72-Hour Forecast Limit</li>
                         <li>15 Runs / Day Cap</li>
+                        <li>HOCO Ensemble</li>
                     </ul>
                 </div>
                 <div class="role-card dev">
@@ -2056,6 +2070,7 @@
                         <li>Publish Public Runs</li>
                         <li>Manage User Roles</li>
                         <li>Unlimited Range & Runs</li>
+                        <li>HOCO Ensemble</li>
                     </ul>
                 </div>
             </div>
@@ -2299,10 +2314,10 @@
                                 <div class="panel-kicker">HOCO Ensemble</div>
                                 <h3 class="panel-title">Blend AUTO-HOCO into SPC-style polygons</h3>
                             </div>
-                            <span class="status-chip subtle">Firebase archive</span>
+                            <span class="status-chip subtle">Ensemble</span>
                         </div>
 
-                        <p class="helper-text" style="margin-top: 0;">Blend previously issued AUTO-HOCO runs for the same 06:00 to next-day 05:59 valid period, smooth the field into cleaner hand-drawn style polygons, then save the ensemble back into Firebase as a loadable run.</p>
+                        <p class="helper-text" style="margin-top: 0;">Blend previously issued AUTO-HOCO runs for the same valid-day window ending the next day at 05:59, smooth the field into cleaner hand-drawn style polygons, then save the ensemble back into database as a loadable run.</p>
 
                         <div class="control-grid">
                             <div class="field-shell">
@@ -3221,10 +3236,10 @@
                                 accuracyDay2 = mergeAccuracyDayData(data.day2, curvePayload?.day2);
                             } catch (curveErr) {
                                 console.warn("Could not load accuracy curve payload:", curveErr);
-                                curveInfoNote = "Curve JSON could not be loaded from Firebase Storage, so only summary metrics are shown.";
+                                curveInfoNote = "Curve JSON could not be loaded from database, so only summary metrics are shown.";
                             }
                         } else if (!hasEmbeddedCurves) {
-                            curveInfoNote = "Curve arrays are not stored in Firestore anymore; recalculate once to repopulate the chart JSON in Firebase Storage.";
+                            curveInfoNote = "Curve arrays are not stored in database anymore; recalculate once to repopulate the chart JSON in database.";
                         }
 
                         renderRocChart(accuracyDay0, accuracyDay1, accuracyDay2);
@@ -3646,6 +3661,7 @@
         let isInitialLoad = true;
         let humanMimicPeriodKey = '';
         let humanMimicSelectedRunIds = new Set();
+        let humanMimicSelectionSeedKey = '';
         let humanPreviewState = { runId: '', mapIndex: null, token: 0 };
         let pendingRunTimers = {};      // { mapIndex: { runId, createdAtMs, estSeconds, intervalId, timeoutId, ... } }
         let progressIntervals = {};
@@ -3757,6 +3773,10 @@
             if (sameDay) {
                 return `${formatShortDay(start)} ${formatShortTime(start)}-${formatShortTime(end)}`;
             }
+            const nextDay = addDays(new Date(start.getFullYear(), start.getMonth(), start.getDate()), 1);
+            if (formatDateKey(nextDay) === formatDateKey(end)) {
+                return `${formatShortDay(start)} ${formatShortTime(start)} - next day ${formatShortTime(end)}`;
+            }
             return `${formatShortDay(start)} ${formatShortTime(start)} to ${formatShortDay(end)} ${formatShortTime(end)}`;
         }
 
@@ -3790,7 +3810,7 @@
                 start: normalizedStart,
                 end: normalizedEnd,
                 key: `${run?.region || 'UK'}|${formatDateKey(normalizedStart)}|${formatDateKey(normalizedEnd)}`,
-                displayLabel: `${formatShortDay(normalizedStart)} ${formatShortTime(normalizedStart)} - next day ${formatShortTime(normalizedEnd)}`
+                displayLabel: `${formatShortDay(normalizedStart)} ending next day ${formatShortTime(normalizedEnd)}`
             };
         }
 
@@ -4214,6 +4234,7 @@
                 actionBtn.disabled = true;
                 humanMimicPeriodKey = '';
                 humanMimicSelectedRunIds = new Set();
+                humanMimicSelectionSeedKey = '';
                 return;
             }
 
@@ -4233,10 +4254,13 @@
             periodLabel.textContent = `Selected outlook: ${activeGroup.periodInfo.displayLabel}`;
 
             const validIds = new Set(activeGroup.runs.map((run) => run.id));
-            humanMimicSelectedRunIds = new Set(Array.from(humanMimicSelectedRunIds).filter((id) => validIds.has(id)));
-            if (!humanMimicSelectedRunIds.size) {
+            const preservedSelection = new Set(Array.from(humanMimicSelectedRunIds).filter((id) => validIds.has(id)));
+            if (!preservedSelection.size && humanMimicSelectionSeedKey !== activeKey) {
                 humanMimicSelectedRunIds = new Set(activeGroup.runs.map((run) => run.id));
+            } else {
+                humanMimicSelectedRunIds = preservedSelection;
             }
+            humanMimicSelectionSeedKey = activeKey;
 
             const selectedCount = Array.from(humanMimicSelectedRunIds).filter((id) => validIds.has(id)).length;
             const earliestIssued = getRunCreatedDate(activeGroup.runs[activeGroup.runs.length - 1]);
@@ -4251,16 +4275,19 @@
                 const checked = humanMimicSelectedRunIds.has(run.id) ? 'checked' : '';
                 const issuedAt = getRunCreatedDate(run);
                 return `
-                    <label class="human-source-card" data-human-preview-run-id="${run.id}" title="Hover to preview on the selected map">
+                    <div class="human-source-card">
                         <input type="checkbox" data-human-run-id="${run.id}" ${checked}>
                         <div class="human-source-main">
                             <div class="human-source-heading">
                                 <div class="human-source-title">${run.region || 'UK'} ${getRunModeLabel(run)}</div>
-                                <span class="human-preview-chip" data-human-preview-run-id="${run.id}" tabindex="0" role="button" aria-label="Preview ${run.region || 'UK'} ${getRunModeLabel(run)} on the selected map" title="Hover to preview on the selected map">${getRunDisplayTag(run)}</span>
+                                <span class="run-chip ${run.type === 'automated' ? 'auto' : run.type === 'human-mimic' ? 'ensemble' : 'neutral'}">${getRunDisplayTag(run)}</span>
                             </div>
-                            <div class="human-source-meta">Valid: ${activeGroup.periodInfo.displayLabel}<br>Issued: ${issuedAt ? issuedAt.toLocaleString() : 'Unknown'}<br>Hazards: ${run.weather || 'lightning'}</div>
+                            <div class="human-source-meta">Valid: ${formatRunPeriodLabel(run)}<br>Issued: ${issuedAt ? issuedAt.toLocaleString() : 'Unknown'}<br>Hazards: ${run.weather || 'lightning'}</div>
+                            <div class="human-source-actions">
+                                <button type="button" class="human-source-load-btn" data-human-load-run-id="${run.id}">Load to map</button>
+                            </div>
                         </div>
-                    </label>
+                    </div>
                 `;
             }).join('');
         }
@@ -4971,7 +4998,7 @@
                     throw new Error('The blended field did not produce any polygons above the configured risk thresholds.');
                 }
 
-                status.textContent = 'Saving the generated ensemble to Firebase and loading it into the selected map.';
+                status.textContent = 'Saving the generated ensemble to database and loading it into the selected map.';
                 const payload = {
                     region: activeGroup.run.region || 'UK',
                     startTime: formatHocoDateTime(activeGroup.periodInfo.start),
@@ -5000,7 +5027,7 @@
                 ensureMapSlotVisible(targetMapIndex);
                 await loadRunIntoMap(docRef.id, targetMapIndex);
                 status.textContent = `Saved as ${docRef.id} and loaded into Map ${targetMapIndex + 1}.`;
-                showToast('HOCO Ensemble saved to Firebase and loaded onto the map.', 'success');
+                showToast('HOCO Ensemble saved to database and loaded onto the map.', 'success');
             } catch (error) {
                 console.error('HOCO Ensemble build failed:', error);
                 status.textContent = error.message || 'HOCO Ensemble build failed.';
@@ -5936,35 +5963,30 @@
             renderHumanMimicPanel();
         });
 
-        document.getElementById('humanSourceList').addEventListener('mouseover', (event) => {
-            const sourceCard = getHumanSourceCardFromEventTarget(event.target);
-            if (!sourceCard || sourceCard.contains(event.relatedTarget)) return;
-            previewHumanSourceRun(sourceCard.dataset.humanPreviewRunId, sourceCard);
-        });
-
-        document.getElementById('humanSourceList').addEventListener('mouseout', (event) => {
-            const sourceCard = getHumanSourceCardFromEventTarget(event.target);
-            if (!sourceCard || sourceCard.contains(event.relatedTarget)) return;
-            clearHumanSourcePreview();
-        });
-
-        document.getElementById('humanSourceList').addEventListener('focusin', (event) => {
-            const previewChip = getHumanPreviewChipFromEventTarget(event.target);
-            if (!previewChip) return;
-            previewHumanSourceRun(previewChip.dataset.humanPreviewRunId, previewChip.closest('.human-source-card'));
-        });
-
-        document.getElementById('humanSourceList').addEventListener('focusout', (event) => {
-            const previewChip = getHumanPreviewChipFromEventTarget(event.target);
-            if (!previewChip || previewChip.contains(event.relatedTarget)) return;
-            clearHumanSourcePreview();
-        });
-
-        document.getElementById('humanSourceList').addEventListener('click', (event) => {
-            const previewChip = getHumanPreviewChipFromEventTarget(event.target);
-            if (!previewChip) return;
+        document.getElementById('humanSourceList').addEventListener('click', async (event) => {
+            const loadButton = event.target.closest('button[data-human-load-run-id]');
+            if (!loadButton) return;
             event.preventDefault();
             event.stopPropagation();
+            const runId = loadButton.dataset.humanLoadRunId;
+            if (!runId) return;
+
+            const mapIndex = Number(document.getElementById('humanTargetMapSelect')?.value || 0);
+            const targetMapSelect = document.getElementById('targetMapSelect');
+            if (targetMapSelect) targetMapSelect.value = String(mapIndex);
+
+            const originalLabel = loadButton.textContent;
+            loadButton.disabled = true;
+            loadButton.textContent = 'Loading...';
+
+            try {
+                await loadRunIntoMap(runId, mapIndex);
+            } finally {
+                if (document.body.contains(loadButton)) {
+                    loadButton.disabled = false;
+                    loadButton.textContent = originalLabel;
+                }
+            }
         });
 
         document.getElementById('humanMimicBtn').addEventListener('click', triggerHumanMimicForecast);
