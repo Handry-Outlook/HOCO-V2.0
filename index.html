@@ -6220,9 +6220,28 @@
 
         function updateCapUI() {
             const capText = document.getElementById('runCapText');
-            if (userRole === 'normal') capText.innerText = `(Daily Cap: ${runsToday}/7)`;
-            else if (userRole === 'exclusive') capText.innerText = `(Daily Cap: ${runsToday}/15)`;
-            else if (userRole === 'developer') capText.innerText = `(Unlimited)`;
+            const dailyCap = getDailyCapLimit();
+            if (!capText) return;
+
+            if (dailyCap === Infinity) {
+                capText.innerText = `(Unlimited)`;
+                return;
+            }
+
+            if (!Number.isFinite(dailyCap)) {
+                capText.innerText = '';
+                return;
+            }
+
+            const displayedRunsToday = Math.min(Math.max(runsToday, 0), dailyCap);
+            capText.innerText = `(Daily Cap: ${displayedRunsToday}/${dailyCap})`;
+        }
+
+        function getDailyCapLimit(role = userRole) {
+            if (role === 'normal') return 7;
+            if (role === 'exclusive') return 15;
+            if (role === 'developer') return Infinity;
+            return null;
         }
 
         function renderArchiveDropdown() {
@@ -6631,11 +6650,10 @@
             if (userRole === 'guest') {
                 return showToast("Guests cannot execute new runs.", "error");
             }
-            if (userRole === 'normal' && runsToday >= 7) {
-                return showToast("Daily Normal limit (7) reached.", "error");
-            }
-            if (userRole === 'exclusive' && runsToday >= 15) {
-                return showToast("Daily Exclusive limit (15) reached.", "error");
+            const dailyCap = getDailyCapLimit();
+            if (Number.isFinite(dailyCap) && runsToday >= dailyCap) {
+                const roleLabel = userRole === 'exclusive' ? 'Exclusive' : 'Normal';
+                return showToast(`Daily ${roleLabel} limit (${dailyCap}) reached.`, "error");
             }
 
             const btn = document.getElementById('submitBtn');
