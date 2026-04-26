@@ -1449,6 +1449,8 @@
             border-radius: 14px;
             border: 1px solid rgba(102, 139, 207, 0.2);
             background: rgba(255, 255, 255, 0.88);
+            cursor: pointer;
+            transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
         }
 
         .human-source-card input[type="checkbox"] {
@@ -4185,6 +4187,10 @@
             return target instanceof Element ? target.closest('[data-human-preview-run-id]') : null;
         }
 
+        function getHumanSourceCardFromEventTarget(target) {
+            return target instanceof Element ? target.closest('.human-source-card') : null;
+        }
+
         function renderHumanMimicPanel() {
             const periodSelect = document.getElementById('humanValidPeriodSelect');
             const periodLabel = document.getElementById('humanValidPeriodLabel');
@@ -4245,7 +4251,7 @@
                 const checked = humanMimicSelectedRunIds.has(run.id) ? 'checked' : '';
                 const issuedAt = getRunCreatedDate(run);
                 return `
-                    <label class="human-source-card">
+                    <label class="human-source-card" data-human-preview-run-id="${run.id}" title="Hover to preview on the selected map">
                         <input type="checkbox" data-human-run-id="${run.id}" ${checked}>
                         <div class="human-source-main">
                             <div class="human-source-heading">
@@ -5931,14 +5937,14 @@
         });
 
         document.getElementById('humanSourceList').addEventListener('mouseover', (event) => {
-            const previewChip = getHumanPreviewChipFromEventTarget(event.target);
-            if (!previewChip || previewChip.contains(event.relatedTarget)) return;
-            previewHumanSourceRun(previewChip.dataset.humanPreviewRunId, previewChip.closest('.human-source-card'));
+            const sourceCard = getHumanSourceCardFromEventTarget(event.target);
+            if (!sourceCard || sourceCard.contains(event.relatedTarget)) return;
+            previewHumanSourceRun(sourceCard.dataset.humanPreviewRunId, sourceCard);
         });
 
         document.getElementById('humanSourceList').addEventListener('mouseout', (event) => {
-            const previewChip = getHumanPreviewChipFromEventTarget(event.target);
-            if (!previewChip || previewChip.contains(event.relatedTarget)) return;
+            const sourceCard = getHumanSourceCardFromEventTarget(event.target);
+            if (!sourceCard || sourceCard.contains(event.relatedTarget)) return;
             clearHumanSourcePreview();
         });
 
