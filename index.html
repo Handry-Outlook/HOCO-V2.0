@@ -3194,7 +3194,7 @@
         // Fetch Data & Render Chart
         async function fetchAndRenderAccuracy() {
             try {
-                const statsRef = doc(db, "system_stats", "accuracy_latest");
+                const statsRef = doc(db, "system_stats", "accuracy_v2");
                 const docSnap = await getDoc(statsRef);
 
                 if (docSnap.exists()) {
