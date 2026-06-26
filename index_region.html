@@ -7255,6 +7255,9 @@
         // ==========================================
         // EXPORT TO PNG LOGIC
         // ==========================================
+        // ==========================================
+        // EXPORT TO PNG LOGIC
+        // ==========================================
         window.exportMapToPNG = async (mapIndex) => {
             const geojsonData = activeMapData[mapIndex];
             if (!geojsonData) {
@@ -7339,6 +7342,11 @@
                 const mainTitleText = isAuto ? 'AUTO-HOCO Forecast' : isHumanMimic ? 'HOCO Ensemble Forecast' : 'Manual HOCO Forecast';
                 const exportModeLabel = isAuto ? 'Auto guidance' : isHumanMimic ? 'Ensemble blend' : 'Manual blend';
 
+                // ── FIX HERE: Get active region dynamically from the dropdown select element ──
+                // (Change 'regionSelect' or 'region-select' to match the actual ID of your HTML select dropdown)
+                const regionDropdown = document.getElementById('regionSelect') || document.getElementById('region-select');
+                const currentRegionId = regionDropdown ? regionDropdown.value : ((geojsonData.features[0]?.properties?.region) || 'England');
+
                 // 1. Create Export Container
                 const exportContainer = document.createElement('div');
                 exportContainer.id = 'export-container-png';
@@ -7363,51 +7371,51 @@
                 // ── 3. Header ───────────────────────────────────────────────
                 const header = document.createElement('div');
                 header.style.cssText = `
-                    flex-shrink:0;
-                    background:linear-gradient(135deg,#162d5e 0%,#243e7a 50%,#1e3570 100%);
-                    color:#fff;padding:18px 32px 16px 32px;
-                    display:flex;align-items:center;justify-content:space-between;gap:20px;
-                    border-bottom:1px solid rgba(255,255,255,0.08);
-                `;
+            flex-shrink:0;
+            background:linear-gradient(135deg,#162d5e 0%,#243e7a 50%,#1e3570 100%);
+            color:#fff;padding:18px 32px 16px 32px;
+            display:flex;align-items:center;justify-content:space-between;gap:20px;
+            border-bottom:1px solid rgba(255,255,255,0.08);
+        `;
                 const strikeCount = activeLightningGeojson ? activeLightningGeojson.features.length : 0;
                 header.innerHTML = `
-                    <div style="display:flex;align-items:center;gap:16px;">
-                        <div style="width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">⚡</div>
-                        <div>
-                            <div style="font-size:10.5px;letter-spacing:0.22em;text-transform:uppercase;color:rgba(255,255,255,0.55);margin-bottom:3px;">Handry Outlook · ADV-HOCO Pro</div>
-                            <div style="font-size:26px;font-weight:800;line-height:1.0;letter-spacing:-0.02em;">${mainTitleText}</div>
-                        </div>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:12px;">
-                        ${strikeCount > 0 ? `<div style="padding:6px 14px;border-radius:999px;background:rgba(255,200,0,0.15);border:1px solid rgba(255,200,0,0.35);font-size:11.5px;font-weight:700;letter-spacing:0.06em;color:#ffd060;">⚡ ${strikeCount.toLocaleString()} strikes</div>` : ''}
-                        <div style="padding:6px 14px;border-radius:999px;background:${isAuto ? 'rgba(31,157,112,0.18)' : isHumanMimic ? 'rgba(192,63,165,0.18)' : 'rgba(212,93,93,0.18)'};border:1px solid ${isAuto ? 'rgba(31,157,112,0.45)' : isHumanMimic ? 'rgba(192,63,165,0.45)' : 'rgba(212,93,93,0.45)'};font-size:11.5px;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;color:${isAuto ? '#63e8be' : isHumanMimic ? '#f4a3e6' : '#ff9f9f'};">${exportModeLabel}</div>
-                    </div>
-                `;
+            <div style="display:flex;align-items:center;gap:16px;">
+                <div style="width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.12);border:1.5px solid rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">⚡</div>
+                <div>
+                    <div style="font-size:10.5px;letter-spacing:0.22em;text-transform:uppercase;color:rgba(255,255,255,0.55);margin-bottom:3px;">Handry Outlook · ADV-HOCO Pro</div>
+                    <div style="font-size:26px;font-weight:800;line-height:1.0;letter-spacing:-0.02em;">${mainTitleText}</div>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+                ${strikeCount > 0 ? `<div style="padding:6px 14px;border-radius:999px;background:rgba(255,200,0,0.15);border:1px solid rgba(255,200,0,0.35);font-size:11.5px;font-weight:700;letter-spacing:0.06em;color:#ffd060;">⚡ ${strikeCount.toLocaleString()} strikes</div>` : ''}
+                <div style="padding:6px 14px;border-radius:999px;background:${isAuto ? 'rgba(31,157,112,0.18)' : isHumanMimic ? 'rgba(192,63,165,0.18)' : 'rgba(212,93,93,0.18)'};border:1px solid ${isAuto ? 'rgba(31,157,112,0.45)' : isHumanMimic ? 'rgba(192,63,165,0.45)' : 'rgba(212,93,93,0.45)'};font-size:11.5px;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;color:${isAuto ? '#63e8be' : isHumanMimic ? '#f4a3e6' : '#ff9f9f'};">${exportModeLabel}</div>
+            </div>
+        `;
                 exportContainer.appendChild(header);
 
                 // ── 4. Meta strip ───────────────────────────────────────────
                 const metaStrip = document.createElement('div');
                 metaStrip.style.cssText = `
-                    flex-shrink:0;background:#ffffff;
-                    padding:9px 32px;display:flex;align-items:center;
-                    justify-content:space-between;gap:24px;
-                    border-bottom:1px solid rgba(102,139,207,0.18);
-                    font-size:12.5px;color:#35506c;
-                `;
+            flex-shrink:0;background:#ffffff;
+            padding:9px 32px;display:flex;align-items:center;
+            justify-content:space-between;gap:24px;
+            border-bottom:1px solid rgba(102,139,207,0.18);
+            font-size:12.5px;color:#35506c;
+        `;
                 metaStrip.innerHTML = `
-                    <div style="display:flex;gap:24px;">
-                        <span><strong style="color:#102238;">Valid:</strong> ${periodText}</span>
-                        <span><strong style="color:#102238;">Issued:</strong> ${issueText}</span>
-                        <span><strong style="color:#102238;">Creator:</strong> ${creatorId}</span>
-                    </div>
-                    <div style="display:flex;gap:16px;align-items:center;">
-                        <span style="display:flex;align-items:center;gap:5px;">
-                            <span style="width:12px;height:12px;border-radius:50%;background:${maxRisk >= 80 ? '#b81eda' : maxRisk >= 60 ? '#ec1c24' : maxRisk >= 40 ? '#ff7f27' : maxRisk >= 20 ? '#fff200' : '#66c2a4'};display:inline-block;border:1px solid rgba(0,0,0,0.15);"></span>
-                            <strong style="color:#102238;">Peak: ${maxRisk < 5 ? '<5%' : maxRisk + '%'}</strong>
-                        </span>
-                        <span style="color:#9aabb8;">Region: ${(geojsonData.features[0]?.properties?.region) || 'England'}</span>
-                    </div>
-                `;
+            <div style="display:flex;gap:24px;">
+                <span><strong style="color:#102238;">Valid:</strong> ${periodText}</span>
+                <span><strong style="color:#102238;">Issued:</strong> ${issueText}</span>
+                <span><strong style="color:#102238;">Creator:</strong> ${creatorId}</span>
+            </div>
+            <div style="display:flex;gap:16px;align-items:center;">
+                <span style="display:flex;align-items:center;gap:5px;">
+                    <span style="width:12px;height:12px;border-radius:50%;background:${maxRisk >= 80 ? '#b81eda' : maxRisk >= 60 ? '#ec1c24' : maxRisk >= 40 ? '#ff7f27' : maxRisk >= 20 ? '#fff200' : '#66c2a4'};display:inline-block;border:1px solid rgba(0,0,0,0.15);"></span>
+                    <strong style="color:#102238;">Peak: ${maxRisk < 5 ? '<5%' : maxRisk + '%'}</strong>
+                </span>
+                <span style="color:#9aabb8;">Region: ${currentRegionId}</span>
+            </div>
+        `;
                 exportContainer.appendChild(metaStrip);
 
                 // ── 5. Manual warning ───────────────────────────────────────
@@ -7418,36 +7426,46 @@
                     exportContainer.appendChild(warningDiv);
                 }
 
+                // ── FIX HERE: Moved bounds logic down since currentRegionId is now at the top ──
+                const regionObj = typeof EUROPE_REGIONS !== 'undefined'
+                    ? EUROPE_REGIONS.find(r => r.id === currentRegionId)
+                    : null;
+
+                // Default to your current wide bounds if region isn't found
+                const exportBounds = regionObj
+                    ? [[regionObj.west, regionObj.south], [regionObj.east, regionObj.north]]
+                    : [[-10.234, 48.788], [5.471, 56.578]];
+
                 // ── 6. Map ──────────────────────────────────────────────────
                 const mapDiv = document.createElement('div');
                 mapDiv.id = 'export-map-div';
                 mapDiv.style.cssText = `
-                    flex-grow:1;position:relative;
-                    margin:12px 32px 0 32px;
-                    border-radius:16px;overflow:hidden;
-                    border:1px solid rgba(102,139,207,0.22);
-                    box-shadow:0 8px 32px rgba(40,68,120,0.14);
-                `;
+            flex-grow:1;position:relative;
+            margin:12px 32px 0 32px;
+            border-radius:16px;overflow:hidden;
+            border:1px solid rgba(102,139,207,0.22);
+            box-shadow:0 8px 32px rgba(40,68,120,0.14);
+        `;
                 exportContainer.appendChild(mapDiv);
 
                 // Map overlays
                 // — risk pill (top-left)
                 const riskPill = document.createElement('div');
                 riskPill.style.cssText = `position:absolute;top:14px;left:14px;z-index:10;
-                    padding:9px 14px;border-radius:14px;background:rgba(255,255,255,0.93);
-                    border:1px solid rgba(102,139,207,0.28);box-shadow:0 4px 14px rgba(0,0,0,0.1);
-                    font-size:13px;font-weight:700;color:#102238;line-height:1.4;max-width:320px;`;
+            padding:9px 14px;border-radius:14px;background:rgba(255,255,255,0.93);
+            border:1px solid rgba(102,139,207,0.28);box-shadow:0 4px 14px rgba(0,0,0,0.1);
+            font-size:13px;font-weight:700;color:#102238;line-height:1.4;max-width:320px;`;
                 riskPill.innerText = maxRiskString;
                 mapDiv.appendChild(riskPill);
 
                 // — mode badge (top-right)
                 const modeBadge = document.createElement('div');
                 modeBadge.style.cssText = `position:absolute;top:14px;right:14px;z-index:10;
-                    padding:8px 14px;border-radius:999px;
-                    background:${isAuto ? 'rgba(232,248,242,0.95)' : isHumanMimic ? 'rgba(251,235,247,0.95)' : 'rgba(253,237,237,0.95)'};
-                    border:1.5px solid ${isAuto ? '#1f9d70' : isHumanMimic ? '#c03fa5' : '#d45d5d'};
-                    color:${isAuto ? '#0f6e4a' : isHumanMimic ? '#9a2f82' : '#b03030'};
-                    font-size:11px;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;`;
+            padding:8px 14px;border-radius:999px;
+            background:${isAuto ? 'rgba(232,248,242,0.95)' : isHumanMimic ? 'rgba(251,235,247,0.95)' : 'rgba(253,237,237,0.95)'};
+            border:1.5px solid ${isAuto ? '#1f9d70' : isHumanMimic ? '#c03fa5' : '#d45d5d'};
+            color:${isAuto ? '#0f6e4a' : isHumanMimic ? '#9a2f82' : '#b03030'};
+            font-size:11px;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;`;
                 modeBadge.innerText = isAuto ? 'AUTO-HOCO' : isHumanMimic ? 'HOCO ENSEMBLE' : 'MANUAL-HOCO';
                 mapDiv.appendChild(modeBadge);
 
@@ -7461,57 +7479,55 @@
                 // — URL watermark (bottom-right)
                 const urlTag = document.createElement('div');
                 urlTag.style.cssText = `position:absolute;bottom:14px;right:14px;z-index:10;
-                    padding:6px 12px;border-radius:10px;
-                    background:rgba(255,255,255,0.88);border:1px solid rgba(102,139,207,0.25);
-                    font-size:10.5px;font-weight:700;color:#35506c;letter-spacing:0.04em;`;
+            padding:6px 12px;border-radius:10px;
+            background:rgba(255,255,255,0.88);border:1px solid rgba(102,139,207,0.25);
+            font-size:10.5px;font-weight:700;color:#35506c;letter-spacing:0.04em;`;
                 urlTag.innerText = 'https://handry-outlook.github.io/HOCO-V2.0/index.html';
                 mapDiv.appendChild(urlTag);
 
                 // ── 7. Footer legend ────────────────────────────────────────
                 const footer = document.createElement('div');
                 footer.style.cssText = `
-                    flex-shrink:0;background:#ffffff;
-                    padding:12px 32px 14px 32px;box-sizing:border-box;
-                    border-top:1px solid rgba(102,139,207,0.18);
-                    display:flex;gap:32px;align-items:flex-start;
-                `;
+            flex-shrink:0;background:#ffffff;
+            padding:12px 32px 14px 32px;box-sizing:border-box;
+            border-top:1px solid rgba(102,139,207,0.18);
+            display:flex;gap:32px;align-items:flex-start;
+        `;
 
                 // Convective risk gradient legend
                 footer.innerHTML = `
-                    <div style="flex:2;min-width:0;">
-                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                            <span style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;color:#35506c;">Convective Risk Probability</span>
-                            <span style="font-size:10px;color:#9aabb8;">Thunderstorm probability (%)</span>
-                        </div>
-                        <div style="position:relative;width:100%;height:20px;background:linear-gradient(to right,rgba(255,255,255,0) 0%,rgba(102,194,164,1) 20%,rgba(255,242,0,1) 40%,rgba(255,127,39,1) 60%,rgba(236,28,36,1) 80%,rgba(184,61,218,1) 100%);border:1px solid rgba(102,139,207,0.25);border-radius:999px;"></div>
-                        <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;font-weight:700;color:#5d7088;">
-                            <span>0%</span><span>20%</span><span>40%</span><span>60%</span><span>80%</span><span>100%</span>
-                        </div>
-                    </div>
-                    ${strikeCount > 0 ? `
-                    <div style="flex:1.2;min-width:0;border-left:1px solid rgba(102,139,207,0.18);padding-left:24px;">
-                        <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;color:#35506c;margin-bottom:6px;">⚡ Strike Age</div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 14px;font-size:10.5px;">
-                            <span style="color:#ff0000;font-weight:700;">+ Newest (&lt;5%)</span>
-                            <span style="color:#ffd700;font-weight:700;">+ Recent (5–20%)</span>
-                            <span style="color:#ff69b4;font-weight:700;">+ Moderate (20–40%)</span>
-                            <span style="color:#ff00ff;font-weight:700;">+ Older (40–60%)</span>
-                            <span style="color:#800080;font-weight:700;">+ Old (60–80%)</span>
-                            <span style="color:#4b0082;font-weight:700;">+ Oldest (&gt;80%)</span>
-                        </div>
-                        <div style="font-size:9.5px;color:#9aabb8;margin-top:4px;">Age = % of forecast period elapsed at strike time</div>
-                    </div>` : ''}
-                `;
+            <div style="flex:2;min-width:0;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                    <span style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;color:#35506c;">Convective Risk Probability</span>
+                    <span style="font-size:10px;color:#9aabb8;">Thunderstorm probability (%)</span>
+                </div>
+                <div style="position:relative;width:100%;height:20px;background:linear-gradient(to right,rgba(255,255,255,0) 0%,rgba(102,194,164,1) 20%,rgba(255,242,0,1) 40%,rgba(255,127,39,1) 60%,rgba(236,28,36,1) 80%,rgba(184,61,218,1) 100%);border:1px solid rgba(102,139,207,0.25);border-radius:999px;"></div>
+                <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:10px;font-weight:700;color:#5d7088;">
+                    <span>0%</span><span>20%</span><span>40%</span><span>60%</span><span>80%</span><span>100%</span>
+                </div>
+            </div>
+            ${strikeCount > 0 ? `
+            <div style="flex:1.2;min-width:0;border-left:1px solid rgba(102,139,207,0.18);padding-left:24px;">
+                <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.12em;color:#35506c;margin-bottom:6px;">⚡ Strike Age</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 14px;font-size:10.5px;">
+                    <span style="color:#ff0000;font-weight:700;">+ Newest (&lt;5%)</span>
+                    <span style="color:#ffd700;font-weight:700;">+ Recent (5–20%)</span>
+                    <span style="color:#ff69b4;font-weight:700;">+ Moderate (20–40%)</span>
+                    <span style="color:#ff00ff;font-weight:700;">+ Older (40–60%)</span>
+                    <span style="color:#800080;font-weight:700;">+ Old (60–80%)</span>
+                    <span style="color:#4b0082;font-weight:700;">+ Oldest (&gt;80%)</span>
+                </div>
+                <div style="font-size:9.5px;color:#9aabb8;margin-top:4px;">Age = % of forecast period elapsed at strike time</div>
+            </div>` : ''}
+        `;
                 exportContainer.appendChild(footer);
 
-                // 7. Initialize Mapbox Map (Enforced Light Style for standard visibility)
+                // 7. Initialize Mapbox Map
                 const exportMap = new mapboxgl.Map({
                     container: 'export-map-div',
                     style: 'mapbox://styles/mapbox/light-v11',
-                    bounds: [
-                        [-10.234, 48.788],
-                        [5.471, 56.578]
-                    ],
+                    bounds: exportBounds,
+                    fitBoundsOptions: { padding: 40 },
                     preserveDrawingBuffer: true,
                     interactive: false,
                     pitch: 0
@@ -7602,7 +7618,7 @@
                     });
                 });
 
-                // 8. Capture to Canvas (Ensuring light background)
+                // 8. Capture to Canvas
                 const canvas = await html2canvas(exportContainer, {
                     useCORS: true,
                     allowTaint: true,
