@@ -3702,6 +3702,7 @@
         let humanMimicPeriodKey = '';
         let humanMimicSelectedRunIds = new Set();
         let humanMimicSelectionSeedKey = '';
+        let currentActiveRegion = null; // Currently viewed/selected region (e.g. 'England', 'Germany'); null = region picker view
         let humanPreviewState = { runId: '', mapIndex: null, token: 0 };
         let pendingRunTimers = {};      // { mapIndex: { runId, createdAtMs, estSeconds, intervalId, timeoutId, ... } }
         let progressIntervals = {};
@@ -4077,6 +4078,7 @@
             return getVisibleRuns()
                 .filter((run) => run?.status !== 'pending')
                 .filter((run) => run?.type === 'automated')
+                .filter((run) => !currentActiveRegion || regionMatchesRun(currentActiveRegion, run))
                 .filter((run) => !!(run?.geojsonUrl || run?.inlineGeojson || run?.inlineGeojsonText || run?.geojson || run?.ensembleGeojson))
                 .filter((run) => !!run?.startTime)
                 .filter((run) => {
@@ -5042,7 +5044,7 @@
 
                 status.textContent = 'Saving the generated ensemble to database and loading it into the selected map.';
                 const payload = {
-                    region: activeGroup.run.region || 'UK',
+                    region: currentActiveRegion || activeGroup.run.region || 'UK',
                     startTime: formatHocoDateTime(activeGroup.periodInfo.start),
                     endTime: formatHocoDateTime(activeGroup.periodInfo.end),
                     weather: 'lightning',
@@ -5629,7 +5631,6 @@
         mapboxgl.accessToken = 'pk.eyJ1IjoiaGFuZHJ5MjAxOTEwMjYiLCJhIjoiY21jYWg2eG1lMDNkYTJxczVyOWM5bW9mciJ9.bA-qxiByTB_RseY1fgU4rg';
 
         let europeMap = null;
-        let currentActiveRegion = null;
 
         // European forecast regions shown on the overview map.
         // Only regions marked active can be selected and receive live HOCO previews.
@@ -5997,6 +5998,7 @@
             // Ensure Mapbox resizes correctly when unhidden
             if (europeMap) europeMap.resize();
             currentActiveRegion = null;
+            renderHumanMimicPanel();
             debouncedEuropePreviewUpdate();
         }
 
@@ -6049,6 +6051,7 @@
             showToast(`Region locked to ${regionId}`, "success");
 
             renderAutoTimeline();
+            renderHumanMimicPanel();
             debouncedAutoLoad();
         }
 
