@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Map & Margin Calibrator</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; }
+        #ui { padding: 10px; background: #eee; display: flex; gap: 15px; align-items: center; }
+        #map { flex: 1; }
+        #coords { padding: 15px; background: #222; color: #fff; font-family: monospace; }
+        .highlight { color: #0f0; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <input type="file" id="upload" accept="image/*" />
+    <label>Opacity: <input type="range" id="opacity" min="0" max="1" step="0.1" value="0.7" /></label>
+</div>
+<div id="map"></div>
+<div id="coords">Upload an image. Drag the <b>black</b> handles to position the image, and the <b>blue</b> handles to set the internal map boundaries.</div>
+
+<script>
+    const map = L.map('map').setView([51.5, -0.1], 10);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    let imgOverlay, markers = {};
+
+    document.getElementById('upload').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            if (imgOverlay) { map.removeLayer(imgOverlay); Object.values(markers).forEach(m => map.removeLayer(m)); }
+
+            const bounds = map.getBounds().pad(-0.2);
+            imgOverlay = L.imageOverlay(event.target.result, bounds, { opacity: 0.7 }).addTo(map);
+
+            // Black markers = Image Bounds (Margins)
+            // Blue markers = Map Area
+            markers = {
+                imgNW: L.marker(bounds.getNorthWest(), { draggable: true }).addTo(map),
+                imgSE: L.marker(bounds.getSouthEast(), { draggable: true }).addTo(map),
+                mapNW: L.marker(bounds.getNorthWest(), { draggable: true, icon: L.divIcon({className: 'blue-marker', html: '<div style="background:blue; width:12px; height:12px; border-radius:50%"></div>'}) }).addTo(map),
+                mapSE: L.marker(bounds.getSouthEast(), { draggable: true, icon: L.divIcon({className: 'blue-marker', html: '<div style="background:blue; width:12px; height:12px; border-radius:50%"></div>'}) }).addTo(map)
+            };
+
+            Object.values(markers).forEach(m => m.on('drag', updateDisplay));
+            updateDisplay();
+        };
+        reader.readAsDataURL(file);
+    });
+
+    document.getElementById('opacity').addEventListener('input', (e) => imgOverlay.setOpacity(e.target.value));
+
+    function updateDisplay() {
+        const imgB = L.latLngBounds(markers.imgNW.getLatLng(), markers.imgSE.getLatLng());
+        const mapB = L.latLngBounds(markers.mapNW.getLatLng(), markers.mapSE.getLatLng());
+        imgOverlay.setBounds(imgB);
+        
+        document.getElementById('coords').innerHTML = `
+            <b>PNG Image Bounds:</b> NW[${imgB.getNorthWest().lat.toFixed(4)}, ${imgB.getNorthWest().lng.toFixed(4)}] | SE[${imgB.getSouthEast().lat.toFixed(4)}, ${imgB.getSouthEast().lng.toFixed(4)}]<br>
+            <span class="highlight"><b>Inner Map Area:</b> NW[${mapB.getNorthWest().lat.toFixed(4)}, ${mapB.getNorthWest().lng.toFixed(4)}] | SE[${mapB.getSouthEast().lat.toFixed(4)}, ${mapB.getSouthEast().lng.toFixed(4)}]</span>
+        `;
+    }
+</script>
+</body>
+</html>
