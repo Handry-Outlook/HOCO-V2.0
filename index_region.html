@@ -2842,7 +2842,7 @@
     </div>
 
     <button id="backToRegionsBtn" class="btn-outline"
-        style="position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 100; display: none; width: auto; padding: 8px 16px; background: rgba(255,255,255,0.9); font-weight: bold; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+        style="position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 100; display: none; width: auto; padding: 8px 16px; background: rgba(255,255,255,0.9); color: #333; font-weight: bold; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
         ⬅ Back to Europe View
     </button>
     <div id="map-wrapper" class="grid-1">
@@ -5860,7 +5860,9 @@
 
             const dayOffset = Number(document.getElementById('autoDaySlider')?.value ?? autoDaySelection ?? 0);
             const selectedIndex = autoRunSelectionByDay[dayOffset];
-            let previewLoaded = false;
+
+            // 1. Create an empty array to collect features from ALL active regions
+            let combinedFeatures = [];
 
             for (const feature of activeRegions) {
                 const regionId = feature.properties.id;
@@ -5873,18 +5875,35 @@
                 if (runData.status === 'pending' || !hasGeojson) continue;
 
                 try {
+                    // Fetch the GeoJSON for this specific region
                     const geojsonData = await fetchRunGeojsonData(run.id, runData);
-                    renderEuropeHocoPreview(geojsonData);
-                    previewLoaded = true;
-                    break;
+
+                    // 2. Extract the features and push them into our combined array
+                    if (geojsonData && geojsonData.type === 'FeatureCollection' && geojsonData.features) {
+                        combinedFeatures.push(...geojsonData.features);
+                    } else if (geojsonData && geojsonData.type === 'Feature') {
+                        combinedFeatures.push(geojsonData);
+                    }
                 } catch (error) {
                     console.warn('Europe preview load failed for', regionId, error);
                 }
+            } // End of loop - NO break statement here!
+
+            // 3. Render ONCE after the loop finishes
+            if (combinedFeatures.length > 0) {
+                // Construct a single combined FeatureCollection
+                const combinedGeoJSON = {
+                    type: 'FeatureCollection',
+                    features: combinedFeatures
+                };
+
+                // Pass the massive, combined dataset to your existing render function
+                renderEuropeHocoPreview(combinedGeoJSON);
+            } else {
+                // If we looped through everything but found no valid features, clear the map
+                clearEuropeHocoLayers();
             }
-
-            if (!previewLoaded) clearEuropeHocoLayers();
         }
-
         let europePreviewDebounceTimer;
         function debouncedEuropePreviewUpdate() {
             clearTimeout(europePreviewDebounceTimer);
@@ -5899,7 +5918,7 @@
                 maps[i] = new mapboxgl.Map({
                     container: `map${i}`,
                     // Ensure this URL is exactly correct from your Mapbox Studio account
-                    style: 'mapbox://styles/handry20191026/cmns2lucg001401s898cuaxjt',
+                    style: 'mapbox://styles/handry20191026/cmqv7f1q8001q01scbv5x4kuk',
                     center: [-1.5, 52.5],
                     zoom: 5.5,
                     projection: 'mercator',
