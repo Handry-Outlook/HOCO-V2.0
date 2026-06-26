@@ -3935,7 +3935,9 @@
             autoDaySelection = Number(daySlider.value || autoDaySelection || 0);
 
             const targetDate = addDays(getCalendarAnchorDate(), autoDaySelection);
-            const runs = getAutoRunsForDay(autoDaySelection);
+            const runs = currentActiveRegion
+                ? getAutoRunsForRegionDay(currentActiveRegion, autoDaySelection)
+                : getAutoRunsForDay(autoDaySelection);
             const autoDayLabel = document.getElementById('autoDayLabel');
             const autoDaySubtitle = document.getElementById('autoDaySubtitle');
             const autoDayCount = document.getElementById('autoDayCount');
@@ -5633,28 +5635,12 @@
         // Only regions marked active can be selected and receive live HOCO previews.
         const EUROPE_REGIONS = [
             { id: 'England', name: 'England', status: 'active', west: -10.234, south: 48.788, east: 5.471, north: 56.578 },
-            { id: 'Scotland', name: 'Scotland', status: 'active', west: -9.4482, south: 55.9161, east: 0, north: 60 },
-            { id: 'France', name: 'France (Coming Soon)', status: 'inactive', west: -5.0, south: 42.0, east: 8.0, north: 51.0 },
-            { id: 'Spain', name: 'Spain (Coming Soon)', status: 'inactive', west: -9.5, south: 36.0, east: 4.5, north: 43.8 },
-            { id: 'Portugal', name: 'Portugal (Coming Soon)', status: 'inactive', west: -9.6, south: 36.9, east: -6.2, north: 42.2 },
-            { id: 'Italy', name: 'Italy (Coming Soon)', status: 'inactive', west: 6.6, south: 36.6, east: 18.5, north: 47.1 },
-            { id: 'Greece', name: 'Greece (Coming Soon)', status: 'inactive', west: 19.4, south: 34.8, east: 29.6, north: 41.8 },
-            { id: 'Germany', name: 'Germany', status: 'active', west: 0.9558, south: 46.9809, east: 16.9409, north: 55.8567 },
-            { id: 'Netherlands', name: 'Netherlands (Coming Soon)', status: 'inactive', west: 3.3, south: 50.7, east: 7.2, north: 53.6 },
-            { id: 'Belgium', name: 'Belgium (Coming Soon)', status: 'inactive', west: 2.5, south: 49.5, east: 6.4, north: 51.5 },
-            { id: 'Denmark', name: 'Denmark', status: 'active', west: 8.0, south: 54.5, east: 12.7, north: 57.8 },
-            { id: 'Norway', name: 'Norway (Coming Soon)', status: 'inactive', west: 4.5, south: 58.0, east: 31.0, north: 71.2 },
-            { id: 'Sweden', name: 'Sweden (Coming Soon)', status: 'inactive', west: 11.0, south: 55.3, east: 24.2, north: 69.1 },
-            { id: 'Finland', name: 'Finland (Coming Soon)', status: 'inactive', west: 20.5, south: 59.8, east: 31.6, north: 70.1 },
-            { id: 'Poland', name: 'Poland', status: 'active', west: 11.7142, south: 47.9787, east: 27.1252, north: 55.4243 },
-            { id: 'Czechia', name: 'Czechia (Coming Soon)', status: 'inactive', west: 12.1, south: 48.5, east: 18.9, north: 51.1 },
-            { id: 'Austria', name: 'Austria (Coming Soon)', status: 'inactive', west: 9.5, south: 46.4, east: 17.2, north: 49.0 },
-            { id: 'Switzerland', name: 'Switzerland (Coming Soon)', status: 'inactive', west: 5.9, south: 45.8, east: 10.5, north: 47.8 },
-            { id: 'Hungary', name: 'Hungary (Coming Soon)', status: 'inactive', west: 16.1, south: 45.7, east: 22.9, north: 48.6 },
-            { id: 'Romania', name: 'Romania (Coming Soon)', status: 'inactive', west: 20.2, south: 43.6, east: 29.7, north: 48.3 },
-            { id: 'Bulgaria', name: 'Bulgaria (Coming Soon)', status: 'inactive', west: 22.4, south: 41.2, east: 28.6, north: 44.2 },
-            { id: 'Croatia', name: 'Croatia (Coming Soon)', status: 'inactive', west: 13.5, south: 42.4, east: 19.4, north: 46.6 },
-            { id: 'Baltics', name: 'Baltics (Coming Soon)', status: 'inactive', west: 20.9, south: 53.9, east: 28.2, north: 59.7 }
+            { id: 'Scotland', name: 'Scotland (Beta)', status: 'active', west: -9.4482, south: 55.9161, east: 0, north: 60 },
+            { id: 'France', name: 'Coming Soon', status: 'inactive', west: -5.0, south: 42.0, east: 8.0, north: 51.0 },
+            { id: 'Spain', name: 'Coming Soon', status: 'inactive', west: -9.5, south: 36.0, east: 4.5, north: 43.8 },
+            { id: 'Germany', name: 'Germany (Beta)', status: 'active', west: 0.9558, south: 46.9809, east: 16.9409, north: 55.8567 },
+            { id: 'Poland', name: 'Poland (Beta)', status: 'active', west: 11.7142, south: 47.9787, east: 27.1252, north: 55.4243 },
+
         ];
 
         function regionBoundsToPolygon(region) {
@@ -6061,6 +6047,9 @@
             }
 
             showToast(`Region locked to ${regionId}`, "success");
+
+            renderAutoTimeline();
+            debouncedAutoLoad();
         }
 
         // Hook up the Back Button
@@ -6282,7 +6271,9 @@
         }
 
         async function autoLoadSelectedRun() {
-            const runs = getAutoRunsForDay(autoDaySelection);
+            const runs = currentActiveRegion
+                ? getAutoRunsForRegionDay(currentActiveRegion, autoDaySelection)
+                : getAutoRunsForDay(autoDaySelection);
             const selectedIndex = autoRunSelectionByDay[autoDaySelection];
             const run = Number.isInteger(selectedIndex) ? runs[selectedIndex] : runs[runs.length - 1];
 
