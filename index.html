@@ -66,8 +66,8 @@
             position: fixed;
             inset: 0;
             background: radial-gradient(circle at top left, rgba(47, 103, 228, 0.14), transparent 36%),
-                        radial-gradient(circle at bottom right, rgba(31, 157, 112, 0.10), transparent 30%),
-                        linear-gradient(180deg, #f0f6ff 0%, #e4eefb 100%);
+                radial-gradient(circle at bottom right, rgba(31, 157, 112, 0.10), transparent 30%),
+                linear-gradient(180deg, #f0f6ff 0%, #e4eefb 100%);
             z-index: 5000;
             display: flex;
             flex-direction: column;
@@ -952,7 +952,8 @@
             background: #4e82ef;
             border: 2px solid rgba(255, 255, 255, 0.9);
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-            margin-top: -6px; /* centres thumb on track */
+            margin-top: -6px;
+            /* centres thumb on track */
             cursor: pointer;
         }
 
@@ -977,13 +978,11 @@
 
         /* Progress fill (portion left of thumb) — WebKit */
         .map-auto-timeline-shell input[type="range"]::-webkit-slider-runnable-track {
-            background: linear-gradient(
-                to right,
-                rgba(78, 130, 239, 0.85) 0%,
-                rgba(78, 130, 239, 0.85) var(--track-fill, 0%),
-                rgba(255, 255, 255, 0.18) var(--track-fill, 0%),
-                rgba(255, 255, 255, 0.18) 100%
-            );
+            background: linear-gradient(to right,
+                    rgba(78, 130, 239, 0.85) 0%,
+                    rgba(78, 130, 239, 0.85) var(--track-fill, 0%),
+                    rgba(255, 255, 255, 0.18) var(--track-fill, 0%),
+                    rgba(255, 255, 255, 0.18) 100%);
         }
 
         .auto-slider-block input[type="range"]:focus {
@@ -2025,7 +2024,8 @@
     <div id="landingPage">
         <div class="landing-container">
             <h1 style="color: #102238; margin-bottom: 5px; font-size: 2.8rem;">HOCO 2.0</h1>
-            <p style="color: #2f67e4; font-weight: bold; margin-bottom: 15px; font-size: 1.1rem;">Meteorological Ensemble
+            <p style="color: #2f67e4; font-weight: bold; margin-bottom: 15px; font-size: 1.1rem;">Meteorological
+                Ensemble
                 Engine By Handry Outlook</p>
 
             <p class="intro-text">
@@ -2077,9 +2077,11 @@
 
             <div style="display: flex; gap: 15px; justify-content: center; margin-top: 20px;">
                 <button onclick="showAuth('login')" style="width: 150px;">Sign In</button>
-                <button onclick="showAuth('register')" class="btn-outline" style="width: 150px; color: #2f67e4; border-color: #2f67e4;">Register</button>
+                <button onclick="showAuth('register')" class="btn-outline"
+                    style="width: 150px; color: #2f67e4; border-color: #2f67e4;">Register</button>
                 <button onclick="document.getElementById('tutorialModal').style.display='flex'"
-                    style="width: 150px; background: #4c617d; border: 1px solid #35506c; color: #ffffff;">Quick Tutorial</button>
+                    style="width: 150px; background: #4c617d; border: 1px solid #35506c; color: #ffffff;">Quick
+                    Tutorial</button>
             </div>
         </div>
     </div>
@@ -2110,8 +2112,8 @@
             <input type="email" id="emailIn" placeholder="Email Address" required>
             <input type="password" id="passIn" placeholder="Password" required>
             <button id="authSubmitBtn">Submit</button>
-            <button onclick="document.getElementById('authOverlay').style.display='none'" class="btn-outline auth-cancel-btn"
-                style="margin-top: 10px;">Cancel</button>
+            <button onclick="document.getElementById('authOverlay').style.display='none'"
+                class="btn-outline auth-cancel-btn" style="margin-top: 10px;">Cancel</button>
             <p id="authError" style="color:var(--danger); font-size:0.8rem; margin-top:15px; min-height: 16px;"></p>
         </div>
     </div>
@@ -2126,7 +2128,8 @@
                         manual runs when you need a deeper comparison.</p>
                     <span id="roleBadge" class="role-badge">...</span>
                 </div>
-                <button id="showAccuracyBtn" class="btn-outline secondary-action" style="color: #2f67e4; border-color: rgba(47,103,228,0.5);">
+                <button id="showAccuracyBtn" class="btn-outline secondary-action"
+                    style="color: #2f67e4; border-color: rgba(47,103,228,0.5);">
                     📊 View AUTO-HOCO Accuracy
                 </button>
                 <div id="workspacePanel" class="panel dashboard-panel workspace-panel collapsible-panel">
@@ -2147,7 +2150,7 @@
                             <option value="4">Quad Map Comparison</option>
                         </select>
 
-                       
+
 
                         <select id="mapStyleSelect">
                             <option value="mapbox://styles/handry20191026/cmns2lucg001401s898cuaxjt">Style: Default
@@ -2264,13 +2267,13 @@
                     </div>
                 </div>
 
-                    <div class="panel dashboard-panel browse-dashboard">
-                        <div class="panel-heading">
-                            <div>
-                                <div class="panel-kicker">Run Browser</div>
+                <div class="panel dashboard-panel browse-dashboard">
+                    <div class="panel-heading">
+                        <div>
+                            <div class="panel-kicker">Run Browser</div>
                             <h3 class="panel-title">Other HOCO, Ensemble and manual runs</h3>
-                            </div>
                         </div>
+                    </div>
 
                     <div id="runBrowserFilters" class="filter-tabs">
                         <button type="button" class="filter-tab is-active" data-filter="all">All visible</button>
@@ -2317,7 +2320,9 @@
                             <span class="status-chip subtle">Ensemble</span>
                         </div>
 
-                        <p class="helper-text" style="margin-top: 0;">Blend previously issued AUTO-HOCO runs for the same valid-day window ending the next day at 05:59, smooth the field into cleaner hand-drawn style polygons, then save the ensemble back into database as a loadable run.</p>
+                        <p class="helper-text" style="margin-top: 0;">Blend previously issued AUTO-HOCO runs for the
+                            same valid-day window ending the next day at 05:59, smooth the field into cleaner hand-drawn
+                            style polygons, then save the ensemble back into database as a loadable run.</p>
 
                         <div class="control-grid">
                             <div class="field-shell">
@@ -2336,20 +2341,31 @@
                             </div>
                         </div>
 
-                        <div id="humanSelectionSummary" class="helper-text" style="margin-top: 10px;">Scanning valid periods...</div>
-                        <div class="helper-text" style="margin-top: 8px;">All AUTO-HOCO runs in the selected valid period start selected. Noise filtering and earlier-issuance comparison are always applied.</div>
+                        <div id="humanSelectionSummary" class="helper-text" style="margin-top: 10px;">Scanning valid
+                            periods...</div>
+                        <div class="helper-text" style="margin-top: 8px;">All AUTO-HOCO runs in the selected valid
+                            period start selected. Noise filtering and earlier-issuance comparison are always applied.
+                        </div>
                         <div id="humanSourceList" class="human-source-list"></div>
 
                         <div class="risk-band-row">
-                            <span class="risk-band-pill"><span class="risk-band-swatch" style="background:#5bbf5f;"></span>Low &lt; 20%</span>
-                            <span class="risk-band-pill"><span class="risk-band-swatch" style="background:#f2c94c;"></span>Slight &lt; 40%</span>
-                            <span class="risk-band-pill"><span class="risk-band-swatch" style="background:#f2994a;"></span>Enhanced &lt; 60%</span>
-                            <span class="risk-band-pill"><span class="risk-band-swatch" style="background:#eb5757;"></span>Moderate &lt; 75%</span>
-                            <span class="risk-band-pill"><span class="risk-band-swatch" style="background:#c03fa5;"></span>High 75%+</span>
+                            <span class="risk-band-pill"><span class="risk-band-swatch"
+                                    style="background:#5bbf5f;"></span>Low &lt; 20%</span>
+                            <span class="risk-band-pill"><span class="risk-band-swatch"
+                                    style="background:#f2c94c;"></span>Slight &lt; 40%</span>
+                            <span class="risk-band-pill"><span class="risk-band-swatch"
+                                    style="background:#f2994a;"></span>Enhanced &lt; 60%</span>
+                            <span class="risk-band-pill"><span class="risk-band-swatch"
+                                    style="background:#eb5757;"></span>Moderate &lt; 75%</span>
+                            <span class="risk-band-pill"><span class="risk-band-swatch"
+                                    style="background:#c03fa5;"></span>High 75%+</span>
                         </div>
 
-                        <button type="button" id="humanMimicBtn" style="margin-top: 14px; background: linear-gradient(135deg, #1f9d70, #216ba5);">Build HOCO Ensemble</button>
-                        <div id="humanMimicStatus" class="helper-text" style="margin-top: 10px;">Select a valid period to build the ensemble source list.</div>
+                        <button type="button" id="humanMimicBtn"
+                            style="margin-top: 14px; background: linear-gradient(135deg, #1f9d70, #216ba5);">Build HOCO
+                            Ensemble</button>
+                        <div id="humanMimicStatus" class="helper-text" style="margin-top: 10px;">Select a valid period
+                            to build the ensemble source list.</div>
                     </div>
 
                     <form id="hocoForm" class="panel dashboard-panel execution-panel"
@@ -2381,9 +2397,7 @@
                         </div>
 
                         <label>Region</label>
-                        <select id="regionSelect">
-                            <option value="England">England (South/Central)</option>
-                        </select>
+                        <select id="regionSelect"></select>
 
                         <div style="display: flex; gap: 10px; flex-wrap: nowrap;">
                             <div style="flex: 1; min-width: 0;"> <label>Start Time</label>
@@ -2396,13 +2410,17 @@
                         </div>
                         <div
                             style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 5px; margin-bottom: 10px;">
-                            <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem; color: #2f67e4;"
+                            <button type="button" class="btn-outline"
+                                style="padding: 5px; font-size: 0.7rem; color: #2f67e4;"
                                 onclick="setTimeRange(3)">+3h</button>
-                            <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem; color: #2f67e4;"
+                            <button type="button" class="btn-outline"
+                                style="padding: 5px; font-size: 0.7rem; color: #2f67e4;"
                                 onclick="setTimeRange(6)">+6h</button>
-                            <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem; color: #2f67e4;"
+                            <button type="button" class="btn-outline"
+                                style="padding: 5px; font-size: 0.7rem; color: #2f67e4;"
                                 onclick="setTimeRange(12)">+12h</button>
-                            <button type="button" class="btn-outline" style="padding: 5px; font-size: 0.7rem; color: #2f67e4;"
+                            <button type="button" class="btn-outline"
+                                style="padding: 5px; font-size: 0.7rem; color: #2f67e4;"
                                 onclick="setTimeRange(24)">+24h</button>
                         </div>
                         <label>Hazards</label>
@@ -2813,6 +2831,20 @@
             </div>
         </div>
     </div>
+    <div id="regionSelectionView" style="display: none; flex-grow: 1; position: relative;">
+        <div id="europeMap" style="position: absolute; inset: 0;"></div>
+
+        <div class="map-metadata" style="top: 20px; left: 20px; max-width: 300px;">
+            <h3 style="margin: 0 0 10px 0; color: var(--primary); font-size: 1.1rem;">Select Forecast Region</h3>
+            <p style="font-size: 0.75rem; color: #5d7088; margin-bottom: 0;">Click an active bounding box to load the
+                high-resolution HOCO grid. Use the sidebar forecast-day slider to preview AUTO-HOCO on this map.</p>
+        </div>
+    </div>
+
+    <button id="backToRegionsBtn" class="btn-outline"
+        style="position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 100; display: none; width: auto; padding: 8px 16px; background: rgba(255,255,255,0.9); font-weight: bold; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+        ⬅ Back to Europe View
+    </button>
     <div id="map-wrapper" class="grid-1">
         <button id="sidebarToggleBtn" type="button" class="sidebar-toggle-btn btn-outline" aria-expanded="true">Hide
             panel</button>
@@ -2821,7 +2853,9 @@
                 <div id="meta-title-0"
                     style="font-weight: bold; font-size: 0.8rem; margin-bottom: 4px; color: var(--primary);">Map 1 -
                     Idle</div>
-                <div id="meta-desc-0" style="font-size: 0.65rem; color: var(--meta-desc-color, #5d7088); line-height: 1.4;">Waiting for data...
+                <div id="meta-desc-0"
+                    style="font-size: 0.65rem; color: var(--meta-desc-color, #5d7088); line-height: 1.4;">Waiting for
+                    data...
                 </div>
                 <div id="meta-scale-0" style="display: none; align-items: center; gap: 5px; margin-top: 6px;">
                     <span style="font-size: 0.55rem;">Low</span>
@@ -2868,7 +2902,9 @@
                 <div id="meta-title-1"
                     style="font-weight: bold; font-size: 0.8rem; margin-bottom: 4px; color: var(--primary);">Map 2 -
                     Idle</div>
-                <div id="meta-desc-1" style="font-size: 0.65rem; color: var(--meta-desc-color, #5d7088); line-height: 1.4;">Waiting for data...
+                <div id="meta-desc-1"
+                    style="font-size: 0.65rem; color: var(--meta-desc-color, #5d7088); line-height: 1.4;">Waiting for
+                    data...
                 </div>
                 <div id="meta-scale-1" style="display: none; align-items: center; gap: 5px; margin-top: 6px;">
                     <span style="font-size: 0.55rem;">Low</span>
@@ -2915,7 +2951,9 @@
                 <div id="meta-title-2"
                     style="font-weight: bold; font-size: 0.8rem; margin-bottom: 4px; color: var(--primary);">Map 3 -
                     Idle</div>
-                <div id="meta-desc-2" style="font-size: 0.65rem; color: var(--meta-desc-color, #5d7088); line-height: 1.4;">Waiting for data...
+                <div id="meta-desc-2"
+                    style="font-size: 0.65rem; color: var(--meta-desc-color, #5d7088); line-height: 1.4;">Waiting for
+                    data...
                 </div>
                 <div id="meta-scale-2" style="display: none; align-items: center; gap: 5px; margin-top: 6px;">
                     <span style="font-size: 0.55rem;">Low</span>
@@ -2962,7 +3000,9 @@
                 <div id="meta-title-3"
                     style="font-weight: bold; font-size: 0.8rem; margin-bottom: 4px; color: var(--primary);">Map 4 -
                     Idle</div>
-                <div id="meta-desc-3" style="font-size: 0.65rem; color: var(--meta-desc-color, #5d7088); line-height: 1.4;">Waiting for data...
+                <div id="meta-desc-3"
+                    style="font-size: 0.65rem; color: var(--meta-desc-color, #5d7088); line-height: 1.4;">Waiting for
+                    data...
                 </div>
                 <div id="meta-scale-3" style="display: none; align-items: center; gap: 5px; margin-top: 6px;">
                     <span style="font-size: 0.55rem;">Low</span>
@@ -5171,10 +5211,10 @@
                             'step', ['get', 'ageFraction'],
                             '#ff0000',          // < 0.05 — newest  (vivid red)
                             0.05, '#ffd700',    // 0.05–0.2         (gold)
-                            0.2,  '#ff69b4',    // 0.2–0.4          (hot pink)
-                            0.4,  '#ff00ff',    // 0.4–0.6          (magenta)
-                            0.6,  '#800080',    // 0.6–0.8          (purple)
-                            0.8,  '#4b0082'     // > 0.8 — oldest   (indigo)
+                            0.2, '#ff69b4',    // 0.2–0.4          (hot pink)
+                            0.4, '#ff00ff',    // 0.4–0.6          (magenta)
+                            0.6, '#800080',    // 0.6–0.8          (purple)
+                            0.8, '#4b0082'     // > 0.8 — oldest   (indigo)
                         ],
                         'text-halo-color': 'rgba(255,255,255,0.75)',
                         'text-halo-width': 1.5
@@ -5187,21 +5227,21 @@
                 // ── Click handler: show strike metadata popup ──────────────
                 map.on('click', layerId, (e) => {
                     if (!e.features || !e.features.length) return;
-                    const props   = e.features[0].properties;
-                    const coords  = e.features[0].geometry.coordinates.slice();
-                    const lng     = coords[0].toFixed(4);
-                    const lat     = coords[1].toFixed(4);
-                    const af      = typeof props.ageFraction === 'number' ? props.ageFraction : null;
+                    const props = e.features[0].properties;
+                    const coords = e.features[0].geometry.coordinates.slice();
+                    const lng = coords[0].toFixed(4);
+                    const lat = coords[1].toFixed(4);
+                    const af = typeof props.ageFraction === 'number' ? props.ageFraction : null;
 
                     // Build age label and colour
                     let ageLabel = 'Unknown', ageColor = '#555';
                     if (af !== null) {
-                        if      (af < 0.05) { ageLabel = 'Newest (<5%)';    ageColor = '#ff0000'; }
-                        else if (af < 0.2 ) { ageLabel = 'Recent (5–20%)';  ageColor = '#ffd700'; }
-                        else if (af < 0.4 ) { ageLabel = 'Moderate (20–40%)'; ageColor = '#ff69b4'; }
-                        else if (af < 0.6 ) { ageLabel = 'Older (40–60%)'; ageColor = '#ff00ff'; }
-                        else if (af < 0.8 ) { ageLabel = 'Old (60–80%)';   ageColor = '#800080'; }
-                        else               { ageLabel = 'Oldest (>80%)';   ageColor = '#4b0082'; }
+                        if (af < 0.05) { ageLabel = 'Newest (<5%)'; ageColor = '#ff0000'; }
+                        else if (af < 0.2) { ageLabel = 'Recent (5–20%)'; ageColor = '#ffd700'; }
+                        else if (af < 0.4) { ageLabel = 'Moderate (20–40%)'; ageColor = '#ff69b4'; }
+                        else if (af < 0.6) { ageLabel = 'Older (40–60%)'; ageColor = '#ff00ff'; }
+                        else if (af < 0.8) { ageLabel = 'Old (60–80%)'; ageColor = '#800080'; }
+                        else { ageLabel = 'Oldest (>80%)'; ageColor = '#4b0082'; }
                     }
 
                     // Format strike time
@@ -5263,9 +5303,9 @@
             layers.forEach(l => {
                 if (map.getLayer(l)) {
                     // Remove attached event listeners before removing layer
-                    map.off('click', l, () => {});
-                    map.off('mouseenter', l, () => {});
-                    map.off('mouseleave', l, () => {});
+                    map.off('click', l, () => { });
+                    map.off('mouseenter', l, () => { });
+                    map.off('mouseleave', l, () => { });
                     map.removeLayer(l);
                 }
             });
@@ -5586,6 +5626,274 @@
         // ==========================================
         mapboxgl.accessToken = 'pk.eyJ1IjoiaGFuZHJ5MjAxOTEwMjYiLCJhIjoiY21jYWg2eG1lMDNkYTJxczVyOWM5bW9mciJ9.bA-qxiByTB_RseY1fgU4rg';
 
+        let europeMap = null;
+        let currentActiveRegion = null;
+
+        // European forecast regions shown on the overview map.
+        // Only regions marked active can be selected and receive live HOCO previews.
+        const EUROPE_REGIONS = [
+            { id: 'England', name: 'England (South/Central)', status: 'active', west: -10.234, south: 48.788, east: 5.471, north: 56.578 },
+            { id: 'Scotland', name: 'Scotland', status: 'active', west: -9.4482, south: 55.9161, east: 0, north: 60 },
+            { id: 'France', name: 'France (Coming Soon)', status: 'inactive', west: -5.0, south: 42.0, east: 8.0, north: 51.0 },
+            { id: 'Spain', name: 'Spain (Coming Soon)', status: 'inactive', west: -9.5, south: 36.0, east: 4.5, north: 43.8 },
+            { id: 'Portugal', name: 'Portugal (Coming Soon)', status: 'inactive', west: -9.6, south: 36.9, east: -6.2, north: 42.2 },
+            { id: 'Italy', name: 'Italy (Coming Soon)', status: 'inactive', west: 6.6, south: 36.6, east: 18.5, north: 47.1 },
+            { id: 'Greece', name: 'Greece (Coming Soon)', status: 'inactive', west: 19.4, south: 34.8, east: 29.6, north: 41.8 },
+            { id: 'Germany', name: 'Germany (Coming Soon)', status: 'inactive', west: 5.8, south: 47.3, east: 15.0, north: 55.1 },
+            { id: 'Netherlands', name: 'Netherlands (Coming Soon)', status: 'inactive', west: 3.3, south: 50.7, east: 7.2, north: 53.6 },
+            { id: 'Belgium', name: 'Belgium (Coming Soon)', status: 'inactive', west: 2.5, south: 49.5, east: 6.4, north: 51.5 },
+            { id: 'Denmark', name: 'Denmark', status: 'active', west: 8.0, south: 54.5, east: 12.7, north: 57.8 },
+            { id: 'Norway', name: 'Norway (Coming Soon)', status: 'inactive', west: 4.5, south: 58.0, east: 31.0, north: 71.2 },
+            { id: 'Sweden', name: 'Sweden (Coming Soon)', status: 'inactive', west: 11.0, south: 55.3, east: 24.2, north: 69.1 },
+            { id: 'Finland', name: 'Finland (Coming Soon)', status: 'inactive', west: 20.5, south: 59.8, east: 31.6, north: 70.1 },
+            { id: 'Poland', name: 'Poland (Coming Soon)', status: 'inactive', west: 14.1, south: 49.0, east: 24.2, north: 54.9 },
+            { id: 'Czechia', name: 'Czechia (Coming Soon)', status: 'inactive', west: 12.1, south: 48.5, east: 18.9, north: 51.1 },
+            { id: 'Austria', name: 'Austria (Coming Soon)', status: 'inactive', west: 9.5, south: 46.4, east: 17.2, north: 49.0 },
+            { id: 'Switzerland', name: 'Switzerland (Coming Soon)', status: 'inactive', west: 5.9, south: 45.8, east: 10.5, north: 47.8 },
+            { id: 'Hungary', name: 'Hungary (Coming Soon)', status: 'inactive', west: 16.1, south: 45.7, east: 22.9, north: 48.6 },
+            { id: 'Romania', name: 'Romania (Coming Soon)', status: 'inactive', west: 20.2, south: 43.6, east: 29.7, north: 48.3 },
+            { id: 'Bulgaria', name: 'Bulgaria (Coming Soon)', status: 'inactive', west: 22.4, south: 41.2, east: 28.6, north: 44.2 },
+            { id: 'Croatia', name: 'Croatia (Coming Soon)', status: 'inactive', west: 13.5, south: 42.4, east: 19.4, north: 46.6 },
+            { id: 'Baltics', name: 'Baltics (Coming Soon)', status: 'inactive', west: 20.9, south: 53.9, east: 28.2, north: 59.7 }
+        ];
+
+        function regionBoundsToPolygon(region) {
+            const { west, south, east, north } = region;
+            return [[west, south], [east, south], [east, north], [west, north], [west, south]];
+        }
+
+        const regionsGeoJSON = {
+            type: 'FeatureCollection',
+            features: EUROPE_REGIONS.map((region) => ({
+                type: 'Feature',
+                properties: {
+                    id: region.id,
+                    name: region.name,
+                    status: region.status
+                },
+                geometry: {
+                    type: 'Polygon',
+                    coordinates: [regionBoundsToPolygon(region)]
+                }
+            }))
+        };
+
+        function syncRegionSelectOptions() {
+            const regionSelectEl = document.getElementById('regionSelect');
+            if (!regionSelectEl) return;
+
+            const activeRegions = EUROPE_REGIONS.filter((region) => region.status === 'active');
+            regionSelectEl.innerHTML = activeRegions.map((region) =>
+                `<option value="${region.id}">${region.name.replace(' (Coming Soon)', '')}</option>`
+            ).join('');
+        }
+
+        syncRegionSelectOptions();
+
+        function initEuropeMap() {
+            europeMap = new mapboxgl.Map({
+                container: 'europeMap',
+                style: 'mapbox://styles/mapbox/light-v11', // Clean style for high-level overview
+                center: [2.0, 49.0], // Center over Europe
+                zoom: 3.5,
+                projection: 'mercator'
+            });
+
+            europeMap.on('load', () => {
+                europeMap.addSource('regions-source', {
+                    type: 'geojson',
+                    data: regionsGeoJSON
+                });
+
+                // 1. Fill Layer (neutral backdrop; real HOCO GeoJSON is drawn on top for active regions)
+                europeMap.addLayer({
+                    id: 'regions-fill',
+                    type: 'fill',
+                    source: 'regions-source',
+                    paint: {
+                        'fill-color': '#102238',
+                        'fill-opacity': [
+                            'case',
+                            ['==', ['get', 'status'], 'inactive'], 0.08,
+                            0.04
+                        ]
+                    }
+                });
+
+                // 2. Outline Layer
+                europeMap.addLayer({
+                    id: 'regions-outline',
+                    type: 'line',
+                    source: 'regions-source',
+                    paint: {
+                        'line-color': '#102238',
+                        'line-width': 2,
+                        'line-dasharray': [2, 2]
+                    }
+                });
+
+                // 3. Labels Layer
+                europeMap.addLayer({
+                    id: 'regions-labels',
+                    type: 'symbol',
+                    source: 'regions-source',
+                    layout: {
+                        'text-field': ['get', 'name'],
+                        'text-size': [
+                            'case',
+                            ['==', ['get', 'status'], 'active'], 13,
+                            11
+                        ],
+                        'text-font': ['Inter Bold', 'Arial Unicode MS Bold'],
+                        'text-max-width': 8
+                    },
+                    paint: {
+                        'text-color': '#102238',
+                        'text-halo-color': '#ffffff',
+                        'text-halo-width': 2
+                    }
+                });
+
+                // Interactions
+                europeMap.on('mouseenter', 'regions-fill', (e) => {
+                    if (e.features[0].properties.status === 'active') {
+                        europeMap.getCanvas().style.cursor = 'pointer';
+                    }
+                });
+
+                europeMap.on('mouseleave', 'regions-fill', () => {
+                    europeMap.getCanvas().style.cursor = '';
+                });
+
+                // Handle Clicking a Region
+                europeMap.on('click', 'regions-fill', (e) => {
+                    const feature = e.features[0];
+                    if (feature.properties.status === 'active') {
+                        selectRegion(feature.properties.id);
+                    } else {
+                        showToast("This region is not yet available.", "info");
+                    }
+                });
+
+                updateEuropePreview();
+            });
+        }
+
+        function regionMatchesRun(regionId, run) {
+            const runRegion = String(run?.region || 'UK').trim();
+            if (runRegion === regionId) return true;
+            if (regionId === 'England' && (runRegion === 'UK' || runRegion.startsWith('England'))) return true;
+            if (regionId === 'Wales' && runRegion.startsWith('Wales')) return true;
+            if (regionId === 'Scotland' && runRegion.startsWith('Scotland')) return true;
+            if (regionId === 'Ireland' && (runRegion === 'Ireland' || runRegion.startsWith('Ireland'))) return true;
+            return false;
+        }
+
+        function getAutoRunsForRegionDay(regionId, dayOffset) {
+            return getAutoRunsForDay(dayOffset).filter((run) => regionMatchesRun(regionId, run));
+        }
+
+        function clearEuropeHocoLayers() {
+            if (!europeMap) return;
+            ['europe-hoco-points', 'europe-hoco-polygons-outline', 'europe-hoco-polygons'].forEach((layerId) => {
+                if (europeMap.getLayer(layerId)) europeMap.removeLayer(layerId);
+            });
+            if (europeMap.getSource('europe-hoco-source')) europeMap.removeSource('europe-hoco-source');
+        }
+
+        function renderEuropeHocoPreview(geojsonData) {
+            if (!europeMap || !geojsonData) return;
+
+            clearEuropeHocoLayers();
+            europeMap.addSource('europe-hoco-source', { type: 'geojson', data: geojsonData });
+
+            const currentOpacity = parseInt(document.getElementById('opacitySlider')?.value || 50, 10) / 100;
+
+            europeMap.addLayer({
+                id: 'europe-hoco-polygons',
+                type: 'fill',
+                source: 'europe-hoco-source',
+                filter: ['==', ['get', 'feature_type'], 'polygon'],
+                paint: {
+                    'fill-color': ['get', 'fill'],
+                    'fill-opacity': currentOpacity
+                }
+            });
+
+            europeMap.addLayer({
+                id: 'europe-hoco-polygons-outline',
+                type: 'line',
+                source: 'europe-hoco-source',
+                filter: ['==', ['get', 'feature_type'], 'polygon'],
+                paint: {
+                    'line-color': '#ffffff',
+                    'line-width': 1.2,
+                    'line-opacity': Math.min(currentOpacity * 2, 1.0)
+                }
+            });
+
+            europeMap.addLayer({
+                id: 'europe-hoco-points',
+                type: 'circle',
+                source: 'europe-hoco-source',
+                filter: ['==', ['get', 'feature_type'], 'point'],
+                paint: { 'circle-radius': 12, 'circle-opacity': 0 }
+            });
+
+            const labelLayer = europeMap.getStyle()?.layers?.find((layer) => layer.type === 'symbol' && layer.layout?.['text-field']);
+            if (labelLayer) {
+                europeMap.moveLayer('europe-hoco-polygons', labelLayer.id);
+                europeMap.moveLayer('europe-hoco-polygons-outline', labelLayer.id);
+            }
+        }
+
+        async function updateEuropePreview() {
+            const regionView = document.getElementById('regionSelectionView');
+            if (!regionView || regionView.style.display === 'none') return;
+            if (!europeMap || !europeMap.isStyleLoaded()) return;
+
+            const activeRegions = regionsGeoJSON.features.filter((feature) => feature.properties.status === 'active');
+            if (!activeRegions.length) {
+                clearEuropeHocoLayers();
+                return;
+            }
+
+            const dayOffset = Number(document.getElementById('autoDaySlider')?.value ?? autoDaySelection ?? 0);
+            const selectedIndex = autoRunSelectionByDay[dayOffset];
+            let previewLoaded = false;
+
+            for (const feature of activeRegions) {
+                const regionId = feature.properties.id;
+                const runs = getAutoRunsForRegionDay(regionId, dayOffset);
+                if (!runs.length) continue;
+
+                const run = Number.isInteger(selectedIndex) && runs[selectedIndex] ? runs[selectedIndex] : runs[runs.length - 1];
+                const runData = allRuns.find((entry) => entry.id === run.id) || run;
+                const hasGeojson = !!(runData.geojsonUrl || runData.inlineGeojson || runData.inlineGeojsonText || runData.geojson || runData.ensembleGeojson);
+                if (runData.status === 'pending' || !hasGeojson) continue;
+
+                try {
+                    const geojsonData = await fetchRunGeojsonData(run.id, runData);
+                    renderEuropeHocoPreview(geojsonData);
+                    previewLoaded = true;
+                    break;
+                } catch (error) {
+                    console.warn('Europe preview load failed for', regionId, error);
+                }
+            }
+
+            if (!previewLoaded) clearEuropeHocoLayers();
+        }
+
+        let europePreviewDebounceTimer;
+        function debouncedEuropePreviewUpdate() {
+            clearTimeout(europePreviewDebounceTimer);
+            europePreviewDebounceTimer = setTimeout(() => {
+                updateEuropePreview();
+            }, 150);
+        }
+        initEuropeMap();
+
         function initMaps() {
             for (let i = 0; i < 4; i++) {
                 maps[i] = new mapboxgl.Map({
@@ -5675,6 +5983,70 @@
         }
         initMaps();
 
+        // --- Routing Logic ---
+        function showRegionSelector() {
+            document.getElementById('map-wrapper').style.display = 'none';
+            document.getElementById('backToRegionsBtn').style.display = 'none';
+            document.getElementById('regionSelectionView').style.display = 'block';
+
+            // Ensure Mapbox resizes correctly when unhidden
+            if (europeMap) europeMap.resize();
+            currentActiveRegion = null;
+            debouncedEuropePreviewUpdate();
+        }
+
+        function selectRegion(regionId) {
+            currentActiveRegion = regionId;
+
+            // Switch UI Views
+            document.getElementById('regionSelectionView').style.display = 'none';
+            document.getElementById('map-wrapper').style.display = 'grid'; // Or whatever layout matches your grid-X class
+            document.getElementById('backToRegionsBtn').style.display = 'block';
+
+            // Resize the detailed maps so they render correctly after being hidden
+            resizeVisibleMaps();
+
+            // --- NEW BOUNDS LOGIC ---
+            // Look up the selected region's coordinates from your EUROPE_REGIONS array
+            const regionObj = EUROPE_REGIONS.find(r => r.id === regionId);
+            if (regionObj) {
+                // Mapbox fitBounds requires a format of [[minLng, minLat], [maxLng, maxLat]]
+                const bounds = [
+                    [regionObj.west, regionObj.south],
+                    [regionObj.east, regionObj.north]
+                ];
+
+                // Apply the new bounds to all 4 detailed maps immediately
+                maps.forEach(mapInstance => {
+                    if (mapInstance) {
+                        mapInstance.fitBounds(bounds, {
+                            padding: 20,     // Adds a small visual buffer around the edges
+                            animate: false   // Snaps instantly since the map was just unhidden
+                        });
+                    }
+                });
+            }
+            // -------------------------
+
+            // Sync the sidebar UI to reflect the selected region
+            const regionSelectEl = document.getElementById('regionSelect');
+            if (regionSelectEl) {
+                // Ensure the option exists, or create it dynamically if you add regions to DB later
+                if (!Array.from(regionSelectEl.options).some(opt => opt.value === regionId)) {
+                    const opt = document.createElement('option');
+                    opt.value = regionId;
+                    opt.text = regionId;
+                    regionSelectEl.appendChild(opt);
+                }
+                regionSelectEl.value = regionId;
+            }
+
+            showToast(`Region locked to ${regionId}`, "success");
+        }
+
+        // Hook up the Back Button
+        document.getElementById('backToRegionsBtn').addEventListener('click', showRegionSelector);
+
         // Style Switcher
         document.getElementById('mapStyleSelect').addEventListener('change', (e) => {
             clearHumanSourcePreview();
@@ -5720,6 +6092,10 @@
                     m.setPaintProperty('hoco-polygons', prop, op);
                 }
             });
+            if (europeMap?.getLayer('europe-hoco-polygons')) {
+                europeMap.setPaintProperty('europe-hoco-polygons', 'fill-opacity', op);
+                europeMap.setPaintProperty('europe-hoco-polygons-outline', 'line-opacity', Math.min(op * 2, 1.0));
+            }
         });
 
         document.getElementById('heightSlider').addEventListener('input', (e) => {
@@ -5908,6 +6284,7 @@
             clearTimeout(sliderDebounceTimer);
             sliderDebounceTimer = setTimeout(() => {
                 autoLoadSelectedRun();
+                updateEuropePreview();
             }, 150);
         }
 
@@ -6037,6 +6414,7 @@
                 document.getElementById('landingPage').style.display = 'none';
                 document.body.classList.add('app-ready');
                 document.getElementById('mainUI').style.display = 'flex';
+                showRegionSelector();
                 syncAutoTimelinePlacement();
                 syncSidebarToggleButton();
                 document.getElementById('displayUid').innerText = `ID: ${user.uid}`;
@@ -6082,6 +6460,8 @@
                 document.getElementById('mainUI').style.display = 'none';
                 document.body.classList.remove('app-ready');
                 document.body.classList.remove('role-developer');
+                document.getElementById('regionSelectionView').style.display = 'none';
+                document.getElementById('backToRegionsBtn').style.display = 'none';
                 syncAutoTimelinePlacement();
                 syncSidebarToggleButton();
                 userRole = 'guest';
@@ -6205,6 +6585,7 @@
 
                 renderArchiveDropdown();
                 renderHumanMimicPanel();
+                debouncedEuropePreviewUpdate();
 
                 if (isInitialLoad && allRuns.length > 0) {
                     isInitialLoad = false;
@@ -7037,6 +7418,17 @@
                     exportContainer.appendChild(warningDiv);
                 }
 
+                // Add this logic to determine the active region's bounds
+                const currentRegionId = (geojsonData.features[0]?.properties?.region) || 'England';
+                const regionObj = typeof EUROPE_REGIONS !== 'undefined'
+                    ? EUROPE_REGIONS.find(r => r.id === currentRegionId)
+                    : null;
+
+                // Default to your current wide bounds if region isn't found
+                const exportBounds = regionObj
+                    ? [[regionObj.west, regionObj.south], [regionObj.east, regionObj.north]]
+                    : [[-10.234, 48.788], [5.471, 56.578]];
+
                 // ── 6. Map ──────────────────────────────────────────────────
                 const mapDiv = document.createElement('div');
                 mapDiv.id = 'export-map-div';
@@ -7124,13 +7516,12 @@
                 exportContainer.appendChild(footer);
 
                 // 7. Initialize Mapbox Map (Enforced Light Style for standard visibility)
+                // 7. Initialize Mapbox Map
                 const exportMap = new mapboxgl.Map({
                     container: 'export-map-div',
                     style: 'mapbox://styles/mapbox/light-v11',
-                    bounds: [
-                        [-10.234, 48.788],
-                        [5.471, 56.578]
-                    ],
+                    bounds: exportBounds, // Use the dynamic bounds calculated above
+                    fitBoundsOptions: { padding: 40 }, // Add some space so features aren't cut off
                     preserveDrawingBuffer: true,
                     interactive: false,
                     pitch: 0
@@ -7191,10 +7582,10 @@
                                         'step', ['get', 'ageFraction'],
                                         '#ff0000',
                                         0.05, '#ffd700',
-                                        0.2,  '#ff69b4',
-                                        0.4,  '#ff00ff',
-                                        0.6,  '#800080',
-                                        0.8,  '#4b0082'
+                                        0.2, '#ff69b4',
+                                        0.4, '#ff00ff',
+                                        0.6, '#800080',
+                                        0.8, '#4b0082'
                                     ],
                                     'text-halo-color': 'rgba(255,255,255,0.7)',
                                     'text-halo-width': 1.5
