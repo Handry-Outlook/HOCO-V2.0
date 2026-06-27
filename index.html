@@ -5126,8 +5126,8 @@
             return Array.isArray(raw) ? raw : (raw?.lightning_strikes || raw?.strikes || []);
         }
 
-        const UKWX_EUROPE_ARCHIVE_BASE_URL = 'http://ukwx.duckdns.org/lightning/archive/europe';
-        const UKWX_EUROPE_LIVE_URL = 'http://ukwx.duckdns.org/lightning/europe';
+        const UKWX_EUROPE_ARCHIVE_BASE_URL = 'https://ukwx.duckdns.org/lightning/archive/europe';
+        const UKWX_EUROPE_LIVE_URL = 'https://ukwx.duckdns.org/lightning/europe';
         const UKWX_ARCHIVE_MAX_DAY_FILES = 31; // safety cap so a bad/huge time range can't trigger runaway fetches
 
         // The ukwx archive is split into one JSON file per "weather day" running 06:00Z to
