@@ -246,12 +246,6 @@
             position: relative;
         }
 
-        /* TEMP: Export KML hidden from UI for now. Logic/handlers are untouched -
-           remove this rule to bring the button back. */
-        button[id^="export-kml-btn-"] {
-            display: none !important;
-        }
-
         /* Map Metadata Card */
         .map-metadata {
             position: absolute;
@@ -2837,8 +2831,6 @@
             </div>
         </div>
     </div>
-    <button id="sidebarToggleBtn" type="button" class="sidebar-toggle-btn btn-outline" aria-expanded="true">Hide
-        panel</button>
     <div id="regionSelectionView" style="display: none; flex-grow: 1; position: relative;">
         <div id="europeMap" style="position: absolute; inset: 0;"></div>
 
@@ -2849,7 +2841,13 @@
         </div>
     </div>
 
+    <button id="backToRegionsBtn" class="btn-outline"
+        style="position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 100; display: none; width: auto; padding: 8px 16px; background: rgba(255,255,255,0.9); color: #333; font-weight: bold; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+        ⬅ Back to Europe View
+    </button>
     <div id="map-wrapper" class="grid-1">
+        <button id="sidebarToggleBtn" type="button" class="sidebar-toggle-btn btn-outline" aria-expanded="true">Hide
+            panel</button>
         <div id="map0" class="map-instance">
             <div class="map-metadata">
                 <div id="meta-title-0"
@@ -2883,10 +2881,6 @@
                         Export KML
                     </button>
                 </div>
-                <button id="backToRegionsBtn" class="btn-outline"
-                    style="display: none; width: 100%; margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: rgba(255,255,255,0.9); color: #333; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; pointer-events: auto;">
-                    ⬅ Back to Europe View
-                </button>
             </div>
             <div id="loading-0" class="loading-overlay">
                 <div class="loading-content">
@@ -5106,6 +5100,7 @@
         const GITHUB_LIGHTNING_URL_1 = 'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new/main/lightning_data.json';
         const GITHUB_LIGHTNING_URL_2 = 'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new/main/lightning_data_2025_autumn.json';
         const METOFFICE_LIGHTNING_URL = 'https://data.consumer-digital.api.metoffice.gov.uk/v1/lightning';
+        const UK_METOFFICE_LIGHTNING_REGIONS = new Set(['England', 'Scotland']); // these keep using Met Office/GitHub only
 
         // Fetches a lightning feed URL through the shared cache (keyed by URL), so repeat
         // calls within CACHE_TTL_MS reuse the previous response instead of re-hitting the
@@ -5172,7 +5167,7 @@
         // ever-growing set of one-shot entries into lightningCache.
         async function fetchUkwxLiveJson() {
             try {
-                const resp = await fetch(`${UKWX_EUROPE_LIVE_URL}`, {
+                const resp = await fetch(`${UKWX_EUROPE_LIVE_URL}?t=${Date.now()}`, {
                     cache: 'no-cache',
                     headers: { 'Accept': 'application/json' }
                 });
@@ -5207,6 +5202,13 @@
                 const startUnix = Math.floor(start.getTime() / 1000);
                 const endUnix = Math.floor(end.getTime() / 1000);
 
+                // Met Office/GitHub only ever cover England + Scotland; everywhere else
+                // (Germany, Poland, ...) relies on the ukwx Europe feed instead. Falls back
+                // to the UK sources if there's no resolved region (e.g. region picker view),
+                // matching this app's original UK-only behaviour.
+                const activeRegion = EUROPE_REGIONS.find(r => r.id === currentActiveRegion) || null;
+                const useUkSources = !activeRegion || UK_METOFFICE_LIGHTNING_REGIONS.has(activeRegion.id);
+
                 let allStrikes = [];
 
                 const withinWindow = s => {
@@ -5215,20 +5217,29 @@
                     return t >= startUnix && t <= endUnix;
                 };
 
-                // Only England and Scotland have Met Office / GitHub coverage. Every other
-                // region (Germany, Poland, etc.) relies solely on the ukwx feed below.
-                const isUkMetOfficeRegion = currentActiveRegion === 'England' || currentActiveRegion === 'Scotland';
+                // Clips strikes to the currently selected region's bounding box, so switching
+                // from e.g. England to Germany doesn't keep showing England's strikes (or vice
+                // versa) - every source gets run through this, not just the new ukwx one.
+                const withinActiveRegion = s => {
+                    if (!activeRegion) return true;
+                    const [lon, lat] = s.coordinates || [];
+                    if (typeof lon !== 'number' || typeof lat !== 'number') return false;
+                    return lon >= activeRegion.west && lon <= activeRegion.east &&
+                        lat >= activeRegion.south && lat <= activeRegion.north;
+                };
 
-                if (isUkMetOfficeRegion) {
+                const passesFilters = s => withinWindow(s) && withinActiveRegion(s);
+
+                if (useUkSources) {
                     const [githubRaw1, githubRaw2, metOfficeRaw] = await Promise.all([
                         fetchLightningJson(GITHUB_LIGHTNING_URL_1),
                         fetchLightningJson(GITHUB_LIGHTNING_URL_2),
                         fetchLightningJson(METOFFICE_LIGHTNING_URL)
                     ]);
 
-                    allStrikes.push(...extractLightningStrikes(githubRaw1).filter(withinWindow));
-                    allStrikes.push(...extractLightningStrikes(githubRaw2).filter(withinWindow));
-                    allStrikes.push(...extractLightningStrikes(metOfficeRaw).filter(withinWindow));
+                    allStrikes = allStrikes.concat(extractLightningStrikes(githubRaw1).filter(passesFilters));
+                    allStrikes = allStrikes.concat(extractLightningStrikes(githubRaw2).filter(passesFilters));
+                    allStrikes = allStrikes.concat(extractLightningStrikes(metOfficeRaw).filter(passesFilters));
 
                     // IMPORTANT: when there are more strikes than fit in one response, the Met
                     // Office feed splits the rest across extra pages listed in `chunks`. Only
@@ -5241,40 +5252,24 @@
                     if (chunkUrls.length) {
                         const chunkResponses = await Promise.all(chunkUrls.map(fetchLightningJson));
                         chunkResponses.forEach(chunkRaw => {
-                            allStrikes.push(...extractLightningStrikes(chunkRaw).filter(withinWindow));
+                            allStrikes = allStrikes.concat(extractLightningStrikes(chunkRaw).filter(passesFilters));
                         });
                     }
-                }
-
-                // Europe-wide coverage (beyond Met Office's England/Scotland strikes) from the
-                // ukwx archive, plus its live feed. Archive is split into one file per UTC
-                // weather-day (06:00Z-06:00Z), so fetch every day-file the forecast window
-                // touches; the live feed is fetched fresh alongside it and merged in too -
-                // useful when the window's end is close to "now" and today's archive file
-                // hasn't caught up yet.
-                // For non-England/Scotland regions this is the ONLY lightning source used.
-                const ukwxDayKeys = getUkwxArchiveDayKeysInRange(startUnix, endUnix);
-                const [ukwxResponses, ukwxLiveRaw] = await Promise.all([
-                    Promise.all(ukwxDayKeys.map(dayKey => fetchLightningJson(`${UKWX_EUROPE_ARCHIVE_BASE_URL}/${dayKey}.json`))),
-                    fetchUkwxLiveJson()
-                ]);
-                ukwxResponses.forEach(raw => {
-                    allStrikes.push(...extractUkwxStrikes(raw).filter(withinWindow));
-                });
-                allStrikes.push(...extractUkwxStrikes(ukwxLiveRaw).filter(withinWindow));
-
-                // Strictly clip to the active region's bounding box. This matters most for
-                // ukwx, which returns Europe-wide strikes regardless of which region is
-                // selected - without this, zooming into e.g. Germany or Poland would still
-                // show strikes from well outside that region's box.
-                const activeRegionObj = EUROPE_REGIONS.find(r => r.id === currentActiveRegion);
-                if (activeRegionObj) {
-                    const { west, south, east, north } = activeRegionObj;
-                    allStrikes = allStrikes.filter(s => {
-                        if (!s.coordinates || s.coordinates.length < 2) return false;
-                        const [lon, lat] = s.coordinates;
-                        return lon >= west && lon <= east && lat >= south && lat <= north;
+                } else {
+                    // Europe-wide coverage from the ukwx archive, plus its live feed. Archive is
+                    // split into one file per UTC weather-day (06:00Z-06:00Z), so fetch every
+                    // day-file the forecast window touches; the live feed is fetched fresh
+                    // alongside it and merged in too - useful when the window's end is close to
+                    // "now" and today's archive file hasn't caught up yet.
+                    const ukwxDayKeys = getUkwxArchiveDayKeysInRange(startUnix, endUnix);
+                    const [ukwxResponses, ukwxLiveRaw] = await Promise.all([
+                        Promise.all(ukwxDayKeys.map(dayKey => fetchLightningJson(`${UKWX_EUROPE_ARCHIVE_BASE_URL}/${dayKey}.json`))),
+                        fetchUkwxLiveJson()
+                    ]);
+                    ukwxResponses.forEach(raw => {
+                        allStrikes = allStrikes.concat(extractUkwxStrikes(raw).filter(passesFilters));
                     });
+                    allStrikes = allStrikes.concat(extractUkwxStrikes(ukwxLiveRaw).filter(passesFilters));
                 }
 
                 const seen = new Map();
@@ -6019,7 +6014,7 @@
                 if (result.status === 'fulfilled') {
                     const geojsonData = result.value;
                     if (geojsonData && geojsonData.type === 'FeatureCollection' && geojsonData.features) {
-                        combinedFeatures.push(...geojsonData.features);
+                        combinedFeatures = combinedFeatures.concat(geojsonData.features);
                     } else if (geojsonData && geojsonData.type === 'Feature') {
                         combinedFeatures.push(geojsonData);
                     }
@@ -6350,14 +6345,6 @@
                 if (!mapDiv || mapDiv.style.display === 'none') return;
                 mapInstance.resize();
             });
-
-            // The Europe region-picker map lives outside the `maps` array above, so it
-            // needs its own resize call whenever it's the visible view (e.g. toggling the
-            // sidebar while still on the region picker, or a window resize there).
-            const regionSelectionView = document.getElementById('regionSelectionView');
-            if (europeMap && regionSelectionView && regionSelectionView.style.display !== 'none') {
-                europeMap.resize();
-            }
         }
 
         function setCollapsiblePanelState(button, expanded) {
