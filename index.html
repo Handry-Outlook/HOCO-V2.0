@@ -3698,6 +3698,9 @@
         let runBrowserFilter = 'all';
         let activeMapData = [null, null, null, null];
         let activeMapRuns = [null, null, null, null];
+        let mapLoadTokens = [0, 0, 0, 0]; // Bumped on every loadRunIntoMap() call per map slot, so a slower/older
+                                           // in-flight request can detect it's stale and bail instead of
+                                           // overwriting a newer region/run's data once its awaits resolve.
         let isInitialLoad = true;
         let humanMimicPeriodKey = '';
         let humanMimicSelectedRunIds = new Set();
@@ -5094,6 +5097,87 @@
         const lightningSources = {};   // mapIndex → { sourceId, layerId, clusterLayerId?, data }
         let lightningVisible = {};     // mapIndex → boolean
 
+        const GITHUB_LIGHTNING_URL_1 = 'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new/main/lightning_data.json';
+        const GITHUB_LIGHTNING_URL_2 = 'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new/main/lightning_data_2025_autumn.json';
+        const METOFFICE_LIGHTNING_URL = 'https://data.consumer-digital.api.metoffice.gov.uk/v1/lightning';
+
+        // Fetches a lightning feed URL through the shared cache (keyed by URL), so repeat
+        // calls within CACHE_TTL_MS reuse the previous response instead of re-hitting the
+        // network. Returns the parsed JSON body, or null if the fetch/parse failed.
+        async function fetchLightningJson(url) {
+            const cached = lightningCache.get(url);
+            if (cached && (Date.now() - cached.timestamp) <= CACHE_TTL_MS) {
+                return cached.data;
+            }
+            try {
+                const resp = await fetch(url, { cache: 'no-cache', headers: { 'Accept': 'application/json' } });
+                if (!resp.ok) return null;
+                const data = await resp.json();
+                lightningCache.set(url, { data, timestamp: Date.now() });
+                return data;
+            } catch (err) {
+                console.warn(`Failed to fetch lightning from ${url}`, err);
+                return null;
+            }
+        }
+
+        // Handles the response formats seen across feeds: direct array, { lightning_strikes: [] }, or { strikes: [] }
+        function extractLightningStrikes(raw) {
+            return Array.isArray(raw) ? raw : (raw?.lightning_strikes || raw?.strikes || []);
+        }
+
+        const UKWX_EUROPE_ARCHIVE_BASE_URL = 'https://ukwx.duckdns.org/lightning/archive/europe';
+        const UKWX_EUROPE_LIVE_URL = 'https://ukwx.duckdns.org/lightning/europe';
+        const UKWX_ARCHIVE_MAX_DAY_FILES = 31; // safety cap so a bad/huge time range can't trigger runaway fetches
+
+        // The ukwx archive is split into one JSON file per "weather day" running 06:00Z to
+        // the following 06:00Z, named after the period_start's calendar date (e.g.
+        // 2026-06-26.json covers 2026-06-26T06:00Z - 2026-06-27T06:00Z). Shifting a timestamp
+        // back 6 hours before reading its UTC calendar date lands it on the correct file.
+        function ukwxArchiveDayKey(unixSeconds) {
+            return new Date(unixSeconds * 1000 - 6 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        }
+
+        // Returns every daily file's date key (YYYY-MM-DD) needed to fully cover [startUnix, endUnix].
+        function getUkwxArchiveDayKeysInRange(startUnix, endUnix) {
+            const keys = [];
+            let cursor = new Date(`${ukwxArchiveDayKey(startUnix)}T00:00:00Z`);
+            const endCursor = new Date(`${ukwxArchiveDayKey(endUnix)}T00:00:00Z`);
+            while (cursor <= endCursor && keys.length < UKWX_ARCHIVE_MAX_DAY_FILES) {
+                keys.push(cursor.toISOString().slice(0, 10));
+                cursor = new Date(cursor.getTime() + 24 * 60 * 60 * 1000);
+            }
+            return keys;
+        }
+
+        // Converts ukwx's { points: [{ t, lat, lon }] } shape into the same
+        // { strike_time, coordinates: [lon, lat] } shape the other feeds use.
+        function extractUkwxStrikes(raw) {
+            if (!raw?.points) return [];
+            return raw.points.map(p => ({
+                strike_time: new Date(p.t * 1000).toISOString(),
+                coordinates: [p.lon, p.lat]
+            }));
+        }
+
+        // The live endpoint is fetched fresh every time (its own cache-busting `t` query
+        // param) rather than through fetchLightningJson's URL-keyed cache - since that key
+        // would be different on every call anyway, going through it would just leak an
+        // ever-growing set of one-shot entries into lightningCache.
+        async function fetchUkwxLiveJson() {
+            try {
+                const resp = await fetch(`${UKWX_EUROPE_LIVE_URL}?t=${Date.now()}`, {
+                    cache: 'no-cache',
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (!resp.ok) return null;
+                return await resp.json();
+            } catch (err) {
+                console.warn('Failed to fetch live ukwx lightning feed', err);
+                return null;
+            }
+        }
+
         async function loadAndShowLightning(mapIndex, startTimeStr, endTimeStr) {
             if (lightningVisible[mapIndex]) {
                 hideLightning(mapIndex);
@@ -5119,37 +5203,52 @@
 
                 let allStrikes = [];
 
-                for (const url of [
-                    'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new/main/lightning_data.json',
-                    'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new/main/lightning_data_2025_autumn.json',
-                    'https://data.consumer-digital.api.metoffice.gov.uk/v1/lightning'
-                ]) {
-                    let jsonData = lightningCache.get(url);
+                const withinWindow = s => {
+                    if (!s.strike_time) return false;
+                    const t = Math.floor(new Date(s.strike_time).getTime() / 1000);
+                    return t >= startUnix && t <= endUnix;
+                };
 
-                    if (!jsonData || (Date.now() - jsonData.timestamp) > CACHE_TTL_MS) {
-                        try {
-                            const resp = await fetch(url, { cache: 'no-cache', headers: { 'Accept': 'application/json' } });
-                            if (!resp.ok) continue;
+                const [githubRaw1, githubRaw2, metOfficeRaw] = await Promise.all([
+                    fetchLightningJson(GITHUB_LIGHTNING_URL_1),
+                    fetchLightningJson(GITHUB_LIGHTNING_URL_2),
+                    fetchLightningJson(METOFFICE_LIGHTNING_URL)
+                ]);
 
-                            jsonData = { data: await resp.json(), timestamp: Date.now() };
-                            lightningCache.set(url, jsonData);
-                        } catch (err) {
-                            console.warn(`Failed to fetch lightning from ${url}`, err);
-                            continue;
-                        }
-                    }
+                allStrikes.push(...extractLightningStrikes(githubRaw1).filter(withinWindow));
+                allStrikes.push(...extractLightningStrikes(githubRaw2).filter(withinWindow));
+                allStrikes.push(...extractLightningStrikes(metOfficeRaw).filter(withinWindow));
 
-                    const raw = jsonData.data;
-                    // Handles the three formats: direct array, { lightning_strikes: [] }, or { strikes: [] }
-                    const strikes = Array.isArray(raw) ? raw : (raw?.lightning_strikes || raw?.strikes || []);
-                    const filtered = strikes.filter(s => {
-                        if (!s.strike_time) return false;
-                        const t = Math.floor(new Date(s.strike_time).getTime() / 1000);
-                        return t >= startUnix && t <= endUnix;
+                // IMPORTANT: when there are more strikes than fit in one response, the Met
+                // Office feed splits the rest across extra pages listed in `chunks`. Only
+                // reading the base response (as before) silently drops those strikes during
+                // busy lightning periods. Fetch every chunk too and merge them in - same
+                // pattern as forecast-detail.html's fetchUkLightningData().
+                const chunkUrls = (metOfficeRaw?.chunks || []).map(chunk =>
+                    `${METOFFICE_LIGHTNING_URL}?last-minutes=1&chunk=${chunk.chunk}`
+                );
+                if (chunkUrls.length) {
+                    const chunkResponses = await Promise.all(chunkUrls.map(fetchLightningJson));
+                    chunkResponses.forEach(chunkRaw => {
+                        allStrikes.push(...extractLightningStrikes(chunkRaw).filter(withinWindow));
                     });
-
-                    allStrikes.push(...filtered);
                 }
+
+                // Europe-wide coverage (beyond Met Office's England/Scotland strikes) from the
+                // ukwx archive, plus its live feed. Archive is split into one file per UTC
+                // weather-day (06:00Z-06:00Z), so fetch every day-file the forecast window
+                // touches; the live feed is fetched fresh alongside it and merged in too -
+                // useful when the window's end is close to "now" and today's archive file
+                // hasn't caught up yet.
+                const ukwxDayKeys = getUkwxArchiveDayKeysInRange(startUnix, endUnix);
+                const [ukwxResponses, ukwxLiveRaw] = await Promise.all([
+                    Promise.all(ukwxDayKeys.map(dayKey => fetchLightningJson(`${UKWX_EUROPE_ARCHIVE_BASE_URL}/${dayKey}.json`))),
+                    fetchUkwxLiveJson()
+                ]);
+                ukwxResponses.forEach(raw => {
+                    allStrikes.push(...extractUkwxStrikes(raw).filter(withinWindow));
+                });
+                allStrikes.push(...extractUkwxStrikes(ukwxLiveRaw).filter(withinWindow));
 
                 const seen = new Map();
                 allStrikes = allStrikes.filter(s => {
@@ -5837,7 +5936,22 @@
         async function updateEuropePreview() {
             const regionView = document.getElementById('regionSelectionView');
             if (!regionView || regionView.style.display === 'none') return;
-            if (!europeMap || !europeMap.isStyleLoaded()) return;
+
+            if (!europeMap) return;
+
+            if (!europeMap.isStyleLoaded()) {
+                // The Firestore run data and the Mapbox style load independently of
+                // each other, with no guaranteed order. On first load it's common
+                // for Firestore's onSnapshot to fire before the Europe map's style
+                // (and its sprites/glyphs) has finished downloading - especially on
+                // slow connections or low-end devices. Previously this just returned
+                // and nothing else called it again until the user moved the day
+                // slider. Now we queue a single retry for when the style is ready.
+                europeMap.once('load', () => {
+                    debouncedEuropePreviewUpdate();
+                });
+                return;
+            }
 
             const activeRegions = regionsGeoJSON.features.filter((feature) => feature.properties.status === 'active');
             if (!activeRegions.length) {
@@ -6765,11 +6879,17 @@
 
         async function loadRunIntoMap(runId, mapIndex) {
             clearHumanSourcePreview();
-            const targetMap = maps[mapIndex];
             const statusUI = document.getElementById('runStatus');
             statusUI.innerText = `Fetching data for Map ${mapIndex + 1}...`;
 
+            // Claim this map slot. If the user switches region/run again before
+            // this request resolves, that newer call will bump the token again,
+            // and every check below lets this (now stale) call bail out instead
+            // of writing old data over the newer selection.
+            const requestToken = ++mapLoadTokens[mapIndex];
+
             const docSnap = await getDoc(doc(db, "hoco_requests", runId));
+            if (mapLoadTokens[mapIndex] !== requestToken) return; // superseded while awaiting Firestore
             if (!docSnap.exists()) {
                 statusUI.innerText = "Run not found.";
                 return;
@@ -6813,10 +6933,12 @@
 
             try {
                 const geojsonData = await fetchRunGeojsonData(runId, runData);
+                if (mapLoadTokens[mapIndex] !== requestToken) return; // superseded while fetching geojson - don't render stale data
 
                 // Success!
                 activeMapData[mapIndex] = geojsonData;
                 activeMapRuns[mapIndex] = { id: runId, ...runData };
+                const targetMap = maps[mapIndex]; // re-read in case the map slot was recreated while we were awaiting
                 await renderHocoLayers(targetMap, geojsonData, mapIndex);
 
                 statusUI.innerText = "Loaded successfully.";
@@ -6861,6 +6983,7 @@
                 }
 
             } catch (err) {
+                if (mapLoadTokens[mapIndex] !== requestToken) return; // superseded - a newer load already owns this map slot
                 console.error("Map load error for run", runId, ":", err);
                 statusUI.innerText = "Failed to load run data.";
                 showToast("Could not load this run into the map.", "error");
