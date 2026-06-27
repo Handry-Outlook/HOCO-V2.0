@@ -246,6 +246,12 @@
             position: relative;
         }
 
+        /* TEMP: Export KML hidden from UI for now. Logic/handlers are untouched -
+           remove this rule to bring the button back. */
+        button[id^="export-kml-btn-"] {
+            display: none !important;
+        }
+
         /* Map Metadata Card */
         .map-metadata {
             position: absolute;
@@ -2831,6 +2837,8 @@
             </div>
         </div>
     </div>
+    <button id="sidebarToggleBtn" type="button" class="sidebar-toggle-btn btn-outline" aria-expanded="true">Hide
+        panel</button>
     <div id="regionSelectionView" style="display: none; flex-grow: 1; position: relative;">
         <div id="europeMap" style="position: absolute; inset: 0;"></div>
 
@@ -2841,13 +2849,7 @@
         </div>
     </div>
 
-    <button id="backToRegionsBtn" class="btn-outline"
-        style="position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 100; display: none; width: auto; padding: 8px 16px; background: rgba(255,255,255,0.9); color: #333; font-weight: bold; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-        ⬅ Back to Europe View
-    </button>
     <div id="map-wrapper" class="grid-1">
-        <button id="sidebarToggleBtn" type="button" class="sidebar-toggle-btn btn-outline" aria-expanded="true">Hide
-            panel</button>
         <div id="map0" class="map-instance">
             <div class="map-metadata">
                 <div id="meta-title-0"
@@ -2881,6 +2883,10 @@
                         Export KML
                     </button>
                 </div>
+                <button id="backToRegionsBtn" class="btn-outline"
+                    style="display: none; width: 100%; margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: rgba(255,255,255,0.9); color: #333; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; pointer-events: auto;">
+                    ⬅ Back to Europe View
+                </button>
             </div>
             <div id="loading-0" class="loading-overlay">
                 <div class="loading-content">
@@ -6344,6 +6350,14 @@
                 if (!mapDiv || mapDiv.style.display === 'none') return;
                 mapInstance.resize();
             });
+
+            // The Europe region-picker map lives outside the `maps` array above, so it
+            // needs its own resize call whenever it's the visible view (e.g. toggling the
+            // sidebar while still on the region picker, or a window resize there).
+            const regionSelectionView = document.getElementById('regionSelectionView');
+            if (europeMap && regionSelectionView && regionSelectionView.style.display !== 'none') {
+                europeMap.resize();
+            }
         }
 
         function setCollapsiblePanelState(button, expanded) {
