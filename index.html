@@ -5166,7 +5166,7 @@
         // ever-growing set of one-shot entries into lightningCache.
         async function fetchUkwxLiveJson() {
             try {
-                const resp = await fetch(`${UKWX_EUROPE_LIVE_URL}?t=${Date.now()}`, {
+                const resp = await fetch(`${UKWX_EUROPE_LIVE_URL}`, {
                     cache: 'no-cache',
                     headers: { 'Accept': 'application/json' }
                 });
@@ -5209,29 +5209,35 @@
                     return t >= startUnix && t <= endUnix;
                 };
 
-                const [githubRaw1, githubRaw2, metOfficeRaw] = await Promise.all([
-                    fetchLightningJson(GITHUB_LIGHTNING_URL_1),
-                    fetchLightningJson(GITHUB_LIGHTNING_URL_2),
-                    fetchLightningJson(METOFFICE_LIGHTNING_URL)
-                ]);
+                // Only England and Scotland have Met Office / GitHub coverage. Every other
+                // region (Germany, Poland, etc.) relies solely on the ukwx feed below.
+                const isUkMetOfficeRegion = currentActiveRegion === 'England' || currentActiveRegion === 'Scotland';
 
-                allStrikes.push(...extractLightningStrikes(githubRaw1).filter(withinWindow));
-                allStrikes.push(...extractLightningStrikes(githubRaw2).filter(withinWindow));
-                allStrikes.push(...extractLightningStrikes(metOfficeRaw).filter(withinWindow));
+                if (isUkMetOfficeRegion) {
+                    const [githubRaw1, githubRaw2, metOfficeRaw] = await Promise.all([
+                        fetchLightningJson(GITHUB_LIGHTNING_URL_1),
+                        fetchLightningJson(GITHUB_LIGHTNING_URL_2),
+                        fetchLightningJson(METOFFICE_LIGHTNING_URL)
+                    ]);
 
-                // IMPORTANT: when there are more strikes than fit in one response, the Met
-                // Office feed splits the rest across extra pages listed in `chunks`. Only
-                // reading the base response (as before) silently drops those strikes during
-                // busy lightning periods. Fetch every chunk too and merge them in - same
-                // pattern as forecast-detail.html's fetchUkLightningData().
-                const chunkUrls = (metOfficeRaw?.chunks || []).map(chunk =>
-                    `${METOFFICE_LIGHTNING_URL}?last-minutes=1&chunk=${chunk.chunk}`
-                );
-                if (chunkUrls.length) {
-                    const chunkResponses = await Promise.all(chunkUrls.map(fetchLightningJson));
-                    chunkResponses.forEach(chunkRaw => {
-                        allStrikes.push(...extractLightningStrikes(chunkRaw).filter(withinWindow));
-                    });
+                    allStrikes.push(...extractLightningStrikes(githubRaw1).filter(withinWindow));
+                    allStrikes.push(...extractLightningStrikes(githubRaw2).filter(withinWindow));
+                    allStrikes.push(...extractLightningStrikes(metOfficeRaw).filter(withinWindow));
+
+                    // IMPORTANT: when there are more strikes than fit in one response, the Met
+                    // Office feed splits the rest across extra pages listed in `chunks`. Only
+                    // reading the base response (as before) silently drops those strikes during
+                    // busy lightning periods. Fetch every chunk too and merge them in - same
+                    // pattern as forecast-detail.html's fetchUkLightningData().
+                    const chunkUrls = (metOfficeRaw?.chunks || []).map(chunk =>
+                        `${METOFFICE_LIGHTNING_URL}?last-minutes=1&chunk=${chunk.chunk}`
+                    );
+                    if (chunkUrls.length) {
+                        const chunkResponses = await Promise.all(chunkUrls.map(fetchLightningJson));
+                        chunkResponses.forEach(chunkRaw => {
+                            allStrikes.push(...extractLightningStrikes(chunkRaw).filter(withinWindow));
+                        });
+                    }
                 }
 
                 // Europe-wide coverage (beyond Met Office's England/Scotland strikes) from the
@@ -5240,6 +5246,7 @@
                 // touches; the live feed is fetched fresh alongside it and merged in too -
                 // useful when the window's end is close to "now" and today's archive file
                 // hasn't caught up yet.
+                // For non-England/Scotland regions this is the ONLY lightning source used.
                 const ukwxDayKeys = getUkwxArchiveDayKeysInRange(startUnix, endUnix);
                 const [ukwxResponses, ukwxLiveRaw] = await Promise.all([
                     Promise.all(ukwxDayKeys.map(dayKey => fetchLightningJson(`${UKWX_EUROPE_ARCHIVE_BASE_URL}/${dayKey}.json`))),
@@ -5249,6 +5256,20 @@
                     allStrikes.push(...extractUkwxStrikes(raw).filter(withinWindow));
                 });
                 allStrikes.push(...extractUkwxStrikes(ukwxLiveRaw).filter(withinWindow));
+
+                // Strictly clip to the active region's bounding box. This matters most for
+                // ukwx, which returns Europe-wide strikes regardless of which region is
+                // selected - without this, zooming into e.g. Germany or Poland would still
+                // show strikes from well outside that region's box.
+                const activeRegionObj = EUROPE_REGIONS.find(r => r.id === currentActiveRegion);
+                if (activeRegionObj) {
+                    const { west, south, east, north } = activeRegionObj;
+                    allStrikes = allStrikes.filter(s => {
+                        if (!s.coordinates || s.coordinates.length < 2) return false;
+                        const [lon, lat] = s.coordinates;
+                        return lon >= west && lon <= east && lat >= south && lat <= north;
+                    });
+                }
 
                 const seen = new Map();
                 allStrikes = allStrikes.filter(s => {
