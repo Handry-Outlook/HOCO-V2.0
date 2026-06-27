@@ -3690,7 +3690,7 @@
 
         let userRole = 'guest';
         let runsToday = 0;
-        let maps = [];
+        let maps = [null, null, null, null]; // Lazily created - see createMapInstance()
         let allRuns = [];
         let selectedScenarios = [];
         let autoDaySelection = 0;
@@ -5848,9 +5848,9 @@
             const dayOffset = Number(document.getElementById('autoDaySlider')?.value ?? autoDaySelection ?? 0);
             const selectedIndex = autoRunSelectionByDay[dayOffset];
 
-            // 1. Create an empty array to collect features from ALL active regions
-            let combinedFeatures = [];
-
+            // 1. Figure out which run (if any) each active region should preview.
+            //    This part is cheap/synchronous, so it stays as a simple loop.
+            const regionsToFetch = [];
             for (const feature of activeRegions) {
                 const regionId = feature.properties.id;
                 const runs = getAutoRunsForRegionDay(regionId, dayOffset);
@@ -5861,22 +5861,33 @@
                 const hasGeojson = !!(runData.geojsonUrl || runData.inlineGeojson || runData.inlineGeojsonText || runData.geojson || runData.ensembleGeojson);
                 if (runData.status === 'pending' || !hasGeojson) continue;
 
-                try {
-                    // Fetch the GeoJSON for this specific region
-                    const geojsonData = await fetchRunGeojsonData(run.id, runData);
+                regionsToFetch.push({ regionId, run, runData });
+            }
 
-                    // 2. Extract the features and push them into our combined array
+            // 2. Fetch every region's GeoJSON concurrently instead of one-at-a-time.
+            //    Each fetch is an independent network request, so awaiting them in
+            //    sequence (the old behavior) meant total load time scaled with the
+            //    number of active regions - the more regions, the longer this took.
+            const fetchResults = await Promise.allSettled(
+                regionsToFetch.map(({ run, runData }) => fetchRunGeojsonData(run.id, runData))
+            );
+
+            // 3. Combine whatever came back successfully, once everything settles.
+            let combinedFeatures = [];
+            fetchResults.forEach((result, idx) => {
+                if (result.status === 'fulfilled') {
+                    const geojsonData = result.value;
                     if (geojsonData && geojsonData.type === 'FeatureCollection' && geojsonData.features) {
                         combinedFeatures.push(...geojsonData.features);
                     } else if (geojsonData && geojsonData.type === 'Feature') {
                         combinedFeatures.push(geojsonData);
                     }
-                } catch (error) {
-                    console.warn('Europe preview load failed for', regionId, error);
+                } else {
+                    console.warn('Europe preview load failed for', regionsToFetch[idx].regionId, result.reason);
                 }
-            } // End of loop - NO break statement here!
+            });
 
-            // 3. Render ONCE after the loop finishes
+            // 4. Render ONCE after everything finishes
             if (combinedFeatures.length > 0) {
                 // Construct a single combined FeatureCollection
                 const combinedGeoJSON = {
@@ -5887,7 +5898,7 @@
                 // Pass the massive, combined dataset to your existing render function
                 renderEuropeHocoPreview(combinedGeoJSON);
             } else {
-                // If we looped through everything but found no valid features, clear the map
+                // If we fetched everything but found no valid features, clear the map
                 clearEuropeHocoLayers();
             }
         }
@@ -5900,92 +5911,106 @@
         }
         initEuropeMap();
 
-        function initMaps() {
-            for (let i = 0; i < 4; i++) {
-                maps[i] = new mapboxgl.Map({
-                    container: `map${i}`,
-                    // Ensure this URL is exactly correct from your Mapbox Studio account
-                    style: 'mapbox://styles/handry20191026/cmqv7f1q8001q01scbv5x4kuk',
-                    center: [-1.5, 52.5],
-                    zoom: 5.5,
-                    projection: 'mercator',
-                    preserveDrawingBuffer: true
-                });
+        // Lazily creates a single Mapbox GL map instance for slot `i`.
+        // Each map spins up its own WebGL context plus style/sprite/glyph downloads,
+        // so on low-end devices creating all 4 up front (even hidden ones in grid-1
+        // layout) was a major source of startup lag. Now a slot is only built the
+        // first time it actually becomes visible (see the layoutSelect handler).
+        function createMapInstance(i) {
+            if (maps[i]) return maps[i]; // Already created
 
-                maps[i].addControl(new mapboxgl.NavigationControl(), 'top-right');
+            maps[i] = new mapboxgl.Map({
+                container: `map${i}`,
+                // Ensure this URL is exactly correct from your Mapbox Studio account
+                style: 'mapbox://styles/handry20191026/cmqv7f1q8001q01scbv5x4kuk',
+                center: [-1.5, 52.5],
+                zoom: 5.5,
+                projection: 'mercator',
+                preserveDrawingBuffer: true
+            });
 
-                // Combined all custom additions into ONE load event
-                maps[i].on('style.load', () => {
-                    // Force 2D projection immediately
-                    maps[i].setProjection('mercator');
+            maps[i].addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-                    const imageUrl = 'https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png';
+            // Combined all custom additions into ONE load event
+            maps[i].on('style.load', () => {
+                // Force 2D projection immediately
+                maps[i].setProjection('mercator');
 
-                    maps[i].loadImage(imageUrl, (error, image) => {
-                        if (error) {
-                            console.error("Image load error:", error);
-                            return;
+                const imageUrl = 'https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png';
+
+                maps[i].loadImage(imageUrl, (error, image) => {
+                    if (error) {
+                        console.error("Image load error:", error);
+                        return;
+                    }
+
+                    // Add the image to the map sprite
+                    if (!maps[i].hasImage('my-logo')) {
+                        maps[i].addImage('my-logo', image);
+                    }
+
+                    // Add Source
+                    maps[i].addSource('logo-point', {
+                        'type': 'geojson',
+                        'data': {
+                            'type': 'FeatureCollection',
+                            'features': [{
+                                'type': 'Feature',
+                                'geometry': {
+                                    'type': 'Point',
+                                    'coordinates': [-9.234, 49.788]
+                                }
+                            }]
                         }
+                    });
 
-                        // Add the image to the map sprite
-                        if (!maps[i].hasImage('my-logo')) {
-                            maps[i].addImage('my-logo', image);
+                    // Add Layer
+                    maps[i].addLayer({
+                        'id': 'logo-layer',
+                        'type': 'symbol',
+                        'source': 'logo-point',
+                        'layout': {
+                            'icon-image': 'my-logo',
+                            'icon-size': 0.5,
+                            'icon-allow-overlap': true,
+                            'icon-ignore-placement': true
+                        },
+                        'paint': {
+                            'icon-opacity': 1
                         }
-
-                        // Add Source
-                        maps[i].addSource('logo-point', {
-                            'type': 'geojson',
-                            'data': {
-                                'type': 'FeatureCollection',
-                                'features': [{
-                                    'type': 'Feature',
-                                    'geometry': {
-                                        'type': 'Point',
-                                        'coordinates': [-9.234, 49.788]
-                                    }
-                                }]
-                            }
-                        });
-
-                        // Add Layer
-                        maps[i].addLayer({
-                            'id': 'logo-layer',
-                            'type': 'symbol',
-                            'source': 'logo-point',
-                            'layout': {
-                                'icon-image': 'my-logo',
-                                'icon-size': 0.5,
-                                'icon-allow-overlap': true,
-                                'icon-ignore-placement': true
-                            },
-                            'paint': {
-                                'icon-opacity': 1
-                            }
-                        });
                     });
                 });
+            });
 
-                maps[i].on('click', 'hoco-points', (e) => showHocoFeaturePopup(maps[i], e));
-                maps[i].on('click', 'hoco-polygons', (e) => {
-                    const pointHits = maps[i].queryRenderedFeatures(e.point, { layers: ['hoco-points'] });
-                    if (pointHits.length) return;
-                    showHocoFeaturePopup(maps[i], e);
-                });
-                maps[i].on('mouseenter', 'hoco-points', () => { maps[i].getCanvas().style.cursor = 'pointer'; });
-                maps[i].on('mouseleave', 'hoco-points', () => { maps[i].getCanvas().style.cursor = ''; });
-                maps[i].on('mouseenter', 'hoco-polygons', () => { maps[i].getCanvas().style.cursor = 'pointer'; });
-                maps[i].on('mouseleave', 'hoco-polygons', () => { maps[i].getCanvas().style.cursor = ''; });
+            maps[i].on('click', 'hoco-points', (e) => showHocoFeaturePopup(maps[i], e));
+            maps[i].on('click', 'hoco-polygons', (e) => {
+                const pointHits = maps[i].queryRenderedFeatures(e.point, { layers: ['hoco-points'] });
+                if (pointHits.length) return;
+                showHocoFeaturePopup(maps[i], e);
+            });
+            maps[i].on('mouseenter', 'hoco-points', () => { maps[i].getCanvas().style.cursor = 'pointer'; });
+            maps[i].on('mouseleave', 'hoco-points', () => { maps[i].getCanvas().style.cursor = ''; });
+            maps[i].on('mouseenter', 'hoco-polygons', () => { maps[i].getCanvas().style.cursor = 'pointer'; });
+            maps[i].on('mouseleave', 'hoco-polygons', () => { maps[i].getCanvas().style.cursor = ''; });
 
-                maps[i].on('move', (e) => {
-                    if (e.originalEvent) {
-                        const center = maps[i].getCenter();
-                        const zoom = maps[i].getZoom();
-                        maps.forEach((m, idx) => {
-                            if (idx !== i) m.jumpTo({ center, zoom });
-                        });
-                    }
-                });
-            }
+            maps[i].on('move', (e) => {
+                if (e.originalEvent) {
+                    const center = maps[i].getCenter();
+                    const zoom = maps[i].getZoom();
+                    maps.forEach((m, idx) => {
+                        if (m && idx !== i) m.jumpTo({ center, zoom });
+                    });
+                }
+            });
+
+            return maps[i];
+        }
+
+        // Only the first slot is created eagerly - it's the only one visible
+        // by default (grid-1 layout). Slots 1-3 are created on demand when the
+        // user switches to a grid-2 or grid-4 layout.
+        function initMaps() {
+            createMapInstance(0);
         }
         initMaps();
 
@@ -6063,6 +6088,7 @@
             clearHumanSourcePreview();
             const styleUrl = e.target.value;
             maps.forEach((m, i) => {
+                if (!m) return; // Slot not created yet (lazy maps)
                 m.setStyle(styleUrl);
                 m.once('style.load', () => {
                     if (activeMapData[i]) {
@@ -6089,14 +6115,23 @@
             document.getElementById('map-wrapper').className = `grid-${val}`;
             for (let i = 0; i < 4; i++) {
                 const mapDiv = document.getElementById(`map${i}`);
-                if (i < val) { mapDiv.style.display = 'block'; maps[i].resize(); }
-                else { mapDiv.style.display = 'none'; }
+                if (i < val) {
+                    mapDiv.style.display = 'block';
+                    // Create the map the first time this slot is shown, then resize it
+                    // (resize is a no-op on a brand-new map but required for slots that
+                    // were already created and are just becoming visible again).
+                    const mapInstance = createMapInstance(i);
+                    mapInstance.resize();
+                } else {
+                    mapDiv.style.display = 'none';
+                }
             }
         });
 
         document.getElementById('opacitySlider').addEventListener('input', (e) => {
             const op = parseInt(e.target.value) / 100;
             maps.forEach(m => {
+                if (!m) return; // Slot not created yet (lazy maps)
                 if (m.getLayer('hoco-polygons')) {
                     const type = m.getLayer('hoco-polygons').type;
                     const prop = (type === 'fill-extrusion') ? 'fill-extrusion-opacity' : 'fill-opacity';
@@ -6112,6 +6147,7 @@
         document.getElementById('heightSlider').addEventListener('input', (e) => {
             const h = parseInt(e.target.value);
             maps.forEach(m => {
+                if (!m) return; // Slot not created yet (lazy maps)
                 if (m.getLayer('hoco-polygons') && m.getLayer('hoco-polygons').type === 'fill-extrusion') {
                     m.setPaintProperty('hoco-polygons', 'fill-extrusion-height',
                         ['*', ['/', ['coalesce', ['get', 'risk'], 0], 5], h]
@@ -6538,8 +6574,9 @@
 
             if (currentDateFilterMode === 'valid') {
                 // Valid-date mode needs a wider archive window because matching runs may
-                // have been created on earlier days.
-                return query(colRef, orderBy("createdAt", "desc"));
+                // have been created on earlier days. Capped with limit() so this stays a
+                // bounded read instead of streaming the entire collection on every load.
+                return query(colRef, orderBy("createdAt", "desc"), limit(300));
             }
 
             const startOfDay = new Date(targetDateStr);
