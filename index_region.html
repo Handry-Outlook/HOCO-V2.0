@@ -2080,7 +2080,7 @@
                     <ul>
                         <li>Request HOCO data access</li>
                         <li>Approved dataset metadata</li>
-                        <li>Future API endpoint access</li>
+                        <li>Authenticated API endpoint</li>
                         <li>No admin controls</li>
                     </ul>
                 </div>
@@ -2490,8 +2490,12 @@
                         Loading approved dataset access...
                     </div>
 
+                    <div id="externalDeveloperApiInstructions" style="display:none; margin-top:12px; font-size:0.75rem; line-height:1.55; background:rgba(24,47,82,0.05); border:1px solid rgba(102,139,207,0.18); border-radius:12px; padding:10px; overflow:auto;">
+                        Loading API instructions...
+                    </div>
+
                     <p style="font-size: 0.75rem; color:#888; margin-bottom:0; margin-top:10px;">
-                        You will receive full endpoint instructions once the automated HOCO data endpoint is enabled.
+                        Use the API responsibly. Tokens and temporary URLs must not be shared publicly.
                     </p>
                 </div>
 
@@ -6614,6 +6618,20 @@
             if (humanTargetMapSelect) humanTargetMapSelect.value = event.target.value;
         });
 
+        
+        window.copyHocoApiText = async (elementId) => {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            const text = el.innerText || el.textContent || "";
+            try {
+                await navigator.clipboard.writeText(text);
+                showToast("Copied to clipboard.", "success");
+            } catch (err) {
+                console.warn("Clipboard copy failed:", err);
+                showToast("Copy failed. Select the text manually.", "error");
+            }
+        };
+
         // ==========================================
         // AUTHENTICATION & ROLES
         // ==========================================
@@ -6730,60 +6748,39 @@
             document.body.classList.toggle('role-developer', isDev);
 
             const upgradePanel = document.getElementById('upgradePanel');
-            if (upgradePanel) {
-                upgradePanel.style.display = (isGuest || isNormal) ? 'block' : 'none';
-            }
+            if (upgradePanel) upgradePanel.style.display = (isGuest || isNormal) ? 'block' : 'none';
 
             const executionPanel = document.getElementById('executionPanel');
-            if (executionPanel) {
-                executionPanel.style.display = (isGuest || isExternalDev) ? 'none' : 'block';
-            }
+            if (executionPanel) executionPanel.style.display = (isGuest || isExternalDev) ? 'none' : 'block';
 
             const exclusiveSection = document.getElementById('exclusiveSection');
-            if (exclusiveSection) {
-                exclusiveSection.style.display = (isExclusive || isDev) ? 'block' : 'none';
-            }
+            if (exclusiveSection) exclusiveSection.style.display = (isExclusive || isDev) ? 'block' : 'none';
 
             const adminPanel = document.getElementById('adminPanel');
-            if (adminPanel) {
-                adminPanel.style.display = isDev ? 'block' : 'none';
-            }
+            if (adminPanel) adminPanel.style.display = isDev ? 'block' : 'none';
 
             const externalDeveloperPanel = document.getElementById('externalDeveloperPanel');
-            if (externalDeveloperPanel) {
-                externalDeveloperPanel.style.display = isExternalDev ? 'block' : 'none';
-            }
-
-            if (isExternalDev) {
-                loadExternalDeveloperPanel();
-            }
+            if (externalDeveloperPanel) externalDeveloperPanel.style.display = isExternalDev ? 'block' : 'none';
+            if (isExternalDev) loadExternalDeveloperPanel();
 
             const devRunnerUI = document.getElementById('devRunnerSettings');
-            if (devRunnerUI) {
-                devRunnerUI.style.display = isDev ? 'block' : 'none';
-            }
+            if (devRunnerUI) devRunnerUI.style.display = isDev ? 'block' : 'none';
 
             if (isDev) {
                 getDoc(doc(db, "system_config", "github_settings")).then(s => {
                     if (s.exists()) {
-                        document.getElementById('currentRunnerText').innerText =
-                            `Currently using: ${s.data().active_owner}`;
+                        document.getElementById('currentRunnerText').innerText = `Currently using: ${s.data().active_owner}`;
                     }
                 });
             }
 
             const maxDate = new Date();
-            if (!isDev) {
-                maxDate.setHours(maxDate.getHours() + 72);
-            }
+            if (!isDev) maxDate.setHours(maxDate.getHours() + 72);
 
             const endInput = document.getElementById('endTime');
             if (endInput) {
-                if (!isDev) {
-                    endInput.max = maxDate.toISOString().slice(0, 16);
-                } else {
-                    endInput.removeAttribute('max');
-                }
+                if (!isDev) endInput.max = maxDate.toISOString().slice(0, 16);
+                else endInput.removeAttribute('max');
             }
         }
 
@@ -6791,78 +6788,64 @@
             return new Date().toISOString().slice(0, 10);
         }
 
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
         async function loadExternalDeveloperPanel() {
             const summaryEl = document.getElementById("externalDeveloperDatasetSummary");
-
-            if (!summaryEl || !auth.currentUser) {
-                return;
-            }
+            const instructionsEl = document.getElementById("externalDeveloperApiInstructions");
+            if (!summaryEl || !auth.currentUser) return;
 
             summaryEl.innerHTML = "Loading approved dataset access...";
+            if (instructionsEl) {
+                instructionsEl.style.display = "none";
+                instructionsEl.innerHTML = "";
+            }
 
             try {
                 const uid = auth.currentUser.uid;
-
                 const apiSettingsSnap = await getDoc(doc(db, "settings", "developer_api"));
 
                 let apiSettings = {
                     enabled: false,
+                    downloadsEnabled: false,
                     message: "HOCO developer API is not enabled yet.",
-                    maxRequestsPerDayDefault: 50
+                    maxRequestsPerDayDefault: 50,
+                    apiBaseUrl: "https://us-central1-hoco-3b23e.cloudfunctions.net"
                 };
 
-                if (apiSettingsSnap.exists()) {
-                    apiSettings = {
-                        ...apiSettings,
-                        ...apiSettingsSnap.data()
-                    };
-                }
-
-                if (typeof apiSettings.enable === "boolean" && typeof apiSettings.enabled !== "boolean") {
-                    apiSettings.enabled = apiSettings.enable;
-                }
+                if (apiSettingsSnap.exists()) apiSettings = { ...apiSettings, ...apiSettingsSnap.data() };
+                if (typeof apiSettings.enable === "boolean" && typeof apiSettings.enabled !== "boolean") apiSettings.enabled = apiSettings.enable;
 
                 const accessSnap = await getDoc(doc(db, "developer_access", uid));
-
                 if (!accessSnap.exists()) {
-                    summaryEl.innerHTML = `
-                        <strong>Status:</strong> No developer access record found<br>
-                        <span style="color:#888;">Please contact HOCO support.</span>
-                    `;
+                    summaryEl.innerHTML = `<strong>Status:</strong> No developer access record found<br><span style="color:#888;">Please contact HOCO support.</span>`;
                     return;
                 }
 
                 const access = accessSnap.data();
-
                 if (!access.enabled) {
-                    summaryEl.innerHTML = `
-                        <strong>Status:</strong> Access disabled<br>
-                        <span style="color:#888;">Your external developer access is currently disabled.</span>
-                    `;
+                    summaryEl.innerHTML = `<strong>Status:</strong> Access disabled<br><span style="color:#888;">Your external developer access is currently disabled.</span>`;
                     return;
                 }
 
                 const allowedDatasets = access.allowedDatasets || [];
                 const allowedFormats = access.allowedFormats || [];
-
                 if (!allowedDatasets.length) {
-                    summaryEl.innerHTML = `
-                        <strong>Status:</strong> Approved<br>
-                        <strong>Datasets:</strong> None assigned yet<br>
-                        <span style="color:#888;">A HOCO developer needs to assign dataset access.</span>
-                    `;
+                    summaryEl.innerHTML = `<strong>Status:</strong> Approved<br><strong>Datasets:</strong> None assigned yet<br><span style="color:#888;">A HOCO developer needs to assign dataset access.</span>`;
                     return;
                 }
 
                 const datasetId = allowedDatasets[0] || "europe";
                 const datasetSnap = await getDoc(doc(db, "hoco_datasets", datasetId));
-
                 if (!datasetSnap.exists()) {
-                    summaryEl.innerHTML = `
-                        <strong>Status:</strong> Approved<br>
-                        <strong>Dataset:</strong> ${datasetId}<br>
-                        <span style="color:#888;">Dataset metadata not found.</span>
-                    `;
+                    summaryEl.innerHTML = `<strong>Status:</strong> Approved<br><strong>Dataset:</strong> ${escapeHtml(datasetId)}<br><span style="color:#888;">Dataset metadata not found.</span>`;
                     return;
                 }
 
@@ -6870,38 +6853,64 @@
                 const todayKey = getTodayKeyUTC();
                 const usageId = `${uid}_${todayKey}`;
                 const usageLimit = access.maxRequestsPerDay || apiSettings.maxRequestsPerDayDefault || 50;
-
                 let requestCount = 0;
 
                 try {
                     const usageSnap = await getDoc(doc(db, "developer_usage", usageId));
-                    if (usageSnap.exists()) {
-                        const usage = usageSnap.data();
-                        requestCount = Number(usage.requestCount || 0);
-                    }
+                    if (usageSnap.exists()) requestCount = Number(usageSnap.data().requestCount || 0);
                 } catch (usageError) {
                     console.warn("Could not load developer usage:", usageError);
                 }
 
                 const remainingRequests = Math.max(usageLimit - requestCount, 0);
+                const apiBaseUrl = apiSettings.apiBaseUrl || "https://us-central1-hoco-3b23e.cloudfunctions.net";
+                const metadataUrl = `${apiBaseUrl}/getHocoDatasetMetadata?dataset=${encodeURIComponent(datasetId)}&format=${encodeURIComponent((allowedFormats[0] || dataset.format || "geojson"))}`;
+                const downloadUrl = `${apiBaseUrl}/getHocoDatasetDownload?dataset=${encodeURIComponent(datasetId)}&format=${encodeURIComponent((allowedFormats[0] || dataset.format || "geojson"))}`;
 
                 summaryEl.innerHTML = `
                     <strong>Status:</strong> Approved<br>
-                    <strong>Dataset:</strong> ${dataset.displayName || dataset.dataset || datasetId}<br>
-                    <strong>Format:</strong> ${(allowedFormats.join(", ") || dataset.format || "geojson").toUpperCase()}<br>
-                    <strong>Version:</strong> ${dataset.version || "Unknown"}<br>
+                    <strong>Dataset:</strong> ${escapeHtml(dataset.displayName || dataset.dataset || datasetId)}<br>
+                    <strong>Format:</strong> ${escapeHtml((allowedFormats.join(", ") || dataset.format || "geojson").toUpperCase())}<br>
+                    <strong>Version:</strong> ${escapeHtml(dataset.version || "Unknown")}<br>
                     <strong>Dataset available:</strong> ${dataset.available ? "Yes" : "No"}<br>
                     <strong>API status:</strong> ${apiSettings.enabled ? "Enabled" : "Disabled / Coming soon"}<br>
-                    <strong>Message:</strong> ${apiSettings.message || "HOCO developer API is not enabled yet."}<br>
+                    <strong>Downloads:</strong> ${apiSettings.downloadsEnabled ? "Enabled" : "Disabled"}<br>
+                    <strong>Message:</strong> ${escapeHtml(apiSettings.message || "HOCO developer API is not enabled yet.")}<br>
                     <strong>Requests used today:</strong> ${requestCount} / ${usageLimit}<br>
                     <strong>Requests remaining:</strong> ${remainingRequests}
                 `;
+
+                if (instructionsEl && apiSettings.enabled) {
+                    const sampleCode = `const user = firebase.auth().currentUser;
+const token = await user.getIdToken();
+
+const response = await fetch("${metadataUrl}", {
+  headers: { Authorization: \`Bearer ${token}\` }
+});
+
+const metadata = await response.json();
+console.log(metadata);`;
+                    instructionsEl.style.display = "block";
+                    instructionsEl.innerHTML = `
+                        <strong>Metadata endpoint:</strong><br>
+                        <code id="hocoMetadataEndpointText" style="word-break:break-all; display:block; margin:6px 0;">${escapeHtml(metadataUrl)}</code>
+                        <button type="button" onclick="copyHocoApiText('hocoMetadataEndpointText')" style="padding:6px; font-size:0.7rem; margin:4px 0 10px;">Copy metadata endpoint</button>
+
+                        <strong>Download endpoint:</strong><br>
+                        <code id="hocoDownloadEndpointText" style="word-break:break-all; display:block; margin:6px 0;">${escapeHtml(downloadUrl)}</code>
+                        <button type="button" onclick="copyHocoApiText('hocoDownloadEndpointText')" style="padding:6px; font-size:0.7rem; margin:4px 0 10px;">Copy download endpoint</button>
+
+                        <strong>Required header:</strong><br>
+                        <code>Authorization: Bearer &lt;Firebase ID token&gt;</code><br><br>
+
+                        <strong>Example JavaScript:</strong>
+                        <pre id="hocoApiSampleCode" style="white-space:pre-wrap; font-size:0.7rem; background:#102238; color:#e8eef8; padding:8px; border-radius:8px; overflow:auto;">${escapeHtml(sampleCode)}</pre>
+                        <button type="button" onclick="copyHocoApiText('hocoApiSampleCode')" style="padding:6px; font-size:0.7rem;">Copy sample code</button>
+                    `;
+                }
             } catch (error) {
                 console.error("External developer panel load failed:", error);
-                summaryEl.innerHTML = `
-                    <strong>Status:</strong> Error loading access<br>
-                    <span style="color:#888;">Check Firestore permissions.</span>
-                `;
+                summaryEl.innerHTML = `<strong>Status:</strong> Error loading access<br><span style="color:#888;">Check Firestore permissions.</span>`;
             }
         }
         // ==========================================
@@ -7548,14 +7557,7 @@
                 }
 
                 await addDoc(collection(db, "role_requests"), requestData);
-
-                showToast(
-                    role === "external_developer"
-                        ? "Developer data access request submitted."
-                        : "Upgrade request submitted.",
-                    "success"
-                );
-
+                showToast(role === "external_developer" ? "Developer data access request submitted." : "Upgrade request submitted.", "success");
                 document.getElementById('reqSocial').value = '';
                 document.getElementById('reqReason').value = '';
             } catch (e) {
@@ -7612,28 +7614,17 @@
             try {
                 const reqRef = doc(db, "role_requests", reqId);
                 const reqSnap = await getDoc(reqRef);
-
-                if (!reqSnap.exists()) {
-                    return showToast("Request not found.", "error");
-                }
+                if (!reqSnap.exists()) return showToast("Request not found.", "error");
 
                 const request = reqSnap.data();
                 const uid = request.userId;
                 const role = request.requestedRole;
-
-                if (!uid || !role) {
-                    return showToast("Invalid request data.", "error");
-                }
+                if (!uid || !role) return showToast("Invalid request data.", "error");
 
                 const allowedRoles = ["normal", "exclusive", "external_developer"];
+                if (!allowedRoles.includes(role)) return showToast("This role cannot be approved from requests.", "error");
 
-                if (!allowedRoles.includes(role)) {
-                    return showToast("This role cannot be approved from requests.", "error");
-                }
-
-                await updateDoc(doc(db, "users", uid), {
-                    role: role
-                });
+                await updateDoc(doc(db, "users", uid), { role });
 
                 if (role === "external_developer") {
                     const apiSettingsSnap = await getDoc(doc(db, "settings", "developer_api"));
@@ -7641,7 +7632,7 @@
                     const defaultLimit = apiSettings.maxRequestsPerDayDefault || 50;
 
                     await setDoc(doc(db, "developer_access", uid), {
-                        uid: uid,
+                        uid,
                         email: request.email || "",
                         role: "external_developer",
                         allowedDatasets: request.requestedDatasets || ["europe"],
