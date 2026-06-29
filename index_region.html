@@ -108,7 +108,7 @@
 
         @media (min-width: 769px) {
             .role-grid {
-                grid-template-columns: repeat(4, 1fr);
+                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
             }
         }
 
@@ -666,6 +666,9 @@
 
         #adminPanel {
             order: 9;
+        }
+        #externalDeveloperPanel {
+            order: 7;
         }
 
         #logoutBtn {
@@ -2072,6 +2075,15 @@
                         <li>HOCO Ensemble</li>
                     </ul>
                 </div>
+                <div class="role-card normal">
+                    <h4>External Developer</h4>
+                    <ul>
+                        <li>Request HOCO data access</li>
+                        <li>Approved dataset metadata</li>
+                        <li>Future API endpoint access</li>
+                        <li>No admin controls</li>
+                    </ul>
+                </div>
                 <div class="role-card dev">
                     <h4>Developer</h4>
                     <ul>
@@ -2418,7 +2430,7 @@
                             </div>
                         </div>
                         <div
-                            style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 5px; margin-bottom: 10px;">
+                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 5px; margin-top: 5px; margin-bottom: 10px;">
                             <button type="button" class="btn-outline"
                                 style="padding: 5px; font-size: 0.7rem; color: #2f67e4;"
                                 onclick="setTimeRange(3)">+3h</button>
@@ -2467,7 +2479,6 @@
                     <textarea id="reqReason" placeholder="Why do you need this role?" rows="2"></textarea>
                     <button id="submitUpgradeBtn" style="background: #444;">Submit Request</button>
                 </div>
-
                 <div id="externalDeveloperPanel" class="panel" style="display:none; border-color: var(--accent);">
                     <label style="color:var(--accent);">HOCO Developer Data Access</label>
 
@@ -2484,7 +2495,7 @@
                     </p>
                 </div>
 
-                <div id="adminPanel" class="panel" style="display:none; border-color: var(--danger);">
+<div id="adminPanel" class="panel" style="display:none; border-color: var(--danger);">
                     <label style="color:var(--danger)">Developer Console</label>
                     <button id="publishBtn" class="btn-add" style="margin-bottom: 15px;">Publish Selected Run to
                         Guests</button>
@@ -6718,22 +6729,27 @@
 
             document.body.classList.toggle('role-developer', isDev);
 
-            // External developer should NOT see internal developer/admin tools
-            document.getElementById('upgradePanel').style.display =
-                (isGuest || isNormal) ? 'block' : 'none';
+            const upgradePanel = document.getElementById('upgradePanel');
+            if (upgradePanel) {
+                upgradePanel.style.display = (isGuest || isNormal) ? 'block' : 'none';
+            }
 
-            // External developer should not execute HOCO runs unless you want them to
-            document.getElementById('executionPanel').style.display =
-                (isGuest || isExternalDev) ? 'none' : 'block';
+            const executionPanel = document.getElementById('executionPanel');
+            if (executionPanel) {
+                executionPanel.style.display = (isGuest || isExternalDev) ? 'none' : 'block';
+            }
 
-            document.getElementById('exclusiveSection').style.display =
-                (isExclusive || isDev) ? 'block' : 'none';
+            const exclusiveSection = document.getElementById('exclusiveSection');
+            if (exclusiveSection) {
+                exclusiveSection.style.display = (isExclusive || isDev) ? 'block' : 'none';
+            }
 
-            document.getElementById('adminPanel').style.display =
-                isDev ? 'block' : 'none';
+            const adminPanel = document.getElementById('adminPanel');
+            if (adminPanel) {
+                adminPanel.style.display = isDev ? 'block' : 'none';
+            }
 
             const externalDeveloperPanel = document.getElementById('externalDeveloperPanel');
-
             if (externalDeveloperPanel) {
                 externalDeveloperPanel.style.display = isExternalDev ? 'block' : 'none';
             }
@@ -6743,7 +6759,9 @@
             }
 
             const devRunnerUI = document.getElementById('devRunnerSettings');
-            devRunnerUI.style.display = isDev ? 'block' : 'none';
+            if (devRunnerUI) {
+                devRunnerUI.style.display = isDev ? 'block' : 'none';
+            }
 
             if (isDev) {
                 getDoc(doc(db, "system_config", "github_settings")).then(s => {
@@ -6755,18 +6773,22 @@
             }
 
             const maxDate = new Date();
-
             if (!isDev) {
                 maxDate.setHours(maxDate.getHours() + 72);
             }
 
             const endInput = document.getElementById('endTime');
-
-            if (!isDev) {
-                endInput.max = maxDate.toISOString().slice(0, 16);
-            } else {
-                endInput.removeAttribute('max');
+            if (endInput) {
+                if (!isDev) {
+                    endInput.max = maxDate.toISOString().slice(0, 16);
+                } else {
+                    endInput.removeAttribute('max');
+                }
             }
+        }
+
+        function getTodayKeyUTC() {
+            return new Date().toISOString().slice(0, 10);
         }
 
         async function loadExternalDeveloperPanel() {
@@ -6796,13 +6818,17 @@
                     };
                 }
 
+                if (typeof apiSettings.enable === "boolean" && typeof apiSettings.enabled !== "boolean") {
+                    apiSettings.enabled = apiSettings.enable;
+                }
+
                 const accessSnap = await getDoc(doc(db, "developer_access", uid));
 
                 if (!accessSnap.exists()) {
                     summaryEl.innerHTML = `
-                <strong>Status:</strong> No developer access record found<br>
-                <span style="color:#888;">Please contact HOCO support.</span>
-            `;
+                        <strong>Status:</strong> No developer access record found<br>
+                        <span style="color:#888;">Please contact HOCO support.</span>
+                    `;
                     return;
                 }
 
@@ -6810,47 +6836,72 @@
 
                 if (!access.enabled) {
                     summaryEl.innerHTML = `
-                <strong>Status:</strong> Access disabled<br>
-                <span style="color:#888;">Your external developer access is currently disabled.</span>
-            `;
+                        <strong>Status:</strong> Access disabled<br>
+                        <span style="color:#888;">Your external developer access is currently disabled.</span>
+                    `;
                     return;
                 }
 
                 const allowedDatasets = access.allowedDatasets || [];
                 const allowedFormats = access.allowedFormats || [];
 
+                if (!allowedDatasets.length) {
+                    summaryEl.innerHTML = `
+                        <strong>Status:</strong> Approved<br>
+                        <strong>Datasets:</strong> None assigned yet<br>
+                        <span style="color:#888;">A HOCO developer needs to assign dataset access.</span>
+                    `;
+                    return;
+                }
+
                 const datasetId = allowedDatasets[0] || "europe";
                 const datasetSnap = await getDoc(doc(db, "hoco_datasets", datasetId));
 
                 if (!datasetSnap.exists()) {
                     summaryEl.innerHTML = `
-                <strong>Status:</strong> Approved<br>
-                <strong>Dataset:</strong> ${datasetId}<br>
-                <span style="color:#888;">Dataset metadata not found.</span>
-            `;
+                        <strong>Status:</strong> Approved<br>
+                        <strong>Dataset:</strong> ${datasetId}<br>
+                        <span style="color:#888;">Dataset metadata not found.</span>
+                    `;
                     return;
                 }
 
                 const dataset = datasetSnap.data();
+                const todayKey = getTodayKeyUTC();
+                const usageId = `${uid}_${todayKey}`;
+                const usageLimit = access.maxRequestsPerDay || apiSettings.maxRequestsPerDayDefault || 50;
+
+                let requestCount = 0;
+
+                try {
+                    const usageSnap = await getDoc(doc(db, "developer_usage", usageId));
+                    if (usageSnap.exists()) {
+                        const usage = usageSnap.data();
+                        requestCount = Number(usage.requestCount || 0);
+                    }
+                } catch (usageError) {
+                    console.warn("Could not load developer usage:", usageError);
+                }
+
+                const remainingRequests = Math.max(usageLimit - requestCount, 0);
 
                 summaryEl.innerHTML = `
-            <strong>Status:</strong> Approved<br>
-            <strong>Dataset:</strong> ${dataset.displayName || dataset.dataset || datasetId}<br>
-            <strong>Format:</strong> ${(allowedFormats.join(", ") || dataset.format || "geojson").toUpperCase()}<br>
-            <strong>Version:</strong> ${dataset.version || "Unknown"}<br>
-            <strong>Dataset available:</strong> ${dataset.available ? "Yes" : "No"}<br>
-            <strong>API status:</strong> ${apiSettings.enabled ? "Enabled" : "Disabled / Coming soon"}<br>
-            <strong>Message:</strong> ${apiSettings.message || "HOCO developer API is not enabled yet."}<br>
-            <strong>Daily request limit:</strong> ${access.maxRequestsPerDay || apiSettings.maxRequestsPerDayDefault || 50}
-        `;
-
+                    <strong>Status:</strong> Approved<br>
+                    <strong>Dataset:</strong> ${dataset.displayName || dataset.dataset || datasetId}<br>
+                    <strong>Format:</strong> ${(allowedFormats.join(", ") || dataset.format || "geojson").toUpperCase()}<br>
+                    <strong>Version:</strong> ${dataset.version || "Unknown"}<br>
+                    <strong>Dataset available:</strong> ${dataset.available ? "Yes" : "No"}<br>
+                    <strong>API status:</strong> ${apiSettings.enabled ? "Enabled" : "Disabled / Coming soon"}<br>
+                    <strong>Message:</strong> ${apiSettings.message || "HOCO developer API is not enabled yet."}<br>
+                    <strong>Requests used today:</strong> ${requestCount} / ${usageLimit}<br>
+                    <strong>Requests remaining:</strong> ${remainingRequests}
+                `;
             } catch (error) {
                 console.error("External developer panel load failed:", error);
-
                 summaryEl.innerHTML = `
-            <strong>Status:</strong> Error loading access<br>
-            <span style="color:#888;">Check Firestore permissions.</span>
-        `;
+                    <strong>Status:</strong> Error loading access<br>
+                    <span style="color:#888;">Check Firestore permissions.</span>
+                `;
             }
         }
         // ==========================================
@@ -7490,7 +7541,6 @@
                     createdAt: new Date()
                 };
 
-                // Extra data only for external developer requests
                 if (role === "external_developer") {
                     requestData.requestedDatasets = ["europe"];
                     requestData.requestedFormats = ["geojson"];
@@ -7508,7 +7558,6 @@
 
                 document.getElementById('reqSocial').value = '';
                 document.getElementById('reqReason').value = '';
-
             } catch (e) {
                 console.error("Request submit error:", e);
                 showToast("Error submitting request.", "error");
@@ -7582,20 +7631,22 @@
                     return showToast("This role cannot be approved from requests.", "error");
                 }
 
-                // Update the user's main app role
                 await updateDoc(doc(db, "users", uid), {
                     role: role
                 });
 
-                // If this is external developer access, create API/data permission document
                 if (role === "external_developer") {
+                    const apiSettingsSnap = await getDoc(doc(db, "settings", "developer_api"));
+                    const apiSettings = apiSettingsSnap.exists() ? apiSettingsSnap.data() : {};
+                    const defaultLimit = apiSettings.maxRequestsPerDayDefault || 50;
+
                     await setDoc(doc(db, "developer_access", uid), {
                         uid: uid,
                         email: request.email || "",
                         role: "external_developer",
                         allowedDatasets: request.requestedDatasets || ["europe"],
                         allowedFormats: request.requestedFormats || ["geojson"],
-                        maxRequestsPerDay: 50,
+                        maxRequestsPerDay: defaultLimit,
                         enabled: true,
                         approvedAt: new Date(),
                         approvedBy: auth.currentUser ? auth.currentUser.uid : null
@@ -7609,7 +7660,6 @@
                 });
 
                 showToast("Request approved.", "success");
-
             } catch (err) {
                 console.error("Approve request error:", err);
                 showToast("Error approving request.", "error");
