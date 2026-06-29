@@ -2475,14 +2475,12 @@
                         Your external developer access has been approved.
                     </p>
 
-                    <div style="font-size: 0.8rem; line-height: 1.6;">
-                        <strong>Dataset:</strong> Europe<br>
-                        <strong>Format:</strong> GeoJSON<br>
-                        <strong>API endpoint:</strong> Coming soon
+                    <div id="externalDeveloperDatasetSummary" style="font-size: 0.8rem; line-height: 1.6;">
+                        Loading approved dataset access...
                     </div>
 
-                    <p style="font-size: 0.75rem; color:#888; margin-bottom:0;">
-                        You will receive instructions once the automated HOCO data endpoint is enabled.
+                    <p style="font-size: 0.75rem; color:#888; margin-bottom:0; margin-top:10px;">
+                        You will receive full endpoint instructions once the automated HOCO data endpoint is enabled.
                     </p>
                 </div>
 
@@ -6735,8 +6733,13 @@
                 isDev ? 'block' : 'none';
 
             const externalDeveloperPanel = document.getElementById('externalDeveloperPanel');
+
             if (externalDeveloperPanel) {
                 externalDeveloperPanel.style.display = isExternalDev ? 'block' : 'none';
+            }
+
+            if (isExternalDev) {
+                loadExternalDeveloperPanel();
             }
 
             const devRunnerUI = document.getElementById('devRunnerSettings');
@@ -6766,6 +6769,113 @@
             }
         }
 
+        async function loadExternalDeveloperPanel() {
+            const summaryEl = document.getElementById("externalDeveloperDatasetSummary");
+
+            if (!summaryEl || !auth.currentUser) {
+                return;
+            }
+
+            summaryEl.innerHTML = "Loading approved dataset access...";
+
+            try {
+                const uid = auth.currentUser.uid;
+
+                // 1. Load developer API kill switch/settings
+                const apiSettingsSnap = await getDoc(doc(db, "settings", "developer_api"));
+
+                let apiSettings = {
+                    enabled: false,
+                    message: "HOCO developer API is not enabled yet.",
+                    maxRequestsPerDayDefault: 50
+                };
+
+                if (apiSettingsSnap.exists()) {
+                    apiSettings = {
+                        ...apiSettings,
+                        ...apiSettingsSnap.data()
+                    };
+                }
+
+                // Support old field name just in case you used "enable"
+                if (typeof apiSettings.enable === "boolean" && typeof apiSettings.enabled !== "boolean") {
+                    apiSettings.enabled = apiSettings.enable;
+                }
+
+                // 2. Load this user's external developer access permissions
+                const accessSnap = await getDoc(doc(db, "developer_access", uid));
+
+                if (!accessSnap.exists()) {
+                    summaryEl.innerHTML = `
+                <strong>Status:</strong> No developer access record found<br>
+                <span style="color:#888;">Please contact HOCO support.</span>
+            `;
+                    return;
+                }
+
+                const access = accessSnap.data();
+
+                if (!access.enabled) {
+                    summaryEl.innerHTML = `
+                <strong>Status:</strong> Access disabled<br>
+                <span style="color:#888;">Your external developer access is currently disabled.</span>
+            `;
+                    return;
+                }
+
+                const allowedDatasets = access.allowedDatasets || [];
+                const allowedFormats = access.allowedFormats || [];
+
+                if (!allowedDatasets.length) {
+                    summaryEl.innerHTML = `
+                <strong>Status:</strong> Approved<br>
+                <strong>Datasets:</strong> None assigned yet<br>
+                <span style="color:#888;">A HOCO developer needs to assign dataset access.</span>
+            `;
+                    return;
+                }
+
+                // 3. Load first allowed dataset metadata
+                const datasetId = allowedDatasets[0];
+                const datasetSnap = await getDoc(doc(db, "hoco_datasets", datasetId));
+
+                if (!datasetSnap.exists()) {
+                    summaryEl.innerHTML = `
+                <strong>Status:</strong> Approved<br>
+                <strong>Dataset:</strong> ${datasetId}<br>
+                <span style="color:#888;">Dataset metadata has not been created yet.</span>
+            `;
+                    return;
+                }
+
+                const dataset = datasetSnap.data();
+
+                const apiStatusLabel = apiSettings.enabled
+                    ? "Enabled"
+                    : "Disabled / Coming soon";
+
+                const apiMessage = apiSettings.message || "HOCO developer API is not enabled yet.";
+
+                summaryEl.innerHTML = `
+            <strong>Status:</strong> Approved<br>
+            <strong>Dataset:</strong> ${dataset.displayName || dataset.dataset || datasetId}<br>
+            <strong>Format:</strong> ${(allowedFormats.join(", ") || dataset.format || "geojson").toUpperCase()}<br>
+            <strong>Version:</strong> ${dataset.version || "Unknown"}<br>
+            <strong>Dataset available:</strong> ${dataset.available ? "Yes" : "No"}<br>
+            <strong>API status:</strong> ${apiStatusLabel}<br>
+            <strong>Message:</strong> ${apiMessage}<br>
+            <strong>Daily request limit:</strong> ${access.maxRequestsPerDay || apiSettings.maxRequestsPerDayDefault || 50}
+        `;
+
+            } catch (error) {
+                console.error("External developer panel load failed:", error);
+
+                summaryEl.innerHTML = `
+            <strong>Status:</strong> Error loading access<br>
+            <span style="color:#888;">Check Firestore permissions or developer_access setup.</span>
+        `;
+            }
+        }
         // ==========================================
         // ARCHIVE & RENDERING
         // ==========================================
