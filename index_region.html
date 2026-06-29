@@ -6781,7 +6781,6 @@
             try {
                 const uid = auth.currentUser.uid;
 
-                // 1. Load developer API kill switch/settings
                 const apiSettingsSnap = await getDoc(doc(db, "settings", "developer_api"));
 
                 let apiSettings = {
@@ -6797,12 +6796,6 @@
                     };
                 }
 
-                // Support old field name just in case you used "enable"
-                if (typeof apiSettings.enable === "boolean" && typeof apiSettings.enabled !== "boolean") {
-                    apiSettings.enabled = apiSettings.enable;
-                }
-
-                // 2. Load this user's external developer access permissions
                 const accessSnap = await getDoc(doc(db, "developer_access", uid));
 
                 if (!accessSnap.exists()) {
@@ -6826,35 +6819,19 @@
                 const allowedDatasets = access.allowedDatasets || [];
                 const allowedFormats = access.allowedFormats || [];
 
-                if (!allowedDatasets.length) {
-                    summaryEl.innerHTML = `
-                <strong>Status:</strong> Approved<br>
-                <strong>Datasets:</strong> None assigned yet<br>
-                <span style="color:#888;">A HOCO developer needs to assign dataset access.</span>
-            `;
-                    return;
-                }
-
-                // 3. Load first allowed dataset metadata
-                const datasetId = allowedDatasets[0];
+                const datasetId = allowedDatasets[0] || "europe";
                 const datasetSnap = await getDoc(doc(db, "hoco_datasets", datasetId));
 
                 if (!datasetSnap.exists()) {
                     summaryEl.innerHTML = `
                 <strong>Status:</strong> Approved<br>
                 <strong>Dataset:</strong> ${datasetId}<br>
-                <span style="color:#888;">Dataset metadata has not been created yet.</span>
+                <span style="color:#888;">Dataset metadata not found.</span>
             `;
                     return;
                 }
 
                 const dataset = datasetSnap.data();
-
-                const apiStatusLabel = apiSettings.enabled
-                    ? "Enabled"
-                    : "Disabled / Coming soon";
-
-                const apiMessage = apiSettings.message || "HOCO developer API is not enabled yet.";
 
                 summaryEl.innerHTML = `
             <strong>Status:</strong> Approved<br>
@@ -6862,8 +6839,8 @@
             <strong>Format:</strong> ${(allowedFormats.join(", ") || dataset.format || "geojson").toUpperCase()}<br>
             <strong>Version:</strong> ${dataset.version || "Unknown"}<br>
             <strong>Dataset available:</strong> ${dataset.available ? "Yes" : "No"}<br>
-            <strong>API status:</strong> ${apiStatusLabel}<br>
-            <strong>Message:</strong> ${apiMessage}<br>
+            <strong>API status:</strong> ${apiSettings.enabled ? "Enabled" : "Disabled / Coming soon"}<br>
+            <strong>Message:</strong> ${apiSettings.message || "HOCO developer API is not enabled yet."}<br>
             <strong>Daily request limit:</strong> ${access.maxRequestsPerDay || apiSettings.maxRequestsPerDayDefault || 50}
         `;
 
@@ -6872,7 +6849,7 @@
 
                 summaryEl.innerHTML = `
             <strong>Status:</strong> Error loading access<br>
-            <span style="color:#888;">Check Firestore permissions or developer_access setup.</span>
+            <span style="color:#888;">Check Firestore permissions.</span>
         `;
             }
         }
