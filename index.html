@@ -5108,6 +5108,8 @@
 
         const GITHUB_LIGHTNING_URL_1 = 'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new/main/lightning_data.json';
         const GITHUB_LIGHTNING_URL_2 = 'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new/main/lightning_data_2025_autumn.json';
+        const GITHUB_LIGHTNING_URL_3 = 'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new_2026/main/lightning_data_2026_summer_part1.json';
+        const GITHUB_LIGHTNING_URL_4 = 'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new_2026/main/lightning_data_2026_summer.json';
         const METOFFICE_LIGHTNING_URL = 'https://data.consumer-digital.api.metoffice.gov.uk/v1/lightning';
 
         // Fetches a lightning feed URL through the shared cache (keyed by URL), so repeat
@@ -5223,9 +5225,11 @@
                 const isUkMetOfficeRegion = currentActiveRegion === 'England' || currentActiveRegion === 'Scotland';
 
                 if (isUkMetOfficeRegion) {
-                    const [githubRaw1, githubRaw2, metOfficeRaw] = await Promise.all([
+                    const [githubRaw1, githubRaw2, githubRaw3, githubRaw4, metOfficeRaw] = await Promise.all([
                         fetchLightningJson(GITHUB_LIGHTNING_URL_1),
                         fetchLightningJson(GITHUB_LIGHTNING_URL_2),
+                        fetchLightningJson(GITHUB_LIGHTNING_URL_3),
+                        fetchLightningJson(GITHUB_LIGHTNING_URL_4),
                         fetchLightningJson(METOFFICE_LIGHTNING_URL)
                     ]);
 
