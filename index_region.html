@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="google-adsense-account" content="ca-pub-6850588636991409">
     <title>ADV-HOCO Pro Forecaster</title>
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -17,6 +18,8 @@
 
         gtag('config', 'G-TKT4GTFBNM');
     </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6850588636991409"
+        crossorigin="anonymous"></script>
     <style>
         :root {
             --primary: #283673;
@@ -244,6 +247,12 @@
             width: 100%;
             height: 100%;
             position: relative;
+        }
+
+        /* TEMP: Export KML hidden from UI for now. Logic/handlers are untouched -
+           remove this rule to bring the button back. */
+        button[id^="export-kml-btn-"] {
+            display: none !important;
         }
 
         /* Map Metadata Card */
@@ -2452,10 +2461,29 @@
                     <select id="reqRole">
                         <option value="normal">Normal Role (Auto-HOCO)</option>
                         <option value="exclusive">Exclusive Role (Custom Models)</option>
+                        <option value="external_developer">External Developer Access (HOCO Data API)</option>
                     </select>
                     <input type="text" id="reqSocial" placeholder="Social Media Handle (@username)">
                     <textarea id="reqReason" placeholder="Why do you need this role?" rows="2"></textarea>
                     <button id="submitUpgradeBtn" style="background: #444;">Submit Request</button>
+                </div>
+
+                <div id="externalDeveloperPanel" class="panel" style="display:none; border-color: var(--accent);">
+                    <label style="color:var(--accent);">HOCO Developer Data Access</label>
+
+                    <p style="font-size: 0.8rem; color: #888; margin-top:0;">
+                        Your external developer access has been approved.
+                    </p>
+
+                    <div style="font-size: 0.8rem; line-height: 1.6;">
+                        <strong>Dataset:</strong> Europe<br>
+                        <strong>Format:</strong> GeoJSON<br>
+                        <strong>API endpoint:</strong> Coming soon
+                    </div>
+
+                    <p style="font-size: 0.75rem; color:#888; margin-bottom:0;">
+                        You will receive instructions once the automated HOCO data endpoint is enabled.
+                    </p>
                 </div>
 
                 <div id="adminPanel" class="panel" style="display:none; border-color: var(--danger);">
@@ -2831,6 +2859,8 @@
             </div>
         </div>
     </div>
+    <button id="sidebarToggleBtn" type="button" class="sidebar-toggle-btn btn-outline" aria-expanded="true">Hide
+        panel</button>
     <div id="regionSelectionView" style="display: none; flex-grow: 1; position: relative;">
         <div id="europeMap" style="position: absolute; inset: 0;"></div>
 
@@ -2841,13 +2871,7 @@
         </div>
     </div>
 
-    <button id="backToRegionsBtn" class="btn-outline"
-        style="position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 100; display: none; width: auto; padding: 8px 16px; background: rgba(255,255,255,0.9); color: #333; font-weight: bold; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-        ⬅ Back to Europe View
-    </button>
     <div id="map-wrapper" class="grid-1">
-        <button id="sidebarToggleBtn" type="button" class="sidebar-toggle-btn btn-outline" aria-expanded="true">Hide
-            panel</button>
         <div id="map0" class="map-instance">
             <div class="map-metadata">
                 <div id="meta-title-0"
@@ -2881,6 +2905,10 @@
                         Export KML
                     </button>
                 </div>
+                <button id="backToRegionsBtn" class="btn-outline"
+                    style="display: none; width: 100%; margin-top: 8px; padding: 6px 10px; font-size: 0.75rem; background: rgba(255,255,255,0.9); color: #333; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; pointer-events: auto;">
+                    ⬅ Back to Europe View
+                </button>
             </div>
             <div id="loading-0" class="loading-overlay">
                 <div class="loading-content">
@@ -3690,7 +3718,7 @@
 
         let userRole = 'guest';
         let runsToday = 0;
-        let maps = [];
+        let maps = [null, null, null, null]; // Lazily created - see createMapInstance()
         let allRuns = [];
         let selectedScenarios = [];
         let autoDaySelection = 0;
@@ -3698,10 +3726,14 @@
         let runBrowserFilter = 'all';
         let activeMapData = [null, null, null, null];
         let activeMapRuns = [null, null, null, null];
+        let mapLoadTokens = [0, 0, 0, 0]; // Bumped on every loadRunIntoMap() call per map slot, so a slower/older
+        // in-flight request can detect it's stale and bail instead of
+        // overwriting a newer region/run's data once its awaits resolve.
         let isInitialLoad = true;
         let humanMimicPeriodKey = '';
         let humanMimicSelectedRunIds = new Set();
         let humanMimicSelectionSeedKey = '';
+        let currentActiveRegion = null; // Currently viewed/selected region (e.g. 'England', 'Germany'); null = region picker view
         let humanPreviewState = { runId: '', mapIndex: null, token: 0 };
         let pendingRunTimers = {};      // { mapIndex: { runId, createdAtMs, estSeconds, intervalId, timeoutId, ... } }
         let progressIntervals = {};
@@ -4077,6 +4109,7 @@
             return getVisibleRuns()
                 .filter((run) => run?.status !== 'pending')
                 .filter((run) => run?.type === 'automated')
+                .filter((run) => !currentActiveRegion || regionMatchesRun(currentActiveRegion, run))
                 .filter((run) => !!(run?.geojsonUrl || run?.inlineGeojson || run?.inlineGeojsonText || run?.geojson || run?.ensembleGeojson))
                 .filter((run) => !!run?.startTime)
                 .filter((run) => {
@@ -5042,7 +5075,7 @@
 
                 status.textContent = 'Saving the generated ensemble to database and loading it into the selected map.';
                 const payload = {
-                    region: activeGroup.run.region || 'UK',
+                    region: currentActiveRegion || activeGroup.run.region || 'UK',
                     startTime: formatHocoDateTime(activeGroup.periodInfo.start),
                     endTime: formatHocoDateTime(activeGroup.periodInfo.end),
                     weather: 'lightning',
@@ -5092,6 +5125,89 @@
         const lightningSources = {};   // mapIndex → { sourceId, layerId, clusterLayerId?, data }
         let lightningVisible = {};     // mapIndex → boolean
 
+        const GITHUB_LIGHTNING_URL_1 = 'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new/main/lightning_data.json';
+        const GITHUB_LIGHTNING_URL_2 = 'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new/main/lightning_data_2025_autumn.json';
+        const GITHUB_LIGHTNING_URL_3 = 'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new_2026/main/lightning_data_2026_summer_part1.json';
+        const GITHUB_LIGHTNING_URL_4 = 'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new_2026/main/lightning_data_2026_summer.json';
+        const METOFFICE_LIGHTNING_URL = 'https://data.consumer-digital.api.metoffice.gov.uk/v1/lightning';
+
+        // Fetches a lightning feed URL through the shared cache (keyed by URL), so repeat
+        // calls within CACHE_TTL_MS reuse the previous response instead of re-hitting the
+        // network. Returns the parsed JSON body, or null if the fetch/parse failed.
+        async function fetchLightningJson(url) {
+            const cached = lightningCache.get(url);
+            if (cached && (Date.now() - cached.timestamp) <= CACHE_TTL_MS) {
+                return cached.data;
+            }
+            try {
+                const resp = await fetch(url, { cache: 'no-cache', headers: { 'Accept': 'application/json' } });
+                if (!resp.ok) return null;
+                const data = await resp.json();
+                lightningCache.set(url, { data, timestamp: Date.now() });
+                return data;
+            } catch (err) {
+                console.warn(`Failed to fetch lightning from ${url}`, err);
+                return null;
+            }
+        }
+
+        // Handles the response formats seen across feeds: direct array, { lightning_strikes: [] }, or { strikes: [] }
+        function extractLightningStrikes(raw) {
+            return Array.isArray(raw) ? raw : (raw?.lightning_strikes || raw?.strikes || []);
+        }
+
+        const UKWX_EUROPE_ARCHIVE_BASE_URL = 'https://ukwx.duckdns.org/lightning/archive/europe';
+        const UKWX_EUROPE_LIVE_URL = 'https://ukwx.duckdns.org/lightning/europe';
+        const UKWX_ARCHIVE_MAX_DAY_FILES = 31; // safety cap so a bad/huge time range can't trigger runaway fetches
+
+        // The ukwx archive is split into one JSON file per "weather day" running 06:00Z to
+        // the following 06:00Z, named after the period_start's calendar date (e.g.
+        // 2026-06-26.json covers 2026-06-26T06:00Z - 2026-06-27T06:00Z). Shifting a timestamp
+        // back 6 hours before reading its UTC calendar date lands it on the correct file.
+        function ukwxArchiveDayKey(unixSeconds) {
+            return new Date(unixSeconds * 1000 - 6 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        }
+
+        // Returns every daily file's date key (YYYY-MM-DD) needed to fully cover [startUnix, endUnix].
+        function getUkwxArchiveDayKeysInRange(startUnix, endUnix) {
+            const keys = [];
+            let cursor = new Date(`${ukwxArchiveDayKey(startUnix)}T00:00:00Z`);
+            const endCursor = new Date(`${ukwxArchiveDayKey(endUnix)}T00:00:00Z`);
+            while (cursor <= endCursor && keys.length < UKWX_ARCHIVE_MAX_DAY_FILES) {
+                keys.push(cursor.toISOString().slice(0, 10));
+                cursor = new Date(cursor.getTime() + 24 * 60 * 60 * 1000);
+            }
+            return keys;
+        }
+
+        // Converts ukwx's { points: [{ t, lat, lon }] } shape into the same
+        // { strike_time, coordinates: [lon, lat] } shape the other feeds use.
+        function extractUkwxStrikes(raw) {
+            if (!raw?.points) return [];
+            return raw.points.map(p => ({
+                strike_time: new Date(p.t * 1000).toISOString(),
+                coordinates: [p.lon, p.lat]
+            }));
+        }
+
+        // The live endpoint is fetched fresh every time (its own cache-busting `t` query
+        // param) rather than through fetchLightningJson's URL-keyed cache - since that key
+        // would be different on every call anyway, going through it would just leak an
+        // ever-growing set of one-shot entries into lightningCache.
+        async function fetchUkwxLiveJson() {
+            try {
+                const resp = await fetch(`${UKWX_EUROPE_LIVE_URL}`, {
+                    cache: 'no-cache',
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (!resp.ok) return null;
+                return await resp.json();
+            } catch (err) {
+                console.warn('Failed to fetch live ukwx lightning feed', err);
+                return null;
+            }
+        }
+
         async function loadAndShowLightning(mapIndex, startTimeStr, endTimeStr) {
             if (lightningVisible[mapIndex]) {
                 hideLightning(mapIndex);
@@ -5117,36 +5233,74 @@
 
                 let allStrikes = [];
 
-                for (const url of [
-                    'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new/main/lightning_data.json',
-                    'https://raw.githubusercontent.com/HandryOutlook/lightning_data_new/main/lightning_data_2025_autumn.json',
-                    'https://data.consumer-digital.api.metoffice.gov.uk/v1/lightning'
-                ]) {
-                    let jsonData = lightningCache.get(url);
+                const withinWindow = s => {
+                    if (!s.strike_time) return false;
+                    const t = Math.floor(new Date(s.strike_time).getTime() / 1000);
+                    return t >= startUnix && t <= endUnix;
+                };
 
-                    if (!jsonData || (Date.now() - jsonData.timestamp) > CACHE_TTL_MS) {
-                        try {
-                            const resp = await fetch(url, { cache: 'no-cache', headers: { 'Accept': 'application/json' } });
-                            if (!resp.ok) continue;
+                // Only England and Scotland have Met Office / GitHub coverage. Every other
+                // region (Germany, Poland, etc.) relies solely on the ukwx feed below.
+                const isUkMetOfficeRegion = currentActiveRegion === 'England' || currentActiveRegion === 'Scotland';
 
-                            jsonData = { data: await resp.json(), timestamp: Date.now() };
-                            lightningCache.set(url, jsonData);
-                        } catch (err) {
-                            console.warn(`Failed to fetch lightning from ${url}`, err);
-                            continue;
-                        }
+                if (isUkMetOfficeRegion) {
+                    const [githubRaw1, githubRaw2, githubRaw3, githubRaw4, metOfficeRaw] = await Promise.all([
+                        fetchLightningJson(GITHUB_LIGHTNING_URL_1),
+                        fetchLightningJson(GITHUB_LIGHTNING_URL_2),
+                        fetchLightningJson(GITHUB_LIGHTNING_URL_3),
+                        fetchLightningJson(GITHUB_LIGHTNING_URL_4),
+                        fetchLightningJson(METOFFICE_LIGHTNING_URL)
+                    ]);
+
+                    allStrikes = allStrikes.concat(extractLightningStrikes(githubRaw1).filter(withinWindow));
+                    allStrikes = allStrikes.concat(extractLightningStrikes(githubRaw2).filter(withinWindow));
+                    allStrikes = allStrikes.concat(extractLightningStrikes(metOfficeRaw).filter(withinWindow));
+
+                    // IMPORTANT: when there are more strikes than fit in one response, the Met
+                    // Office feed splits the rest across extra pages listed in `chunks`. Only
+                    // reading the base response (as before) silently drops those strikes during
+                    // busy lightning periods. Fetch every chunk too and merge them in - same
+                    // pattern as forecast-detail.html's fetchUkLightningData().
+                    const chunkUrls = (metOfficeRaw?.chunks || []).map(chunk =>
+                        `${METOFFICE_LIGHTNING_URL}?last-minutes=1&chunk=${chunk.chunk}`
+                    );
+                    if (chunkUrls.length) {
+                        const chunkResponses = await Promise.all(chunkUrls.map(fetchLightningJson));
+                        chunkResponses.forEach(chunkRaw => {
+                            allStrikes = allStrikes.concat(extractLightningStrikes(chunkRaw).filter(withinWindow));
+                        });
                     }
+                }
 
-                    const raw = jsonData.data;
-                    // Handles the three formats: direct array, { lightning_strikes: [] }, or { strikes: [] }
-                    const strikes = Array.isArray(raw) ? raw : (raw?.lightning_strikes || raw?.strikes || []);
-                    const filtered = strikes.filter(s => {
-                        if (!s.strike_time) return false;
-                        const t = Math.floor(new Date(s.strike_time).getTime() / 1000);
-                        return t >= startUnix && t <= endUnix;
+                // Europe-wide coverage (beyond Met Office's England/Scotland strikes) from the
+                // ukwx archive, plus its live feed. Archive is split into one file per UTC
+                // weather-day (06:00Z-06:00Z), so fetch every day-file the forecast window
+                // touches; the live feed is fetched fresh alongside it and merged in too -
+                // useful when the window's end is close to "now" and today's archive file
+                // hasn't caught up yet.
+                // For non-England/Scotland regions this is the ONLY lightning source used.
+                const ukwxDayKeys = getUkwxArchiveDayKeysInRange(startUnix, endUnix);
+                const [ukwxResponses, ukwxLiveRaw] = await Promise.all([
+                    Promise.all(ukwxDayKeys.map(dayKey => fetchLightningJson(`${UKWX_EUROPE_ARCHIVE_BASE_URL}/${dayKey}.json`))),
+                    fetchUkwxLiveJson()
+                ]);
+                ukwxResponses.forEach(raw => {
+                    allStrikes = allStrikes.concat(extractUkwxStrikes(raw).filter(withinWindow));
+                });
+                allStrikes = allStrikes.concat(extractUkwxStrikes(ukwxLiveRaw).filter(withinWindow));
+
+                // Strictly clip to the active region's bounding box. This matters most for
+                // ukwx, which returns Europe-wide strikes regardless of which region is
+                // selected - without this, zooming into e.g. Germany or Poland would still
+                // show strikes from well outside that region's box.
+                const activeRegionObj = EUROPE_REGIONS.find(r => r.id === currentActiveRegion);
+                if (activeRegionObj) {
+                    const { west, south, east, north } = activeRegionObj;
+                    allStrikes = allStrikes.filter(s => {
+                        if (!s.coordinates || s.coordinates.length < 2) return false;
+                        const [lon, lat] = s.coordinates;
+                        return lon >= west && lon <= east && lat >= south && lat <= north;
                     });
-
-                    allStrikes.push(...filtered);
                 }
 
                 const seen = new Map();
@@ -5629,7 +5783,6 @@
         mapboxgl.accessToken = 'pk.eyJ1IjoiaGFuZHJ5MjAxOTEwMjYiLCJhIjoiY21jYWg2eG1lMDNkYTJxczVyOWM5bW9mciJ9.bA-qxiByTB_RseY1fgU4rg';
 
         let europeMap = null;
-        let currentActiveRegion = null;
 
         // European forecast regions shown on the overview map.
         // Only regions marked active can be selected and receive live HOCO previews.
@@ -5640,6 +5793,7 @@
             { id: 'Spain', name: 'Coming Soon', status: 'inactive', west: -9.5, south: 36.0, east: 4.5, north: 43.8 },
             { id: 'Germany', name: 'Germany (Beta)', status: 'active', west: 0.9558, south: 46.9809, east: 16.9409, north: 55.8567 },
             { id: 'Poland', name: 'Poland (Beta)', status: 'active', west: 11.7142, south: 47.9787, east: 27.1252, north: 55.4243 },
+            { id: 'Baltics', name: 'Baltics (Beta)', status: 'active', west: 11.6949, south: 52.7695, east: 36.4801, north: 63.4481 },
 
         ];
 
@@ -5836,7 +5990,22 @@
         async function updateEuropePreview() {
             const regionView = document.getElementById('regionSelectionView');
             if (!regionView || regionView.style.display === 'none') return;
-            if (!europeMap || !europeMap.isStyleLoaded()) return;
+
+            if (!europeMap) return;
+
+            if (!europeMap.isStyleLoaded()) {
+                // The Firestore run data and the Mapbox style load independently of
+                // each other, with no guaranteed order. On first load it's common
+                // for Firestore's onSnapshot to fire before the Europe map's style
+                // (and its sprites/glyphs) has finished downloading - especially on
+                // slow connections or low-end devices. Previously this just returned
+                // and nothing else called it again until the user moved the day
+                // slider. Now we queue a single retry for when the style is ready.
+                europeMap.once('load', () => {
+                    debouncedEuropePreviewUpdate();
+                });
+                return;
+            }
 
             const activeRegions = regionsGeoJSON.features.filter((feature) => feature.properties.status === 'active');
             if (!activeRegions.length) {
@@ -5847,9 +6016,9 @@
             const dayOffset = Number(document.getElementById('autoDaySlider')?.value ?? autoDaySelection ?? 0);
             const selectedIndex = autoRunSelectionByDay[dayOffset];
 
-            // 1. Create an empty array to collect features from ALL active regions
-            let combinedFeatures = [];
-
+            // 1. Figure out which run (if any) each active region should preview.
+            //    This part is cheap/synchronous, so it stays as a simple loop.
+            const regionsToFetch = [];
             for (const feature of activeRegions) {
                 const regionId = feature.properties.id;
                 const runs = getAutoRunsForRegionDay(regionId, dayOffset);
@@ -5860,22 +6029,33 @@
                 const hasGeojson = !!(runData.geojsonUrl || runData.inlineGeojson || runData.inlineGeojsonText || runData.geojson || runData.ensembleGeojson);
                 if (runData.status === 'pending' || !hasGeojson) continue;
 
-                try {
-                    // Fetch the GeoJSON for this specific region
-                    const geojsonData = await fetchRunGeojsonData(run.id, runData);
+                regionsToFetch.push({ regionId, run, runData });
+            }
 
-                    // 2. Extract the features and push them into our combined array
+            // 2. Fetch every region's GeoJSON concurrently instead of one-at-a-time.
+            //    Each fetch is an independent network request, so awaiting them in
+            //    sequence (the old behavior) meant total load time scaled with the
+            //    number of active regions - the more regions, the longer this took.
+            const fetchResults = await Promise.allSettled(
+                regionsToFetch.map(({ run, runData }) => fetchRunGeojsonData(run.id, runData))
+            );
+
+            // 3. Combine whatever came back successfully, once everything settles.
+            let combinedFeatures = [];
+            fetchResults.forEach((result, idx) => {
+                if (result.status === 'fulfilled') {
+                    const geojsonData = result.value;
                     if (geojsonData && geojsonData.type === 'FeatureCollection' && geojsonData.features) {
                         combinedFeatures.push(...geojsonData.features);
                     } else if (geojsonData && geojsonData.type === 'Feature') {
                         combinedFeatures.push(geojsonData);
                     }
-                } catch (error) {
-                    console.warn('Europe preview load failed for', regionId, error);
+                } else {
+                    console.warn('Europe preview load failed for', regionsToFetch[idx].regionId, result.reason);
                 }
-            } // End of loop - NO break statement here!
+            });
 
-            // 3. Render ONCE after the loop finishes
+            // 4. Render ONCE after everything finishes
             if (combinedFeatures.length > 0) {
                 // Construct a single combined FeatureCollection
                 const combinedGeoJSON = {
@@ -5886,7 +6066,7 @@
                 // Pass the massive, combined dataset to your existing render function
                 renderEuropeHocoPreview(combinedGeoJSON);
             } else {
-                // If we looped through everything but found no valid features, clear the map
+                // If we fetched everything but found no valid features, clear the map
                 clearEuropeHocoLayers();
             }
         }
@@ -5899,92 +6079,106 @@
         }
         initEuropeMap();
 
-        function initMaps() {
-            for (let i = 0; i < 4; i++) {
-                maps[i] = new mapboxgl.Map({
-                    container: `map${i}`,
-                    // Ensure this URL is exactly correct from your Mapbox Studio account
-                    style: 'mapbox://styles/handry20191026/cmqv7f1q8001q01scbv5x4kuk',
-                    center: [-1.5, 52.5],
-                    zoom: 5.5,
-                    projection: 'mercator',
-                    preserveDrawingBuffer: true
-                });
+        // Lazily creates a single Mapbox GL map instance for slot `i`.
+        // Each map spins up its own WebGL context plus style/sprite/glyph downloads,
+        // so on low-end devices creating all 4 up front (even hidden ones in grid-1
+        // layout) was a major source of startup lag. Now a slot is only built the
+        // first time it actually becomes visible (see the layoutSelect handler).
+        function createMapInstance(i) {
+            if (maps[i]) return maps[i]; // Already created
 
-                maps[i].addControl(new mapboxgl.NavigationControl(), 'top-right');
+            maps[i] = new mapboxgl.Map({
+                container: `map${i}`,
+                // Ensure this URL is exactly correct from your Mapbox Studio account
+                style: 'mapbox://styles/handry20191026/cmqv7f1q8001q01scbv5x4kuk',
+                center: [-1.5, 52.5],
+                zoom: 5.5,
+                projection: 'mercator',
+                preserveDrawingBuffer: true
+            });
 
-                // Combined all custom additions into ONE load event
-                maps[i].on('style.load', () => {
-                    // Force 2D projection immediately
-                    maps[i].setProjection('mercator');
+            maps[i].addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-                    const imageUrl = 'https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png';
+            // Combined all custom additions into ONE load event
+            maps[i].on('style.load', () => {
+                // Force 2D projection immediately
+                maps[i].setProjection('mercator');
 
-                    maps[i].loadImage(imageUrl, (error, image) => {
-                        if (error) {
-                            console.error("Image load error:", error);
-                            return;
+                const imageUrl = 'https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png';
+
+                maps[i].loadImage(imageUrl, (error, image) => {
+                    if (error) {
+                        console.error("Image load error:", error);
+                        return;
+                    }
+
+                    // Add the image to the map sprite
+                    if (!maps[i].hasImage('my-logo')) {
+                        maps[i].addImage('my-logo', image);
+                    }
+
+                    // Add Source
+                    maps[i].addSource('logo-point', {
+                        'type': 'geojson',
+                        'data': {
+                            'type': 'FeatureCollection',
+                            'features': [{
+                                'type': 'Feature',
+                                'geometry': {
+                                    'type': 'Point',
+                                    'coordinates': [-9.234, 49.788]
+                                }
+                            }]
                         }
+                    });
 
-                        // Add the image to the map sprite
-                        if (!maps[i].hasImage('my-logo')) {
-                            maps[i].addImage('my-logo', image);
+                    // Add Layer
+                    maps[i].addLayer({
+                        'id': 'logo-layer',
+                        'type': 'symbol',
+                        'source': 'logo-point',
+                        'layout': {
+                            'icon-image': 'my-logo',
+                            'icon-size': 0.5,
+                            'icon-allow-overlap': true,
+                            'icon-ignore-placement': true
+                        },
+                        'paint': {
+                            'icon-opacity': 1
                         }
-
-                        // Add Source
-                        maps[i].addSource('logo-point', {
-                            'type': 'geojson',
-                            'data': {
-                                'type': 'FeatureCollection',
-                                'features': [{
-                                    'type': 'Feature',
-                                    'geometry': {
-                                        'type': 'Point',
-                                        'coordinates': [-9.234, 49.788]
-                                    }
-                                }]
-                            }
-                        });
-
-                        // Add Layer
-                        maps[i].addLayer({
-                            'id': 'logo-layer',
-                            'type': 'symbol',
-                            'source': 'logo-point',
-                            'layout': {
-                                'icon-image': 'my-logo',
-                                'icon-size': 0.5,
-                                'icon-allow-overlap': true,
-                                'icon-ignore-placement': true
-                            },
-                            'paint': {
-                                'icon-opacity': 1
-                            }
-                        });
                     });
                 });
+            });
 
-                maps[i].on('click', 'hoco-points', (e) => showHocoFeaturePopup(maps[i], e));
-                maps[i].on('click', 'hoco-polygons', (e) => {
-                    const pointHits = maps[i].queryRenderedFeatures(e.point, { layers: ['hoco-points'] });
-                    if (pointHits.length) return;
-                    showHocoFeaturePopup(maps[i], e);
-                });
-                maps[i].on('mouseenter', 'hoco-points', () => { maps[i].getCanvas().style.cursor = 'pointer'; });
-                maps[i].on('mouseleave', 'hoco-points', () => { maps[i].getCanvas().style.cursor = ''; });
-                maps[i].on('mouseenter', 'hoco-polygons', () => { maps[i].getCanvas().style.cursor = 'pointer'; });
-                maps[i].on('mouseleave', 'hoco-polygons', () => { maps[i].getCanvas().style.cursor = ''; });
+            maps[i].on('click', 'hoco-points', (e) => showHocoFeaturePopup(maps[i], e));
+            maps[i].on('click', 'hoco-polygons', (e) => {
+                const pointHits = maps[i].queryRenderedFeatures(e.point, { layers: ['hoco-points'] });
+                if (pointHits.length) return;
+                showHocoFeaturePopup(maps[i], e);
+            });
+            maps[i].on('mouseenter', 'hoco-points', () => { maps[i].getCanvas().style.cursor = 'pointer'; });
+            maps[i].on('mouseleave', 'hoco-points', () => { maps[i].getCanvas().style.cursor = ''; });
+            maps[i].on('mouseenter', 'hoco-polygons', () => { maps[i].getCanvas().style.cursor = 'pointer'; });
+            maps[i].on('mouseleave', 'hoco-polygons', () => { maps[i].getCanvas().style.cursor = ''; });
 
-                maps[i].on('move', (e) => {
-                    if (e.originalEvent) {
-                        const center = maps[i].getCenter();
-                        const zoom = maps[i].getZoom();
-                        maps.forEach((m, idx) => {
-                            if (idx !== i) m.jumpTo({ center, zoom });
-                        });
-                    }
-                });
-            }
+            maps[i].on('move', (e) => {
+                if (e.originalEvent) {
+                    const center = maps[i].getCenter();
+                    const zoom = maps[i].getZoom();
+                    maps.forEach((m, idx) => {
+                        if (m && idx !== i) m.jumpTo({ center, zoom });
+                    });
+                }
+            });
+
+            return maps[i];
+        }
+
+        // Only the first slot is created eagerly - it's the only one visible
+        // by default (grid-1 layout). Slots 1-3 are created on demand when the
+        // user switches to a grid-2 or grid-4 layout.
+        function initMaps() {
+            createMapInstance(0);
         }
         initMaps();
 
@@ -5997,6 +6191,7 @@
             // Ensure Mapbox resizes correctly when unhidden
             if (europeMap) europeMap.resize();
             currentActiveRegion = null;
+            renderHumanMimicPanel();
             debouncedEuropePreviewUpdate();
         }
 
@@ -6049,6 +6244,7 @@
             showToast(`Region locked to ${regionId}`, "success");
 
             renderAutoTimeline();
+            renderHumanMimicPanel();
             debouncedAutoLoad();
         }
 
@@ -6060,6 +6256,7 @@
             clearHumanSourcePreview();
             const styleUrl = e.target.value;
             maps.forEach((m, i) => {
+                if (!m) return; // Slot not created yet (lazy maps)
                 m.setStyle(styleUrl);
                 m.once('style.load', () => {
                     if (activeMapData[i]) {
@@ -6086,14 +6283,23 @@
             document.getElementById('map-wrapper').className = `grid-${val}`;
             for (let i = 0; i < 4; i++) {
                 const mapDiv = document.getElementById(`map${i}`);
-                if (i < val) { mapDiv.style.display = 'block'; maps[i].resize(); }
-                else { mapDiv.style.display = 'none'; }
+                if (i < val) {
+                    mapDiv.style.display = 'block';
+                    // Create the map the first time this slot is shown, then resize it
+                    // (resize is a no-op on a brand-new map but required for slots that
+                    // were already created and are just becoming visible again).
+                    const mapInstance = createMapInstance(i);
+                    mapInstance.resize();
+                } else {
+                    mapDiv.style.display = 'none';
+                }
             }
         });
 
         document.getElementById('opacitySlider').addEventListener('input', (e) => {
             const op = parseInt(e.target.value) / 100;
             maps.forEach(m => {
+                if (!m) return; // Slot not created yet (lazy maps)
                 if (m.getLayer('hoco-polygons')) {
                     const type = m.getLayer('hoco-polygons').type;
                     const prop = (type === 'fill-extrusion') ? 'fill-extrusion-opacity' : 'fill-opacity';
@@ -6109,6 +6315,7 @@
         document.getElementById('heightSlider').addEventListener('input', (e) => {
             const h = parseInt(e.target.value);
             maps.forEach(m => {
+                if (!m) return; // Slot not created yet (lazy maps)
                 if (m.getLayer('hoco-polygons') && m.getLayer('hoco-polygons').type === 'fill-extrusion') {
                     m.setPaintProperty('hoco-polygons', 'fill-extrusion-height',
                         ['*', ['/', ['coalesce', ['get', 'risk'], 0], 5], h]
@@ -6170,6 +6377,14 @@
                 if (!mapDiv || mapDiv.style.display === 'none') return;
                 mapInstance.resize();
             });
+
+            // The Europe region-picker map lives outside the `maps` array above, so it
+            // needs its own resize call whenever it's the visible view (e.g. toggling the
+            // sidebar while still on the region picker, or a window resize there).
+            const regionSelectionView = document.getElementById('regionSelectionView');
+            if (europeMap && regionSelectionView && regionSelectionView.style.display !== 'none') {
+                europeMap.resize();
+            }
         }
 
         function setCollapsiblePanelState(button, expanded) {
@@ -6496,32 +6711,59 @@
 
         function applyRoleLogic() {
             document.getElementById('roleBadge').innerText = userRole.toUpperCase();
+
             const isGuest = userRole === 'guest';
             const isNormal = userRole === 'normal';
             const isExclusive = userRole === 'exclusive';
             const isDev = userRole === 'developer';
+            const isExternalDev = userRole === 'external_developer';
 
             document.body.classList.toggle('role-developer', isDev);
 
-            document.getElementById('upgradePanel').style.display = (isGuest || isNormal) ? 'block' : 'none';
-            document.getElementById('executionPanel').style.display = isGuest ? 'none' : 'block';
-            document.getElementById('exclusiveSection').style.display = (isExclusive || isDev) ? 'block' : 'none';
-            document.getElementById('adminPanel').style.display = isDev ? 'block' : 'none';
+            // External developer should NOT see internal developer/admin tools
+            document.getElementById('upgradePanel').style.display =
+                (isGuest || isNormal) ? 'block' : 'none';
+
+            // External developer should not execute HOCO runs unless you want them to
+            document.getElementById('executionPanel').style.display =
+                (isGuest || isExternalDev) ? 'none' : 'block';
+
+            document.getElementById('exclusiveSection').style.display =
+                (isExclusive || isDev) ? 'block' : 'none';
+
+            document.getElementById('adminPanel').style.display =
+                isDev ? 'block' : 'none';
+
+            const externalDeveloperPanel = document.getElementById('externalDeveloperPanel');
+            if (externalDeveloperPanel) {
+                externalDeveloperPanel.style.display = isExternalDev ? 'block' : 'none';
+            }
+
             const devRunnerUI = document.getElementById('devRunnerSettings');
             devRunnerUI.style.display = isDev ? 'block' : 'none';
 
             if (isDev) {
                 getDoc(doc(db, "system_config", "github_settings")).then(s => {
                     if (s.exists()) {
-                        document.getElementById('currentRunnerText').innerText = `Currently using: ${s.data().active_owner}`;
+                        document.getElementById('currentRunnerText').innerText =
+                            `Currently using: ${s.data().active_owner}`;
                     }
                 });
             }
+
             const maxDate = new Date();
-            if (!isDev) maxDate.setHours(maxDate.getHours() + 72);
+
+            if (!isDev) {
+                maxDate.setHours(maxDate.getHours() + 72);
+            }
+
             const endInput = document.getElementById('endTime');
-            if (!isDev) endInput.max = maxDate.toISOString().slice(0, 16);
-            else endInput.removeAttribute('max');
+
+            if (!isDev) {
+                endInput.max = maxDate.toISOString().slice(0, 16);
+            } else {
+                endInput.removeAttribute('max');
+            }
         }
 
         // ==========================================
@@ -6535,8 +6777,9 @@
 
             if (currentDateFilterMode === 'valid') {
                 // Valid-date mode needs a wider archive window because matching runs may
-                // have been created on earlier days.
-                return query(colRef, orderBy("createdAt", "desc"));
+                // have been created on earlier days. Capped with limit() so this stays a
+                // bounded read instead of streaming the entire collection on every load.
+                return query(colRef, orderBy("createdAt", "desc"), limit(300));
             }
 
             const startOfDay = new Date(targetDateStr);
@@ -6725,11 +6968,17 @@
 
         async function loadRunIntoMap(runId, mapIndex) {
             clearHumanSourcePreview();
-            const targetMap = maps[mapIndex];
             const statusUI = document.getElementById('runStatus');
             statusUI.innerText = `Fetching data for Map ${mapIndex + 1}...`;
 
+            // Claim this map slot. If the user switches region/run again before
+            // this request resolves, that newer call will bump the token again,
+            // and every check below lets this (now stale) call bail out instead
+            // of writing old data over the newer selection.
+            const requestToken = ++mapLoadTokens[mapIndex];
+
             const docSnap = await getDoc(doc(db, "hoco_requests", runId));
+            if (mapLoadTokens[mapIndex] !== requestToken) return; // superseded while awaiting Firestore
             if (!docSnap.exists()) {
                 statusUI.innerText = "Run not found.";
                 return;
@@ -6773,10 +7022,12 @@
 
             try {
                 const geojsonData = await fetchRunGeojsonData(runId, runData);
+                if (mapLoadTokens[mapIndex] !== requestToken) return; // superseded while fetching geojson - don't render stale data
 
                 // Success!
                 activeMapData[mapIndex] = geojsonData;
                 activeMapRuns[mapIndex] = { id: runId, ...runData };
+                const targetMap = maps[mapIndex]; // re-read in case the map slot was recreated while we were awaiting
                 await renderHocoLayers(targetMap, geojsonData, mapIndex);
 
                 statusUI.innerText = "Loaded successfully.";
@@ -6821,6 +7072,7 @@
                 }
 
             } catch (err) {
+                if (mapLoadTokens[mapIndex] !== requestToken) return; // superseded - a newer load already owns this map slot
                 console.error("Map load error for run", runId, ":", err);
                 statusUI.innerText = "Failed to load run data.";
                 showToast("Could not load this run into the map.", "error");
@@ -7129,12 +7381,19 @@
         // ==========================================
         document.getElementById('submitUpgradeBtn').addEventListener('click', async () => {
             const role = document.getElementById('reqRole').value;
-            const social = document.getElementById('reqSocial').value;
-            const reason = document.getElementById('reqReason').value;
-            if (!social || !reason) return showToast("Please fill all fields", "error");
+            const social = document.getElementById('reqSocial').value.trim();
+            const reason = document.getElementById('reqReason').value.trim();
+
+            if (!auth.currentUser) {
+                return showToast("You must be signed in first.", "error");
+            }
+
+            if (!social || !reason) {
+                return showToast("Please fill all fields", "error");
+            }
 
             try {
-                await addDoc(collection(db, "role_requests"), {
+                const requestData = {
                     userId: auth.currentUser.uid,
                     email: auth.currentUser.email,
                     requestedRole: role,
@@ -7142,11 +7401,31 @@
                     reason: reason,
                     status: 'pending',
                     createdAt: new Date()
-                });
-                showToast("Upgrade request submitted.", "success");
+                };
+
+                // Extra data only for external developer requests
+                if (role === "external_developer") {
+                    requestData.requestedDatasets = ["europe"];
+                    requestData.requestedFormats = ["geojson"];
+                    requestData.requestType = "hoco_data_access";
+                }
+
+                await addDoc(collection(db, "role_requests"), requestData);
+
+                showToast(
+                    role === "external_developer"
+                        ? "Developer data access request submitted."
+                        : "Upgrade request submitted.",
+                    "success"
+                );
+
                 document.getElementById('reqSocial').value = '';
                 document.getElementById('reqReason').value = '';
-            } catch (e) { showToast("Error submitting request.", "error"); }
+
+            } catch (e) {
+                console.error("Request submit error:", e);
+                showToast("Error submitting request.", "error");
+            }
         });
 
         function loadAdminData() {
@@ -7160,9 +7439,10 @@
                             <div>${u.email}<br><span style="color:var(--primary)">${u.role}</span></div>
                             <div style="display:flex; gap:4px;">
                                 <button onclick="updateRole('${d.id}', 'guest')" style="padding:4px 8px; font-size:10px; background:#444;">G</button>
-                                <button onclick="updateRole('${d.id}', 'normal')" style="padding:4px 8px; font-size:10px; background:var(--primary);">N</button>
-                                <button onclick="updateRole('${d.id}', 'exclusive')" style="padding:4px 8px; font-size:10px; background:var(--warning);">E</button>
-                                <button onclick="updateRole('${d.id}', 'developer')" style="padding:4px 8px; font-size:10px; background:var(--danger);">D</button>
+<button onclick="updateRole('${d.id}', 'normal')" style="padding:4px 8px; font-size:10px; background:var(--primary);">N</button>
+<button onclick="updateRole('${d.id}', 'exclusive')" style="padding:4px 8px; font-size:10px; background:var(--warning);">E</button>
+<button onclick="updateRole('${d.id}', 'external_developer')" style="padding:4px 8px; font-size:10px; background:#0f766e;">API</button>
+<button onclick="updateRole('${d.id}', 'developer')" style="padding:4px 8px; font-size:10px; background:var(--danger);">D</button>
                             </div>
                         </div>`;
                 });
@@ -7179,7 +7459,7 @@
                             <div style="margin-bottom: 5px;"><strong>${r.email}</strong> wants <span style="color:var(--warning)">${r.requestedRole}</span></div>
                             <div style="color:#aaa; font-size:0.75rem; margin-bottom:5px;">Social: ${r.social}<br>Reason: ${r.reason}</div>
                             <div style="display:flex; gap:5px; width:100%;">
-                                <button onclick="approveRequest('${d.id}', '${r.userId}', '${r.requestedRole}')" style="padding:6px; font-size:0.75rem; background:var(--accent);">Approve</button>
+                                <button onclick="approveRequest('${d.id}')" style="padding:6px; font-size:0.75rem; background:var(--accent);">Approve</button>
                                 <button onclick="rejectRequest('${d.id}')" style="padding:6px; font-size:0.75rem; background:#444;">Reject</button>
                             </div>
                         </div>`;
@@ -7192,12 +7472,61 @@
             catch (err) { showToast("Update failed.", "error"); }
         };
 
-        window.approveRequest = async (reqId, uid, role) => {
+        window.approveRequest = async (reqId) => {
             try {
-                await updateDoc(doc(db, "users", uid), { role });
-                await updateDoc(doc(db, "role_requests", reqId), { status: 'approved' });
+                const reqRef = doc(db, "role_requests", reqId);
+                const reqSnap = await getDoc(reqRef);
+
+                if (!reqSnap.exists()) {
+                    return showToast("Request not found.", "error");
+                }
+
+                const request = reqSnap.data();
+                const uid = request.userId;
+                const role = request.requestedRole;
+
+                if (!uid || !role) {
+                    return showToast("Invalid request data.", "error");
+                }
+
+                const allowedRoles = ["normal", "exclusive", "external_developer"];
+
+                if (!allowedRoles.includes(role)) {
+                    return showToast("This role cannot be approved from requests.", "error");
+                }
+
+                // Update the user's main app role
+                await updateDoc(doc(db, "users", uid), {
+                    role: role
+                });
+
+                // If this is external developer access, create API/data permission document
+                if (role === "external_developer") {
+                    await setDoc(doc(db, "developer_access", uid), {
+                        uid: uid,
+                        email: request.email || "",
+                        role: "external_developer",
+                        allowedDatasets: request.requestedDatasets || ["europe"],
+                        allowedFormats: request.requestedFormats || ["geojson"],
+                        maxRequestsPerDay: 50,
+                        enabled: true,
+                        approvedAt: new Date(),
+                        approvedBy: auth.currentUser ? auth.currentUser.uid : null
+                    });
+                }
+
+                await updateDoc(reqRef, {
+                    status: "approved",
+                    approvedAt: new Date(),
+                    approvedBy: auth.currentUser ? auth.currentUser.uid : null
+                });
+
                 showToast("Request approved.", "success");
-            } catch (err) { showToast("Error approving.", "error"); }
+
+            } catch (err) {
+                console.error("Approve request error:", err);
+                showToast("Error approving request.", "error");
+            }
         };
 
         window.rejectRequest = async (reqId) => {
