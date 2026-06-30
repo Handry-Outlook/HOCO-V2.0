@@ -2073,13 +2073,13 @@
                     </ul>
                 </div>
                 <div class="role-card dev">
-                    <h4>Developer</h4>
+                    <h4>External Developer</h4>
                     <ul>
-                        <li>Unrestricted Access</li>
-                        <li>Publish Public Runs</li>
-                        <li>Manage User Roles</li>
-                        <li>Unlimited Range & Runs</li>
-                        <li>HOCO Ensemble</li>
+                        <li>Public AUTO-HOCO API Access</li>
+                        <li>GeoJSON Catalogue Guidance</li>
+                        <li>Normal Website Access</li>
+                        <li>7 Runs / Day Cap</li>
+                        <li>Integration Examples</li>
                     </ul>
                 </div>
             </div>
@@ -2141,6 +2141,24 @@
                     style="color: #2f67e4; border-color: rgba(47,103,228,0.5);">
                     📊 View AUTO-HOCO Accuracy
                 </button>
+                <div id="externalDeveloperInfoPanel" class="panel dashboard-panel" style="display:none; order: 3; border-color: rgba(142,68,173,0.35);">
+                    <div class="panel-heading panel-heading-spread" style="margin-bottom: 10px;">
+                        <div>
+                            <div class="panel-kicker">External Developer</div>
+                            <h3 class="panel-title">AUTO-HOCO API information</h3>
+                        </div>
+                        <span class="status-chip subtle">API</span>
+                    </div>
+                    <p class="helper-text" style="margin: 0 0 12px 0;">
+                        Need to integrate AUTO-HOCO into your own app? View the API usage guide for catalogue access,
+                        GeoJSON downloads, example JavaScript/Python code, and supported regions.
+                    </p>
+                    <a href="https://handry-outlook.github.io/HOCO-V2.0/api_usage.html" target="_blank" rel="noopener noreferrer" style="display:block; text-decoration:none;">
+                        <button type="button" class="btn-outline" style="color:#8e44ad; border-color:rgba(142,68,173,0.45); background:rgba(142,68,173,0.08); box-shadow:none;">
+                            Open API usage guide ↗
+                        </button>
+                    </a>
+                </div>
                 <div id="workspacePanel" class="panel dashboard-panel workspace-panel collapsible-panel">
                     <div class="panel-heading panel-heading-spread">
                         <div class="panel-headline-stack">
@@ -2461,6 +2479,7 @@
                     <select id="reqRole">
                         <option value="normal">Normal Role (Auto-HOCO)</option>
                         <option value="exclusive">Exclusive Role (Custom Models)</option>
+                        <option value="external_developer">External Developer Role (AUTO-HOCO API Access)</option>
                     </select>
                     <input type="text" id="reqSocial" placeholder="Social Media Handle (@username)">
                     <textarea id="reqReason" placeholder="Why do you need this role?" rows="2"></textarea>
@@ -6643,7 +6662,9 @@
                     const badge = document.getElementById('roleBadge');
                     if (badge) {
                         badge.innerText = userRole.toUpperCase();
-                        badge.style.background = userRole === 'developer' ? 'var(--accent)' : 'var(--primary)';
+                        badge.style.background = userRole === 'developer'
+                            ? 'var(--accent)'
+                            : (userRole === 'external_developer' ? '#8e44ad' : 'var(--primary)');
                     }
 
                     await Promise.allSettled([
@@ -6680,13 +6701,24 @@
         async function updateRunCap(uid) {
             if (userRole === 'guest' || userRole === 'developer') return;
             try {
+                const todayStr = formatDateKey(new Date());
                 const q = query(collection(db, "hoco_requests"),
                     where("userId", "==", uid),
                     orderBy("createdAt", "desc"),
-                    limit(20));
+                    limit(50));
                 const snap = await getDocs(q);
+
+                let myRunsTodayCount = 0;
+                snap.forEach(d => {
+                    const runDate = getCreationDateString(d.data());
+                    if (runDate === todayStr) myRunsTodayCount++;
+                });
+
+                runsToday = myRunsTodayCount;
+                updateCapUI();
             } catch (err) {
                 console.error("Error updating cap:", err);
+                updateCapUI();
             }
         }
 
@@ -6695,16 +6727,20 @@
             const isGuest = userRole === 'guest';
             const isNormal = userRole === 'normal';
             const isExclusive = userRole === 'exclusive';
+            const isExternalDeveloper = userRole === 'external_developer';
             const isDev = userRole === 'developer';
 
             document.body.classList.toggle('role-developer', isDev);
 
-            document.getElementById('upgradePanel').style.display = (isGuest || isNormal) ? 'block' : 'none';
+            document.getElementById('upgradePanel').style.display = (isGuest || isNormal || isExclusive || isExternalDeveloper) ? 'block' : 'none';
             document.getElementById('executionPanel').style.display = isGuest ? 'none' : 'block';
             document.getElementById('exclusiveSection').style.display = (isExclusive || isDev) ? 'block' : 'none';
             document.getElementById('adminPanel').style.display = isDev ? 'block' : 'none';
+            const externalDeveloperInfoPanel = document.getElementById('externalDeveloperInfoPanel');
+            if (externalDeveloperInfoPanel) externalDeveloperInfoPanel.style.display = isExternalDeveloper ? 'block' : 'none';
             const devRunnerUI = document.getElementById('devRunnerSettings');
             devRunnerUI.style.display = isDev ? 'block' : 'none';
+            updateCapUI();
 
             if (isDev) {
                 getDoc(doc(db, "system_config", "github_settings")).then(s => {
@@ -6827,6 +6863,7 @@
 
         function getDailyCapLimit(role = userRole) {
             if (role === 'normal') return 7;
+            if (role === 'external_developer') return 7;
             if (role === 'exclusive') return 15;
             if (role === 'developer') return Infinity;
             return null;
@@ -7249,7 +7286,9 @@
             }
             const dailyCap = getDailyCapLimit();
             if (Number.isFinite(dailyCap) && runsToday >= dailyCap) {
-                const roleLabel = userRole === 'exclusive' ? 'Exclusive' : 'Normal';
+                const roleLabel = userRole === 'exclusive'
+                    ? 'Exclusive'
+                    : (userRole === 'external_developer' ? 'External Developer' : 'Normal');
                 return showToast(`Daily ${roleLabel} limit (${dailyCap}) reached.`, "error");
             }
 
