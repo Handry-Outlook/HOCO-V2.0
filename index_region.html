@@ -19,7 +19,7 @@
         gtag('config', 'G-TKT4GTFBNM');
     </script>
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6850588636991409"
-        crossorigin="anonymous"></script>
+     crossorigin="anonymous"></script>
     <style>
         :root {
             --primary: #283673;
@@ -108,7 +108,7 @@
 
         @media (min-width: 769px) {
             .role-grid {
-                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                grid-template-columns: repeat(4, 1fr);
             }
         }
 
@@ -144,6 +144,9 @@
 
         .role-card.dev h4 {
             color: #d45d5d;
+        }
+        .role-card.external h4 {
+            color: #8e44ad;
         }
 
         .role-card ul {
@@ -666,9 +669,6 @@
 
         #adminPanel {
             order: 9;
-        }
-        #externalDeveloperPanel {
-            order: 7;
         }
 
         #logoutBtn {
@@ -2065,6 +2065,16 @@
                         <li>HOCO Ensemble</li>
                     </ul>
                 </div>
+                <div class="role-card external">
+                    <h4>External Developer</h4>
+                    <ul>
+                        <li>Normal Website Access</li>
+                        <li>72-Hour Forecast Limit</li>
+                        <li>7 Runs / Day Cap</li>
+                        <li>AUTO-HOCO API Access</li>
+                        <li>Read-Only API Endpoints</li>
+                    </ul>
+                </div>
                 <div class="role-card exclusive">
                     <h4>Exclusive</h4>
                     <ul>
@@ -2073,15 +2083,6 @@
                         <li>72-Hour Forecast Limit</li>
                         <li>15 Runs / Day Cap</li>
                         <li>HOCO Ensemble</li>
-                    </ul>
-                </div>
-                <div class="role-card normal">
-                    <h4>External Developer</h4>
-                    <ul>
-                        <li>Request HOCO data access</li>
-                        <li>Approved dataset metadata</li>
-                        <li>Authenticated API endpoint</li>
-                        <li>No admin controls</li>
                     </ul>
                 </div>
                 <div class="role-card dev">
@@ -2153,6 +2154,33 @@
                     style="color: #2f67e4; border-color: rgba(47,103,228,0.5);">
                     📊 View AUTO-HOCO Accuracy
                 </button>
+
+                <div id="externalDeveloperApiPanel" class="panel dashboard-panel" style="display:none; order: 3; border-color: rgba(142,68,173,0.35);">
+                    <div class="panel-heading panel-heading-spread">
+                        <div>
+                            <div class="panel-kicker">External Developer API</div>
+                            <h3 class="panel-title">AUTO-HOCO API access</h3>
+                        </div>
+                        <span class="status-chip subtle">Read-only</span>
+                    </div>
+                    <p class="helper-text" style="margin-top: 0;">
+                        Your external developer role keeps normal website abilities, plus API access to public completed AUTO-HOCO runs only.
+                    </p>
+                    <div class="run-preview-card" style="margin-bottom: 0;">
+                        <div class="preview-chip-row">
+                            <span class="run-chip auto">AUTO-HOCO API</span>
+                            <span class="run-chip neutral">Firebase ID token required</span>
+                        </div>
+                        <h4>Available endpoints</h4>
+                        <p style="font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-word;">GET /api/v1/auto-hoco/runs
+GET /api/v1/auto-hoco/runs/{id}
+GET /api/v1/auto-hoco/runs/{id}/geojson
+GET /api/v1/auto-hoco/runs/{id}/kml</p>
+                        <p class="helper-text" style="margin-top: 10px;">
+                            The API should filter server-side where public=true, status=completed, and type=automated. Manual/private runs are not returned by the API.
+                        </p>
+                    </div>
+                </div>
                 <div id="workspacePanel" class="panel dashboard-panel workspace-panel collapsible-panel">
                     <div class="panel-heading panel-heading-spread">
                         <div class="panel-headline-stack">
@@ -2430,7 +2458,7 @@
                             </div>
                         </div>
                         <div
-                            style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 5px; margin-top: 5px; margin-bottom: 10px;">
+                            style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 5px; margin-bottom: 10px;">
                             <button type="button" class="btn-outline"
                                 style="padding: 5px; font-size: 0.7rem; color: #2f67e4;"
                                 onclick="setTimeRange(3)">+3h</button>
@@ -2473,33 +2501,14 @@
                     <select id="reqRole">
                         <option value="normal">Normal Role (Auto-HOCO)</option>
                         <option value="exclusive">Exclusive Role (Custom Models)</option>
-                        <option value="external_developer">External Developer Access (HOCO Data API)</option>
+                        <option value="external_developer">External Developer API Access</option>
                     </select>
                     <input type="text" id="reqSocial" placeholder="Social Media Handle (@username)">
-                    <textarea id="reqReason" placeholder="Why do you need this role?" rows="2"></textarea>
+                    <textarea id="reqReason" placeholder="Why do you need this role or API access?" rows="2"></textarea>
                     <button id="submitUpgradeBtn" style="background: #444;">Submit Request</button>
                 </div>
-                <div id="externalDeveloperPanel" class="panel" style="display:none; border-color: var(--accent);">
-                    <label style="color:var(--accent);">HOCO Developer Data Access</label>
 
-                    <p style="font-size: 0.8rem; color: #888; margin-top:0;">
-                        Your external developer access has been approved.
-                    </p>
-
-                    <div id="externalDeveloperDatasetSummary" style="font-size: 0.8rem; line-height: 1.6;">
-                        Loading approved dataset access...
-                    </div>
-
-                    <div id="externalDeveloperApiInstructions" style="display:none; margin-top:12px; font-size:0.75rem; line-height:1.55; background:rgba(24,47,82,0.05); border:1px solid rgba(102,139,207,0.18); border-radius:12px; padding:10px; overflow:auto;">
-                        Loading API instructions...
-                    </div>
-
-                    <p style="font-size: 0.75rem; color:#888; margin-bottom:0; margin-top:10px;">
-                        Use the API responsibly. Tokens and temporary URLs must not be shared publicly.
-                    </p>
-                </div>
-
-<div id="adminPanel" class="panel" style="display:none; border-color: var(--danger);">
+                <div id="adminPanel" class="panel" style="display:none; border-color: var(--danger);">
                     <label style="color:var(--danger)">Developer Console</label>
                     <button id="publishBtn" class="btn-add" style="margin-bottom: 15px;">Publish Selected Run to
                         Guests</button>
@@ -3740,8 +3749,8 @@
         let activeMapData = [null, null, null, null];
         let activeMapRuns = [null, null, null, null];
         let mapLoadTokens = [0, 0, 0, 0]; // Bumped on every loadRunIntoMap() call per map slot, so a slower/older
-        // in-flight request can detect it's stale and bail instead of
-        // overwriting a newer region/run's data once its awaits resolve.
+                                           // in-flight request can detect it's stale and bail instead of
+                                           // overwriting a newer region/run's data once its awaits resolve.
         let isInitialLoad = true;
         let humanMimicPeriodKey = '';
         let humanMimicSelectedRunIds = new Set();
@@ -5802,7 +5811,7 @@
         const EUROPE_REGIONS = [
             { id: 'England', name: 'England', status: 'active', west: -10.234, south: 48.788, east: 5.471, north: 56.578 },
             { id: 'Scotland', name: 'Scotland (Beta)', status: 'active', west: -9.4482, south: 55.9161, east: 0, north: 60 },
-            { id: 'France', name: 'Coming Soon', status: 'inactive', west: -5.0, south: 42.0, east: 8.0, north: 51.0 },
+            { id: 'France', name: 'Coming Soon', status: 'inactive', west: -7.9761, south: 42.1448, east: 12.0850, north: 53.2849 },
             { id: 'Spain', name: 'Coming Soon', status: 'inactive', west: -9.5, south: 36.0, east: 4.5, north: 43.8 },
             { id: 'Germany', name: 'Germany (Beta)', status: 'active', west: 0.9558, south: 46.9809, east: 16.9409, north: 55.8567 },
             { id: 'Poland', name: 'Poland (Beta)', status: 'active', west: 11.7142, south: 47.9787, east: 27.1252, north: 55.4243 },
@@ -6618,20 +6627,6 @@
             if (humanTargetMapSelect) humanTargetMapSelect.value = event.target.value;
         });
 
-        
-        window.copyHocoApiText = async (elementId) => {
-            const el = document.getElementById(elementId);
-            if (!el) return;
-            const text = el.innerText || el.textContent || "";
-            try {
-                await navigator.clipboard.writeText(text);
-                showToast("Copied to clipboard.", "success");
-            } catch (err) {
-                console.warn("Clipboard copy failed:", err);
-                showToast("Copy failed. Select the text manually.", "error");
-            }
-        };
-
         // ==========================================
         // AUTHENTICATION & ROLES
         // ==========================================
@@ -6689,7 +6684,9 @@
                     const badge = document.getElementById('roleBadge');
                     if (badge) {
                         badge.innerText = userRole.toUpperCase();
-                        badge.style.background = userRole === 'developer' ? 'var(--accent)' : 'var(--primary)';
+                        badge.style.background = userRole === 'developer'
+                            ? 'var(--accent)'
+                            : (userRole === 'external_developer' ? '#8e44ad' : 'var(--primary)');
                     }
 
                     await Promise.allSettled([
@@ -6738,33 +6735,23 @@
 
         function applyRoleLogic() {
             document.getElementById('roleBadge').innerText = userRole.toUpperCase();
-
             const isGuest = userRole === 'guest';
             const isNormal = userRole === 'normal';
+            const isExternalDeveloper = userRole === 'external_developer';
+            const isNormalLike = isNormal || isExternalDeveloper;
             const isExclusive = userRole === 'exclusive';
             const isDev = userRole === 'developer';
-            const isExternalDev = userRole === 'external_developer';
 
             document.body.classList.toggle('role-developer', isDev);
 
-            const upgradePanel = document.getElementById('upgradePanel');
-            if (upgradePanel) upgradePanel.style.display = (isGuest || isNormal) ? 'block' : 'none';
-
-            const executionPanel = document.getElementById('executionPanel');
-            if (executionPanel) executionPanel.style.display = (isGuest || isExternalDev) ? 'none' : 'block';
-
-            const exclusiveSection = document.getElementById('exclusiveSection');
-            if (exclusiveSection) exclusiveSection.style.display = (isExclusive || isDev) ? 'block' : 'none';
-
-            const adminPanel = document.getElementById('adminPanel');
-            if (adminPanel) adminPanel.style.display = isDev ? 'block' : 'none';
-
-            const externalDeveloperPanel = document.getElementById('externalDeveloperPanel');
-            if (externalDeveloperPanel) externalDeveloperPanel.style.display = isExternalDev ? 'block' : 'none';
-            if (isExternalDev) loadExternalDeveloperPanel();
-
+            document.getElementById('upgradePanel').style.display = (isGuest || isNormal) ? 'block' : 'none';
+            document.getElementById('executionPanel').style.display = isGuest ? 'none' : 'block';
+            document.getElementById('exclusiveSection').style.display = (isExclusive || isDev) ? 'block' : 'none';
+            document.getElementById('adminPanel').style.display = isDev ? 'block' : 'none';
+            const externalApiPanel = document.getElementById('externalDeveloperApiPanel');
+            if (externalApiPanel) externalApiPanel.style.display = (isExternalDeveloper || isDev) ? 'block' : 'none';
             const devRunnerUI = document.getElementById('devRunnerSettings');
-            if (devRunnerUI) devRunnerUI.style.display = isDev ? 'block' : 'none';
+            devRunnerUI.style.display = isDev ? 'block' : 'none';
 
             if (isDev) {
                 getDoc(doc(db, "system_config", "github_settings")).then(s => {
@@ -6773,146 +6760,13 @@
                     }
                 });
             }
-
             const maxDate = new Date();
             if (!isDev) maxDate.setHours(maxDate.getHours() + 72);
-
             const endInput = document.getElementById('endTime');
-            if (endInput) {
-                if (!isDev) endInput.max = maxDate.toISOString().slice(0, 16);
-                else endInput.removeAttribute('max');
-            }
+            if (!isDev) endInput.max = maxDate.toISOString().slice(0, 16);
+            else endInput.removeAttribute('max');
         }
 
-        function getTodayKeyUTC() {
-            return new Date().toISOString().slice(0, 10);
-        }
-
-        function escapeHtml(value) {
-            return String(value ?? "")
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        }
-
-        async function loadExternalDeveloperPanel() {
-            const summaryEl = document.getElementById("externalDeveloperDatasetSummary");
-            const instructionsEl = document.getElementById("externalDeveloperApiInstructions");
-            if (!summaryEl || !auth.currentUser) return;
-
-            summaryEl.innerHTML = "Loading approved dataset access...";
-            if (instructionsEl) {
-                instructionsEl.style.display = "none";
-                instructionsEl.innerHTML = "";
-            }
-
-            try {
-                const uid = auth.currentUser.uid;
-                const apiSettingsSnap = await getDoc(doc(db, "settings", "developer_api"));
-
-                let apiSettings = {
-                    enabled: false,
-                    downloadsEnabled: false,
-                    message: "HOCO developer API is not enabled yet.",
-                    maxRequestsPerDayDefault: 50,
-                    apiBaseUrl: "https://us-central1-hoco-3b23e.cloudfunctions.net"
-                };
-
-                if (apiSettingsSnap.exists()) apiSettings = { ...apiSettings, ...apiSettingsSnap.data() };
-                if (typeof apiSettings.enable === "boolean" && typeof apiSettings.enabled !== "boolean") apiSettings.enabled = apiSettings.enable;
-
-                const accessSnap = await getDoc(doc(db, "developer_access", uid));
-                if (!accessSnap.exists()) {
-                    summaryEl.innerHTML = `<strong>Status:</strong> No developer access record found<br><span style="color:#888;">Please contact HOCO support.</span>`;
-                    return;
-                }
-
-                const access = accessSnap.data();
-                if (!access.enabled) {
-                    summaryEl.innerHTML = `<strong>Status:</strong> Access disabled<br><span style="color:#888;">Your external developer access is currently disabled.</span>`;
-                    return;
-                }
-
-                const allowedDatasets = access.allowedDatasets || [];
-                const allowedFormats = access.allowedFormats || [];
-                if (!allowedDatasets.length) {
-                    summaryEl.innerHTML = `<strong>Status:</strong> Approved<br><strong>Datasets:</strong> None assigned yet<br><span style="color:#888;">A HOCO developer needs to assign dataset access.</span>`;
-                    return;
-                }
-
-                const datasetId = allowedDatasets[0] || "europe";
-                const datasetSnap = await getDoc(doc(db, "hoco_datasets", datasetId));
-                if (!datasetSnap.exists()) {
-                    summaryEl.innerHTML = `<strong>Status:</strong> Approved<br><strong>Dataset:</strong> ${escapeHtml(datasetId)}<br><span style="color:#888;">Dataset metadata not found.</span>`;
-                    return;
-                }
-
-                const dataset = datasetSnap.data();
-                const todayKey = getTodayKeyUTC();
-                const usageId = `${uid}_${todayKey}`;
-                const usageLimit = access.maxRequestsPerDay || apiSettings.maxRequestsPerDayDefault || 50;
-                let requestCount = 0;
-
-                try {
-                    const usageSnap = await getDoc(doc(db, "developer_usage", usageId));
-                    if (usageSnap.exists()) requestCount = Number(usageSnap.data().requestCount || 0);
-                } catch (usageError) {
-                    console.warn("Could not load developer usage:", usageError);
-                }
-
-                const remainingRequests = Math.max(usageLimit - requestCount, 0);
-                const apiBaseUrl = apiSettings.apiBaseUrl || "https://us-central1-hoco-3b23e.cloudfunctions.net";
-                const metadataUrl = `${apiBaseUrl}/getHocoDatasetMetadata?dataset=${encodeURIComponent(datasetId)}&format=${encodeURIComponent((allowedFormats[0] || dataset.format || "geojson"))}`;
-                const downloadUrl = `${apiBaseUrl}/getHocoDatasetDownload?dataset=${encodeURIComponent(datasetId)}&format=${encodeURIComponent((allowedFormats[0] || dataset.format || "geojson"))}`;
-
-                summaryEl.innerHTML = `
-                    <strong>Status:</strong> Approved<br>
-                    <strong>Dataset:</strong> ${escapeHtml(dataset.displayName || dataset.dataset || datasetId)}<br>
-                    <strong>Format:</strong> ${escapeHtml((allowedFormats.join(", ") || dataset.format || "geojson").toUpperCase())}<br>
-                    <strong>Version:</strong> ${escapeHtml(dataset.version || "Unknown")}<br>
-                    <strong>Dataset available:</strong> ${dataset.available ? "Yes" : "No"}<br>
-                    <strong>API status:</strong> ${apiSettings.enabled ? "Enabled" : "Disabled / Coming soon"}<br>
-                    <strong>Downloads:</strong> ${apiSettings.downloadsEnabled ? "Enabled" : "Disabled"}<br>
-                    <strong>Message:</strong> ${escapeHtml(apiSettings.message || "HOCO developer API is not enabled yet.")}<br>
-                    <strong>Requests used today:</strong> ${requestCount} / ${usageLimit}<br>
-                    <strong>Requests remaining:</strong> ${remainingRequests}
-                `;
-
-                if (instructionsEl && apiSettings.enabled) {
-                    const sampleCode = `const user = firebase.auth().currentUser;
-const token = await user.getIdToken();
-
-const response = await fetch("${metadataUrl}", {
-  headers: { Authorization: \`Bearer ${token}\` }
-});
-
-const metadata = await response.json();
-console.log(metadata);`;
-                    instructionsEl.style.display = "block";
-                    instructionsEl.innerHTML = `
-                        <strong>Metadata endpoint:</strong><br>
-                        <code id="hocoMetadataEndpointText" style="word-break:break-all; display:block; margin:6px 0;">${escapeHtml(metadataUrl)}</code>
-                        <button type="button" onclick="copyHocoApiText('hocoMetadataEndpointText')" style="padding:6px; font-size:0.7rem; margin:4px 0 10px;">Copy metadata endpoint</button>
-
-                        <strong>Download endpoint:</strong><br>
-                        <code id="hocoDownloadEndpointText" style="word-break:break-all; display:block; margin:6px 0;">${escapeHtml(downloadUrl)}</code>
-                        <button type="button" onclick="copyHocoApiText('hocoDownloadEndpointText')" style="padding:6px; font-size:0.7rem; margin:4px 0 10px;">Copy download endpoint</button>
-
-                        <strong>Required header:</strong><br>
-                        <code>Authorization: Bearer &lt;Firebase ID token&gt;</code><br><br>
-
-                        <strong>Example JavaScript:</strong>
-                        <pre id="hocoApiSampleCode" style="white-space:pre-wrap; font-size:0.7rem; background:#102238; color:#e8eef8; padding:8px; border-radius:8px; overflow:auto;">${escapeHtml(sampleCode)}</pre>
-                        <button type="button" onclick="copyHocoApiText('hocoApiSampleCode')" style="padding:6px; font-size:0.7rem;">Copy sample code</button>
-                    `;
-                }
-            } catch (error) {
-                console.error("External developer panel load failed:", error);
-                summaryEl.innerHTML = `<strong>Status:</strong> Error loading access<br><span style="color:#888;">Check Firestore permissions.</span>`;
-            }
-        }
         // ==========================================
         // ARCHIVE & RENDERING
         // ==========================================
@@ -6954,24 +6808,32 @@ console.log(metadata);`;
 
             // Use the passed date, the calendar value, or default to today
             const targetDateStr = selectedDate || calendar.value || todayStr;
-            const q = buildArchiveQuery(targetDateStr);
+            const colRef = collection(db, "hoco_requests");
 
-            // Clean up previous listener to prevent memory leaks and overlapping data
+            // Clean up previous listener(s) to prevent memory leaks and overlapping data
             if (runsUnsubscribe) {
-                runsUnsubscribe();
+                if (Array.isArray(runsUnsubscribe)) runsUnsubscribe.forEach((unsubscribe) => unsubscribe && unsubscribe());
+                else runsUnsubscribe();
             }
 
-            runsUnsubscribe = onSnapshot(q, (snap) => {
-                allRuns = [];
-                let myRunsTodayCount = 0;
+            const applyRunDocs = (docs) => {
+                const runMap = new Map();
 
-                snap.forEach(d => {
+                docs.forEach(d => {
                     const data = d.data();
-                    allRuns.push({ id: d.id, ...data });
+                    runMap.set(d.id, { id: d.id, ...data });
+                });
 
-                    // Count runs today
-                    if (data.userId === auth.currentUser?.uid) {
-                        const runDate = getCreationDateString(data);
+                allRuns = Array.from(runMap.values()).sort((a, b) => {
+                    const bDate = getRunCreatedDate(b)?.getTime?.() || 0;
+                    const aDate = getRunCreatedDate(a)?.getTime?.() || 0;
+                    return bDate - aDate;
+                });
+
+                let myRunsTodayCount = 0;
+                allRuns.forEach((run) => {
+                    if (run.userId === auth.currentUser?.uid) {
+                        const runDate = getCreationDateString(run);
                         if (runDate === todayStr) myRunsTodayCount++;
                     }
                 });
@@ -6996,7 +6858,54 @@ console.log(metadata);`;
                     renderAutoTimeline(); // Refresh slider UI
                     autoLoadSelectedRun(); // Trigger the map load
                 }
-            });
+            };
+
+            if (userRole === 'developer') {
+                const q = buildArchiveQuery(targetDateStr);
+                runsUnsubscribe = onSnapshot(q, (snap) => applyRunDocs(snap.docs));
+                return;
+            }
+
+            // Non-developer users, including external_developer, use rule-friendly queries:
+            // 1) public completed runs, 2) their own runs. Results are merged and de-duplicated.
+            const latestPublicRunsQuery = query(
+                colRef,
+                where("public", "==", true),
+                where("status", "==", "completed"),
+                orderBy("createdAt", "desc"),
+                limit(300)
+            );
+
+            const ownRunsQuery = query(
+                colRef,
+                where("userId", "==", auth.currentUser?.uid || "__none__"),
+                orderBy("createdAt", "desc"),
+                limit(300)
+            );
+
+            const snapshots = new Map();
+            const rerenderMergedSnapshots = () => {
+                const mergedDocs = [];
+                snapshots.forEach((docs) => mergedDocs.push(...docs));
+                applyRunDocs(mergedDocs);
+            };
+
+            runsUnsubscribe = [
+                onSnapshot(latestPublicRunsQuery, (snap) => {
+                    snapshots.set('public', snap.docs);
+                    rerenderMergedSnapshots();
+                }, (error) => {
+                    console.error('Public archive listener error:', error);
+                    showToast('Could not load public archive. Check Firestore indexes/rules.', 'error');
+                }),
+                onSnapshot(ownRunsQuery, (snap) => {
+                    snapshots.set('own', snap.docs);
+                    rerenderMergedSnapshots();
+                }, (error) => {
+                    console.error('Own archive listener error:', error);
+                    showToast('Could not load your runs. Check Firestore indexes/rules.', 'error');
+                })
+            ];
         }
 
         function updateCapUI() {
@@ -7020,6 +6929,7 @@ console.log(metadata);`;
 
         function getDailyCapLimit(role = userRole) {
             if (role === 'normal') return 7;
+            if (role === 'external_developer') return 7;
             if (role === 'exclusive') return 15;
             if (role === 'developer') return Infinity;
             return null;
@@ -7442,7 +7352,7 @@ console.log(metadata);`;
             }
             const dailyCap = getDailyCapLimit();
             if (Number.isFinite(dailyCap) && runsToday >= dailyCap) {
-                const roleLabel = userRole === 'exclusive' ? 'Exclusive' : 'Normal';
+                const roleLabel = userRole === 'exclusive' ? 'Exclusive' : (userRole === 'external_developer' ? 'External Developer' : 'Normal');
                 return showToast(`Daily ${roleLabel} limit (${dailyCap}) reached.`, "error");
             }
 
@@ -7458,7 +7368,7 @@ console.log(metadata);`;
             let finalScenarios = selectedScenarios;
             let finalWeights = {};
 
-            if (userRole === 'normal') {
+            if (userRole === 'normal' || userRole === 'external_developer') {
                 finalScenarios = [];
                 finalWeights = defaultWeights;
             } else {
@@ -7528,19 +7438,12 @@ console.log(metadata);`;
         // ==========================================
         document.getElementById('submitUpgradeBtn').addEventListener('click', async () => {
             const role = document.getElementById('reqRole').value;
-            const social = document.getElementById('reqSocial').value.trim();
-            const reason = document.getElementById('reqReason').value.trim();
-
-            if (!auth.currentUser) {
-                return showToast("You must be signed in first.", "error");
-            }
-
-            if (!social || !reason) {
-                return showToast("Please fill all fields", "error");
-            }
+            const social = document.getElementById('reqSocial').value;
+            const reason = document.getElementById('reqReason').value;
+            if (!social || !reason) return showToast("Please fill all fields", "error");
 
             try {
-                const requestData = {
+                await addDoc(collection(db, "role_requests"), {
                     userId: auth.currentUser.uid,
                     email: auth.currentUser.email,
                     requestedRole: role,
@@ -7548,22 +7451,11 @@ console.log(metadata);`;
                     reason: reason,
                     status: 'pending',
                     createdAt: new Date()
-                };
-
-                if (role === "external_developer") {
-                    requestData.requestedDatasets = ["europe"];
-                    requestData.requestedFormats = ["geojson"];
-                    requestData.requestType = "hoco_data_access";
-                }
-
-                await addDoc(collection(db, "role_requests"), requestData);
-                showToast(role === "external_developer" ? "Developer data access request submitted." : "Upgrade request submitted.", "success");
+                });
+                showToast("Upgrade request submitted.", "success");
                 document.getElementById('reqSocial').value = '';
                 document.getElementById('reqReason').value = '';
-            } catch (e) {
-                console.error("Request submit error:", e);
-                showToast("Error submitting request.", "error");
-            }
+            } catch (e) { showToast("Error submitting request.", "error"); }
         });
 
         function loadAdminData() {
@@ -7577,10 +7469,10 @@ console.log(metadata);`;
                             <div>${u.email}<br><span style="color:var(--primary)">${u.role}</span></div>
                             <div style="display:flex; gap:4px;">
                                 <button onclick="updateRole('${d.id}', 'guest')" style="padding:4px 8px; font-size:10px; background:#444;">G</button>
-<button onclick="updateRole('${d.id}', 'normal')" style="padding:4px 8px; font-size:10px; background:var(--primary);">N</button>
-<button onclick="updateRole('${d.id}', 'exclusive')" style="padding:4px 8px; font-size:10px; background:var(--warning);">E</button>
-<button onclick="updateRole('${d.id}', 'external_developer')" style="padding:4px 8px; font-size:10px; background:#0f766e;">API</button>
-<button onclick="updateRole('${d.id}', 'developer')" style="padding:4px 8px; font-size:10px; background:var(--danger);">D</button>
+                                <button onclick="updateRole('${d.id}', 'normal')" style="padding:4px 8px; font-size:10px; background:var(--primary);">N</button>
+                                <button onclick="updateRole('${d.id}', 'exclusive')" style="padding:4px 8px; font-size:10px; background:var(--warning);">E</button>
+                                <button onclick="updateRole('${d.id}', 'external_developer')" style="padding:4px 8px; font-size:10px; background:#8e44ad;">API</button>
+                                <button onclick="updateRole('${d.id}', 'developer')" style="padding:4px 8px; font-size:10px; background:var(--danger);">D</button>
                             </div>
                         </div>`;
                 });
@@ -7597,7 +7489,7 @@ console.log(metadata);`;
                             <div style="margin-bottom: 5px;"><strong>${r.email}</strong> wants <span style="color:var(--warning)">${r.requestedRole}</span></div>
                             <div style="color:#aaa; font-size:0.75rem; margin-bottom:5px;">Social: ${r.social}<br>Reason: ${r.reason}</div>
                             <div style="display:flex; gap:5px; width:100%;">
-                                <button onclick="approveRequest('${d.id}')" style="padding:6px; font-size:0.75rem; background:var(--accent);">Approve</button>
+                                <button onclick="approveRequest('${d.id}', '${r.userId}', '${r.requestedRole}')" style="padding:6px; font-size:0.75rem; background:var(--accent);">Approve</button>
                                 <button onclick="rejectRequest('${d.id}')" style="padding:6px; font-size:0.75rem; background:#444;">Reject</button>
                             </div>
                         </div>`;
@@ -7610,51 +7502,12 @@ console.log(metadata);`;
             catch (err) { showToast("Update failed.", "error"); }
         };
 
-        window.approveRequest = async (reqId) => {
+        window.approveRequest = async (reqId, uid, role) => {
             try {
-                const reqRef = doc(db, "role_requests", reqId);
-                const reqSnap = await getDoc(reqRef);
-                if (!reqSnap.exists()) return showToast("Request not found.", "error");
-
-                const request = reqSnap.data();
-                const uid = request.userId;
-                const role = request.requestedRole;
-                if (!uid || !role) return showToast("Invalid request data.", "error");
-
-                const allowedRoles = ["normal", "exclusive", "external_developer"];
-                if (!allowedRoles.includes(role)) return showToast("This role cannot be approved from requests.", "error");
-
                 await updateDoc(doc(db, "users", uid), { role });
-
-                if (role === "external_developer") {
-                    const apiSettingsSnap = await getDoc(doc(db, "settings", "developer_api"));
-                    const apiSettings = apiSettingsSnap.exists() ? apiSettingsSnap.data() : {};
-                    const defaultLimit = apiSettings.maxRequestsPerDayDefault || 50;
-
-                    await setDoc(doc(db, "developer_access", uid), {
-                        uid,
-                        email: request.email || "",
-                        role: "external_developer",
-                        allowedDatasets: request.requestedDatasets || ["europe"],
-                        allowedFormats: request.requestedFormats || ["geojson"],
-                        maxRequestsPerDay: defaultLimit,
-                        enabled: true,
-                        approvedAt: new Date(),
-                        approvedBy: auth.currentUser ? auth.currentUser.uid : null
-                    });
-                }
-
-                await updateDoc(reqRef, {
-                    status: "approved",
-                    approvedAt: new Date(),
-                    approvedBy: auth.currentUser ? auth.currentUser.uid : null
-                });
-
+                await updateDoc(doc(db, "role_requests", reqId), { status: 'approved' });
                 showToast("Request approved.", "success");
-            } catch (err) {
-                console.error("Approve request error:", err);
-                showToast("Error approving request.", "error");
-            }
+            } catch (err) { showToast("Error approving.", "error"); }
         };
 
         window.rejectRequest = async (reqId) => {
