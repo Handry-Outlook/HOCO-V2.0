@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Fetch AUTO-HOCO Example</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #eef4fb;
+      color: #102238;
+      padding: 24px;
+      margin: 0;
+    }
+
+    h1 {
+      color: #2f67e4;
+    }
+
+    button {
+      background: #2f67e4;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-bottom: 16px;
+    }
+
+    button:hover {
+      background: #4e82ef;
+    }
+
+    .run-card {
+      background: white;
+      border: 1px solid rgba(102, 139, 207, 0.25);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 14px;
+      box-shadow: 0 10px 24px rgba(88, 115, 158, 0.12);
+    }
+
+    .run-title {
+      font-weight: 800;
+      margin-bottom: 8px;
+      word-break: break-word;
+    }
+
+    .meta {
+      color: #5d7088;
+      font-size: 0.9rem;
+      line-height: 1.6;
+      word-break: break-word;
+    }
+
+    code, pre {
+      display: block;
+      background: #102238;
+      color: #e8eef8;
+      padding: 10px;
+      border-radius: 8px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.82rem;
+    }
+
+    a {
+      color: #2f67e4;
+      font-weight: 700;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>AUTO-HOCO Fetch Example</h1>
+
+  <p>
+    This example fetches public completed AUTO-HOCO runs from Firestore and then loads the GeoJSON.
+  </p>
+
+  <button id="loadBtn">Load AUTO-HOCO Runs</button>
+
+  <div id="status">Waiting...</div>
+  <div id="results"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+
+    import {
+      getFirestore,
+      collection,
+      query,
+      where,
+      orderBy,
+      limit,
+      getDocs
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    /*
+      Replace apiKey and appId with your HOCO Firebase Web App config.
+
+      Your existing public page already connects to project:
+      projectId: hoco-3b23e
+      storageBucket: hoco-3b23e.firebasestorage.app
+    */
+
+    const firebaseConfig = {
+            apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ",
+            authDomain: "hoco-3b23e.firebaseapp.com",
+            projectId: "hoco-3b23e",
+            storageBucket: "hoco-3b23e.firebasestorage.app",
+            messagingSenderId: "409513272369",
+            appId: "1:409513272369:web:a857d9b039d53710f8a110"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const STORAGE_BUCKET = "hoco-3b23e.firebasestorage.app";
+
+    const loadBtn = document.getElementById("loadBtn");
+    const statusEl = document.getElementById("status");
+    const resultsEl = document.getElementById("results");
+
+    loadBtn.addEventListener("click", loadAutoHocoRuns);
+
+    function parseAutoHocoRunId(runId) {
+      /*
+        Expected format:
+
+        AUTO-1782803122360-England-Day1-2
+
+        Breakdown:
+        AUTO              automated run
+        1782803122360     autoCode
+        England           region
+        Day1-2            forecastDay
+      */
+
+      const match = String(runId).match(/^AUTO-(\d+)-(.+)-(Day\d+-\d+)$/);
+
+      if (!match) {
+        return {
+          autoCode: null,
+          regionFromId: null,
+          forecastDay: null
+        };
+      }
+
+      return {
+        autoCode: match[1],
+        regionFromId: match[2],
+        forecastDay: match[3]
+      };
+    }
+
+    function buildStorageMetadataUrl(runId) {
+      const objectPath = `forecasts/${runId}.geojson`;
+      const encodedObjectPath = encodeURIComponent(objectPath);
+
+      return `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/${encodedObjectPath}`;
+    }
+
+    function buildDownloadUrlFromMetadata(metadata) {
+      const encodedName = encodeURIComponent(metadata.name);
+
+      return `https://firebasestorage.googleapis.com/v0/b/${metadata.bucket}/o/${encodedName}?alt=media&token=${metadata.downloadTokens}`;
+    }
+
+    async function fetchStorageMetadata(metadataUrl) {
+      const response = await fetch(metadataUrl);
+
+      if (!response.ok) {
+        throw new Error(`Metadata fetch failed: ${response.status}`);
+      }
+
+      return await response.json();
+    }
+
+    async function fetchGeojson(url) {
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`GeoJSON fetch failed: ${response.status}`);
+      }
+
+      return await response.json();
+    }
+
+    async function loadAutoHocoRuns() {
+      statusEl.textContent = "Loading AUTO-HOCO runs...";
+      resultsEl.innerHTML = "";
+
+      try {
+        /*
+          This query is the external developer catalogue.
+
+          It discovers available AUTO-HOCO IDs from Firestore.
+        */
+        const autoHocoQuery = query(
+          collection(db, "hoco_requests"),
+          where("public", "==", true),
+          where("status", "==", "completed"),
+          where("type", "==", "automated"),
+          orderBy("completedAt", "desc"),
+          limit(20)
+        );
+
+        const snapshot = await getDocs(autoHocoQuery);
+
+        if (snapshot.empty) {
+          statusEl.textContent = "No AUTO-HOCO runs found.";
+          return;
+        }
+
+        statusEl.textContent = `${snapshot.size} AUTO-HOCO run(s) found.`;
+
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+
+          /*
+            Main point:
+            Firestore document ID is the AUTO-HOCO run ID.
+          */
+          const runId = data.id || docSnap.id;
+
+          const parsed = parseAutoHocoRunId(runId);
+          const metadataUrl = buildStorageMetadataUrl(runId);
+
+          renderRunCard({
+            runId,
+            autoCode: parsed.autoCode,
+            region: data.region || parsed.regionFromId,
+            forecastDay: parsed.forecastDay,
+            weather: data.weather,
+            startTime: data.startTime,
+            endTime: data.endTime,
+            completedAt: data.completedAt,
+            geojsonUrl: data.geojsonUrl || null,
+            metadataUrl
+          });
+        });
+      } catch (error) {
+        console.error(error);
+        statusEl.textContent = `Error: ${error.message}`;
+      }
+    }
+
+    function renderRunCard(run) {
+      const card = document.createElement("div");
+      card.className = "run-card";
+
+      card.innerHTML = `
+        <div class="run-title">${escapeHtml(run.runId)}</div>
+
+        <div class="meta">
+          <strong>autoCode:</strong> ${escapeHtml(run.autoCode || "--")}<br>
+          <strong>region:</strong> ${escapeHtml(run.region || "--")}<br>
+          <strong>forecastDay:</strong> ${escapeHtml(run.forecastDay || "--")}<br>
+          <strong>weather:</strong> ${escapeHtml(run.weather || "--")}<br>
+          <strong>startTime:</strong> ${escapeHtml(run.startTime || "--")}<br>
+          <strong>endTime:</strong> ${escapeHtml(run.endTime || "--")}
+        </div>
+
+        <p><strong>Storage metadata URL:</strong></p>
+        <code>${escapeHtml(run.metadataUrl)}</code>
+
+        <button class="metadataBtn">Fetch metadata and build download URL</button>
+
+        ${
+          run.geojsonUrl
+            ? `<button class="directBtn">Fetch GeoJSON using existing geojsonUrl</button>`
+            : ""
+        }
+
+        <div class="output"></div>
+      `;
+
+      const output = card.querySelector(".output");
+
+      card.querySelector(".metadataBtn").addEventListener("click", async () => {
+        output.innerHTML = "<p>Fetching metadata...</p>";
+
+        try {
+          const metadata = await fetchStorageMetadata(run.metadataUrl);
+          const downloadUrl = buildDownloadUrlFromMetadata(metadata);
+
+          output.innerHTML = `
+            <p><strong>Metadata response:</strong></p>
+            <pre>${escapeHtml(JSON.stringify(metadata, null, 2))}</pre>
+
+            <p><strong>Final GeoJSON download URL:</strong></p>
+            <code>${escapeHtml(downloadUrl)}</code>
+
+            <p>
+              ${escapeAttribute(downloadUrl)}
+                Open GeoJSON
+              </a>
+            </p>
+
+            <button class="countFeaturesBtn">Fetch GeoJSON and count features</button>
+            <div class="featureResult"></div>
+          `;
+
+          output.querySelector(".countFeaturesBtn").addEventListener("click", async () => {
+            const resultBox = output.querySelector(".featureResult");
+            resultBox.textContent = "Fetching GeoJSON...";
+
+            try {
+              const geojson = await fetchGeojson(downloadUrl);
+              const featureCount = Array.isArray(geojson.features)
+                ? geojson.features.length
+                : 0;
+
+              resultBox.innerHTML = `
+                <p class="meta">
+                  GeoJSON loaded. Feature count: <strong>${featureCount}</strong>
+                </p>
+              `;
+            } catch (error) {
+              resultBox.textContent = `GeoJSON error: ${error.message}`;
+            }
+          });
+        } catch (error) {
+          output.textContent = `Metadata error: ${error.message}`;
+        }
+      });
+
+      const directBtn = card.querySelector(".directBtn");
+
+      if (directBtn) {
+        directBtn.addEventListener("click", async () => {
+          output.innerHTML = "<p>Fetching GeoJSON from geojsonUrl...</p>";
+
+          try {
+            const geojson = await fetchGeojson(run.geojsonUrl);
+            const featureCount = Array.isArray(geojson.features)
+              ? geojson.features.length
+              : 0;
+
+            output.innerHTML = `
+              <p><strong>Existing geojsonUrl:</strong></p>
+              <code>${escapeHtml(run.geojsonUrl)}</code>
+
+              <p class="meta">
+                GeoJSON loaded. Feature count: <strong>${featureCount}</strong>
+              </p>
+            `;
+          } catch (error) {
+            output.textContent = `GeoJSON error: ${error.message}`;
+          }
+        });
+      }
+
+      resultsEl.appendChild(card);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function escapeAttribute(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+    }
+  </script>
+</body>
+</html>
