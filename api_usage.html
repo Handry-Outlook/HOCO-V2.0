@@ -2,48 +2,162 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Fetch AUTO-HOCO Example</title>
+  <title>HOCO AUTO-HOCO External Developer Demo</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+  <!-- Leaflet map library: no Mapbox token required -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+  </script>
+
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #eef4fb;
+      background:
+        radial-gradient(circle at top left, rgba(47, 103, 228, 0.16), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(31, 157, 112, 0.12), transparent 30%),
+        linear-gradient(180deg, #f6faff 0%, #e9f1fb 100%);
       color: #102238;
-      padding: 24px;
       margin: 0;
+      padding: 24px;
+      line-height: 1.55;
     }
 
     h1 {
       color: #2f67e4;
+      margin-top: 0;
+      font-size: 2rem;
+    }
+
+    h2 {
+      color: #102238;
+      margin-top: 0;
+      font-size: 1.25rem;
+    }
+
+    h3 {
+      color: #102238;
+      margin-bottom: 8px;
+    }
+
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.97);
+      border: 1px solid rgba(102, 139, 207, 0.25);
+      border-radius: 18px;
+      padding: 20px;
+      margin-bottom: 18px;
+      box-shadow: 0 14px 34px rgba(88, 115, 158, 0.14);
+    }
+
+    .hero {
+      background:
+        radial-gradient(circle at top right, rgba(31, 157, 112, 0.14), transparent 36%),
+        linear-gradient(135deg, rgba(224, 235, 255, 0.96), rgba(248, 251, 255, 0.99));
+      border-radius: 22px;
+      padding: 24px;
+      border: 1px solid rgba(102, 139, 207, 0.25);
+      box-shadow: 0 14px 34px rgba(88, 115, 158, 0.14);
+      margin-bottom: 18px;
+    }
+
+    .hero p {
+      color: #5d7088;
+      max-width: 900px;
+      margin-bottom: 0;
+    }
+
+    .step {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 14px;
+      align-items: flex-start;
+    }
+
+    .step-number {
+      width: 30px;
+      height: 30px;
+      flex: 0 0 30px;
+      border-radius: 999px;
+      background: #2f67e4;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 0.9rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #5d7088;
+      margin-bottom: 6px;
+    }
+
+    input,
+    select,
+    button {
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 42px;
+      border-radius: 12px;
+      border: 1px solid rgba(102, 139, 207, 0.3);
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      font-size: 0.95rem;
+    }
+
+    input,
+    select {
+      background: #ffffff;
+      color: #102238;
     }
 
     button {
-      background: #2f67e4;
+      background: linear-gradient(135deg, #3067e3 0%, #4b8aff 100%);
       color: white;
       border: none;
-      border-radius: 10px;
-      padding: 12px 16px;
-      font-weight: 700;
+      font-weight: 800;
       cursor: pointer;
-      margin-bottom: 16px;
+      box-shadow: 0 10px 24px rgba(35, 76, 161, 0.22);
     }
 
     button:hover {
-      background: #4e82ef;
+      background: linear-gradient(135deg, #4478ef 0%, #6da0ff 100%);
+    }
+
+    button.secondary {
+      background: linear-gradient(135deg, #1f9d70 0%, #28b381 100%);
     }
 
     .run-card {
-      background: white;
-      border: 1px solid rgba(102, 139, 207, 0.25);
-      border-radius: 14px;
+      background: #f8fbff;
+      border: 1px solid rgba(102, 139, 207, 0.22);
+      border-radius: 16px;
       padding: 16px;
       margin-bottom: 14px;
-      box-shadow: 0 10px 24px rgba(88, 115, 158, 0.12);
     }
 
     .run-title {
-      font-weight: 800;
+      font-weight: 900;
+      color: #102238;
       margin-bottom: 8px;
       word-break: break-word;
     }
@@ -51,40 +165,649 @@
     .meta {
       color: #5d7088;
       font-size: 0.9rem;
-      line-height: 1.6;
+      line-height: 1.65;
       word-break: break-word;
     }
 
-    code, pre {
+    code,
+    pre {
       display: block;
       background: #102238;
       color: #e8eef8;
-      padding: 10px;
-      border-radius: 8px;
+      padding: 12px;
+      border-radius: 10px;
       overflow-x: auto;
       white-space: pre-wrap;
       word-break: break-word;
-      font-size: 0.82rem;
+      font-size: 0.84rem;
+      line-height: 1.5;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .status {
+      color: #5d7088;
+      font-size: 0.9rem;
+      margin-top: 8px;
+    }
+
+    .notice {
+      background: #fff7df;
+      border: 1px solid #f2c94c;
+      border-radius: 12px;
+      padding: 12px;
+      color: #6c4b00;
+      margin-top: 10px;
+      margin-bottom: 10px;
+    }
+
+    .success {
+      background: #e8fff6;
+      border: 1px solid rgba(31, 157, 112, 0.35);
+      color: #0f6e4a;
+      border-radius: 12px;
+      padding: 10px;
+      margin-top: 10px;
+    }
+
+    .error {
+      background: #fff0f0;
+      border: 1px solid rgba(212, 93, 93, 0.35);
+      color: #8c2f2f;
+      border-radius: 12px;
+      padding: 10px;
+      margin-top: 10px;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 8px 0 12px;
+    }
+
+    .pill {
+      display: inline-flex;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: rgba(47, 103, 228, 0.1);
+      color: #2f67e4;
+      border: 1px solid rgba(47, 103, 228, 0.18);
+    }
+
+    .pill.auto {
+      background: rgba(31, 157, 112, 0.1);
+      color: #0f6e4a;
+      border-color: rgba(31, 157, 112, 0.25);
+    }
+
+    .pill.inactive {
+      background: rgba(93, 112, 136, 0.08);
+      color: #5d7088;
+      border-color: rgba(93, 112, 136, 0.18);
+    }
+
+    #map {
+      height: 520px;
+      width: 100%;
+      border-radius: 18px;
+      border: 1px solid rgba(102, 139, 207, 0.25);
+      overflow: hidden;
+      box-shadow: 0 14px 34px rgba(88, 115, 158, 0.14);
+    }
+
+    .map-help {
+      margin-top: 10px;
+      color: #5d7088;
+      font-size: 0.9rem;
     }
 
     a {
       color: #2f67e4;
-      font-weight: 700;
+      font-weight: 800;
+    }
+
+    @media (max-width: 720px) {
+      body {
+        padding: 14px;
+      }
+
+      .row {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 1.5rem;
+      }
+
+      #map {
+        height: 420px;
+      }
     }
   </style>
 </head>
 
 <body>
-  <h1>AUTO-HOCO Fetch Example</h1>
+  <main class="page">
+    <section class="hero">
+      <h1>HOCO AUTO-HOCO External Developer Demo</h1>
+      <p>
+        This page demonstrates how an external developer can discover public completed AUTO-HOCO runs,
+        extract the AUTO-HOCO ID, build the Firebase Storage metadata URL, fetch the GeoJSON,
+        and display the GeoJSON on a map.
+      </p>
+    </section>
 
-  <p>
-    This example fetches public completed AUTO-HOCO runs from Firestore and then loads the GeoJSON.
-  </p>
+    <section class="card">
+      <h2>Step-by-step developer workflow</h2>
 
-  <button id="loadBtn">Load AUTO-HOCO Runs</button>
+      <div class="step">
+        <div class="step-number">1</div>
+        <div>Connect to the HOCO Firebase project using the Firebase Web SDK.</div>
+      </div>
 
-  <div id="status">Waiting...</div>
-  <div id="results"></div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <div>
+          Query Firestore collection:
+          <code>hoco_requests</code>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-number">3</div>
+        <div>
+          Filter only public completed AUTO-HOCO runs:
+          <code>public == true
+status == "completed"
+type == "automated"</code>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-number">4</div>
+        <div>
+          Read the Firestore document ID. The document ID is the AUTO-HOCO run ID:
+          <code>AUTO-1782803122360-England-Day1-2</code>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-number">5</div>
+        <div>
+          Parse the AUTO-HOCO run ID:
+          <code>AUTO              = automated run
+1782803122360     = autoCode
+England           = region
+Day1-2            = forecastDay</code>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-number">6</div>
+        <div>
+          Build the Firebase Storage metadata URL:
+          <code>https://firebasestorage.googleapis.com/v0/b/hoco-3b23e.firebasestorage.app/o/forecasts%2F{runId}.geojson</code>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-number">7</div>
+        <div>
+          Fetch metadata, read <code>downloadTokens</code>, build the final GeoJSON URL,
+          then display the GeoJSON on a map.
+        </div>
+      </div>
+
+      <div class="notice">
+        External developers should not guess AUTO-HOCO numeric codes. They should discover available runs from
+        Firestore first.
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Firebase Web config</h2>
+      <p class="meta">
+        Copy this config into a Firebase Web SDK app to connect to the HOCO project.
+        Access is controlled by Firestore and Storage rules.
+      </p>
+
+      <pre><code>const firebaseConfig = {
+  apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ",
+  authDomain: "hoco-3b23e.firebaseapp.com",
+  projectId: "hoco-3b23e",
+  storageBucket: "hoco-3b23e.firebasestorage.app",
+  messagingSenderId: "409513272369",
+  appId: "1:409513272369:web:a857d9b039d53710f8a110"
+};</code></pre>
+    </section>
+
+    <section class="card">
+      <h2>Available HOCO regions</h2>
+      <p class="meta">
+        Active regions can be used in the region filter. Inactive regions are listed for future compatibility.
+      </p>
+
+      <pre><code>const HOCO_REGIONS = [
+  { id: 'England', name: 'England', status: 'active', west: -10.234, south: 48.788, east: 5.471, north: 56.578 },
+  { id: 'Scotland', name: 'Scotland (Beta)', status: 'active', west: -9.4482, south: 55.9161, east: 0, north: 60 },
+  { id: 'France', name: 'Coming Soon', status: 'inactive', west: -7.9761, south: 42.1448, east: 12.0850, north: 53.2849 },
+  { id: 'Spain', name: 'Coming Soon', status: 'inactive', west: -9.5, south: 36.0, east: 4.5, north: 43.8 },
+  { id: 'Germany', name: 'Germany (Beta)', status: 'active', west: 0.9558, south: 46.9809, east: 16.9409, north: 55.8567 },
+  { id: 'Poland', name: 'Poland (Beta)', status: 'active', west: 11.7142, south: 47.9787, east: 27.1252, north: 55.4243 },
+  { id: 'Baltics', name: 'Baltics (Beta)', status: 'active', west: 11.6949, south: 52.7695, east: 36.4801, north: 63.4481 }
+];</code></pre>
+
+      <div id="regionPills" class="pill-row"></div>
+    </section>
+
+    <section class="card">
+      <h2>JavaScript example code external developers can follow</h2>
+      <p class="meta">
+        This compact example discovers AUTO-HOCO runs from Firestore and builds Firebase Storage metadata URLs.
+      </p>
+
+      <pre><code>&lt;script type="module"&gt;
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ",
+  authDomain: "hoco-3b23e.firebaseapp.com",
+  projectId: "hoco-3b23e",
+  storageBucket: "hoco-3b23e.firebasestorage.app",
+  messagingSenderId: "409513272369",
+  appId: "1:409513272369:web:a857d9b039d53710f8a110"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+function parseAutoHocoRunId(runId) {
+  const match = String(runId).match(/^AUTO-(\d+)-(.+)-(Day\d+-\d+)$/);
+  return {
+    autoCode: match?.[1] || null,
+    region: match?.[2] || null,
+    forecastDay: match?.[3] || null
+  };
+}
+
+function buildMetadataUrl(runId) {
+  const bucket = "hoco-3b23e.firebasestorage.app";
+  const objectPath = `forecasts/${runId}.geojson`;
+  return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(objectPath)}`;
+}
+
+async function fetchAutoHocoRuns() {
+  const q = query(
+    collection(db, "hoco_requests"),
+    where("public", "==", true),
+    where("status", "==", "completed"),
+    where("type", "==", "automated"),
+    orderBy("completedAt", "desc"),
+    limit(20)
+  );
+
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((docSnap) => {
+    const runId = docSnap.id;
+    const parsed = parseAutoHocoRunId(runId);
+
+    return {
+      runId,
+      ...parsed,
+      metadataUrl: buildMetadataUrl(runId),
+      ...docSnap.data()
+    };
+  });
+}
+
+const runs = await fetchAutoHocoRuns();
+console.log(runs);
+&lt;/script&gt;</code></pre>
+    </section>
+
+    <section class="card">
+      <h2>Python example code external developers can follow</h2>
+      <p class="meta">
+        This Python example uses the Firestore REST API to discover AUTO-HOCO runs,
+        then reads Firebase Storage metadata and downloads the final GeoJSON.
+      </p>
+
+      <div class="notice">
+        Install dependency first:
+        <code>pip install requests</code>
+      </div>
+
+      <pre><code>import re
+import json
+import requests
+from urllib.parse import quote
+
+API_KEY = "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ"
+PROJECT_ID = "hoco-3b23e"
+DATABASE_ID = "(default)"
+STORAGE_BUCKET = "hoco-3b23e.firebasestorage.app"
+
+HOCO_REGIONS = [
+    { "id": "England", "name": "England", "status": "active", "west": -10.234, "south": 48.788, "east": 5.471, "north": 56.578 },
+    { "id": "Scotland", "name": "Scotland (Beta)", "status": "active", "west": -9.4482, "south": 55.9161, "east": 0, "north": 60 },
+    { "id": "France", "name": "Coming Soon", "status": "inactive", "west": -7.9761, "south": 42.1448, "east": 12.0850, "north": 53.2849 },
+    { "id": "Spain", "name": "Coming Soon", "status": "inactive", "west": -9.5, "south": 36.0, "east": 4.5, "north": 43.8 },
+    { "id": "Germany", "name": "Germany (Beta)", "status": "active", "west": 0.9558, "south": 46.9809, "east": 16.9409, "north": 55.8567 },
+    { "id": "Poland", "name": "Poland (Beta)", "status": "active", "west": 11.7142, "south": 47.9787, "east": 27.1252, "north": 55.4243 },
+    { "id": "Baltics", "name": "Baltics (Beta)", "status": "active", "west": 11.6949, "south": 52.7695, "east": 36.4801, "north": 63.4481 }
+]
+
+def parse_auto_hoco_run_id(run_id):
+    match = re.match(r"^AUTO-(\d+)-(.+)-(Day\d+-\d+)$", run_id)
+
+    if not match:
+        return {
+            "autoCode": None,
+            "regionFromId": None,
+            "forecastDay": None
+        }
+
+    return {
+        "autoCode": match.group(1),
+        "regionFromId": match.group(2),
+        "forecastDay": match.group(3)
+    }
+
+def firestore_value_to_python(value):
+    if "stringValue" in value:
+        return value["stringValue"]
+
+    if "booleanValue" in value:
+        return value["booleanValue"]
+
+    if "integerValue" in value:
+        return int(value["integerValue"])
+
+    if "doubleValue" in value:
+        return float(value["doubleValue"])
+
+    if "timestampValue" in value:
+        return value["timestampValue"]
+
+    if "arrayValue" in value:
+        return [
+            firestore_value_to_python(item)
+            for item in value.get("arrayValue", {}).get("values", [])
+        ]
+
+    if "mapValue" in value:
+        return {
+            key: firestore_value_to_python(item)
+            for key, item in value.get("mapValue", {}).get("fields", {}).items()
+        }
+
+    return None
+
+def firestore_doc_to_python(document):
+    fields = document.get("fields", {})
+
+    data = {
+        key: firestore_value_to_python(value)
+        for key, value in fields.items()
+    }
+
+    document_path = document.get("name", "")
+    run_id = document_path.split("/")[-1]
+
+    data["runId"] = data.get("id") or run_id
+
+    return data
+
+def build_storage_metadata_url(run_id):
+    object_path = f"forecasts/{run_id}.geojson"
+    encoded_path = quote(object_path, safe="")
+    return f"https://firebasestorage.googleapis.com/v0/b/{STORAGE_BUCKET}/o/{encoded_path}"
+
+def build_geojson_download_url_from_metadata(metadata):
+    bucket = metadata["bucket"]
+    name = metadata["name"]
+
+    token = metadata.get("downloadTokens", "").split(",")[0]
+    encoded_name = quote(name, safe="")
+
+    return f"https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{encoded_name}?alt=media&token={token}"
+
+def fetch_storage_metadata(metadata_url):
+    response = requests.get(metadata_url)
+    response.raise_for_status()
+    return response.json()
+
+def fetch_geojson(download_url):
+    response = requests.get(download_url)
+    response.raise_for_status()
+    return response.json()
+
+def fetch_auto_hoco_catalogue(region=None, forecast_day=None, limit_count=20):
+    url = (
+        f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}"
+        f"/databases/{DATABASE_ID}/documents:runQuery?key={API_KEY}"
+    )
+
+    filters = [
+        {
+            "fieldFilter": {
+                "field": { "fieldPath": "public" },
+                "op": "EQUAL",
+                "value": { "booleanValue": True }
+            }
+        },
+        {
+            "fieldFilter": {
+                "field": { "fieldPath": "status" },
+                "op": "EQUAL",
+                "value": { "stringValue": "completed" }
+            }
+        },
+        {
+            "fieldFilter": {
+                "field": { "fieldPath": "type" },
+                "op": "EQUAL",
+                "value": { "stringValue": "automated" }
+            }
+        }
+    ]
+
+    if region:
+        filters.append({
+            "fieldFilter": {
+                "field": { "fieldPath": "region" },
+                "op": "EQUAL",
+                "value": { "stringValue": region }
+            }
+        })
+
+    body = {
+        "structuredQuery": {
+            "from": [
+                { "collectionId": "hoco_requests" }
+            ],
+            "where": {
+                "compositeFilter": {
+                    "op": "AND",
+                    "filters": filters
+                }
+            },
+            "orderBy": [
+                {
+                    "field": { "fieldPath": "completedAt" },
+                    "direction": "DESCENDING"
+                }
+            ],
+            "limit": limit_count
+        }
+    }
+
+    response = requests.post(url, json=body)
+    response.raise_for_status()
+
+    raw_results = response.json()
+    runs = []
+
+    for item in raw_results:
+        document = item.get("document")
+
+        if not document:
+            continue
+
+        run = firestore_doc_to_python(document)
+        run_id = run["runId"]
+        parsed = parse_auto_hoco_run_id(run_id)
+
+        catalogue_item = {
+            "runId": run_id,
+            "autoCode": parsed["autoCode"],
+            "region": run.get("region") or parsed["regionFromId"],
+            "forecastDay": parsed["forecastDay"],
+            "weather": run.get("weather"),
+            "startTime": run.get("startTime"),
+            "endTime": run.get("endTime"),
+            "createdAt": run.get("createdAt"),
+            "completedAt": run.get("completedAt"),
+            "metadataUrl": build_storage_metadata_url(run_id),
+            "existingGeojsonUrl": run.get("geojsonUrl")
+        }
+
+        if forecast_day and catalogue_item["forecastDay"] != forecast_day:
+            continue
+
+        runs.append(catalogue_item)
+
+    return runs
+
+if __name__ == "__main__":
+    runs = fetch_auto_hoco_catalogue(
+        region="England",
+        forecast_day=None,
+        limit_count=10
+    )
+
+    print(f"Found {len(runs)} AUTO-HOCO runs")
+
+    for run in runs:
+        print(json.dumps(run, indent=2))
+
+    if not runs:
+        raise SystemExit("No AUTO-HOCO runs found.")
+
+    selected_run = runs[0]
+
+    print("\nSelected run:")
+    print(selected_run["runId"])
+
+    metadata = fetch_storage_metadata(selected_run["metadataUrl"])
+
+    print("\nStorage metadata:")
+    print(json.dumps(metadata, indent=2))
+
+    download_url = build_geojson_download_url_from_metadata(metadata)
+
+    print("\nGeoJSON download URL:")
+    print(download_url)
+
+    geojson = fetch_geojson(download_url)
+
+    feature_count = len(geojson.get("features", []))
+    print(f"\nGeoJSON loaded. Feature count: {feature_count}")
+
+    output_file = f"{selected_run['runId']}.geojson"
+
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(geojson, f)
+
+    print(f"Saved GeoJSON to {output_file}")</code></pre>
+    </section>
+
+    <section class="card">
+      <h2>Fetch AUTO-HOCO catalogue</h2>
+
+      <div class="row">
+        <div>
+          <label for="regionSelect">Region filter</label>
+          <select id="regionSelect"></select>
+        </div>
+
+        <div>
+          <label for="forecastDayInput">Forecast day filter</label>
+          <input id="forecastDayInput" placeholder="Example: Day1-2, Day2-3" />
+        </div>
+      </div>
+
+      <label for="limitSelect">Limit</label>
+      <select id="limitSelect">
+        <option value="20">20 runs</option>
+        <option value="50" selected>50 runs</option>
+        <option value="100">100 runs</option>
+      </select>
+
+      <button id="loadRunsBtn" class="secondary">Load AUTO-HOCO runs</button>
+
+      <div id="catalogueStatus" class="status">Waiting.</div>
+    </section>
+
+    <section class="card">
+      <h2>Results</h2>
+      <div id="runList"></div>
+    </section>
+
+    <section class="card">
+      <h2>Working GeoJSON map example</h2>
+      <p class="meta">
+        Click “Fetch metadata and display GeoJSON on map” on any result. The GeoJSON polygons will be drawn below.
+      </p>
+      <div id="map"></div>
+      <div class="map-help" id="mapStatus">Map waiting for AUTO-HOCO GeoJSON.</divisplaying the GeoJSON on a map</h2>
+      <p class="meta">
+        Once the GeoJSON is fetched, use a map library such as Leaflet and add the GeoJSON as a layer.
+      </p>
+
+      <pre><code>const layer = L.geoJSON(geojson, {
+  style: function(feature) {
+    const risk = Number(
+      feature.properties?.riskValue ??
+      feature.properties?.peak_risk ??
+      feature.properties?.risk ??
+      0
+    );
+
+    return {
+      color: getRiskColor(risk),
+      weight: 2,
+      fillColor: getRiskColor(risk),
+      fillOpacity: 0.35
+    };
+  },
+  onEachFeature: function(feature, layer) {
+    layer.bindPopup(JSON.stringify(feature.properties, null, 2));
+  }
+}).addTo(map);
+
+map.fitBounds(layer.getBounds());</code></pre>
+    </section>
+  </main>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -99,21 +822,13 @@
       getDocs
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    /*
-      Replace apiKey and appId with your HOCO Firebase Web App config.
-
-      Your existing public page already connects to project:
-      projectId: hoco-3b23e
-      storageBucket: hoco-3b23e.firebasestorage.app
-    */
-
     const firebaseConfig = {
-            apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ",
-            authDomain: "hoco-3b23e.firebaseapp.com",
-            projectId: "hoco-3b23e",
-            storageBucket: "hoco-3b23e.firebasestorage.app",
-            messagingSenderId: "409513272369",
-            appId: "1:409513272369:web:a857d9b039d53710f8a110"
+      apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ",
+      authDomain: "hoco-3b23e.firebaseapp.com",
+      projectId: "hoco-3b23e",
+      storageBucket: "hoco-3b23e.firebasestorage.app",
+      messagingSenderId: "409513272369",
+      appId: "1:409513272369:web:a857d9b039d53710f8a110"
     };
 
     const app = initializeApp(firebaseConfig);
@@ -121,25 +836,87 @@
 
     const STORAGE_BUCKET = "hoco-3b23e.firebasestorage.app";
 
-    const loadBtn = document.getElementById("loadBtn");
-    const statusEl = document.getElementById("status");
-    const resultsEl = document.getElementById("results");
+    const HOCO_REGIONS = [
+      { id: "England", name: "England", status: "active", west: -10.234, south: 48.788, east: 5.471, north: 56.578 },
+      { id: "Scotland", name: "Scotland (Beta)", status: "active", west: -9.4482, south: 55.9161, east: 0, north: 60 },
+      { id: "France", name: "Coming Soon", status: "inactive", west: -7.9761, south: 42.1448, east: 12.0850, north: 53.2849 },
+      { id: "Spain", name: "Coming Soon", status: "inactive", west: -9.5, south: 36.0, east: 4.5, north: 43.8 },
+      { id: "Germany", name: "Germany (Beta)", status: "active", west: 0.9558, south: 46.9809, east: 16.9409, north: 55.8567 },
+      { id: "Poland", name: "Poland (Beta)", status: "active", west: 11.7142, south: 47.9787, east: 27.1252, north: 55.4243 },
+      { id: "Baltics", name: "Baltics (Beta)", status: "active", west: 11.6949, south: 52.7695, east: 36.4801, north: 63.4481 }
+    ];
 
-    loadBtn.addEventListener("click", loadAutoHocoRuns);
+    const regionSelect = document.getElementById("regionSelect");
+    const regionPills = document.getElementById("regionPills");
+    const forecastDayInput = document.getElementById("forecastDayInput");
+    const limitSelect = document.getElementById("limitSelect");
+    const loadRunsBtn = document.getElementById("loadRunsBtn");
+    const catalogueStatus = document.getElementById("catalogueStatus");
+    const runList = document.getElementById("runList");
+    const mapStatus = document.getElementById("mapStatus");
+
+    let map;
+    let geojsonLayer;
+
+    initRegions();
+    initMap();
+
+    loadRunsBtn.addEventListener("click", async () => {
+      await loadAutoHocoCatalogue();
+    });
+
+    function initRegions() {
+      regionSelect.innerHTML = '<option value="">All active regions</option>';
+
+      HOCO_REGIONS.forEach((region) => {
+        const option = document.createElement("option");
+        option.value = region.id;
+        option.textContent = `${region.id} — ${region.name} (${region.status})`;
+
+        if (region.status !== "active") {
+          option.disabled = true;
+        }
+
+        regionSelect.appendChild(option);
+
+        const pill = document.createElement("span");
+        pill.className = `pill ${region.status === "active" ? "" : "inactive"}`;
+        pill.textContent = `${region.id}: ${region.status}`;
+        regionPills.appendChild(pill);
+      });
+    }
+
+    function initMap() {
+      map = L.map("map", {
+        center: [54.5, -2.5],
+        zoom: 5
+      });
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 12,
+        attribution: "&copy; OpenStreetMap contributors"
+      }).addTo(map);
+    }
+
+    function getSelectedRegion() {
+      const id = regionSelect.value;
+      return HOCO_REGIONS.find((region) => region.id === id) || null;
+    }
+
+    function fitMapToRegion(region) {
+      if (!region) return;
+
+      const bounds = [
+        [region.south, region.west],
+        [region.north, region.east]
+      ];
+
+      map.fitBounds(bounds, {
+        padding: [20, 20]
+      });
+    }
 
     function parseAutoHocoRunId(runId) {
-      /*
-        Expected format:
-
-        AUTO-1782803122360-England-Day1-2
-
-        Breakdown:
-        AUTO              automated run
-        1782803122360     autoCode
-        England           region
-        Day1-2            forecastDay
-      */
-
       const match = String(runId).match(/^AUTO-(\d+)-(.+)-(Day\d+-\d+)$/);
 
       if (!match) {
@@ -164,7 +941,7 @@
       return `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/${encodedObjectPath}`;
     }
 
-    function buildDownloadUrlFromMetadata(metadata) {
+    function buildGeojsonDownloadUrlFromMetadata(metadata) {
       const encodedName = encodeURIComponent(metadata.name);
 
       return `https://firebasestorage.googleapis.com/v0/b/${metadata.bucket}/o/${encodedName}?alt=media&token=${metadata.downloadTokens}`;
@@ -174,78 +951,130 @@
       const response = await fetch(metadataUrl);
 
       if (!response.ok) {
-        throw new Error(`Metadata fetch failed: ${response.status}`);
+        throw new Error(`Storage metadata request failed with status ${response.status}`);
       }
 
       return await response.json();
     }
 
-    async function fetchGeojson(url) {
-      const response = await fetch(url);
+    async function fetchGeojson(downloadUrl) {
+      const response = await fetch(downloadUrl);
 
       if (!response.ok) {
-        throw new Error(`GeoJSON fetch failed: ${response.status}`);
+        throw new Error(`GeoJSON request failed with status ${response.status}`);
       }
 
       return await response.json();
     }
 
-    async function loadAutoHocoRuns() {
-      statusEl.textContent = "Loading AUTO-HOCO runs...";
-      resultsEl.innerHTML = "";
+    function timestampToText(value) {
+      if (!value) return "--";
+
+      if (typeof value.toDate === "function") {
+        return value.toDate().toLocaleString();
+      }
+
+      const parsed = new Date(value);
+
+      if (Number.isNaN(parsed.getTime())) {
+        return String(value);
+      }
+
+      return parsed.toLocaleString();
+    }
+
+    async function loadAutoHocoCatalogue() {
+      catalogueStatus.textContent = "Loading AUTO-HOCO runs...";
+      runList.innerHTML = "";
 
       try {
-        /*
-          This query is the external developer catalogue.
+        const selectedLimit = Number(limitSelect.value || 50);
+        const regionFilter = regionSelect.value;
+        const forecastDayFilter = forecastDayInput.value.trim();
 
-          It discovers available AUTO-HOCO IDs from Firestore.
-        */
-        const autoHocoQuery = query(
-          collection(db, "hoco_requests"),
-          where("public", "==", true),
-          where("status", "==", "completed"),
-          where("type", "==", "automated"),
-          orderBy("completedAt", "desc"),
-          limit(20)
-        );
+        let autoQuery;
 
-        const snapshot = await getDocs(autoHocoQuery);
-
-        if (snapshot.empty) {
-          statusEl.textContent = "No AUTO-HOCO runs found.";
-          return;
+        if (regionFilter) {
+          autoQuery = query(
+            collection(db, "hoco_requests"),
+            where("public", "==", true),
+            where("status", "==", "completed"),
+            where("type", "==", "automated"),
+            where("region", "==", regionFilter),
+            orderBy("completedAt", "desc"),
+            limit(selectedLimit)
+          );
+        } else {
+          autoQuery = query(
+            collection(db, "hoco_requests"),
+            where("public", "==", true),
+            where("status", "==", "completed"),
+            where("type", "==", "automated"),
+            orderBy("completedAt", "desc"),
+            limit(selectedLimit)
+          );
         }
 
-        statusEl.textContent = `${snapshot.size} AUTO-HOCO run(s) found.`;
+        const snapshot = await getDocs(autoQuery);
 
-        snapshot.forEach((docSnap) => {
+        let runs = snapshot.docs.map((docSnap) => {
           const data = docSnap.data();
 
-          /*
-            Main point:
-            Firestore document ID is the AUTO-HOCO run ID.
-          */
           const runId = data.id || docSnap.id;
 
           const parsed = parseAutoHocoRunId(runId);
           const metadataUrl = buildStorageMetadataUrl(runId);
 
-          renderRunCard({
+          return {
             runId,
             autoCode: parsed.autoCode,
-            region: data.region || parsed.regionFromId,
+            regionFromId: parsed.regionFromId,
             forecastDay: parsed.forecastDay,
-            weather: data.weather,
-            startTime: data.startTime,
-            endTime: data.endTime,
-            completedAt: data.completedAt,
-            geojsonUrl: data.geojsonUrl || null,
+            region: data.region || parsed.regionFromId,
+            weather: data.weather || "lightning",
+            startTime: data.startTime || null,
+            endTime: data.endTime || null,
+            createdAt: data.createdAt || null,
+            completedAt: data.completedAt || null,
+            existingGeojsonUrl: data.geojsonUrl || null,
             metadataUrl
-          });
+          };
         });
+
+        if (forecastDayFilter) {
+          runs = runs.filter((run) => run.forecastDay === forecastDayFilter);
+        }
+
+        catalogueStatus.textContent = `${runs.length} AUTO-HOCO run(s) found.`;
+
+        const selectedRegion = getSelectedRegion();
+
+        if (selectedRegion) {
+          fitMapToRegion(selectedRegion);
+        }
+
+        if (!runs.length) {
+          runList.innerHTML = `
+            <div class="run-card">
+              <div class="run-title">No AUTO-HOCO runs found</div>
+              <div class="meta">
+                Try another active region, forecast day, or a larger limit.
+              </div>
+            </div>
+          `;
+          return;
+        }
+
+        runs.forEach(renderRunCard);
       } catch (error) {
-        console.error(error);
-        statusEl.textContent = `Error: ${error.message}`;
+        catalogueStatus.textContent = `Failed to load AUTO-HOCO catalogue: ${error.message}`;
+
+        runList.innerHTML = `
+          <div class="run-card">
+            <div class="run-title">Error</div>
+            <div class="error">${escapeHtml(error.message)}</div>
+          </div>
+        `;
       }
     }
 
@@ -254,6 +1083,12 @@
       card.className = "run-card";
 
       card.innerHTML = `
+        <div class="pill-row">
+          <span class="pill auto">AUTO-HOCO</span>
+          <span class="pill">${escapeHtml(run.region || "Unknown region")}</span>
+          <span class="pill">${escapeHtml(run.forecastDay || "Unknown day")}</span>
+        </div>
+
         <div class="run-title">${escapeHtml(run.runId)}</div>
 
         <div class="meta">
@@ -262,17 +1097,21 @@
           <strong>forecastDay:</strong> ${escapeHtml(run.forecastDay || "--")}<br>
           <strong>weather:</strong> ${escapeHtml(run.weather || "--")}<br>
           <strong>startTime:</strong> ${escapeHtml(run.startTime || "--")}<br>
-          <strong>endTime:</strong> ${escapeHtml(run.endTime || "--")}
+          <strong>endTime:</strong> ${escapeHtml(run.endTime || "--")}<br>
+          <strong>createdAt:</strong> ${escapeHtml(timestampToText(run.createdAt))}<br>
+          <strong>completedAt:</strong> ${escapeHtml(timestampToText(run.completedAt))}
         </div>
 
-        <p><strong>Storage metadata URL:</strong></p>
+        <p><strong>Firebase Storage metadata URL:</strong></p>
         <code>${escapeHtml(run.metadataUrl)}</code>
 
-        <button class="metadataBtn">Fetch metadata and build download URL</button>
+        <button class="secondary get-metadata-btn">
+          Fetch metadata and display GeoJSON on map
+        </button>
 
         ${
-          run.geojsonUrl
-            ? `<button class="directBtn">Fetch GeoJSON using existing geojsonUrl</button>`
+          run.existingGeojsonUrl
+            ? `<button class="direct-geojson-btn">Use existing geojsonUrl from Firestore</button>`
             : ""
         }
 
@@ -281,81 +1120,175 @@
 
       const output = card.querySelector(".output");
 
-      card.querySelector(".metadataBtn").addEventListener("click", async () => {
-        output.innerHTML = "<p>Fetching metadata...</p>";
+      card.querySelector(".get-metadata-btn").addEventListener("click", async () => {
+        output.innerHTML = `<p class="meta">Fetching Firebase Storage metadata...</p>`;
 
         try {
           const metadata = await fetchStorageMetadata(run.metadataUrl);
-          const downloadUrl = buildDownloadUrlFromMetadata(metadata);
+          const downloadUrl = buildGeojsonDownloadUrlFromMetadata(metadata);
+          const geojson = await fetchGeojson(downloadUrl);
+
+          renderGeojsonOnMap(geojson, run);
+
+          const featureCount = Array.isArray(geojson.features)
+            ? geojson.features.length
+            : 0;
 
           output.innerHTML = `
-            <p><strong>Metadata response:</strong></p>
+            <p><strong>Storage metadata response:</strong></p>
             <pre>${escapeHtml(JSON.stringify(metadata, null, 2))}</pre>
 
             <p><strong>Final GeoJSON download URL:</strong></p>
             <code>${escapeHtml(downloadUrl)}</code>
 
+            <div class="success">
+              GeoJSON loaded and displayed on map.
+              Feature count: <strong>${featureCount}</strong>
+            </div>
+
             <p>
               ${escapeAttribute(downloadUrl)}
-                Open GeoJSON
+                Open GeoJSON in browser
               </a>
             </p>
-
-            <button class="countFeaturesBtn">Fetch GeoJSON and count features</button>
-            <div class="featureResult"></div>
           `;
-
-          output.querySelector(".countFeaturesBtn").addEventListener("click", async () => {
-            const resultBox = output.querySelector(".featureResult");
-            resultBox.textContent = "Fetching GeoJSON...";
-
-            try {
-              const geojson = await fetchGeojson(downloadUrl);
-              const featureCount = Array.isArray(geojson.features)
-                ? geojson.features.length
-                : 0;
-
-              resultBox.innerHTML = `
-                <p class="meta">
-                  GeoJSON loaded. Feature count: <strong>${featureCount}</strong>
-                </p>
-              `;
-            } catch (error) {
-              resultBox.textContent = `GeoJSON error: ${error.message}`;
-            }
-          });
         } catch (error) {
-          output.textContent = `Metadata error: ${error.message}`;
+          output.innerHTML = `
+            <div class="error">
+              Failed to fetch metadata or GeoJSON: ${escapeHtml(error.message)}
+            </div>
+          `;
         }
       });
 
-      const directBtn = card.querySelector(".directBtn");
+      const directBtn = card.querySelector(".direct-geojson-btn");
 
       if (directBtn) {
         directBtn.addEventListener("click", async () => {
-          output.innerHTML = "<p>Fetching GeoJSON from geojsonUrl...</p>";
+          output.innerHTML = `<p class="meta">Fetching GeoJSON from Firestore geojsonUrl...</p>`;
 
           try {
-            const geojson = await fetchGeojson(run.geojsonUrl);
+            const geojson = await fetchGeojson(run.existingGeojsonUrl);
+            renderGeojsonOnMap(geojson, run);
+
             const featureCount = Array.isArray(geojson.features)
               ? geojson.features.length
               : 0;
 
             output.innerHTML = `
               <p><strong>Existing geojsonUrl:</strong></p>
-              <code>${escapeHtml(run.geojsonUrl)}</code>
+              <code>${escapeHtml(run.existingGeojsonUrl)}</code>
 
-              <p class="meta">
-                GeoJSON loaded. Feature count: <strong>${featureCount}</strong>
+              <div class="success">
+                GeoJSON loaded and displayed on map.
+                Feature count: <strong>${featureCount}</strong>
+              </div>
+
+              <p>
+                ${escapeAttribute(run.existingGeojsonUrl)}
+                  Open GeoJSON in browser
+                </a>
               </p>
             `;
           } catch (error) {
-            output.textContent = `GeoJSON error: ${error.message}`;
+            output.innerHTML = `
+              <div class="error">
+                GeoJSON fetch failed: ${escapeHtml(error.message)}
+              </div>
+            `;
           }
         });
       }
 
-      resultsEl.appendChild(card);
+      runList.appendChild(card);
+    }
+
+    function renderGeojsonOnMap(geojson, run) {
+      if (geojsonLayer) {
+        map.removeLayer(geojsonLayer);
+        geojsonLayer = null;
+      }
+
+      geojsonLayer = L.geoJSON(geojson, {
+        style: function(feature) {
+          const risk = getRiskValue(feature);
+
+          return {
+            color: getRiskColor(risk),
+            weight: 2,
+            opacity: 0.9,
+            fillColor: getRiskColor(risk),
+            fillOpacity: 0.35
+          };
+        },
+
+        pointToLayer: function(feature, latlng) {
+          const risk = getRiskValue(feature);
+
+          return L.circleMarker(latlng, {
+            radius: 5,
+            color: getRiskColor(risk),
+            fillColor: getRiskColor(risk),
+            fillOpacity: 0.8
+          });
+        },
+
+        onEachFeature: function(feature, layer) {
+          const props = feature.properties || {};
+          const risk = getRiskValue(feature);
+
+          layer.bindPopup(`
+            <strong>${escapeHtml(run.runId)}</strong><br>
+            Region: ${escapeHtml(run.region || "--")}<br>
+            Forecast day: ${escapeHtml(run.forecastDay || "--")}<br>
+            Risk value: ${escapeHtml(String(risk))}<br>
+            <pre style="white-space:pre-wrap;max-width:280px;">${escapeHtml(JSON.stringify(props, null, 2))}</pre>
+          `);
+        }
+      }).addTo(map);
+
+      const bounds = geojsonLayer.getBounds();
+
+      if (bounds && bounds.isValid()) {
+        map.fitBounds(bounds, {
+          padding: [20, 20]
+        });
+      } else {
+        const region = HOCO_REGIONS.find((item) => item.id === run.region);
+
+        if (region) {
+          fitMapToRegion(region);
+        }
+      }
+
+      mapStatus.textContent = `Displayed ${run.runId} on map.`;
+    }
+
+    function getRiskValue(feature) {
+      const props = feature?.properties || {};
+
+      const raw =
+        props.riskValue ??
+        props.peak_risk ??
+        props.risk_percent ??
+        props.risk ??
+        props.value ??
+        0;
+
+      const numeric = Number(String(raw).replace("%", ""));
+
+      return Number.isFinite(numeric) ? numeric : 0;
+    }
+
+    function getRiskColor(risk) {
+      const value = Number(risk) || 0;
+
+      if (value >= 75) return "#b83dba";
+      if (value >= 60) return "#ec1c24";
+      if (value >= 40) return "#ff7f27";
+      if (value >= 25) return "#fff200";
+      if (value >= 10) return "#66c2a4";
+      return "#b8c2cc";
     }
 
     function escapeHtml(value) {
