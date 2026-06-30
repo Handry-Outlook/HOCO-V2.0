@@ -7404,10 +7404,11 @@
                         <div class="list-row">
                             <div>${u.email}<br><span style="color:var(--primary)">${u.role}</span></div>
                             <div style="display:flex; gap:4px;">
-                                <button onclick="updateRole('${d.id}', 'guest')" style="padding:4px 8px; font-size:10px; background:#444;">G</button>
-                                <button onclick="updateRole('${d.id}', 'normal')" style="padding:4px 8px; font-size:10px; background:var(--primary);">N</button>
-                                <button onclick="updateRole('${d.id}', 'exclusive')" style="padding:4px 8px; font-size:10px; background:var(--warning);">E</button>
-                                <button onclick="updateRole('${d.id}', 'developer')" style="padding:4px 8px; font-size:10px; background:var(--danger);">D</button>
+                                <button onclick="updateRole('${d.id}', 'guest')" title="Set role to Guest" style="padding:4px 8px; font-size:10px; background:#444;">G</button>
+                                <button onclick="updateRole('${d.id}', 'normal')" title="Set role to Normal" style="padding:4px 8px; font-size:10px; background:var(--primary);">N</button>
+                                <button onclick="updateRole('${d.id}', 'exclusive')" title="Set role to Exclusive" style="padding:4px 8px; font-size:10px; background:var(--warning);">E</button>
+                                <button onclick="updateRole('${d.id}', 'external_developer')" title="Set role to External Developer" style="padding:4px 8px; font-size:10px; background:#8e44ad;">API</button>
+                                <button onclick="updateRole('${d.id}', 'developer')" title="Set role to Developer" style="padding:4px 8px; font-size:10px; background:var(--danger);">D</button>
                             </div>
                         </div>`;
                 });
