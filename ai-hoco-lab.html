@@ -278,10 +278,13 @@
         const aiHocoAdmin = httpsCallable(getFunctions(app, "us-central1"), "aiHocoAdmin");
 
         const BUCKETS = ["day0", "day1", "day2"];
-        const LABELS = {
-            ez: "ECMWF EZ", swisseu: "SWISS-EU", swissnow: "SWISS-NOW", ukmo2km: "UKMO 2km",
-            rpdid2: "RAPID-ID2", hardmi: "HARMONIE", ezswiss: "SWISS-ECMWF", swissmrf: "SWISS-MRF"
+        // Code names only. Real names come from developer_access/model_codes (developers only).
+        const CODE_LABELS = {
+            alpha: "Model Alpha", beta: "Model Beta", gamma: "Model Gamma", delta: "Model Delta",
+            epsilon: "Model Epsilon", zeta: "Model Zeta", eta: "Model Eta", theta: "Model Theta"
         };
+        let devNames = null;
+        const label = (code) => (state.role === "developer" && devNames?.[code]) || CODE_LABELS[code] || "Model";
         const state = { ml: null, ai: null, accAuto: null, accAi: null, role: "guest", busy: false, message: null };
         const charts = {};
 
@@ -455,15 +458,15 @@
                     const better = Number.isFinite(ai) && Number.isFinite(trad) ? (lowerBetter ? ai < trad : ai > trad) : null;
                     return `<div class="metric"><small>${label}</small><strong class="${better === null ? "" : better ? "good" : "bad"}">${num(ai, d)}</strong><div class="note">Trad ${num(trad, d)}</div></div>`;
                 };
-                const bars = entry && entry.kind !== "calibration" ? Object.entries(entry.importance || {}).sort((x, y) => y[1] - x[1]).map(([m, v]) => `
-                    <div class="w-row"><span>${LABELS[m] || esc(m)}</span><div class="w-track"><div style="width:${Math.min(100, v * 100)}%"></div></div><span>${Math.round(v * 100)}%</span></div>`).join("") : "";
+                const bars = state.role === "developer" && entry && entry.kind !== "calibration" ? Object.entries(entry.importance || {}).sort((x, y) => y[1] - x[1]).map(([m, v]) => `
+                    <div class="w-row"><span>${esc(label(m))}</span><div class="w-track"><div style="width:${Math.min(100, v * 100)}%"></div></div><span>${Math.round(v * 100)}%</span></div>`).join("") : "";
                 const shadow = (state.ml?.weights || {})[b];
                 const waiting = !entry ? `<div class="empty">${shadow?.status === "shadow" ? "A model was trained but has not beaten Traditional HOCO on unseen runs yet." : "Waiting for enough verified runs with lightning."}</div>` : "";
                 return `<div class="card">
                     <div class="day-head"><h2>${dayName(b)}</h2>${kindTag}</div>
                     ${vt ? `<div class="metrics">${metric("Brier", vt.model.brier, vt.traditional.brier)}${metric("Log loss", vt.model.logloss, vt.traditional.logloss)}${metric("AUC", vt.model.auc, vt.traditional.auc, false, 2)}</div>
                     <div class="chart-box"><canvas id="rel-${b}"></canvas></div>` : waiting}
-                    ${bars ? `<div class="note" style="margin-top:6px;">Share of the AI forecast signal${live && cand ? " (latest candidate)" : ""}</div>${bars}` : ""}
+                    ${bars ? `<div class="note" style="margin-top:6px;">Share of the AI forecast signal${live && cand ? " (latest candidate)" : ""}</div>${bars}` : (entry && entry.kind !== "calibration" && state.role !== "developer" ? `<p class="note" style="margin-top:8px;">Model weights are visible to developers only.</p>` : "")}
                     ${live ? `<p class="note" style="margin-top:8px;">Live: ${{ context: "learned weights + weather context", weights: "learned weights", calibration: "calibration" }[live.kind] || live.kind}, trained ${fmtDate(live.trainedAt)}</p>` : ""}
                 </div>`;
             }).join("");
@@ -603,9 +606,13 @@
                     try {
                         const u = await getDoc(doc(db, "users", user.uid));
                         state.role = u.exists() ? (u.data().role || "normal") : "normal";
+                        if (state.role === "developer") {
+                            const m = await getDoc(doc(db, "developer_access", "model_codes"));
+                            devNames = m.exists() ? (m.data().codes || null) : null;
+                        }
                     } catch (e) { /* read-only */ }
                 }
-                renderControls();
+                renderAll();
             });
             renderAll();
         }

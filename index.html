@@ -4178,11 +4178,16 @@
             { min: 50, fill: '#ff4127' }, { min: 60, fill: '#e0182d' }, { min: 70, fill: '#b0186b' },
             { min: 80, fill: '#8a2bbd' }, { min: 90, fill: '#4b1fd1' }
         ];
-        const HOCO_MODEL_LABELS = {
-            ez: 'ECMWF EZ', swisseu: 'SWISS-EU', swissnow: 'SWISS-NOW', ukmo2km: 'UKMO 2km',
-            rpdid2: 'RAPID-ID2', hardmi: 'HARMONIE', harmi: 'HARMONIE', ezswiss: 'SWISS-ECMWF', swissmrf: 'SWISS-MRF'
+        // Model code names. Real names are never in this public page: developers get them from
+        // developer_access/model_codes, which Firestore rules let only developers read.
+        const HOCO_CODE_LABELS = {
+            alpha: 'Model Alpha', beta: 'Model Beta', gamma: 'Model Gamma', delta: 'Model Delta',
+            epsilon: 'Model Epsilon', zeta: 'Model Zeta', eta: 'Model Eta', theta: 'Model Theta'
         };
-        const HOCO_HAND_WEIGHTS = { rpdid2: 0.8, swisseu: 1.1, ez: 1.1, swissnow: 1.0, ukmo2km: 1.0, hardmi: 1.0 };
+        let hocoDevModelNames = null;   // { code: real name } — developers only
+        const isHocoDeveloper = () => userRole === 'developer';
+        const modelLabel = (code) => (isHocoDeveloper() && hocoDevModelNames?.[code])
+            ? `${hocoDevModelNames[code]}` : (HOCO_CODE_LABELS[code] || 'Model');
         let hocoMlDoc = null;
         let hocoMlBucket = 'day0';
 
@@ -4246,8 +4251,9 @@
         }
 
         function sourceRowsHtml(src) {
+            if (!isHocoDeveloper()) return '';   // which models drive the forecast is developer-only
             return parseSourceString(src).map(({ model, pct }) => `
-                <div class="hoco-src-row"><b>${HOCO_MODEL_LABELS[model] || model.toUpperCase()}</b>
+                <div class="hoco-src-row"><b>${modelLabel(model)}</b>
                     <div class="hoco-src-track"><div style="width:${Math.min(100, pct)}%"></div></div><span>${pct}%</span></div>`).join('');
         }
 
@@ -4304,7 +4310,7 @@
                             <span class="hoco-probe-sub">chance of lightning nearby<br>Band ${hocoBandLabel(band)}</span>
                         </div>
                         ${agreementHtml(Number(props.agree), Number(props.nmod))}
-                        ${props.src ? `<div class="hoco-probe-sub" style="margin-top:6px;">Main contributors</div>${sourceRowsHtml(props.src)}` : ''}`;
+                        ${props.src && isHocoDeveloper() ? `<div class="hoco-probe-sub" style="margin-top:6px;">Main contributors</div>${sourceRowsHtml(props.src)}` : ''}`;
                     probe.classList.add('is-visible');
                 });
             });
@@ -4358,14 +4364,16 @@
             if (!body || !summary) return;
             document.querySelectorAll('[data-ml-bucket]').forEach((b) => b.classList.toggle('is-active', b.dataset.mlBucket === hocoMlBucket));
 
+            const dev = isHocoDeveloper();
             const handBars = () => {
-                const max = Math.max(...Object.values(HOCO_HAND_WEIGHTS));
-                return Object.entries(HOCO_HAND_WEIGHTS).map(([m, w]) => `
-                    <div class="ml-weight-row"><span>${HOCO_MODEL_LABELS[m] || m}</span>
+                if (!dev) return '';
+                const max = Math.max(...Object.values(defaultWeights));
+                return Object.entries(defaultWeights).map(([m, w]) => `
+                    <div class="ml-weight-row"><span>${models[m]?.name || m}</span>
                         <div class="ml-weight-track is-hand"><div style="width:${(w / max) * 100}%"></div></div><span>${w.toFixed(1)}</span></div>`).join('');
             };
-            const importanceBars = (importance) => Object.entries(importance || {}).sort((a, b) => b[1] - a[1]).map(([m, v]) => `
-                    <div class="ml-weight-row"><span>${HOCO_MODEL_LABELS[m] || m}</span>
+            const importanceBars = (importance) => !dev ? '' : Object.entries(importance || {}).sort((a, b) => b[1] - a[1]).map(([m, v]) => `
+                    <div class="ml-weight-row"><span>${modelLabel(m)}</span>
                         <div class="ml-weight-track"><div style="width:${Math.min(100, v * 100)}%"></div></div><span>${fmtPct(v)}</span></div>`).join('');
             const statGrid = (entry) => {
                 const vt = entry?.vsTraditional || null;
@@ -4386,7 +4394,7 @@
             if (status === 'published' || status === 'paused') {
                 summary.innerHTML = `AI HOCO is <strong>${status === 'published' ? 'live' : 'paused'}</strong> (v${hocoAiDoc.version || '--'}), published ${fmtShortDate(hocoAiDoc.publishedAt)} and checked daily against fresh lightning. Traditional HOCO keeps its hand-tuned weights.`;
                 body.innerHTML = live
-                    ? statGrid(live) + (live.kind !== 'calibration' ? `<label style="margin-top:0;">Share of the AI forecast signal</label>${importanceBars(live.importance)}` : '<p class="helper-text" style="margin-top:0;">This day uses a calibrated ensemble while per-model weights keep learning.</p>') + labLink
+                    ? statGrid(live) + (!dev ? '' : live.kind !== 'calibration' ? `<label style="margin-top:0;">Share of the AI forecast signal</label>${importanceBars(live.importance)}` : '<p class="helper-text" style="margin-top:0;">This day uses a calibrated ensemble while per-model weights keep learning.</p>') + labLink
                     : `<p class="helper-text">No AI model is live for this day yet, so only Traditional HOCO is issued.</p>${labLink}`;
                 return;
             }
@@ -4398,8 +4406,19 @@
                 : 'AI HOCO is <strong>collecting data</strong>. Every AUTO run now logs each model\'s forecast so AI HOCO can learn from verified lightning.';
             const checks = (readiness?.checks || []).map((c) => `<div class="ml-check"><i class="${c.ok ? 'ok' : ''}">${c.ok ? '✓' : ''}</i><span>${c.label}<br><span class="helper-text">${c.detail || ''}</span></span></div>`).join('');
             body.innerHTML = (candidate ? statGrid(candidate) : '') +
-                (candidate && candidate.kind !== 'calibration' ? `<label style="margin-top:0;">Candidate weighting (not live yet)</label>${importanceBars(candidate.importance)}` : `<label style="margin-top:0;">Traditional weights (in use)</label>${handBars()}`) +
+                (!dev ? '' : candidate && candidate.kind !== 'calibration' ? `<label style="margin-top:0;">Candidate weighting (not live yet)</label>${importanceBars(candidate.importance)}` : `<label style="margin-top:0;">Traditional weights (in use)</label>${handBars()}`) +
                 (checks ? `<label>Launch checklist</label>${checks}` : '') + labLink;
+        }
+
+        async function loadDevModelNames() {
+            if (!isHocoDeveloper()) { hocoDevModelNames = null; return; }
+            try {
+                const snap = await getDoc(doc(db, 'developer_access', 'model_codes'));
+                hocoDevModelNames = snap.exists() ? (snap.data().codes || null) : null;
+            } catch (err) {
+                hocoDevModelNames = null;   // not a developer, or not published yet: code names only
+            }
+            renderMlPanel();
         }
 
         async function loadMlModelInfo() {
@@ -5529,7 +5548,7 @@
                         </div>
                         <div style="color:#5d7088;">Chance of lightning within roughly 10 km</div>
                         ${agreementHtml(Number(props.agree), Number(props.nmod))}
-                        ${props.src ? `<div style="color:#5d7088; margin-top:6px;">Main contributors</div>${sourceRowsHtml(props.src)}` : ''}
+                        ${props.src && isHocoDeveloper() ? `<div style="color:#5d7088; margin-top:6px;">Main contributors</div>${sourceRowsHtml(props.src)}` : ''}
                     </div>`;
             }
             return `
@@ -7377,6 +7396,7 @@
                     if (userRole === 'developer') {
                         loadAdminData();
                     }
+                    loadDevModelNames();   // real model names for developers; code names for everyone else
 
                 } catch (error) {
                     console.error("Error in Auth State Transition:", error);
@@ -7392,6 +7412,8 @@
                 syncAutoTimelinePlacement();
                 syncSidebarToggleButton();
                 userRole = 'guest';
+                hocoDevModelNames = null;
+                if (typeof renderMlPanel === 'function') renderMlPanel();
                 allRuns = [];
                 renderArchiveDropdown();
                 renderHumanMimicPanel();
@@ -8616,4 +8638,4 @@
     </script>
 </body>
 
-</html>
+</html>
