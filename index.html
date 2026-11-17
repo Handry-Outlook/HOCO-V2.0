@@ -2923,7 +2923,7 @@
             <h2 style="color: #fff;">Model Accuracy (AUTO Forecasts)</h2>
             <div>
                 <button id="manualUpdateBtn" class="btn-add"
-                    style="width: auto; padding: 8px 15px; margin-right: 10px;">↻ Recalculate Now</button>
+                    style="display: none; width: auto; padding: 8px 15px; margin-right: 10px;">↻ Recalculate Now</button>
                 <button id="closeAccuracyBtn" class="btn-outline" style="width: auto; padding: 8px 15px;">Return to
                     Map</button>
             </div>
@@ -7397,6 +7397,8 @@
                         loadAdminData();
                     }
                     loadDevModelNames();   // real model names for developers; code names for everyone else
+                    const recalcBtn = document.getElementById('manualUpdateBtn');
+                    if (recalcBtn) recalcBtn.style.display = userRole === 'developer' ? '' : 'none';
 
                 } catch (error) {
                     console.error("Error in Auth State Transition:", error);
@@ -7413,6 +7415,8 @@
                 syncSidebarToggleButton();
                 userRole = 'guest';
                 hocoDevModelNames = null;
+                const recalcBtnOut = document.getElementById('manualUpdateBtn');
+                if (recalcBtnOut) recalcBtnOut.style.display = 'none';
                 if (typeof renderMlPanel === 'function') renderMlPanel();
                 allRuns = [];
                 renderArchiveDropdown();
