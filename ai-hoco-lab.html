@@ -374,9 +374,11 @@
                     <label class="inline" style="flex:1;">Since <input type="date" id="trainSince" style="font:inherit; padding:7px; border-radius:10px; border:1px solid var(--line);"></label>
                     <label class="inline" style="flex:1;">Max runs <input type="number" id="trainMax" value="600" min="1" max="6000"></label>
                 </div>
-                <button id="btnPublish" class="green" type="button" ${state.busy || !hasCandidate ? "disabled" : ""}>
-                    ${live ? "Re-publish latest candidate" : "Publish AI HOCO"}${!ready && hasCandidate ? " (checks not all passed)" : ""}
+                <button id="btnPublish" class="${ready ? "green" : "ghost"}" type="button" ${state.busy || !hasCandidate || !ready ? "disabled" : ""}
+                    title="${ready ? "" : "Available when every launch check passes"}">
+                    ${live ? "Re-publish latest candidate" : "Publish AI HOCO"}${ready ? "" : " — waiting for launch checks"}
                 </button>
+                ${!ready && hasCandidate ? `<a href="#" id="lnkForce" class="note" style="text-align:right;">Force publish anyway…</a>` : ""}
                 ${live ? `<button id="btnPause" class="${st === "paused" ? "ghost" : "danger"}" type="button" ${state.busy ? "disabled" : ""}>${st === "paused" ? "Resume AI HOCO" : "Pause AI HOCO"}</button>` : ""}
                 <div class="row">
                     <input type="number" id="backfillDays" min="1" max="14" value="3" aria-label="Days to backfill">
@@ -392,12 +394,14 @@
                 maxRuns: Number(document.getElementById("trainMax").value) || 600
             });
             document.getElementById("btnPublish").onclick = () => {
-                let force = false;
-                if (!ready) {
-                    if (!confirm("Not every launch check has passed. Publish AI HOCO anyway?")) return;
-                    force = true;
-                } else if (!confirm("Publish AI HOCO? AI runs will appear alongside Traditional HOCO from the next AUTO cycle.")) return;
-                act({ action: "publish", force });
+                if (!confirm("Publish AI HOCO? AI runs will appear alongside Traditional HOCO from the next AUTO cycle.")) return;
+                act({ action: "publish", force: false });
+            };
+            const force = document.getElementById("lnkForce");
+            if (force) force.onclick = (e) => {
+                e.preventDefault();
+                const word = prompt("Not every launch check has passed. AI HOCO may be worse than Traditional HOCO.\n\nType PUBLISH to publish anyway:");
+                if (word === "PUBLISH") act({ action: "publish", force: true });
             };
             const pause = document.getElementById("btnPause");
             if (pause) pause.onclick = () => act({ action: st === "paused" ? "resume" : "pause" });
