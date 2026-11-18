@@ -390,7 +390,7 @@ applyTheme(true);
 
 // ---------- map ----------
 const map = new mapboxgl.Map({ container: 'map', style: effTheme() === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11',
-  bounds: [[-10.234, 48.788], [5.471, 56.578]], fitBoundsOptions: { padding: { top: 90, bottom: 220, left: innerWidth > 1100 ? 360 : 20, right: 20 } }, attributionControl: true, projection: 'mercator' });
+  bounds: [[-10.234, 48.788], [5.471, 56.578]], fitBoundsOptions: { padding: innerWidth <= 640 ? { top: 120, bottom: 270, left: 10, right: 10 } : { top: 90, bottom: 220, left: innerWidth > 1100 ? 360 : 20, right: 20 } }, attributionControl: true, projection: 'mercator' });
 function addLayers() {
   if (!map.getSource('hoco')) map.addSource('hoco', { type: 'geojson', data: S.geo || { type: 'FeatureCollection', features: [] } });
   const banded = S.geo?.properties?.hoco_layout === 'bands_v2';
