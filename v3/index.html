@@ -1072,7 +1072,8 @@ async function loadModelNames() { if (S.role !== 'developer' || MODEL_NAMES) ret
 let raf = null;
 map.on('mousemove', (e) => { if (raf) return; raf = requestAnimationFrame(() => { raf = null; showProbe(probeAt(e.point), e.point); }); });
 map.on('mouseout', () => probe.classList.add('hidden'));
-map.on('click', (e) => showProbe(probeAt(e.point), e.point));
+map.on('dragstart', () => probe.classList.add('hidden')); map.on('zoomstart', () => { if (!matchMedia('(hover:hover)').matches) probe.classList.add('hidden'); });
+map.on('click', (e) => { if (innerWidth <= 640 && $('summary').classList.contains('open')) { $('summary').classList.remove('open'); $('sumHead').setAttribute('aria-expanded', 'false'); } showProbe(probeAt(e.point), e.point); });
 
 // ---------- data ----------
 const baseDay = () => { if (S.archive) return new Date(S.archive.date + 'T00:00:00'); const t = new Date(); t.setHours(0, 0, 0, 0); return t; };
@@ -1353,7 +1354,7 @@ $('shareBtn').onclick = share;
 
 // ---------- phone sheet ----------
 $('sumHead').onclick = () => { const o = !$('summary').classList.contains('open'); $('summary').classList.toggle('open', o); $('sumHead').setAttribute('aria-expanded', o); try { localStorage.setItem('hocoSumOpen', o ? '1' : '0'); } catch (e) {} };
-try { if (localStorage.getItem('hocoSumOpen') === '1') { $('summary').classList.add('open'); $('sumHead').setAttribute('aria-expanded', 'true'); } } catch (e) {}
+try { if (innerWidth > 640 && localStorage.getItem('hocoSumOpen') === '1') { $('summary').classList.add('open'); $('sumHead').setAttribute('aria-expanded', 'true'); } } catch (e) {}
 function measureDock() { requestAnimationFrame(() => { const st = document.documentElement.style; st.setProperty('--dockh', $('dock').offsetHeight + 'px'); st.setProperty('--obsh', ($('obsBar')?.offsetHeight || 0) + 'px'); placeCtrls(); }); }
 addEventListener('resize', measureDock);
 
