@@ -21,7 +21,7 @@ const seg = (name, cur, opts) => `<div class="seg wide" role="group">${opts.map(
 export function openSettings() {
   const s = getSettings(), place = (() => { try { return JSON.parse(localStorage.getItem('hocoPlace') || 'null'); } catch (e) { return null; } })();
   const d = dialog(`<div class="rowbetween"><h2>Settings</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
-    <div class="setgrp"><span class="kicker">Theme</span>${seg('theme', X.S.theme, [['auto', 'Follow device'], ['light', 'Light'], ['dark', 'Dark']])}</div>
+    <div class="setgrp"><span class="kicker">Theme</span>${seg('th', X.S.theme, [['auto', 'Follow device'], ['light', 'Light'], ['dark', 'Dark']])}</div>
     <div class="setgrp"><span class="kicker">Map style</span>${seg('style', s.mapStyle, [['standard', 'Standard'], ['satellite', 'Satellite'], ['outdoors', 'Outdoors']])}</div>
     <div class="setgrp"><div class="rowbetween"><span class="kicker">Forecast colour strength</span><output id="opOut">${Math.round(s.opacity * 100)}%</output></div>
       <input type="range" id="setOp" min="0.3" max="1.2" step="0.05" value="${s.opacity}" style="--pct:${(s.opacity - 0.3) / 0.9 * 100}%"></div>
@@ -35,7 +35,7 @@ export function openSettings() {
       <input type="checkbox" class="switch" id="setAlerts" ${s.alerts && place ? 'checked' : ''} ${place ? '' : 'disabled'}></label>
       <div class="chips" id="alertLevels">${[20, 30, 50, 70].map(v => `<button class="chipbtn" data-lvl="${v}" aria-pressed="${s.alertAt === v}" ${place ? '' : 'disabled'}>${v}%+</button>`).join('')}</div>
       <small class="muted">Alerts work while HOCO is open in a tab or installed as an app. Alerts with the app fully closed need push notifications, which aren't set up yet.</small></div>`, 'Settings');
-  d.querySelectorAll('[data-theme]').forEach(b => b.onclick = () => { X.setTheme(b.dataset.theme); d.querySelectorAll('[data-theme]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+  d.querySelectorAll('[data-th]').forEach(b => b.onclick = () => { X.setTheme(b.dataset.th); d.querySelectorAll('[data-th]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
   d.querySelectorAll('[data-style]').forEach(b => b.onclick = () => { saveSettings({ mapStyle: b.dataset.style }); d.querySelectorAll('[data-style]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
   $('setOp').oninput = (e) => { const v = +e.target.value; e.target.style.setProperty('--pct', (v - 0.3) / 0.9 * 100 + '%'); $('opOut').textContent = Math.round(v * 100) + '%'; saveSettings({ opacity: v }); };
   $('setROp').oninput = (e) => { const v = +e.target.value; e.target.style.setProperty('--pct', (v - 0.3) / 0.7 * 100 + '%'); $('rOut').textContent = Math.round(v * 100) + '%'; saveSettings({ radarOpacity: v }); };
@@ -96,7 +96,7 @@ export function openCompare(n = 2) {
   const el = $('compare'); el.classList.remove('hidden'); el.dataset.n = n;
   const groups = [...new Set(opts.map(o => o.group))];
   el.innerHTML = `<div class="cmp-grid">${C.sel.map((id, i) => `<div class="cmp-pane"><div class="cmp-map" id="cmpMap${i}"></div>
-      <div class="cmp-head card"><label class="sr" for="cmpSel${i}">Run for map ${i + 1}</label><select id="cmpSel${i}" data-i="${i}">${groups.map(g => `<optgroup label="${g}">${opts.filter(o => o.group === g).map(o => `<option value="${o.id}" ${o.id === id ? 'selected' : ''}>${o.label.replace(g + ' · ', '')}</option>`).join('')}</optgroup>`).join('')}</select>
+      <div class="cmp-head card"><label class="sr" for="cmpSel${i}">Run for map ${i + 1}</label><select id="cmpSel${i}" data-i="${i}">${groups.map(g => `<optgroup label="${g}">${opts.filter(o => o.group === g).map(o => `<option value="${o.id}" ${o.id === id ? 'selected' : ''}>${o.label.replace(' · Traditional', '').replace(' · AI HOCO', ' · AI')}</option>`).join('')}</optgroup>`).join('')}</select>
       <div class="cmp-peak" id="cmpPeak${i}">–</div></div></div>`).join('')}</div>
     <div class="cmp-bar card"><b>Compare</b>${seg('cmpn', n, [[2, '2 maps'], [4, '4 maps']])}
       <label class="chk"><input type="checkbox" id="cmpLink" ${C.link ? 'checked' : ''}><span>Move maps together</span></label>
@@ -180,7 +180,7 @@ export async function openAccuracy(tab = 'accuracy') {
       body.innerHTML = `<p class="lead">Checked against observed lightning for every AUTO-HOCO run. ${upd && !isNaN(upd) ? `Last updated ${X.dayDate(upd)}.` : ''}</p>
         <div class="acc-grid">${[0, 1, 2].map(i => { const x = a[`day${i}`] || {}; return `<div class="acc-card"><span class="kicker">Day ${i}</span>
           <div class="acc-big">${fmt(x.auc)}</div><small>AUC · 1.0 is perfect, 0.5 is a coin toss</small>
-          <div class="acc-row"><span>Precision–recall</span><b>${fmt(x.prAuc)}</b></div><div class="acc-row"><span>Brier score</span><b>${fmt(x.brierScore, 3)}</b></div><div class="acc-row"><span>Runs checked</span><b>${x.count || 0}</b></div></div>`; }).join('')}</div>
+          <div class="acc-row"><span>Precision–recall</span><b>${fmt(x.prAuc)}</b></div><div class="acc-row"><span>Brier score</span><b>${fmt(x.brierScore, 3)}</b></div><div class="acc-row"><span>Grid points checked</span><b>${x.count || 0}</b></div></div>`; }).join('')}</div>
         ${curves?.day0?.reliabilityForecast ? `<div class="setgrp"><span class="kicker">When HOCO says a chance, how often does lightning happen? (Day 0)</span>${relChart(curves.day0.reliabilityForecast, curves.day0.reliabilityObserved, curves.day0.reliabilityCount)}
           <small class="muted">Points on the dashed line mean HOCO's chances match what happened. Below the line: HOCO was too high; above: too low.</small></div>` : ''}`;
     } else {
