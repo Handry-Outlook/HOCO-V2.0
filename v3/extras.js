@@ -436,13 +436,13 @@ async function search(q) {
 function savedRows() { const s = loadPlaces(); return s.length ? `<span class="kicker" style="padding:8px 12px 4px;display:block">Saved places</span>` + s.map((p, i) => `<button class="item" data-saved="${i}"><span><b>${esc(p.name)}</b>${p.alertAt ? `<small class="muted" style="display:block;font-weight:500">Alert at ${p.alertAt}%+</small>` : ''}</span></button>`).join('') : ''; }
 function wireSearch(feats) {
   const list = $('searchList');
-  list.querySelectorAll('[data-i]').forEach(b => b.onclick = () => { const f = feats[+b.dataset.i]; $('searchPop').classList.add('hidden'); setPlace({ name: f.text, lon: f.center[0], lat: f.center[1] }); });
-  list.querySelectorAll('[data-saved]').forEach(b => b.onclick = () => { $('searchPop').classList.add('hidden'); setPlace(loadPlaces()[+b.dataset.saved]); });
+  list.querySelectorAll('[data-i]').forEach(b => b.onclick = () => { const f = feats[+b.dataset.i]; pickPlace({ name: f.text, lon: f.center[0], lat: f.center[1] }); });
+  list.querySelectorAll('[data-saved]').forEach(b => b.onclick = () => pickPlace(loadPlaces()[+b.dataset.saved]));
   $('useLoc') && ($('useLoc').onclick = () => { if (!navigator.geolocation) return X.toast('Location is not available on this device');
     $('useLoc').querySelector('b').textContent = 'Finding you…';
     navigator.geolocation.getCurrentPosition(async (pos) => { const lon = pos.coords.longitude, lat = pos.coords.latitude; let name = 'My location';
       try { const r = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lon},${lat}.json?access_token=${mapboxgl.accessToken}&types=place,locality,neighborhood&limit=1`); const d = await r.json(); if (d.features?.[0]) name = d.features[0].text; } catch (e) { }
-      $('searchPop').classList.add('hidden'); setPlace({ name, lon, lat }); }, () => { X.toast('Could not find your location'); $('useLoc').querySelector('b').textContent = 'Use my location'; }); });
+      pickPlace({ name, lon, lat }); }, () => { X.toast('Could not find your location'); $('useLoc').querySelector('b').textContent = 'Use my location'; }); });
 }
 function setPlace(p, fly = true) {
   place = p;
@@ -472,6 +472,8 @@ async function renderPlace() {
   const days = await dayRisk(place); if (tok !== placeTok) return;
   els.forEach(el => el.innerHTML = html(days)); wire(); X.measureDock();
 }
+let addingAlert = false;
+function pickPlace(p) { $('searchPop').classList.add('hidden'); setPlace(p); X.openSummary?.(); if (addingAlert) { addingAlert = false; openAlerts(p); } }
 export function openAlerts(focus) {
   let list = loadPlaces();
   if (focus && !list.some(x => samePlace(x, focus))) { list.push({ ...focus, alertAt: 30 }); savePlaces(list); }
@@ -492,7 +494,7 @@ export function openAlerts(focus) {
     d.querySelectorAll('[data-lvl]').forEach(b => b.onclick = async () => { const s = loadPlaces(); s[sel].alertAt = b.dataset.lvl === 'null' ? null : +b.dataset.lvl; savePlaces(s);
       if (s[sel].alertAt && 'Notification' in window && Notification.permission === 'default') { try { await Notification.requestPermission(); } catch (e) { } }
       draw(); renderPlace(); });
-    $('alAdd').onclick = () => { d.classList.add('hidden'); $('searchBtn').click(); };
+    $('alAdd').onclick = (e) => { e.stopPropagation(); d.classList.add('hidden'); $('searchBtn').click(); addingAlert = true; X.toast('Search for a town or postcode to add it'); };
     $('alDone').onclick = () => d.classList.add('hidden');
   };
   draw();
@@ -623,7 +625,7 @@ export function initExtras(ctx) {
   $('layersBtn').onclick = (e) => { e.stopPropagation(); renderLayersPop(); X.openPop($('layersPop'), $('layersBtn')); const p = $('layersPop'), r = $('layersBtn').getBoundingClientRect();
     if (innerWidth > 640) { p.style.left = ''; p.style.right = (innerWidth - r.left + 8) + 'px'; p.style.top = Math.max(10, Math.min(r.top, innerHeight - p.offsetHeight - 10)) + 'px'; } else { const top = $('ctrlsBox').getBoundingClientRect().top; p.style.left = ''; p.style.right = '56px'; p.style.bottom = ''; p.style.top = top + 'px'; p.style.maxHeight = `calc(100dvh - ${top}px - var(--dockh,90px) - 24px)`; } };
   document.querySelectorAll('[data-export]').forEach(b => b.onclick = (e) => { e.stopPropagation(); openExport(); });
-  $('searchBtn').onclick = (e) => { e.stopPropagation(); X.openPop($('searchPop'), $('searchBtn')); const p = $('searchPop');
+  $('searchBtn').onclick = (e) => { e.stopPropagation(); addingAlert = false; X.openPop($('searchPop'), $('searchBtn')); const p = $('searchPop');
     if (innerWidth <= 640) { p.style.left = '10px'; p.style.right = '10px'; } $('searchIn').value = ''; search(''); setTimeout(() => $('searchIn').focus(), 30); };
   let st = null; $('searchIn').oninput = (e) => { clearTimeout(st); st = setTimeout(() => search(e.target.value), 250); };
   $('searchIn').onkeydown = (e) => { if (e.key === 'Enter') { const b = $('searchList').querySelector('[data-i]'); b && b.click(); } };
