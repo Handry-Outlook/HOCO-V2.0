@@ -395,12 +395,15 @@ function addLayers() {
   const banded = S.geo?.properties?.hoco_layout === 'bands_v2';
   const label = map.getStyle().layers.find(l => l.type === 'symbol' && l.layout && l.layout['text-field'])?.id;
   if (!map.getLayer('hoco-fill')) map.addLayer({ id: 'hoco-fill', type: 'fill', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'polygon'],
-    paint: { 'fill-color': colorExpr(), 'fill-opacity': banded ? 0.7 : 0.32, 'fill-antialias': true } }, label);
+    paint: { 'fill-color': ['coalesce', ['get', 'fill'], colorExpr()], 'fill-opacity': banded ? 0.7 : 0.32, 'fill-antialias': true } }, label);
   if (!map.getLayer('hoco-line')) map.addLayer({ id: 'hoco-line', type: 'line', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'polygon'],
     paint: { 'line-color': effTheme() === 'dark' ? 'rgba(8,16,28,0.7)' : 'rgba(16,34,56,0.55)', 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.4, 8, 1.1], 'line-opacity': 0.8 } }, label);
   if (!map.getLayer('hoco-points')) map.addLayer({ id: 'hoco-points', type: 'circle', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'point'], paint: { 'circle-radius': 12, 'circle-opacity': 0 } });
 }
 map.on('style.load', addLayers);
+map.on('load', () => { const src = map.getSource('hoco'); if (src && S.geo) src.setData(S.geo); });
+map.on('error', (e) => console.warn('[map]', e?.error?.message || e));
+window.__hocoMap = map;
 $('zoomIn').onclick = () => map.zoomIn(); $('zoomOut').onclick = () => map.zoomOut();
 $('locateBtn').onclick = () => navigator.geolocation?.getCurrentPosition(p => map.flyTo({ center: [p.coords.longitude, p.coords.latitude], zoom: 8 }), () => toast('Could not find your location'));
 function fitRegion() { const r = REGIONS.find(x => x.id === S.region); if (r?.west === undefined) return;
@@ -488,7 +491,8 @@ async function renderAll() {
   try {
     const g = await fetchGeo(run); if (tok !== loadToken) return;
     S.geo = g; S.current = run;
-    if (map.isStyleLoaded()) { map.getSource('hoco') ? map.getSource('hoco').setData(g) : addLayers(); }
+    const src = map.getSource('hoco');
+    if (src) src.setData(g); else if (map.isStyleLoaded()) addLayers(); /* otherwise style.load will add it with S.geo */
     if (map.getLayer('hoco-fill')) map.setPaintProperty('hoco-fill', 'fill-opacity', g?.properties?.hoco_layout === 'bands_v2' ? 0.7 : 0.32);
     const pk = peakOf(g); S.peaks[run.id] = pk.risk;
     const where = pk.lat != null ? `near ${nearestPlace(pk.lat, pk.lon)}` : '';
