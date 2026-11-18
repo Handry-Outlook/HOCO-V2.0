@@ -244,7 +244,7 @@ async function exportPng(kind) {
 }
 async function renderExport(kind) {
   const [W, H] = EXPORTS[kind], run = O.run;
-  await new Promise(r => { X.map.once('render', r); X.map.triggerRepaint(); });
+  await Promise.race([new Promise(r => { X.map.once('render', r); X.map.triggerRepaint(); }), new Promise(r => setTimeout(r, 700))]);
   const src = X.map.getCanvas(), c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
   g.fillStyle = '#eef2f7'; g.fillRect(0, 0, W, H);
   const stripH = Math.round(H * 0.06), mapH = H - stripH, scale = Math.max(W / src.width, mapH / src.height), dw = src.width * scale, dh = src.height * scale;
@@ -304,13 +304,13 @@ function riskAt(lon, lat) {
 }
 function inRing(p, ring) { let ins = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j];
   if ((yi > p[1]) !== (yj > p[1]) && p[0] < (xj - xi) * (p[1] - yi) / (yj - yi) + xi) ins = !ins; } return ins; }
-function setPlace(p) {
+function setPlace(p, fly = true) {
   place = p;
   if (!p) { placeMarker?.remove(); placeMarker = null; renderPlace(); try { localStorage.removeItem('hocoPlace'); } catch (e) { } return; }
   try { localStorage.setItem('hocoPlace', JSON.stringify(p)); } catch (e) { }
   if (!placeMarker) { const el = document.createElement('div'); el.className = 'pin'; placeMarker = new mapboxgl.Marker({ element: el, anchor: 'bottom' }); }
   placeMarker.setLngLat([p.lon, p.lat]).addTo(X.map);
-  X.map.flyTo({ center: [p.lon, p.lat], zoom: Math.max(X.map.getZoom(), 7), padding: innerWidth <= 640 ? { bottom: 260, top: 120 } : { left: innerWidth > 1100 ? 360 : 0, bottom: 200 } });
+  if (fly) X.map.flyTo({ center: [p.lon, p.lat], zoom: Math.max(X.map.getZoom(), 7), padding: innerWidth <= 640 ? { bottom: 260, top: 120 } : { left: innerWidth > 1100 ? 360 : 0, bottom: 200 } });
   renderPlace();
 }
 function renderPlace() {
@@ -406,7 +406,7 @@ export function initExtras(ctx) {
 // a run is on the map (live view or a chosen run)
 export function onShown(run, geo, prev) {
   O.run = run;
-  if (place && !placeMarker) setPlace(place); else renderPlace();
+  if (place && !placeMarker) setPlace(place, false); else renderPlace();
   renderChange(run, geo, prev);
   O.strikeData = null; syncObs();
 }
