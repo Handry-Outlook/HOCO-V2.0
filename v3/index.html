@@ -690,6 +690,13 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom))}
   .obsbar .obs-row{gap:6px}
   .obsbar .obs-btns{gap:4px}.obsbar .obs-btns .btn{height:28px;padding:0 8px}
 }
+@media (max-width:640px){
+  .dock{grid-template-columns:minmax(0,1fr) auto auto}
+  .daytabs{min-width:0}
+  .daytab{min-width:0;overflow:hidden;padding:0 4px;gap:4px;font-size:12.5px}
+  .daytab em{font-size:10px;padding:1px 4px}
+  .allruns{padding:0 8px;gap:4px}
+}
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
