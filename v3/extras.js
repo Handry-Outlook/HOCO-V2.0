@@ -450,7 +450,7 @@ function setPlace(p, fly = true) {
   try { localStorage.setItem('hocoPlace', JSON.stringify(p)); } catch (e) { }
   if (!placeMarker) { const el = document.createElement('div'); el.className = 'pin'; placeMarker = new mapboxgl.Marker({ element: el, anchor: 'bottom' }); }
   placeMarker.setLngLat([p.lon, p.lat]).addTo(X.map);
-  if (fly) X.map.flyTo({ center: [p.lon, p.lat], zoom: Math.max(X.map.getZoom(), 7), padding: innerWidth <= 640 ? { bottom: 260, top: 120 } : { left: innerWidth > 1100 ? 360 : 0, bottom: 200 } });
+  if (fly) X.map.flyTo({ center: [p.lon, p.lat], zoom: Math.max(X.map.getZoom(), 7), padding: innerWidth <= 640 ? { bottom: 130, top: 110 } : { bottom: 100 } });
   renderPlace();
 }
 let placeTok = 0;

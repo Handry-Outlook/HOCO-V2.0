@@ -364,7 +364,7 @@ export function installBanner() {
 const STEPS = [
   ['#dayTabs', 'Pick a day', 'Day 0 is today and tonight, Day 1 is tomorrow, Day 2 the day after. Each shows its highest chance.'],
   ['.runrow', 'The slider picks a run, not a time', 'HOCO issues a new run about every hour. Each run is one map for the whole period. Drag to see an earlier run; "All runs" lists them with their peaks.'],
-  ['#summary, .dock-head', 'The headline', 'The highest chance of lightning within 20 km, where it is, and what changed since the last run.'],
+  ['#summary', 'The headline', 'The highest chance of lightning within 20 km, where it is, and what changed since the last run.'],
   ['#layersBtn', 'Radar and lightning', 'Turn on rain radar and lightning strikes, then play them back through the forecast period up to now.'],
 ];
 export function startTutorial(force) {
