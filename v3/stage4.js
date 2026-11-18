@@ -95,7 +95,7 @@ function obsBar() {
   const key = CO.keyOpen ? `<div class="cx-okeys">${CO.strikes ? `<span class="okey"><b>Strikes</b>${(ex?.STRIKE_CLASSES || []).map(c => `<span><i style="background:${c[0]}"></i>${c[1]}</span>`).join('')}</span>` : ''}${CO.radar ? `<span class="okey rain"><b>Rain rate</b><span class="rainwrap"><span class="rainbar"></span><span class="rticks"><span>0.1</span><span>1</span><span>5</span><span>20</span><span>100 mm/h</span></span></span></span>` : ''}</div>` : '';
   return `<div class="cx-obs" role="group" aria-label="Radar and strikes time">
     <button class="btn icon" id="cxPlay" aria-label="${CO.playing ? 'Pause' : 'Play'}">${CO.playing ? PAUSEI : PLAYI}</button>
-    <div class="cx-omid"><div class="cx-ohead"><b id="cxOTime">${CO.radar ? 'Radar' : 'Strikes'} · ${X.dayName(new Date(CO.t))} ${hmm(CO.t)}</b>${live ? '<span class="tag live">Live</span>' : ''}<small id="cxOInfo">${esc(CO.note)}</small></div>
+    <div class="cx-omid"><div class="cx-ohead"><b id="cxOTime">${CO.radar ? 'Radar' : 'Strikes'} · ${X.dayName(new Date(CO.t))} ${hmm(CO.t)}</b><span class="tag live${live ? '' : ' hidden'}" id="cxOLive">Live</span><small id="cxOInfo">${esc(CO.note)}</small></div>
       <label class="sr" for="cxOSlider">Observed time</label><input type="range" id="cxOSlider" min="0" max="${n}" value="${i}" step="1" style="--pct:${n ? i / n * 100 : 100}%">
       <div class="cx-oticks"><span>${X.dayName(new Date(r.s))} ${hmm(r.s)}</span><span>${hmm(r.e)}</span></div></div>
     <button class="btn sm" id="cxONow">Now</button><button class="btn sm" id="cxOKey" aria-expanded="${CO.keyOpen}">Key</button><button class="btn icon sm" id="cxObsOff" aria-label="Turn off radar and strikes">✕</button>
@@ -118,6 +118,7 @@ function updateObsHead() {
   const i = Math.round((CO.t - CO.t0) / step); s.value = i; s.style.setProperty('--pct', (+s.max ? i / +s.max * 100 : 100) + '%');
   const t = $('cxOTime'); if (t) t.textContent = `${CO.radar ? 'Radar' : 'Strikes'} · ${X.dayName(new Date(CO.t))} ${hmm(CO.t)}`;
   const inf = $('cxOInfo'); if (inf) inf.textContent = CO.note;
+  $('cxOLive')?.classList.toggle('hidden', !(CO.t >= CO.t1 && Date.now() - CO.t < 20 * 60000));
 }
 function stopObs() { CO.playing = false; clearTimeout(CO.timer); }
 async function playStep() {
