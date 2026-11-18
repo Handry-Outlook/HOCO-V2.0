@@ -157,6 +157,7 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:999px;b
 .tools-head .tabs button{height:36px;padding:0 10px;border-radius:9px;border:none;background:transparent;color:var(--muted);font-weight:600;font-size:14px;white-space:nowrap}
 .tools-head .tabs button[aria-selected="true"]{background:var(--accent-soft);color:var(--accent)}
 .tools-body{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px;overscroll-behavior:contain}
+.tools a.btn{text-decoration:none;color:inherit}
 .tools .lead{margin:0;font-size:14px;line-height:1.45;color:var(--muted)}
 .tools .field{display:flex;flex-direction:column;gap:6px;min-width:0}
 .tools select,.tools input:not([type]),.tools input[type=date],.tools input[type=datetime-local],.tools input[type=number],.tools textarea{height:42px;padding:0 12px;border-radius:10px;border:1px solid var(--border);background:var(--chip);font-size:14px;width:100%;min-width:0}
@@ -165,6 +166,7 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:999px;b
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px}
 .grid3 label{display:flex;flex-direction:column;gap:4px}
+@media (max-width:1100px){ .grid2.times{grid-template-columns:1fr} }
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chipbtn{height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--border);background:var(--chip);font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:6px}
 .chipbtn small{font-weight:500;color:var(--muted);font-size:11px}
@@ -196,7 +198,8 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:999px;b
 .tag.ens{background:rgba(31,157,112,.15);color:var(--good)}
 .wlist{display:flex;flex-direction:column;gap:4px;max-height:none}
 .wrow{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(80px,1.1fr) 40px;align-items:center;gap:10px;padding:6px 8px 6px 10px;border-radius:10px;background:var(--chip)}
-.wrow:has(.sm){grid-template-columns:minmax(0,1fr) minmax(80px,1.1fr) 40px 32px}
+.wrow:has(.sm){grid-template-columns:minmax(120px,1.3fr) minmax(70px,1fr) 40px 32px}
+.chipbtn.added{opacity:.45;text-decoration:line-through}
 .wrow.off{opacity:.55}
 .wrow output{font-size:13px;font-weight:700;text-align:right}
 .wrow .tag{margin:0}

@@ -195,7 +195,7 @@ function ensembleGroups() {
     if (!g.has(p.key)) g.set(p.key, { ...p, runs: [] }); g.get(p.key).runs.push(r);
   });
   return [...g.values()].map(x => ({ ...x, runs: x.runs.sort((a, b) => (X.created(a)?.getTime() || 0) - (X.created(b)?.getTime() || 0)) }))
-    .sort((a, b) => a.start - b.start);
+    .sort((a, b) => a.start - b.start).slice(-5);   // the last few days are what people blend
 }
 function defaultWeights(runs) {   // newer runs count a little more: 1.0 → 1.4, like the classic ensemble
   const out = {}; runs.forEach((r, i) => { out[r.id] = +(1 + (runs.length > 1 ? i / (runs.length - 1) : 0) * 0.4).toFixed(1); }); return out;
@@ -301,6 +301,8 @@ function renderManual(body) {
     <div class="grid2">
       <label class="field"><span class="kicker">Region</span><select id="mRegion">${X.REGIONS.filter(x => x.west !== undefined).map(x => `<option value="${x.id}" ${x.id === (M.region || X.S.region) ? 'selected' : ''}>${x.name}</option>`).join('')}</select></label>
       <label class="field"><span class="kicker">Hazard</span><select disabled><option>Lightning</option></select></label>
+    </div>
+    <div class="grid2 times">
       <label class="field"><span class="kicker">Start</span><input type="datetime-local" id="mStart" value="${sv}"></label>
       <label class="field"><span class="kicker">End</span><input type="datetime-local" id="mEnd" value="${ev}"></label>
     </div>
@@ -310,7 +312,8 @@ function renderManual(body) {
         <small class="muted">Leave empty to use HOCO's standard model set. Pick a model, tap one or more of its runs, then add them. Each run gets its own weight.</small>
         <div class="grid2" style="margin-top:6px"><select id="mModel">${Object.entries(MODELS).map(([k, m]) => `<option value="${k}" ${k === M.model ? 'selected' : ''}>${m.name}</option>`).join('')}</select>
         <button class="btn" id="mAdd" ${M.picked.size ? '' : 'disabled'}>Add ${M.picked.size || ''} run${M.picked.size === 1 ? '' : 's'}</button></div>
-        <div class="chips runchips">${opts.map(o => `<button class="chipbtn" data-iso="${o.iso}" aria-pressed="${M.picked.has(o.iso)}">${o.label}</button>`).join('')}</div>
+        <div class="chips runchips">${opts.map(o => { const added = M.scen.some(x => x.model === M.model && x.run === o.iso);
+          return `<button class="chipbtn${added ? ' added' : ''}" data-iso="${o.iso}" aria-pressed="${M.picked.has(o.iso)}" ${added ? 'disabled title="Already added"' : ''}>${o.label}</button>`; }).join('')}</div>
         <div class="wlist">${M.scen.length ? M.scen.map((s, i) => `<div class="wrow"><span class="scenlabel"><b>${esc(MODELS[s.model]?.name || s.model)}</b> <small>${esc(s.runLabel)}</small></span>
           <input type="range" min="0.1" max="2" step="0.1" value="${s.weight}" data-sw="${i}" aria-label="Weight" style="--pct:${(s.weight - 0.1) / 1.9 * 100}%"><output>×${(+s.weight).toFixed(1)}</output>
           <button class="btn icon sm" data-rm="${i}" aria-label="Remove">✕</button></div>`).join('') : '<div class="muted center" style="padding:10px">No model runs added. HOCO will use its standard set.</div>'}</div>
