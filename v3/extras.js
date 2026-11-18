@@ -29,7 +29,9 @@ function tileUrl(frameMs, z, x, y, archive) {
   const maxt = `${m.getUTCFullYear()}${pad(m.getUTCMonth() + 1)}${pad(m.getUTCDate())}${pad(m.getUTCHours())}${pad(m.getUTCMinutes())}${pad(m.getUTCSeconds())}`;
   return `https://rdr.windy.com/radar2/composite/${p}/${z}/${x}/${y}/reflectivity.webp?multichannel=true&maxt=${maxt}`;
 }
-const tileCache = new Map();   // url -> Promise<ImageData|null>
+// Each tile is kept as raw data: (R+G) per pixel, 0 for no data. Colour is applied after interpolation,
+// so the picture is smoothed in reflectivity, not stretched as a finished image (RadarLoop's method).
+const tileCache = new Map();   // key -> Promise<Uint16Array|null>
 async function loadTile(frameMs, z, x, y) {
   const archiveFirst = Date.now() - frameMs > 2 * 3600000 - 10 * 60000;
   const urls = archiveFirst ? [tileUrl(frameMs, z, x, y, true)] : [tileUrl(frameMs, z, x, y, false), tileUrl(frameMs, z, x, y, true)];
@@ -39,42 +41,72 @@ async function loadTile(frameMs, z, x, y) {
     for (const u of urls) {
       try { const r = await fetch(u, { mode: 'cors' }); if (!r.ok) continue;
         const bmp = await createImageBitmap(await r.blob()); const c = new OffscreenCanvas(256, 256), g = c.getContext('2d', { willReadFrequently: true });
-        g.drawImage(bmp, 0, 0, 256, 256); const img = g.getImageData(0, 0, 256, 256), d = img.data;
-        for (let i = 0; i < d.length; i += 4) {
-          if (d[i + 3] < 2 || (d[i + 2] > 200 && d[i] < 8 && d[i + 1] < 8)) { d[i + 3] = 0; continue; }
-          const s = d[i] + d[i + 1], j = s * 4; d[i] = LUT[j]; d[i + 1] = LUT[j + 1]; d[i + 2] = LUT[j + 2]; d[i + 3] = LUT[j + 3];
-        }
-        return img;
+        g.drawImage(bmp, 0, 0, 256, 256); bmp.close?.(); const d = g.getImageData(0, 0, 256, 256).data, out = new Uint16Array(65536);
+        for (let i = 0, k = 0; k < 65536; i += 4, k++) { if (d[i + 3] < 2 || (d[i + 2] > 200 && d[i] < 8 && d[i + 1] < 8)) continue; out[k] = d[i] + d[i + 1]; }
+        return out;
       } catch (e) { /* try the next endpoint */ }
     }
     return null;
   })();
   tileCache.set(key, p);
-  if (tileCache.size > 900) tileCache.delete(tileCache.keys().next().value);
+  if (tileCache.size > 1500) tileCache.delete(tileCache.keys().next().value);
   return p;
 }
 const lon2x = (lon, z) => (lon + 180) / 360 * 2 ** z;
 const lat2y = (lat, z) => { const r = lat * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 2 ** z; };
-const x2lon = (x, z) => x / 2 ** z * 360 - 180;
-const y2lat = (y, z) => { const n = Math.PI - 2 * Math.PI * y / 2 ** z; return 180 / Math.PI * Math.atan(Math.sinh(n)); };
 const radarCanvas = document.createElement('canvas');
-let radarToken = 0;
+let radarToken = 0, radarBusy = false, radarAgain = false;
 async function drawRadar() {
   if (!O.radar || O.t == null) return;
-  const map = X.map, zm = map.getZoom(), z = zm < 5.5 ? 5 : zm < 6.5 ? 6 : 7;
-  const b = map.getBounds(), n = 2 ** z;
-  let x0 = Math.floor(lon2x(b.getWest(), z)), x1 = Math.floor(lon2x(b.getEast(), z)), y0 = Math.floor(lat2y(Math.min(85, b.getNorth()), z)), y1 = Math.floor(lat2y(Math.max(-85, b.getSouth()), z));
-  x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(n - 1, x1, x0 + 9); y1 = Math.min(n - 1, y1, y0 + 9);
-  const frame = frameOf(O.t), key = `${frame}|${z}|${x0}|${y0}|${x1}|${y1}`;
+  if (radarBusy) { radarAgain = true; return; }
+  radarBusy = true;
+  try { await drawRadarFrame(); } finally { radarBusy = false; if (radarAgain) { radarAgain = false; drawRadar(); } }
+}
+async function drawRadarFrame() {
+  const map = X.map, cv = map.getCanvas(), W = cv.clientWidth, H = cv.clientHeight; if (!W || !H) return;
+  // backing resolution: screen pixels x device ratio (rounded up like RadarLoop), lighter while playing
+  let dpr = O.playing ? 1 : Math.max(1, Math.min(2, Math.ceil((devicePixelRatio || 1) - 1e-3)));
+  while ((W * dpr > 4096 || H * dpr > 4096 || W * H * dpr * dpr > 5e6) && dpr > 1) dpr -= 0.5;
+  const Wd = Math.round(W * dpr), Hd = Math.round(H * dpr);
+  const nw = map.unproject([0, 0]), se = map.unproject([W, H]);
+  // native data zoom: one level sharper than the screen needs, capped at the provider's z7
+  let z = Math.max(3, Math.min(7, Math.round(map.getZoom() + Math.log2(dpr) + 0.5)));
+  let gx0, gx1, gy0, gy1, tx0, tx1, ty0, ty1;
+  for (;;) {
+    gx0 = lon2x(nw.lng, z) * 256; gx1 = lon2x(se.lng, z) * 256; gy0 = lat2y(Math.min(85, nw.lat), z) * 256; gy1 = lat2y(Math.max(-85, se.lat), z) * 256;
+    tx0 = Math.floor(gx0 / 256) - 1; tx1 = Math.floor(gx1 / 256) + 1; ty0 = Math.max(0, Math.floor(gy0 / 256) - 1); ty1 = Math.min(2 ** z - 1, Math.floor(gy1 / 256) + 1);
+    if ((tx1 - tx0 + 1) * (ty1 - ty0 + 1) <= 110 || z <= 3) break; z--;
+  }
+  const frame = frameOf(O.t), key = `${frame}|${z}|${Wd}x${Hd}|${nw.lng.toFixed(4)},${nw.lat.toFixed(4)},${se.lng.toFixed(4)},${se.lat.toFixed(4)}`;
   if (key === O.frameKey) return;
   const tok = ++radarToken; setObsInfo('Loading radar…');
-  const jobs = []; for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) jobs.push(loadTile(frame, z, x, y).then(img => ({ x, y, img })));
+  const n = 2 ** z, jobs = [];
+  for (let x = tx0; x <= tx1; x++) for (let y = ty0; y <= ty1; y++) { const wx = ((x % n) + n) % n; jobs.push(loadTile(frame, z, wx, y).then(d => [x, y, d])); }
   const tiles = await Promise.all(jobs); if (tok !== radarToken) return;
-  radarCanvas.width = (x1 - x0 + 1) * 256; radarCanvas.height = (y1 - y0 + 1) * 256;
-  const g = radarCanvas.getContext('2d'); g.clearRect(0, 0, radarCanvas.width, radarCanvas.height);
-  let got = 0; tiles.forEach(({ x, y, img }) => { if (img) { got++; g.putImageData(img, (x - x0) * 256, (y - y0) * 256); } });
+  const cols = tx1 - tx0 + 1, grid = new Array(cols * (ty1 - ty0 + 1)).fill(null); let got = 0;
+  tiles.forEach(([x, y, d]) => { if (d) { got++; grid[(y - ty0) * cols + (x - tx0)] = d; } });
+  // sample positions per output column / row (mercator is linear on screen when the map is not rotated)
+  const sx = new Float64Array(Wd), sy = new Float64Array(Hd);
+  for (let i = 0; i < Wd; i++) sx[i] = gx0 + (i + 0.5) / Wd * (gx1 - gx0) - 0.5 - tx0 * 256;
+  for (let j = 0; j < Hd; j++) sy[j] = gy0 + (j + 0.5) / Hd * (gy1 - gy0) - 0.5 - ty0 * 256;
+  const rowsT = ty1 - ty0 + 1, maxX = cols * 256 - 1, maxY = rowsT * 256 - 1;
+  const val = (X_, Y_) => { if (X_ < 0 || Y_ < 0 || X_ > maxX || Y_ > maxY) return 0; const t = grid[(Y_ >> 8) * cols + (X_ >> 8)]; return t ? t[((Y_ & 255) << 8) | (X_ & 255)] : 0; };
+  radarCanvas.width = Wd; radarCanvas.height = Hd;
+  const g = radarCanvas.getContext('2d'), img = g.createImageData(Wd, Hd), out = img.data, L = LUT;
+  for (let j = 0; j < Hd; j++) {
+    const fy = sy[j], y0 = Math.floor(fy), wy = fy - y0, row = j * Wd * 4;
+    for (let i = 0; i < Wd; i++) {
+      const fx = sx[i], x0 = Math.floor(fx), wx = fx - x0;
+      const a = val(x0, y0), b = val(x0 + 1, y0), c = val(x0, y0 + 1), d = val(x0 + 1, y0 + 1);
+      if (!(a | b | c | d)) continue;
+      const v = (a * (1 - wx) + b * wx) * (1 - wy) + (c * (1 - wx) + d * wx) * wy;
+      const k = Math.min(510, Math.round(v)) * 4, o = row + i * 4;
+      out[o] = L[k]; out[o + 1] = L[k + 1]; out[o + 2] = L[k + 2]; out[o + 3] = L[k + 3];
+    }
+  }
+  g.putImageData(img, 0, 0);
   O.frameKey = key;
-  const coords = [[x2lon(x0, z), y2lat(y0, z)], [x2lon(x1 + 1, z), y2lat(y0, z)], [x2lon(x1 + 1, z), y2lat(y1 + 1, z)], [x2lon(x0, z), y2lat(y1 + 1, z)]];
+  const coords = [[nw.lng, nw.lat], [se.lng, nw.lat], [se.lng, se.lat], [nw.lng, se.lat]];
   const src = map.getSource('radar');
   if (!src) addRadarLayer(coords); else { src.setCoordinates(coords); src.play(); map.triggerRepaint(); requestAnimationFrame(() => requestAnimationFrame(() => map.getSource('radar')?.pause())); }
   setObsInfo(got ? '' : 'No radar for this time');
@@ -83,7 +115,8 @@ function labelLayer() { return X.map.getStyle().layers.find(l => l.type === 'sym
 function addRadarLayer(coords) {
   const map = X.map; if (map.getSource('radar') || !coords) return;
   map.addSource('radar', { type: 'canvas', canvas: radarCanvas, coordinates: coords, animate: false });
-  map.addLayer({ id: 'radar', type: 'raster', source: 'radar', paint: { 'raster-opacity': X.radarOpacity ? X.radarOpacity() : 0.85, 'raster-fade-duration': 0, 'raster-resampling': 'linear' } }, map.getLayer('strikes') ? 'strikes' : labelLayer());
+  const before = map.getLayer('hoco-coast') ? 'hoco-coast' : map.getLayer('strikes') ? 'strikes' : labelLayer();
+  map.addLayer({ id: 'radar', type: 'raster', source: 'radar', paint: { 'raster-opacity': X.radarOpacity ? X.radarOpacity() : 0.85, 'raster-fade-duration': 0, 'raster-resampling': 'nearest' } }, before);
 }
 function removeRadar() { const map = X.map; if (map.getLayer('radar')) map.removeLayer('radar'); if (map.getSource('radar')) map.removeSource('radar'); O.frameKey = ''; }
 
@@ -178,16 +211,18 @@ const fmtObs = (ms) => { const d = new Date(ms); return `${d.toLocaleDateString(
 const hm = (ms) => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 function buildObsBar() {
   $('obsBar').innerHTML = `
-    <button class="btn icon" id="obsPlay" aria-label="Play">${PLAY}</button>
-    <div class="obs-mid">
-      <div class="obs-head"><b id="obsTitle">–</b><span class="tag live hidden" id="obsLive">Live</span><small id="obsInfo"></small></div>
-      <label class="sr" for="obsSlider">Observed time</label>
-      <div class="obs-track"><input type="range" id="obsSlider" min="0" max="0" value="0" step="1"><span class="obs-future" id="obsFuture"><em>not happened yet</em></span></div>
-      <div class="obs-ticks" id="obsTicks"></div>
-      <div class="obs-keys" id="obsKeys"></div>
+    <div class="obs-row">
+      <button class="btn icon" id="obsPlay" aria-label="Play">${PLAY}</button>
+      <div class="obs-mid">
+        <div class="obs-head"><b id="obsTitle">–</b><span class="tag live hidden" id="obsLive">Live</span><small id="obsInfo"></small></div>
+        <label class="sr" for="obsSlider">Observed time</label>
+        <div class="obs-track"><input type="range" id="obsSlider" min="0" max="0" value="0" step="1"><span class="obs-future" id="obsFuture"><em>not happened yet</em></span></div>
+        <div class="obs-ticks" id="obsTicks"></div>
+      </div>
+      <div class="obs-btns"><button class="btn sm" id="obsNow">Now</button><button class="btn sm" id="obsKeyBtn" aria-expanded="false">Key</button><button class="btn icon sm" id="obsClose" aria-label="Turn off radar and strikes">✕</button></div>
     </div>
-    <button class="btn sm" id="obsNow">Now</button>
-    <button class="btn icon sm" id="obsClose" aria-label="Turn off radar and strikes">✕</button>`;
+    <div class="obs-keys hidden" id="obsKeys"></div>`;
+  $('obsKeyBtn').onclick = () => { O.keyOpen = !O.keyOpen; $('obsKeys').classList.toggle('hidden', !O.keyOpen); $('obsKeyBtn').setAttribute('aria-expanded', O.keyOpen); X.measureDock(); };
 }
 function renderObsHead() {
   const t = $('obsTitle'); if (!t || O.t == null) return;
@@ -201,15 +236,13 @@ function renderObsHead() {
 function setObsInfo(m) { const el = $('obsInfo'); if (el) { el.dataset.msg = m || ''; renderObsHead(); } }
 function renderObsKeys() {
   const k = $('obsKeys'); if (!k) return;
-  k.innerHTML = (O.strikes ? `<span class="okey">${STRIKE_CLASSES.map(c => `<span><i style="background:${c[0]}"></i>${c[1]}</span>`).join('')}<small>Colour = how far through the forecast period the strike happened</small></span>` : '')
-    + (O.radar ? `<span class="okey rain"><span class="rainbar"></span><span class="rticks"><span>0.1</span><span>1</span><span>5</span><span>20</span><span>100 mm/h</span></span>
-      <label class="chk sm"><input type="checkbox" id="obsOutline" ${O.outlines ? 'checked' : ''}><span>Show HOCO as outlines</span></label><small class="muted">Radar: Windy global composite, as in RadarLoop</small></span>` : '');
-  $('obsOutline') && ($('obsOutline').onchange = (e) => setOutlines(e.target.checked));
+  k.innerHTML = (O.strikes ? `<div class="okey"><b>Strikes</b>${STRIKE_CLASSES.map(c => `<span><i style="background:${c[0]}"></i>${c[1]}</span>`).join('')}<small>Colour = how far through the forecast period the strike happened</small></div>` : '')
+    + (O.radar ? `<div class="okey rain"><b>Rain rate</b><span class="rainwrap"><span class="rainbar"></span><span class="rticks"><span>0.1</span><span>1</span><span>5</span><span>20</span><span>100 mm/h</span></span></span><small>Radar: Windy global composite, as in RadarLoop</small></div>` : '');
 }
 function syncObs() {
   const on = O.radar || O.strikes, bar = $('obsBar');
   document.body.classList.toggle('obs-on', on);
-  if (!on || !O.run) { bar.classList.add('hidden'); stop(); if (O.outlines) setOutlines(false); X.measureDock(); return; }
+  if (!on || !O.run) { bar.classList.add('hidden'); stop(); X.measureDock(); return; }
   bar.classList.remove('hidden'); renderObsKeys();
   const r = obsRange(O.run);
   if (!r || r.future) { $('obsSlider').disabled = true; $('obsPlay').disabled = true; $('obsNow').disabled = true;
@@ -260,23 +293,27 @@ function setOutlines(on) {
 }
 
 // ------------------------------------------------------------------ layers + map style popover
-const STYLES = [['default', 'Default', 'Light or dark, follows the theme'], ['standard', 'Standard', 'Mapbox Standard, with 3D buildings'], ['satellite', 'Satellite', 'Imagery only'],
+const STYLES = [['default', 'Default', 'Light or dark, follows the theme'], ['classic', 'Classic HOCO', 'The style from the classic site'], ['standard', 'Standard', 'Mapbox Standard, with 3D buildings'], ['satellite', 'Satellite', 'Imagery only'],
   ['satellite-streets', 'Satellite + streets', 'Imagery with roads and names'], ['light', 'Light', 'Always light'], ['outdoors', 'Outdoors', 'Hills, paths and terrain']];
 function renderLayersPop() {
   const pop = $('layersPop'), cur = X.mapStyle();
   pop.innerHTML = `<span class="kicker" style="padding:4px 6px 6px">Map layers</span>
     ${[['forecast', 'Forecast areas', 'HOCO thunderstorm risk'], ['radar', 'Rain radar', 'Observed rain through the period'], ['strikes', 'Lightning strikes', 'Newest in gold']].map(([k, l, d]) =>
       `<label class="item layer"><span><b>${l}</b><small>${d}</small></span><input type="checkbox" class="switch" data-layer="${k}" ${O[k] ? 'checked' : ''}></label>`).join('')}
+    <label class="item layer"><span><b>Map outlines</b><small>Coasts and borders on top of the colours</small></span><input type="checkbox" class="switch" id="lyOutlines" ${X.outlines() ? 'checked' : ''}></label>
+    <label class="item layer"><span><b>Forecast as outlines only</b><small>Handy with radar on</small></span><input type="checkbox" class="switch" id="lyHocoLines" ${O.outlines ? 'checked' : ''}></label>
     <span class="kicker" style="padding:10px 6px 6px;display:block">Map style</span>
     <div class="stylegrid">${STYLES.map(([k, l, d]) => `<button class="stylebtn st-${k}" data-style="${k}" aria-pressed="${cur === k}" title="${d}"><i></i><span>${l}</span></button>`).join('')}</div>`;
   pop.querySelectorAll('[data-layer]').forEach(i => i.onchange = () => setLayer(i.dataset.layer, i.checked));
+  $('lyOutlines').onchange = (e) => X.setOutlines(e.target.checked);
+  $('lyHocoLines').onchange = (e) => setOutlines(e.target.checked);
   pop.querySelectorAll('[data-style]').forEach(b => b.onclick = () => { X.setMapStyle(b.dataset.style); pop.querySelectorAll('[data-style]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
 }
 export function setLayer(k, on, opts = {}) {
   O[k] = on;
   const map = X.map;
   if (k === 'forecast') { ['hoco-fill', 'hoco-line'].forEach(id => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none')); return; }
-  if (k === 'radar' && !on) { removeRadar(); if (O.outlines) setOutlines(false); }
+  if (k === 'radar' && !on) removeRadar();
   if (k === 'strikes' && !on) removeStrikes();
   if (k === 'strikes' && on) O.strikeData = null;
   if (!opts.temp && !O.archive) { try { localStorage.setItem('hocoLayers', JSON.stringify({ radar: O.radar, strikes: O.strikes })); } catch (e) { } }
@@ -420,11 +457,13 @@ let placeTok = 0;
 async function renderPlace() {
   const els = document.querySelectorAll('[data-place]'), tok = ++placeTok;
   if (!place) { els.forEach(el => el.classList.add('hidden')); X.measureDock(); return; }
-  const saved = loadPlaces().find(x => samePlace(x, place)), now = X.riskAtGeo(X.S.geo || { features: [] }, place.lon, place.lat), b = X.bandFor(now || 0);
-  const html = (days) => `<div class="pl-top"><span class="sw" style="background:${b ? b.fill : 'transparent'}"></span><span class="pl-t"><b>${esc(place.name)}</b><small>Chance of lightning within 20 km</small></span><button class="btn icon sm" data-pl-x aria-label="Close place">✕</button></div>
+  const saved = loadPlaces().find(x => samePlace(x, place));
+  const html = (days) => `<div class="pl-top"><span class="pin-s" aria-hidden="true"></span><b class="pl-name">${esc(place.name)}</b>
+      <button class="btn icon sm" data-pl-save aria-label="${saved ? 'Remove from saved places' : 'Save place'}" title="${saved ? 'Saved' : 'Save place'}">${saved ? '★' : '☆'}</button>
+      <button class="btn icon sm${saved?.alertAt ? ' on' : ''}" data-pl-alert aria-label="Storm alert" title="${saved?.alertAt ? `Alert at ${saved.alertAt}%+` : 'Set an alert'}">🔔</button>
+      <button class="btn icon sm" data-pl-x aria-label="Close place">✕</button></div>
     <div class="pl-days">${[0, 1, 2].map(d => { const dt = X.addDays(new Date(new Date().setHours(0, 0, 0, 0)), d), r = days?.[d], bb = r != null ? X.bandFor(r) : null;
-      return `<div><small>Day ${d} · ${d === 0 ? 'Today' : X.dayName(dt)}</small><b><i style="background:${bb ? bb.fill : 'var(--track)'}"></i>${days ? pctTxt(r) : '…'}</b></div>`; }).join('')}</div>
-    <div class="pl-acts"><button class="btn sm" data-pl-save>${saved ? '★ Saved' : 'Save place'}</button><button class="btn sm" data-pl-alert>${saved?.alertAt ? `Alert at ${saved.alertAt}%+` : 'Set an alert'}</button></div>`;
+      return `<div><small>${d === 0 ? 'Today' : X.dayName(dt)}</small><b><i style="background:${bb ? bb.fill : 'var(--track)'}"></i>${days ? pctTxt(r) : '…'}</b></div>`; }).join('')}</div>`;
   const wire = () => els.forEach(el => { el.classList.remove('hidden');
     el.querySelector('[data-pl-x]').onclick = () => setPlace(null);
     el.querySelector('[data-pl-save]').onclick = () => { const s = loadPlaces(); const i = s.findIndex(x => samePlace(x, place)); if (i >= 0) s.splice(i, 1); else s.push({ ...place, alertAt: null }); savePlaces(s); renderPlace(); X.toast(i >= 0 ? 'Removed from saved places' : 'Place saved'); };
@@ -527,8 +566,8 @@ function renderChangeBox() {
   if (!c) { els.forEach(e => { e.innerHTML = ''; e.classList.add('hidden'); }); return; }
   const d = lastDiff, nm = (x) => X.nearestPlace(x.c[1], x.c[0]);
   els.forEach(e => { e.classList.remove('hidden');
-    e.innerHTML = `<div class="ch-line"><span class="arr ${c.dp > 0 ? 'up' : c.dp < 0 ? 'down' : ''}">${c.dp > 0 ? '▲' : c.dp < 0 ? '▼' : '•'}</span><span>Since the ${c.t} run: ${c.peak}${c.area ? `, ${c.area}` : ''}.</span></div>
-      ${d ? `<button class="linkbtn" data-diff>${diffOn ? 'Hide the change map' : 'Show what changed on the map'}</button>` : ''}
+    e.innerHTML = `<div class="ch-line"><span class="arr ${c.dp > 0 ? 'up' : c.dp < 0 ? 'down' : ''}">${c.dp > 0 ? '▲' : c.dp < 0 ? '▼' : '•'}</span><span>${c.dp === 0 ? 'Peak unchanged' : `Peak ${c.dp > 0 ? '+' : '−'}${Math.abs(c.dp)}`} since ${c.t}</span>
+      ${d ? `<button class="linkbtn" data-diff>${diffOn ? 'Hide map' : 'Show on map'}</button>` : ''}</div>
       ${diffOn && d ? `<div class="ch-map"><span class="kicker">Changes since the ${c.t} run</span><div class="ch-key"><span><i style="background:#c53030"></i>Risk up</span><span><i style="background:#2b59d9"></i>Risk down</span></div>
         ${d.up && d.up.d >= 5 ? `<small>Biggest rise: ${nm(d.up)}, +${Math.round(d.up.d)} points</small>` : ''}${d.down && d.down.d <= -5 ? `<small>Biggest drop: ${nm(d.down)}, −${Math.round(-d.down.d)} points</small>` : ''}</div>` : ''}`;
     const b = e.querySelector('[data-diff]'); if (b) b.onclick = () => showDiff(!diffOn); });

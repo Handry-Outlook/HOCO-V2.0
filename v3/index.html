@@ -474,6 +474,44 @@ body.custom .summary{max-height:calc(100dvh - 120px - var(--obsh,0px))}
 
 .pop a.item{color:inherit;text-decoration:none}
 
+/* ---- declutter pass ---- */
+.summary{gap:10px;padding:16px 18px}
+.sum-title{font-size:15px;font-weight:600;margin-top:2px}
+.summary .peak b{font-size:40px}
+.plain{font-size:13.5px;line-height:1.45;cursor:pointer;margin:0}
+.plain.clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.changed{font-size:12.5px}.ch-line{align-items:center;flex-wrap:wrap;gap:6px}.ch-line .linkbtn{margin-left:auto;font-size:12px}
+.meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px}.meta small{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.legend-cap{font-size:11px;margin-top:4px}
+.summary .actions .btn{height:38px}
+.guestcard{flex-direction:row;align-items:center;flex-wrap:wrap;padding:10px 12px}.guestcard>span{flex:1 1 180px}
+.placebar{padding:8px 10px;gap:6px}
+.pl-top{gap:6px}.pl-name{flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pin-s{width:10px;height:14px;flex:none;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 30'%3E%3Cpath d='M11 1C5.5 1 1 5.3 1 10.8 1 18 11 29 11 29s10-11 10-18.2C21 5.3 16.5 1 11 1z' fill='%232f5fe0'/%3E%3C/svg%3E")}
+.placebar .btn.icon.sm{width:28px;height:28px;font-size:13px}.placebar .btn.on{background:var(--accent-soft);border-color:var(--accent)}
+.pl-days div{padding:4px 8px}.pl-days b{font-size:14px}
+.aicmp{padding:8px 10px;gap:4px;font-size:12.5px}
+.procchip{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;font-size:12px;background:var(--accent-soft)}
+.procchip .spin{width:11px;height:11px;border-width:2px}
+.dock.proc #runCount{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.runcount{gap:8px}.runcount #runCount{flex:1;min-width:0}
+/* compact time bar */
+.obsbar{flex-direction:column;align-items:stretch;gap:6px;padding:8px 10px}
+.obs-row{display:flex;align-items:center;gap:10px}
+.obs-btns{display:flex;gap:6px;flex:none}
+.obs-track{margin-top:4px}
+.obs-keys{display:flex;flex-direction:column;gap:6px;padding:6px 2px 2px;border-top:1px solid var(--border)}
+.okey{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;font-size:12px}.okey>b{font-size:12px;min-width:70px}
+.okey small,.okey.rain>small{display:block!important;width:100%;font-size:11px;color:var(--muted)}
+.rainwrap{flex:1;min-width:160px;display:flex;flex-direction:column;gap:2px}
+/* your run: a small pill under the top bar that opens into the card */
+.myrun{top:92px;right:72px;bottom:auto!important;left:auto!important;width:320px;max-height:calc(100dvh - 120px);overflow:auto}
+.myrun.collapsed{width:auto;padding:8px 14px;cursor:pointer;border-radius:999px}
+.myrun.collapsed>*:not(.mr-pill){display:none}.myrun:not(.collapsed) .mr-pill{display:none}
+.mr-pill{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+.installbar{top:88px;bottom:auto;left:50%;transform:translateX(-50%)}
+body.tools-open .installbar,body.comparing .myrun{display:none}
+
 /* iPad */
 @media (max-width:1100px){
   .topbar .brand small{display:none}
@@ -504,7 +542,10 @@ body.custom .summary{max-height:calc(100dvh - 120px - var(--obsh,0px))}
   .obsbar{left:10px;right:10px;bottom:calc(var(--dockh,240px) + 10px);padding:8px 10px;gap:8px}
   body.custom .obsbar{bottom:calc(var(--dockh,120px) + 10px)}
   .offline{top:124px}
-  .myrun{left:10px;right:10px;width:auto;bottom:calc(var(--dockh,240px) + 10px)}
+  .myrun{left:10px!important;right:10px;width:auto;top:124px}
+  .myrun.collapsed{left:auto!important;right:10px}
+  .obs-ticks span:nth-child(2),.obs-ticks span:nth-child(3){display:none}
+  .obs-btns .btn.sm{padding:0 10px}
   .keys{grid-template-columns:1fr}
   .compare{inset:auto 0 0;top:72px;padding:0 8px 8px;gap:8px}
   .cmp-grid{grid-template-columns:1fr;grid-template-rows:1fr 1fr;gap:8px}
@@ -515,7 +556,7 @@ body.custom .summary{max-height:calc(100dvh - 120px - var(--obsh,0px))}
   .cmp-bar{gap:8px;padding:8px}.cmp-bar .btn.primary{margin-left:auto}
   .acc-grid{grid-template-columns:1fr}
   .acc-2col{grid-template-columns:1fr}.eu-wrap{grid-template-columns:1fr}.eu-map{min-height:260px}.caught b{font-size:18px}
-  .installbar{left:10px;right:10px;width:auto;bottom:calc(var(--dockh,240px) + 10px)}
+  .installbar{left:10px;right:10px;width:auto;top:124px;transform:none}
   body.embed .ctrls{top:auto}
   .dock{left:0;right:0;bottom:0;border-radius:22px 22px 0 0;padding:8px 16px calc(18px + env(safe-area-inset-bottom));gap:12px;max-height:82dvh;overflow:auto}
   .dock-head{display:flex;flex-direction:column;gap:12px}
@@ -569,16 +610,16 @@ body.custom .summary{max-height:calc(100dvh - 120px - var(--obsh,0px))}
 
 <aside class="summary card hidden" id="summary" aria-label="Forecast summary">
   <div class="viewbar hidden" data-view role="status"><span data-view-text></span><button data-view-back>Back</button></div>
-  <div><div class="kicker" id="sumKicker">AUTO-HOCO · Day 0</div><div style="font-size:15px;font-weight:600;margin-top:4px" id="sumTitle">Thunderstorm risk</div></div>
+  <div><div class="kicker" id="sumKicker">AUTO-HOCO · Day 0</div><div class="sum-title" id="sumTitle">Thunderstorm risk</div></div>
   <div class="peak"><b id="sumPeak">–</b><span>peak chance of lightning<br><span id="sumWhere">–</span></span></div>
-  <div class="guestcard hidden" data-guest><b>You're viewing as a guest</b><span>Sign in to run your own HOCO, build ensembles and save runs.</span><div class="chips"><button class="btn primary sm" data-signin>Sign in</button><button class="btn sm" data-register>Register</button></div></div>
-  <p class="plain hidden" data-plain></p>
-  <div class="aicmp hidden" data-aicmp></div>
+  <p class="plain clamp hidden" data-plain title="Show all"></p>
   <div class="changed hidden" data-changed></div>
+  <div class="aicmp hidden" data-aicmp></div>
   <div class="placebar hidden" data-place></div>
-  <div class="facts"><div><small>Valid</small><strong id="sumValid">–</strong></div><div><small>Issued</small><strong id="sumIssued">–</strong></div></div>
-  <div class="legend" aria-label="Colour key: chance of lightning within 20 km"><div class="muted" style="font-size:12px;margin-bottom:6px">Chance of lightning within 20 km</div><div class="bar" id="legendBar"></div><div class="ticks"><span>5</span><span>15</span><span>30</span><span>50</span><span>70</span><span>90%</span></div></div>
+  <div class="meta"><span><small>Valid</small> <strong id="sumValid">–</strong></span><span><small>Issued</small> <strong id="sumIssued">–</strong></span></div>
+  <div class="legend" aria-label="Colour key: chance of lightning within 20 km"><div class="bar" id="legendBar"></div><div class="ticks"><span>5</span><span>15</span><span>30</span><span>50</span><span>70</span><span>90%</span></div><div class="muted legend-cap">Chance of lightning within 20 km</div></div>
   <div class="actions"><button class="btn" id="shareBtn">Share</button><button class="btn" data-export aria-haspopup="menu">Export</button></div>
+  <div class="guestcard hidden" data-guest><span><b>You're viewing as a guest.</b> Sign in to run your own HOCO, build ensembles and save runs.</span><div class="chips"><button class="btn primary sm" data-signin>Sign in</button><button class="btn sm" data-register>Register</button></div></div>
 </aside>
 
 <div class="ctrls">
@@ -603,14 +644,13 @@ body.custom .summary{max-height:calc(100dvh - 120px - var(--obsh,0px))}
     <div class="covers"><small>Forecast covers</small><strong id="covers">–</strong></div>
   </div>
   <div class="sep"></div>
-  <div class="procchip hidden" id="procChip" role="status"></div>
   <div class="runrow">
     <div class="runlabel"><span class="kicker">Run</span><strong id="runTime">–</strong><em id="runNote">Latest</em></div>
     <button class="btn icon" id="prevRun" aria-label="Previous run (earlier)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></button>
     <div class="slider"><label class="sr" for="runSlider">Choose a run</label><input type="range" id="runSlider" min="0" max="0" value="0" step="1"><div class="ticks2"><span id="tFirst">–</span><span id="tLast">–</span></div></div>
     <button class="btn icon" id="nextRun" aria-label="Next run (newer)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
   </div>
-  <p class="runcount"><span id="runCount">–</span><button class="linkbtn" id="allRunsBtn" aria-haspopup="dialog">All runs</button></p>
+  <p class="runcount"><span id="runCount">–</span><span class="procchip hidden" id="procChip" role="status"></span><button class="linkbtn" id="allRunsBtn" aria-haspopup="dialog">All runs</button></p>
   <div class="sheet-more">
     <div class="guestcard hidden" data-guest><b>You're viewing as a guest</b><span>Sign in to run your own HOCO, build ensembles and save runs.</span><div class="chips"><button class="btn primary sm" data-signin>Sign in</button><button class="btn sm" data-register>Register</button></div></div>
     <p class="plain hidden" data-plain></p>
@@ -724,7 +764,7 @@ const PLACES = [['London',51.51,-0.13],['Brighton',50.82,-0.14],['Southampton',5
 let Tools = { onRuns() {}, signedOut() {}, openTab() {} };
 let Extras = { onShown() {}, onEmpty() {}, onStyle() {}, openShortcuts() {}, openCookies() {}, checkAlerts() {}, archiveMode() {}, openAlerts() {} };
 let Stage4 = { canInstall: () => false, renderAds() {}, startTutorial() {}, openSettings() {}, openAccuracy() {}, install() {}, openEmbed() {}, openUpgrade() {}, openApi() {}, openEurope() {}, openCompare() {}, renderSettings() {}, comparing: () => false, loadTo() {}, installBanner() {} };
-const SET_DEFAULTS = { mapStyle: 'default', opacity: 1, radarOpacity: 0.85, region: '', changed: true, palette: 'standard', strikesDefault: false, notifyRuns: true };
+const SET_DEFAULTS = { outlines: true, mapStyle: 'default', opacity: 1, radarOpacity: 0.85, region: '', changed: true, palette: 'standard', strikesDefault: false, notifyRuns: true };
 const SETTINGS = (() => { try { const s = { ...SET_DEFAULTS, ...JSON.parse(localStorage.getItem('hocoSettings') || '{}') }; if (s.mapStyle === 'standard' && !s.styleV2) s.mapStyle = 'default'; return s; } catch (e) { return { ...SET_DEFAULTS }; } })();
 const EMBED = new URLSearchParams(location.search).get('embed') === '1';
 if (EMBED) document.body.classList.add('embed');
@@ -806,7 +846,7 @@ function applyTheme(first) {
   if (!first && map) map.setStyle(styleUrl());
 }
 function styleUrl() {
-  const m = { standard: 'mapbox://styles/mapbox/standard', satellite: 'mapbox://styles/mapbox/satellite-v9', 'satellite-streets': 'mapbox://styles/mapbox/satellite-streets-v12',
+  const m = { classic: 'mapbox://styles/handry20191026/cmns2lucg001401s898cuaxjt', standard: 'mapbox://styles/mapbox/standard', satellite: 'mapbox://styles/mapbox/satellite-v9', 'satellite-streets': 'mapbox://styles/mapbox/satellite-streets-v12',
     light: 'mapbox://styles/mapbox/light-v11', outdoors: 'mapbox://styles/mapbox/outdoors-v12' }[SETTINGS.mapStyle];
   return m || (effTheme() === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11');
 }
@@ -815,6 +855,7 @@ function setTheme(t) { S.theme = t; if (!EMBED) localStorage.setItem('hocoTheme'
 function applySettings(s, patch) {
   Object.assign(SETTINGS, s);
   if ('mapStyle' in patch) map.setStyle(styleUrl());
+  if ('outlines' in patch) setOutlines(s.outlines !== false);
   if ('opacity' in patch && map.getLayer('hoco-fill')) map.setPaintProperty('hoco-fill', 'fill-opacity', fillOp(S.geo));
   if ('radarOpacity' in patch && map.getLayer('radar')) map.setPaintProperty('radar', 'raster-opacity', s.radarOpacity);
   if ('changed' in patch) document.querySelectorAll('[data-changed]').forEach(e => e.classList.toggle('hidden', !s.changed || !e.innerHTML));
@@ -829,6 +870,7 @@ applyTheme(true);
 const map = new mapboxgl.Map({ container: 'map', style: styleUrl(),
   bounds: [[-10.234, 48.788], [5.471, 56.578]], fitBoundsOptions: { padding: innerWidth <= 640 ? { top: 120, bottom: 270, left: 10, right: 10 } : { top: 90, bottom: 220, left: innerWidth > 1100 ? 360 : 20, right: 20 } }, attributionControl: false, logoPosition: 'bottom-left', projection: 'mercator', preserveDrawingBuffer: true });
 map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-left');
+map.dragRotate.disable(); map.touchZoomRotate.disableRotation(); map.keyboard.disableRotation?.();
 // Keep the Mapbox logo and credits visible: lift them above the dock / phone sheet when those cover the corner.
 function placeCtrls() {
   const el = document.querySelector('.mapboxgl-ctrl-bottom-left'); if (!el) return;
@@ -850,7 +892,21 @@ function addLayers() {
   if (!map.getLayer('hoco-line')) map.addLayer({ id: 'hoco-line', type: 'line', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'polygon'],
     paint: { 'line-color': effTheme() === 'dark' ? 'rgba(8,16,28,0.7)' : 'rgba(16,34,56,0.55)', 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.4, 8, 1.1], 'line-opacity': 0.8 } }, label);
   if (!map.getLayer('hoco-points')) map.addLayer({ id: 'hoco-points', type: 'circle', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'point'], paint: { 'circle-radius': 12, 'circle-opacity': 0 } });
+  addOutlines(label);
 }
+// Coastlines and borders drawn on top of the risk colours, so the map stays readable under high risk (as on the classic site).
+function outlineColor() { const sat = /satellite/.test(SETTINGS.mapStyle); return effTheme() === 'dark' || sat ? 'rgba(236,241,248,0.75)' : 'rgba(18,28,44,0.8)'; }
+function addOutlines(label) {
+  if (!map.getSource('hoco-ref')) map.addSource('hoco-ref', { type: 'vector', url: 'mapbox://mapbox.mapbox-streets-v8' });
+  const vis = SETTINGS.outlines === false ? 'none' : 'visible', col = outlineColor();
+  if (!map.getLayer('hoco-coast')) map.addLayer({ id: 'hoco-coast', type: 'line', source: 'hoco-ref', 'source-layer': 'water', layout: { visibility: vis, 'line-join': 'round' },
+    paint: { 'line-color': col, 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 0.5, 6, 0.9, 9, 1.4] } }, label);
+  if (!map.getLayer('hoco-borders')) map.addLayer({ id: 'hoco-borders', type: 'line', source: 'hoco-ref', 'source-layer': 'admin',
+    filter: ['all', ['<=', ['get', 'admin_level'], 1], ['!=', ['get', 'maritime'], true], ['!=', ['get', 'maritime'], 'true']], layout: { visibility: vis, 'line-join': 'round' },
+    paint: { 'line-color': col, 'line-width': ['match', ['get', 'admin_level'], 0, ['interpolate', ['linear'], ['zoom'], 3, 0.8, 8, 1.6], ['interpolate', ['linear'], ['zoom'], 3, 0.5, 8, 1.1]],
+      'line-dasharray': ['match', ['get', 'admin_level'], 0, ['literal', [1, 0]], ['literal', [3, 2]]] } }, label);
+}
+function setOutlines(on) { ['hoco-coast', 'hoco-borders'].forEach(id => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none')); }
 map.on('style.load', () => { addLayers(); Extras.onStyle(); });
 map.on('load', () => { const src = map.getSource('hoco'); if (src && S.geo) src.setData(S.geo); });
 map.on('error', (e) => console.warn('[map]', e?.error?.message || e));
@@ -928,6 +984,7 @@ function setNotice(text, back, kind) {
   measureDock();
 }
 document.querySelectorAll('[data-view-back]').forEach(b => b.onclick = () => S.custom ? clearCustom() : (S.archive && S.idx[S.day] === S.byDay[S.day].length - 1) ? setArchive(null) : setRun(S.byDay[S.day].length - 1));
+document.querySelectorAll('[data-plain]').forEach(p => p.onclick = () => p.classList.toggle('clamp'));
 // ---------- archive: view a past date ----------
 async function setArchive(key) {
   clearCustom();
@@ -1002,13 +1059,15 @@ $('allRunsBtn').onclick = async (e) => {
 // ---------- "new run on its way" ----------
 function renderProc() {
   const el = $('procChip'), type = S.product === 'ai' ? 'ai' : 'automated';
-  if (S.archive || S.custom) { el.classList.add('hidden'); return; }
+  if (S.archive || S.custom) { el.classList.add('hidden'); $('dock').classList.remove('proc'); return; }
   const dayKey = dateKey(addDays(baseDay(), S.day)), newest = S.byDay[S.day].at(-1);
   const pend = S.runs.find(r => r.type === type && regionMatches(S.region, r) && (r.status === 'pending' || r.status === 'processing') && created(r) && Date.now() - created(r).getTime() < 45 * 60000
     && startOf(r) && dateKey(startOf(r)) === dayKey && (!newest || created(r) > created(newest)));
-  if (!pend) { el.classList.add('hidden'); return; }
+  if (!pend) { el.classList.add('hidden'); $('dock').classList.remove('proc'); return; }
+  $('dock').classList.add('proc');
   const mins = Math.max(1, 8 - Math.round((Date.now() - created(pend).getTime()) / 60000)), cur = S.byDay[S.day].at(-1);
-  el.innerHTML = `<span class="spin"></span><span><b>New run on its way</b> · issued ${hhmm(created(pend))} · ready in about ${mins} min<small>You are seeing the ${cur ? hhmm(created(cur)) : 'latest'} run until then.</small></span>`;
+  el.innerHTML = `<span class="spin"></span><span><b>New run on its way</b> · ready in about ${mins} min</span>`;
+  el.title = `Issued ${hhmm(created(pend))}. You are seeing the ${cur ? hhmm(created(cur)) : 'latest'} run until then.`;
   el.classList.remove('hidden');
 }
 // ---------- AI HOCO vs Traditional card ----------
@@ -1240,11 +1299,12 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ---------- extras (radar, strikes, export, search, change, cookies) ----------
-import('./extras.js?v=9').then((m) => {
+import('./extras.js?v=10').then((m) => {
   m.initExtras({ map, S, BANDS, REGIONS, TYPE_LABEL: LABELS, toast, openPop, measureDock, fetchGeo, peakOf, riskOf, bandFor, bandLabel, created, startOf, endOf, hhmm, dayName, dayDate,
     embed: EMBED, embedLayers: EMBED ? (params.get('layers') || '') : null, radarOpacity: () => SETTINGS.radarOpacity, showChanged: () => SETTINGS.changed !== false, openEmbed: EMBED ? null : () => Stage4.openEmbed(),
     riskAtGeo, runsFor, addDays, nearestPlace, colorExpr, mapStyle: () => SETTINGS.mapStyle, setMapStyle: (k) => { const s = { ...SETTINGS, mapStyle: k, styleV2: true }; try { localStorage.setItem('hocoSettings', JSON.stringify(s)); } catch (e) { } applySettings(s, { mapStyle: k }); },
-    goDay: (d) => { S.day = d; clearCustom(); renderAll(); }, strikesDefault: () => SETTINGS.strikesDefault, onConsent: () => Stage4.renderAds() });
+    goDay: (d) => { S.day = d; clearCustom(); renderAll(); }, strikesDefault: () => SETTINGS.strikesDefault, onConsent: () => Stage4.renderAds(),
+    outlines: () => SETTINGS.outlines !== false, setOutlines: (on) => { const s2 = { ...SETTINGS, outlines: on, styleV2: true }; try { localStorage.setItem('hocoSettings', JSON.stringify(s2)); } catch (e) { } applySettings(s2, { outlines: on }); } });
   Extras = m;
   if (S.custom || S.current) m.onShown(S.custom || S.current, S.geo, null);
 }).catch((e) => console.error(e));
@@ -1260,7 +1320,7 @@ import('./stage4.js?v=4').then((m) => {
 }).catch((e) => console.error(e));
 
 // ---------- tools (runs, ensemble, manual run, developer) ----------
-import('./tools.js?v=4').then((m) => {
+import('./tools.js?v=5').then((m) => {
   m.initTools({ app, auth, db, S, BANDS, REGIONS, fetchGeo, cachePut: (id, g) => cache.set(id, g), showCustom, clearCustom, toast,
     created, startOf, endOf, hhmm, dayName, dayDate, addDays, parseHocoTime, regionMatches, notifyDefault: SETTINGS.notifyRuns !== false,
     renderSettings: (b) => Stage4.renderSettings(b), comparing: () => Stage4.comparing(), loadTo: (r) => Stage4.loadTo(r), renderAds: () => Stage4.renderAds() });

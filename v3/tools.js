@@ -101,16 +101,18 @@ function renderMyRun() {
   const n = Array.isArray(r.scenarios) && r.scenarios.length ? r.scenarios.length : 6, s = X.startOf(r), e = X.endOf(r);
   const stages = ['Queued', `Fetching the ${n} model runs`, 'Blending with your weights', 'Drawing the map'], at = frac < 0.1 ? 0 : frac < 0.6 ? 1 : frac < 0.85 ? 2 : 3;
   const left = Math.max(1, Math.round(est - el_));
-  el.innerHTML = `<div class="rowbetween"><b>Your run is processing</b><b class="mr-pct">${pct}%</b></div>
+  el.innerHTML = `<div class="mr-pill" role="button" tabindex="0" aria-label="Show your run's progress"><span class="spin"></span>Your run · ${pct}% · about ${left} min</div>
+    <div class="rowbetween"><b>Your run is processing</b><b class="mr-pct">${pct}%</b></div>
     <small class="muted">${esc(r.region || '')} · ${s ? `${X.dayName(s)} ${X.hhmm(s)}` : ''} → ${e ? `${X.dayName(e)} ${X.hhmm(e)}` : ''} · ${n} model run${n > 1 ? 's' : ''}</small>
     <div class="mr-bar"><i style="width:${pct}%"></i></div>
     <ol class="mr-steps">${stages.map((t, i) => `<li class="${i < at ? 'done' : i === at ? 'now' : ''}"><i>${i < at ? '✓' : ''}</i>${t}</li>`).join('')}</ol>
     <small class="muted">About ${left} min left${el_ > est ? ' (taking longer than usual)' : ''}. You can close this or leave the page; it keeps running.</small>
     <label class="chk sm"><input type="checkbox" id="mrNotify" ${T.man.notify ? 'checked' : ''}><span>Notify me when it's ready</span></label>
-    <div class="chips" style="justify-content:flex-end"><button class="btn sm" id="mrHide">Hide</button><button class="btn sm" id="mrCancel" style="color:#b42318">Cancel run</button></div>`;
-  el.classList.remove('hidden'); document.body.classList.add('myrun-on');
+    <div class="chips" style="justify-content:flex-end"><button class="btn sm" id="mrHide">Minimise</button><button class="btn sm" id="mrCancel" style="color:#b42318">Cancel run</button></div>`;
+  el.classList.remove('hidden'); document.body.classList.add('myrun-on'); el.classList.toggle('collapsed', !T.myRunOpen);
+  el.querySelector('.mr-pill').onclick = () => { T.myRunOpen = true; renderMyRun(); };
   $('mrNotify').onchange = async (ev) => { T.man.notify = ev.target.checked; if (ev.target.checked && 'Notification' in window && Notification.permission === 'default') { try { await Notification.requestPermission(); } catch (err) { } } };
-  $('mrHide').onclick = () => { T.hideRun = r.id; renderMyRun(); };
+  $('mrHide').onclick = () => { T.myRunOpen = false; renderMyRun(); };
   $('mrCancel').onclick = async () => {
     if (!confirm('Cancel this run? It will be removed from your runs. A job that has already started on the server may still finish in the background.')) return;
     try { await updateDoc(doc(X.db, 'hoco_requests', r.id), { cancelled: true }); T.known.delete(r.id); X.toast('Run cancelled'); } catch (err) { X.toast('Could not cancel the run'); }
@@ -403,7 +405,7 @@ async function startManual() {
     userId: uid(), createdAt: new Date(), status: 'pending', public: false, type: 'manual' };
   try {
     const ref = await addDoc(collection(X.db, 'hoco_requests'), payload);
-    T.known.set(ref.id, 'pending');
+    T.known.set(ref.id, 'pending'); T.myRunOpen = true;
     try { await httpsCallable(getFunctions(X.app, 'us-central1'), 'triggerHocoRun')({ id: ref.id, ...payload }); }
     catch (err) { console.error(err); X.toast('The run was saved but the backend did not start it. Try again in a minute.'); }
     M.scen = []; M.picked = new Set();
