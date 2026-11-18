@@ -621,7 +621,7 @@ export function initExtras(ctx) {
   if (X.embedLayers != null) { O.radar = X.embedLayers.includes('radar'); O.strikes = X.embedLayers.includes('strikes'); }
   else { try { const l = JSON.parse(localStorage.getItem('hocoLayers') || 'null'); if (l) { O.radar = !!l.radar; O.strikes = !!l.strikes; } else if (X.strikesDefault?.()) O.strikes = true; } catch (e) { } }
   $('layersBtn').onclick = (e) => { e.stopPropagation(); renderLayersPop(); X.openPop($('layersPop'), $('layersBtn')); const p = $('layersPop'), r = $('layersBtn').getBoundingClientRect();
-    if (innerWidth > 640) { p.style.left = ''; p.style.right = (innerWidth - r.left + 8) + 'px'; p.style.top = Math.max(10, Math.min(r.top, innerHeight - p.offsetHeight - 10)) + 'px'; } else { p.style.left = ''; p.style.right = '10px'; p.style.top = ''; p.style.bottom = (innerHeight - r.top + 8) + 'px'; } };
+    if (innerWidth > 640) { p.style.left = ''; p.style.right = (innerWidth - r.left + 8) + 'px'; p.style.top = Math.max(10, Math.min(r.top, innerHeight - p.offsetHeight - 10)) + 'px'; } else { const top = $('ctrlsBox').getBoundingClientRect().top; p.style.left = ''; p.style.right = '56px'; p.style.bottom = ''; p.style.top = top + 'px'; p.style.maxHeight = `calc(100dvh - ${top}px - var(--dockh,90px) - 24px)`; } };
   document.querySelectorAll('[data-export]').forEach(b => b.onclick = (e) => { e.stopPropagation(); openExport(); });
   $('searchBtn').onclick = (e) => { e.stopPropagation(); X.openPop($('searchPop'), $('searchBtn')); const p = $('searchPop');
     if (innerWidth <= 640) { p.style.left = '10px'; p.style.right = '10px'; } $('searchIn').value = ''; search(''); setTimeout(() => $('searchIn').focus(), 30); };

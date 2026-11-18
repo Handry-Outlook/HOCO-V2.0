@@ -669,6 +669,18 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom))}
   body.obs-on .dock .runrow,body.obs-on .dock .runlabel{display:none}
   body.obs-on .dock{grid-template-areas:"days date all"}
 }
+
+.pop{max-height:calc(100dvh - 20px);overflow:auto}
+@media (max-width:640px){ #layersPop{width:auto!important;left:var(--gap)!important} }
+/* slimmer radar bar */
+.obsbar{padding:4px 8px}
+.obs-head b{font-size:13px}.obs-head .tag{font-size:10px;padding:2px 6px}
+.obs-track{margin-top:0}.obsbar input[type=range]{height:22px}
+.obs-ticks{font-size:10px;margin-top:-2px}
+.obsbar .obs-btns .btn{height:30px;padding:0 9px;font-size:12px}
+.obsbar .btn.icon{width:32px;height:32px}
+@media (max-width:640px){ body.obs-on .summary .legend.mini .ticks{display:none} }
+@media (max-width:640px){ .obs-head small{display:none} }
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -1394,7 +1406,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ---------- extras (radar, strikes, export, search, change, cookies) ----------
-import('./extras.js?v=11').then((m) => {
+import('./extras.js?v=12').then((m) => {
   m.initExtras({ map, S, BANDS, REGIONS, TYPE_LABEL: LABELS, toast, openPop, measureDock, fetchGeo, peakOf, riskOf, bandFor, bandLabel, created, startOf, endOf, hhmm, dayName, dayDate,
     embed: EMBED, embedLayers: EMBED ? (params.get('layers') || '') : null, radarOpacity: () => SETTINGS.radarOpacity, showChanged: () => SETTINGS.changed !== false, openEmbed: EMBED ? null : () => Stage4.openEmbed(),
     riskAtGeo, runsFor, addDays, nearestPlace, colorExpr, mapStyle: () => SETTINGS.mapStyle, setMapStyle: (k) => { const s = { ...SETTINGS, mapStyle: k, styleV2: true }; try { localStorage.setItem('hocoSettings', JSON.stringify(s)); } catch (e) { } applySettings(s, { mapStyle: k }); },
