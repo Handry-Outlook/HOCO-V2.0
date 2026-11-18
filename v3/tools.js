@@ -146,7 +146,7 @@ function runRow(r) {
   const scen = Array.isArray(r.scenarios) && r.scenarios.length ? ` · ${r.scenarios.length} model run${r.scenarios.length > 1 ? 's' : ''}` : '';
   const srcs = r.type === 'human-mimic' && r.sourceRunCount ? ` · ${r.sourceRunCount} runs blended` : '';
   return `<div class="runitem${X.S.custom?.id === r.id ? ' on' : ''}"><span class="tag ${ti.cls}">${ti.chip}</span>
-    <div class="ri-main"><b>${ti.label} · issued ${c ? X.hhmm(c) : '–'}</b><small>${s ? `${X.dayName(s)} ${X.hhmm(s)}` : '–'} → ${e ? `${X.dayName(e)} ${X.hhmm(e)}` : '–'}${scen}${srcs}${mine && r.type !== 'automated' && r.type !== 'ai' ? ' · yours' : ''}</small>${devPub}</div>${right}</div>`;
+    <div class="ri-main"><b>${c ? X.hhmm(c) : '–'} <span class="ri-type">${ti.label}${c && dateKey(c) !== T.date ? ` · issued ${X.dayName(c)}` : ''}</span></b><small>${s ? `${X.dayName(s)} ${X.hhmm(s)}` : '–'} → ${e ? `${X.dayName(e)} ${X.hhmm(e)}` : '–'}${scen}${srcs}${mine && r.type !== 'automated' && r.type !== 'ai' ? ' · yours' : ''}</small>${devPub}</div>${right}</div>`;
 }
 
 function renderRuns(body) {

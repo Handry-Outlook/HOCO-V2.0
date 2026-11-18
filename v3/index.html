@@ -154,7 +154,7 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:999px;b
 .tools{position:fixed;top:92px;right:16px;bottom:16px;width:440px;z-index:25;display:flex;flex-direction:column;overflow:hidden;background:var(--solid);backdrop-filter:none}
 .tools-head{display:flex;align-items:center;gap:8px;padding:10px 10px 10px 14px;border-bottom:1px solid var(--border)}
 .tools-head .tabs{display:flex;gap:4px;flex:1;overflow-x:auto;scrollbar-width:none}
-.tools-head .tabs button{height:36px;padding:0 12px;border-radius:9px;border:none;background:transparent;color:var(--muted);font-weight:600;font-size:14px;white-space:nowrap}
+.tools-head .tabs button{height:36px;padding:0 10px;border-radius:9px;border:none;background:transparent;color:var(--muted);font-weight:600;font-size:14px;white-space:nowrap}
 .tools-head .tabs button[aria-selected="true"]{background:var(--accent-soft);color:var(--accent)}
 .tools-body{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px;overscroll-behavior:contain}
 .tools .lead{margin:0;font-size:14px;line-height:1.45;color:var(--muted)}
@@ -188,7 +188,7 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:999px;b
 .runitem.on{border-color:var(--accent);background:var(--accent-soft)}
 .runitem .tag{margin:0;flex:none;min-width:64px;text-align:center}
 .ri-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-.ri-main b{font-size:14px}.ri-main small{font-size:12px;color:var(--muted)}
+.ri-main b{font-size:15px}.ri-type{font-size:12px;font-weight:600;color:var(--muted);margin-left:4px}.ri-main small{font-size:12px;color:var(--muted)}
 .ri-main .linkbtn{align-self:flex-start;font-size:12px}
 .runitem .btn{height:34px}
 .proc{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--accent);line-height:1.2}
@@ -340,7 +340,7 @@ body.custom .dock-row,body.custom .dock .sep,body.custom .runrow,body.custom .ru
 
 <div class="probe hidden" id="probe" aria-live="polite"></div>
 <section class="tools card hidden" id="tools" aria-label="Tools">
-  <div class="tools-head"><div class="tabs" id="toolsTabs" role="tablist"><button data-tab="runs" role="tab">Runs</button><button data-tab="ensemble" role="tab">Ensemble</button><button data-tab="manual" role="tab">Manual run</button><button data-tab="dev" role="tab" class="hidden">Developer</button></div>
+  <div class="tools-head"><div class="tabs" id="toolsTabs" role="tablist"><button data-tab="runs" role="tab">Runs</button><button data-tab="ensemble" role="tab">Ensemble</button><button data-tab="manual" role="tab">Manual</button><button data-tab="dev" role="tab" class="hidden">Developer</button></div>
     <button class="btn icon" id="toolsClose" aria-label="Close tools"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
   <div class="tools-body" id="toolsBody"></div>
 </section>
