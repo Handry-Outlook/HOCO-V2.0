@@ -472,6 +472,8 @@ body.custom .summary{max-height:calc(100dvh - 120px - var(--obsh,0px))}
 .okey small,.okey.rain>small{display:none}
 @media (min-height:820px) and (min-width:1101px){ .okey small,.okey.rain>small{display:block} }
 
+.pop a.item{color:inherit;text-decoration:none}
+
 /* iPad */
 @media (max-width:1100px){
   .topbar .brand small{display:none}
@@ -1001,7 +1003,9 @@ $('allRunsBtn').onclick = async (e) => {
 function renderProc() {
   const el = $('procChip'), type = S.product === 'ai' ? 'ai' : 'automated';
   if (S.archive || S.custom) { el.classList.add('hidden'); return; }
-  const pend = S.runs.find(r => r.type === type && regionMatches(S.region, r) && (r.status === 'pending' || r.status === 'processing') && created(r) && Date.now() - created(r).getTime() < 45 * 60000);
+  const dayKey = dateKey(addDays(baseDay(), S.day)), newest = S.byDay[S.day].at(-1);
+  const pend = S.runs.find(r => r.type === type && regionMatches(S.region, r) && (r.status === 'pending' || r.status === 'processing') && created(r) && Date.now() - created(r).getTime() < 45 * 60000
+    && startOf(r) && dateKey(startOf(r)) === dayKey && (!newest || created(r) > created(newest)));
   if (!pend) { el.classList.add('hidden'); return; }
   const mins = Math.max(1, 8 - Math.round((Date.now() - created(pend).getTime()) / 60000)), cur = S.byDay[S.day].at(-1);
   el.innerHTML = `<span class="spin"></span><span><b>New run on its way</b> · issued ${hhmm(created(pend))} · ready in about ${mins} min<small>You are seeing the ${cur ? hhmm(created(cur)) : 'latest'} run until then.</small></span>`;
@@ -1246,7 +1250,7 @@ import('./extras.js?v=9').then((m) => {
 }).catch((e) => console.error(e));
 
 // ---------- stage 4 (settings, compare, accuracy, alerts, install, tutorial, embed, ads) ----------
-import('./stage4.js?v=3').then((m) => {
+import('./stage4.js?v=4').then((m) => {
   m.initStage4({ map, S, BANDS, REGIONS, db, auth, storage, doc, getDoc, getDocs, query, collection, where, orderBy, limit, addDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, dateKey, nearestPlace, regionMatches,
     colorExpr, fillColor, styleUrl, applySettings, setTheme, setProduct, setRegion, runsFor, riskAt: riskAtGeo, embed: EMBED, goDay: (d) => { S.day = d; clearCustom(); renderAll(); },
     callable: (name) => async (data) => { const f = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js'); return f.httpsCallable(f.getFunctions(app, 'us-central1'), name)(data); },

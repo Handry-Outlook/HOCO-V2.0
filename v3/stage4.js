@@ -242,7 +242,8 @@ export async function openAccuracy(tab = 'accuracy') {
         <div class="acc-grid">
           <div class="acc-card"><span class="kicker">Lightning inside a 10%+ area</span><div class="acc-big">${pct(s0?.pod)}</div><small>Day 0</small></div>
           <div class="acc-card"><span class="kicker">10%+ areas that stayed dry</span><div class="acc-big">${pct(s0?.far)}</div><small>false alarms, Day 0. Lightning is rare, so many areas stay dry.</small></div>
-          <div class="acc-card"><span class="kicker">Better than climatology</span><div class="acc-big">${s0?.bss != null ? `${s0.bss >= 0 ? '+' : ''}${Math.round(s0.bss * 100)}%` : '–'}</div><small>Brier skill, Day 0 (approximate)</small></div></div>
+          ${s0?.bss != null && s0.bss > 0 ? `<div class="acc-card"><span class="kicker">Better than climatology</span><div class="acc-big">+${Math.round(s0.bss * 100)}%</div><small>Brier skill, Day 0 (approximate)</small></div>`
+            : `<div class="acc-card"><span class="kicker">Ranking skill</span><div class="acc-big">${f2(a.day0?.auc)}</div><small>AUC, Day 0. 1.0 is perfect, 0.5 is a coin toss. HOCO's percentages run high against this check, so Brier skill is not shown.</small></div>`}</div>
         <div class="setgrp"><span class="kicker">Lightning caught, by day</span><div class="caught">${[0, 1, 2].map(i => `<div><b>${pct(st[i]?.pod)}</b><small>Day ${i}</small><span class="cbar"><i style="width:${(st[i]?.pod || 0) * 100}%"></i></span><small class="muted">AUC ${f2(a[`day${i}`]?.auc)}</small></div>`).join('')}</div></div>
         <div class="acc-2col">
           ${curves?.day0?.reliabilityForecast ? `<div class="setgrp"><span class="kicker">Are the percentages honest?</span>${relChart(curves.day0.reliabilityForecast, curves.day0.reliabilityObserved, curves.day0.reliabilityCount)}<small class="muted">Closer to the dashed line is better. Below it, HOCO's chances were too high.</small></div>` : ''}
