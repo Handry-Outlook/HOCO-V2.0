@@ -719,7 +719,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ---------- tools (runs, ensemble, manual run, developer) ----------
-import('./tools.js').then((m) => {
+import('./tools.js?v=3').then((m) => {
   m.initTools({ app, auth, db, S, BANDS, REGIONS, fetchGeo, cachePut: (id, g) => cache.set(id, g), showCustom, clearCustom, toast,
     created, startOf, endOf, hhmm, dayName, dayDate, addDays, parseHocoTime, regionMatches });
   Tools = m;

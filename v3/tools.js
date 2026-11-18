@@ -2,7 +2,7 @@
 // Writes the same Firestore documents as the classic site so both sites and the backend keep working.
 import { collection, query, where, orderBy, limit, getDocs, addDoc, updateDoc, doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
-import { blendRuns } from './ensemble.js';
+import { blendRuns } from './ensemble.js?v=3';
 
 // Real model names and run frequency (hours), as in the classic manual builder.
 const MODELS = { swisseu: { name: 'SWISS-EU', freq: 3 }, hardmi: { name: 'HARMONIE', freq: 3 }, swissnow: { name: 'SWISS-NOW', freq: 1 },
