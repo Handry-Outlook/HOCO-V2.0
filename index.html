@@ -4274,6 +4274,10 @@
                 probe.setAttribute('aria-live', 'polite');
                 host.appendChild(probe);
             }
+            // Keep the hover card above the AUTO time slider dock so it is never hidden behind it
+            const dock = document.getElementById('mapAutoTimelineDock');
+            const dockH = dock && dock.classList.contains('is-active') ? dock.offsetHeight : 0;
+            probe.style.bottom = (dockH ? dockH + 24 : 34) + 'px';
             return probe;
         }
 
