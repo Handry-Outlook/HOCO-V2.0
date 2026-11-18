@@ -254,7 +254,7 @@ function setObsInfo(m) { const el = $('obsInfo'); if (el) { el.dataset.msg = m |
 function renderObsKeys() {
   const k = $('obsKeys'); if (!k) return;
   k.innerHTML = (O.strikes ? `<div class="okey"><b>Strikes</b>${STRIKE_CLASSES.map(c => `<span><i style="background:${c[0]}"></i>${c[1]}</span>`).join('')}<small>Colour = how far through the forecast period the strike happened</small></div>` : '')
-    + (O.radar ? `<div class="okey rain"><b>Rain rate</b><span class="rainwrap"><span class="rainbar"></span><span class="rticks"><span>0.1</span><span>1</span><span>5</span><span>20</span><span>100 mm/h</span></span></span><small>Radar: Windy global composite, as in RadarLoop</small></div>` : '');
+    + (O.radar ? `<div class="okey rain"><b>Rain rate</b><span class="rainwrap"><span class="rainbar"></span><span class="rticks"><span>0.1</span><span>1</span><span>5</span><span>20</span><span>100 mm/h</span></span></span></div>` : '');
 }
 function syncObs() {
   const on = O.radar || O.strikes, bar = $('obsBar');
