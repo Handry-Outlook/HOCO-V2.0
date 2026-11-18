@@ -83,7 +83,7 @@ function labelLayer() { return X.map.getStyle().layers.find(l => l.type === 'sym
 function addRadarLayer(coords) {
   const map = X.map; if (map.getSource('radar') || !coords) return;
   map.addSource('radar', { type: 'canvas', canvas: radarCanvas, coordinates: coords, animate: false });
-  map.addLayer({ id: 'radar', type: 'raster', source: 'radar', paint: { 'raster-opacity': 0.85, 'raster-fade-duration': 0, 'raster-resampling': 'linear' } }, map.getLayer('strikes') ? 'strikes' : labelLayer());
+  map.addLayer({ id: 'radar', type: 'raster', source: 'radar', paint: { 'raster-opacity': X.radarOpacity ? X.radarOpacity() : 0.85, 'raster-fade-duration': 0, 'raster-resampling': 'linear' } }, map.getLayer('strikes') ? 'strikes' : labelLayer());
 }
 function removeRadar() { const map = X.map; if (map.getLayer('radar')) map.removeLayer('radar'); if (map.getSource('radar')) map.removeSource('radar'); O.frameKey = ''; }
 
@@ -276,9 +276,11 @@ async function renderExport(kind) {
 function openExport(btn) {
   const pop = $('exportPop');
   pop.innerHTML = `<span class="kicker" style="padding:4px 6px 6px">Export image</span>` + Object.entries(EXPORTS).map(([k, [w, h, l]]) =>
-    `<button class="item" data-exp="${k}"><span class="ratio" style="aspect-ratio:${w}/${h}"></span><span><b>${l}</b><small class="muted" style="display:block;font-weight:500">${w} × ${h} PNG</small></span></button>`).join('');
+    `<button class="item" data-exp="${k}"><span class="ratio" style="aspect-ratio:${w}/${h}"></span><span><b>${l}</b><small class="muted" style="display:block;font-weight:500">${w} × ${h} PNG</small></span></button>`).join('')
+    + (X.openEmbed ? `<button class="item" data-embed><span class="ratio" style="aspect-ratio:4/3;display:grid;place-items:center;font-size:10px;font-weight:800">&lt;/&gt;</span><span><b>Embed on a website</b><small class="muted" style="display:block;font-weight:500">Copy an iframe code</small></span></button>` : '');
   X.openPop(pop, btn);
   pop.querySelectorAll('[data-exp]').forEach(b => b.onclick = () => { pop.classList.add('hidden'); exportPng(b.dataset.exp); });
+  pop.querySelector('[data-embed]') && (pop.querySelector('[data-embed]').onclick = () => { pop.classList.add('hidden'); X.openEmbed(); });
 }
 
 // ------------------------------------------------------------------ place search
@@ -333,7 +335,7 @@ let changeTok = 0;
 async function renderChange(run, geo, prev) {
   const tok = ++changeTok, els = document.querySelectorAll('[data-changed]');
   const set = (h) => els.forEach(e => { e.innerHTML = h; e.classList.toggle('hidden', !h); });
-  if (!prev) { set(''); return; }
+  if (!prev || X.showChanged && !X.showChanged()) { set(''); return; }
   try {
     const pg = await X.fetchGeo(prev); if (tok !== changeTok) return;
     const a = stats(geo), b = stats(pg), dp = Math.round(a.peak) - Math.round(b.peak);
@@ -372,7 +374,8 @@ export function openShortcuts() {
 export function initExtras(ctx) {
   X = ctx;
   window.__hocoRenderExport = (k) => renderExport(k || 'landscape').then(c => c.toDataURL('image/png'));   // for checking the layout
-  try { const l = JSON.parse(localStorage.getItem('hocoLayers') || '{}'); O.radar = !!l.radar; O.strikes = !!l.strikes; } catch (e) { }
+  if (X.embedLayers) { O.radar = X.embedLayers.includes('radar'); O.strikes = X.embedLayers.includes('strikes'); }
+  else { try { const l = JSON.parse(localStorage.getItem('hocoLayers') || '{}'); O.radar = !!l.radar; O.strikes = !!l.strikes; } catch (e) { } }
   $('layersBtn').onclick = (e) => { e.stopPropagation(); renderLayersPop(); X.openPop($('layersPop'), $('layersBtn')); const p = $('layersPop'), r = $('layersBtn').getBoundingClientRect();
     if (innerWidth > 640) { p.style.left = ''; p.style.right = (innerWidth - r.left + 8) + 'px'; p.style.top = r.top + 'px'; } else { p.style.left = ''; p.style.right = '10px'; p.style.top = ''; p.style.bottom = (innerHeight - r.top + 8) + 'px'; } };
   document.querySelectorAll('[data-export]').forEach(b => b.onclick = (e) => { e.stopPropagation(); openExport(b); });
@@ -386,7 +389,7 @@ export function initExtras(ctx) {
   $('obsClose').onclick = () => { setLayer('radar', false); setLayer('strikes', false); };
   X.map.on('moveend', () => { if (O.radar) drawRadar(); });
   // cookie banner on first visit
-  if (!consent()) $('cookieBar').classList.remove('hidden');
+  if (!consent() && !X.embed) $('cookieBar').classList.remove('hidden');
   $('ckAll').onclick = () => saveConsent({ stats: true, ads: true });
   $('ckEssential').onclick = () => saveConsent({ stats: false, ads: false });
   $('ckManage').onclick = openCookies;

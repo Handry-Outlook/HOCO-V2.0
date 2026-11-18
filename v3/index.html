@@ -279,6 +279,51 @@ kbd{min-width:52px;text-align:center;padding:4px 8px;border-radius:8px;backgroun
 .offline{position:fixed;top:88px;left:50%;transform:translateX(-50%);z-index:16;padding:6px 14px;border-radius:999px;background:var(--text);color:var(--bg);font-size:13px;font-weight:600;box-shadow:var(--shadow)}
 @media (min-width:1101px){ body.tools-open .obsbar{left:16px;transform:none;width:min(680px,calc(100vw - 488px))} }
 
+/* stage 4 */
+.setgrp{display:flex;flex-direction:column;gap:8px;padding:6px 0}
+.setgrp output{font-size:13px;font-weight:700}
+.dialog .grid2 select,.dialog select,.dialog textarea{height:42px;padding:0 12px;border-radius:10px;border:1px solid var(--border);background:var(--chip);font-size:14px;width:100%}
+.dialog textarea.code{height:auto;padding:10px 12px;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;resize:none}
+.dialog .field{display:flex;flex-direction:column;gap:6px}
+.dialog .lead{margin:0;color:var(--muted);font-size:14px;line-height:1.45}
+.alertbox{padding:10px 12px;border-radius:12px;border:1px solid var(--border)}
+.steps{margin:0;padding-left:20px;line-height:1.7}
+.compare{position:fixed;inset:84px 0 0;z-index:30;display:flex;flex-direction:column;gap:10px;padding:0 16px 16px;background:var(--bg)}
+.cmp-grid{flex:1;min-height:0;display:grid;gap:10px;grid-template-columns:1fr 1fr}
+.compare[data-n="4"] .cmp-grid{grid-template-rows:1fr 1fr}
+.cmp-pane{position:relative;border-radius:16px;overflow:hidden;border:1px solid var(--border);min-height:0}
+.cmp-map{position:absolute;inset:0}
+.cmp-head{position:absolute;top:10px;left:10px;right:10px;display:flex;align-items:center;gap:10px;padding:8px 10px;z-index:2}
+.cmp-head select{flex:none;max-width:60%;height:36px;padding:0 10px;border-radius:9px;border:1px solid var(--border);background:var(--chip);font-weight:600;font-size:13px}
+.cmp-peak{flex:1;min-width:0;font-size:13px;line-height:1.25;text-align:right}
+.cmp-peak b{font-size:16px}.cmp-peak small{display:block;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmp-bar{display:flex;align-items:center;gap:14px;padding:10px 12px;flex-wrap:wrap}
+.cmp-bar .seg{width:auto}
+.cmp-key{display:flex;align-items:center;gap:2px;margin-left:auto}.cmp-key i{width:14px;height:10px;display:inline-block}.cmp-key small{margin-left:8px;color:var(--muted);font-size:12px}
+body.comparing .dock,body.comparing .summary,body.comparing .ctrls,body.comparing .obsbar,body.comparing .topbar .type{display:none!important}
+.accbody{display:flex;flex-direction:column;gap:12px;margin-top:8px}
+.acc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.acc-card{padding:12px;border-radius:12px;background:var(--chip);display:flex;flex-direction:column;gap:4px}
+.acc-big{font-size:30px;font-weight:800;letter-spacing:-.02em}.acc-card>small{font-size:11px;color:var(--muted);line-height:1.3}
+.acc-row{display:flex;justify-content:space-between;font-size:13px;gap:6px}.acc-row span{color:var(--muted)}
+.relchart{width:100%;max-width:420px;color:var(--text)}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:14px;padding:4px 0}.check i{width:20px;height:20px;border-radius:999px;border:2px solid var(--border);flex:none;display:grid;place-items:center;font-style:normal;font-size:12px;font-weight:800}
+.check.ok i{background:var(--good);border-color:var(--good);color:#fff}.check small{display:block;color:var(--muted);font-size:12px}
+.coach{position:fixed;inset:0;z-index:80}
+.coach-hole{position:fixed;border-radius:14px;box-shadow:0 0 0 9999px rgba(7,13,22,.55);outline:2px solid var(--accent);pointer-events:none;transition:all .2s}
+.coach-card{position:fixed;padding:14px 16px;display:flex;flex-direction:column;gap:6px;background:var(--solid)}
+.coach-card b{font-size:16px}.coach-card p{margin:0 0 6px;font-size:14px;line-height:1.45;color:var(--muted)}
+.adslot{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:56px;border-radius:12px;overflow:hidden}
+.adslot.preview{border:1.5px dashed var(--border);color:var(--muted);font-size:12px;font-weight:600;text-align:center;padding:8px}
+.adslot.preview small{font-weight:500;font-size:11px}
+.embed-credit{display:none}
+body.embed .topbar,body.embed #toolsBtn,body.embed .summary .actions,body.embed .welcome,body.embed .cookiebar,body.embed #locateBtn,body.embed .runrow,body.embed .runcount,body.embed .sheet-more .actions{display:none!important}
+body.embed .embed-credit{display:inline-flex;position:fixed;top:10px;right:10px;z-index:20;align-items:center;gap:8px;padding:6px 12px 6px 6px;font-size:13px;font-weight:700;text-decoration:none;color:var(--text)}
+body.embed .embed-credit img{width:26px;height:26px;border-radius:7px}
+body.embed .summary{top:10px;left:10px}
+body.embed .ctrls{top:56px}
+body.embed .tools{display:none!important}
+
 /* iPad */
 @media (max-width:1100px){
   .topbar .brand small{display:none}
@@ -310,6 +355,15 @@ kbd{min-width:52px;text-align:center;padding:4px 8px;border-radius:8px;backgroun
   body.custom .obsbar{bottom:calc(var(--dockh,120px) + 10px)}
   .offline{top:124px}
   .keys{grid-template-columns:1fr}
+  .compare{inset:auto 0 0;top:72px;padding:0 8px 8px;gap:8px}
+  .cmp-grid{grid-template-columns:1fr;grid-template-rows:1fr 1fr;gap:8px}
+  .compare[data-n="4"] .cmp-grid{grid-template-columns:1fr 1fr}
+  .compare[data-n="4"] .cmp-head{flex-direction:column;align-items:stretch;gap:4px;padding:6px}
+  .compare[data-n="4"] .cmp-head select{max-width:none}.compare[data-n="4"] .cmp-peak{text-align:left}
+  .cmp-key,.cmp-bar>b{display:none}
+  .cmp-bar{gap:8px;padding:8px}.cmp-bar .btn.primary{margin-left:auto}
+  .acc-grid{grid-template-columns:1fr}
+  body.embed .ctrls{top:auto}
   .dock{left:0;right:0;bottom:0;border-radius:22px 22px 0 0;padding:8px 16px calc(18px + env(safe-area-inset-bottom));gap:12px;max-height:82dvh;overflow:auto}
   .dock-head{display:flex;flex-direction:column;gap:12px}
   .handle{align-self:center;width:60px;height:22px;border:none;background:transparent;display:flex;align-items:center;justify-content:center;padding:0}
@@ -332,6 +386,10 @@ kbd{min-width:52px;text-align:center;padding:4px 8px;border-radius:8px;backgroun
   .wrow{grid-template-columns:minmax(0,1fr) auto minmax(70px,1fr) 36px;gap:8px}
 }
 </style>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#283673">
+<meta name="apple-mobile-web-app-capable" content="yes">
 </head>
 <body>
 <div id="map" aria-label="Thunderstorm risk map"></div>
@@ -363,11 +421,13 @@ kbd{min-width:52px;text-align:center;padding:4px 8px;border-radius:8px;backgroun
   <div class="facts"><div><small>Valid</small><strong id="sumValid">–</strong></div><div><small>Issued</small><strong id="sumIssued">–</strong></div></div>
   <div class="legend" aria-label="Colour key: chance of lightning within 20 km"><div class="muted" style="font-size:12px;margin-bottom:6px">Chance of lightning within 20 km</div><div class="bar" id="legendBar"></div><div class="ticks"><span>5</span><span>15</span><span>30</span><span>50</span><span>70</span><span>90%</span></div></div>
   <div class="actions"><button class="btn" id="shareBtn">Share</button><button class="btn" data-export aria-haspopup="menu">Export</button></div>
+  <div class="adslot hidden" data-ad="summary"></div>
 </aside>
 
 <div class="ctrls">
   <button class="btn" id="zoomIn" aria-label="Zoom in"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
   <button class="btn" id="zoomOut" aria-label="Zoom out"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+  <button class="btn" data-compare aria-label="Compare maps side by side" title="Compare maps (C)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="8" height="16" rx="2"/><rect x="13" y="4" width="8" height="16" rx="2"/></svg></button>
   <button class="btn" id="layersBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Map layers: radar and lightning"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></svg></button>
   <button class="btn" id="locateBtn" aria-label="Show my location"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
 </div>
@@ -396,7 +456,8 @@ kbd{min-width:52px;text-align:center;padding:4px 8px;border-radius:8px;backgroun
     <div class="changed hidden" data-changed></div>
     <div class="facts" style="display:grid"><div><small>Valid</small><strong id="sheetValid">–</strong></div><div><small>Issued</small><strong id="sheetIssued">–</strong></div></div>
     <div class="legend"><div class="muted" style="font-size:12px;margin-bottom:6px">Chance of lightning within 20 km</div><div class="bar" id="legendBar2"></div><div class="ticks"><span>5</span><span>15</span><span>30</span><span>50</span><span>70</span><span>90%</span></div></div>
-    <div class="actions"><button class="btn" id="shareBtn2">Share</button><button class="btn" data-export aria-haspopup="menu">Export</button></div>
+    <div class="actions"><button class="btn" id="shareBtn2">Share</button><button class="btn" data-export aria-haspopup="menu">Export</button><button class="btn" data-compare>Compare</button></div>
+    <div class="adslot hidden" data-ad="sheet"></div>
   </div>
 </section>
 
@@ -422,6 +483,9 @@ kbd{min-width:52px;text-align:center;padding:4px 8px;border-radius:8px;backgroun
 <div class="cookiebar card hidden" id="cookieBar" role="region" aria-label="Cookies"><p>HOCO uses essential storage to keep you signed in and remember your settings. With your OK we'd also use anonymous usage stats and, later, ads. <a href="privacy.html">Privacy policy</a></p>
   <div class="chips"><button class="btn" id="ckManage">Manage</button><button class="btn" id="ckEssential">Essential only</button><button class="btn primary" id="ckAll">Accept all</button></div></div>
 <div class="dlgwrap hidden" id="cookieDlg"></div>
+<div class="compare hidden" id="compare" aria-label="Compare maps"></div>
+<div class="coach hidden" id="coach"></div>
+<a class="embed-credit card" id="embedCredit" target="_blank" rel="noopener"><img src="icons/icon-192.png" alt="">HOCO by Handry Outlook ↗</a>
 <div class="pop hidden" id="accountPop" role="menu" aria-label="Account"></div>
 <div class="card empty hidden" id="empty"><b id="emptyTitle">No runs yet</b><span class="muted" id="emptyText"></span></div>
 
@@ -485,9 +549,15 @@ const PLACES = [['London',51.51,-0.13],['Brighton',50.82,-0.14],['Southampton',5
 // ---------- state ----------
 let Tools = { onRuns() {}, signedOut() {}, openTab() {} };
 let Extras = { onShown() {}, onEmpty() {}, onStyle() {}, openShortcuts() {}, openCookies() {} };
+let Stage4 = { canInstall: () => false, checkAlerts() {}, renderAds() {}, startTutorial() {}, openSettings() {}, openAccuracy() {}, install() {}, openEmbed() {} };
+const SETTINGS = (() => { try { return { mapStyle: 'standard', opacity: 1, radarOpacity: 0.85, region: '', changed: true, ...JSON.parse(localStorage.getItem('hocoSettings') || '{}') }; } catch (e) { return { mapStyle: 'standard', opacity: 1, radarOpacity: 0.85, region: '', changed: true }; } })();
+const EMBED = new URLSearchParams(location.search).get('embed') === '1';
+if (EMBED) document.body.classList.add('embed');
 const S = { custom: null, theme: localStorage.getItem('hocoTheme') || 'auto', product: localStorage.getItem('hocoAutoProduct') === 'ai' ? 'ai' : 'traditional',
   region: 'England', day: 0, follow: [true, true, true], runs: [], byDay: [[],[],[]], idx: [null,null,null], current: null, geo: null, peaks: {}, role: 'guest' };
 const params = new URLSearchParams(location.search);
+if (SETTINGS.region && REGIONS.some(r => r.id === SETTINGS.region && r.west !== undefined)) S.region = SETTINGS.region;
+if (EMBED && ['light', 'dark'].includes(params.get('theme'))) S.theme = params.get('theme'); else if (EMBED) S.theme = 'auto';
 if (params.get('region') && REGIONS.some(r => r.id === params.get('region') && r.west !== undefined)) S.region = params.get('region');
 if (['0','1','2'].includes(params.get('day'))) S.day = +params.get('day');
 if (params.get('view') === 'ai') S.product = 'ai';
@@ -553,15 +623,29 @@ const MOON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke
 function applyTheme(first) {
   const t = effTheme(); document.documentElement.dataset.theme = t; $('themeBtn').innerHTML = t === 'dark' ? SUN : MOON;
   $('themeBtn').title = S.theme === 'auto' ? 'Theme: follows your device' : `Theme: ${S.theme}`;
-  if (!first && map) { map.setStyle(t === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11'); }
+  if (!first && map) map.setStyle(styleUrl());
+}
+function styleUrl() {
+  if (SETTINGS.mapStyle === 'satellite') return 'mapbox://styles/mapbox/satellite-streets-v12';
+  if (SETTINGS.mapStyle === 'outdoors') return 'mapbox://styles/mapbox/outdoors-v12';
+  return effTheme() === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11';
+}
+const fillOp = (g) => Math.min(1, (g?.properties?.hoco_layout === 'bands_v2' ? 0.7 : 0.32) * (SETTINGS.opacity || 1));
+function setTheme(t) { S.theme = t; if (!EMBED) localStorage.setItem('hocoTheme', t); applyTheme(); }
+function applySettings(s, patch) {
+  Object.assign(SETTINGS, s);
+  if ('mapStyle' in patch) map.setStyle(styleUrl());
+  if ('opacity' in patch && map.getLayer('hoco-fill')) map.setPaintProperty('hoco-fill', 'fill-opacity', fillOp(S.geo));
+  if ('radarOpacity' in patch && map.getLayer('radar')) map.setPaintProperty('radar', 'raster-opacity', s.radarOpacity);
+  if ('changed' in patch) document.querySelectorAll('[data-changed]').forEach(e => e.classList.toggle('hidden', !s.changed || !e.innerHTML));
 }
 media.addEventListener?.('change', () => S.theme === 'auto' && applyTheme());
-$('themeBtn').onclick = () => { S.theme = effTheme() === 'dark' ? 'light' : 'dark'; localStorage.setItem('hocoTheme', S.theme); applyTheme(); };
+$('themeBtn').onclick = () => setTheme(effTheme() === 'dark' ? 'light' : 'dark');
 applyTheme(true);
 ['legendBar', 'legendBar2'].forEach(id => $(id).innerHTML = BANDS.map(b => `<i style="background:${b.fill}" title="${bandLabel(b)}"></i>`).join(''));
 
 // ---------- map ----------
-const map = new mapboxgl.Map({ container: 'map', style: effTheme() === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11',
+const map = new mapboxgl.Map({ container: 'map', style: styleUrl(),
   bounds: [[-10.234, 48.788], [5.471, 56.578]], fitBoundsOptions: { padding: innerWidth <= 640 ? { top: 120, bottom: 270, left: 10, right: 10 } : { top: 90, bottom: 220, left: innerWidth > 1100 ? 360 : 20, right: 20 } }, attributionControl: false, logoPosition: 'bottom-left', projection: 'mercator', preserveDrawingBuffer: true });
 map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-left');
 // Keep the Mapbox logo and credits visible: lift them above the dock / phone sheet when those cover the corner.
@@ -581,7 +665,7 @@ function addLayers() {
   const banded = S.geo?.properties?.hoco_layout === 'bands_v2';
   const label = map.getStyle().layers.find(l => l.type === 'symbol' && l.layout && l.layout['text-field'])?.id;
   if (!map.getLayer('hoco-fill')) map.addLayer({ id: 'hoco-fill', type: 'fill', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'polygon'],
-    paint: { 'fill-color': ['coalesce', ['get', 'fill'], colorExpr()], 'fill-opacity': banded ? 0.7 : 0.32, 'fill-antialias': true } }, label);
+    paint: { 'fill-color': ['coalesce', ['get', 'fill'], colorExpr()], 'fill-opacity': fillOp(S.geo), 'fill-antialias': true } }, label);
   if (!map.getLayer('hoco-line')) map.addLayer({ id: 'hoco-line', type: 'line', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'polygon'],
     paint: { 'line-color': effTheme() === 'dark' ? 'rgba(8,16,28,0.7)' : 'rgba(16,34,56,0.55)', 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.4, 8, 1.1], 'line-opacity': 0.8 } }, label);
   if (!map.getLayer('hoco-points')) map.addLayer({ id: 'hoco-points', type: 'circle', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'point'], paint: { 'circle-radius': 12, 'circle-opacity': 0 } });
@@ -650,7 +734,7 @@ document.querySelectorAll('[data-view-back]').forEach(b => b.onclick = () => S.c
 function setGeo(g) {
   S.geo = g; const src = map.getSource('hoco');
   if (src) src.setData(g); else if (map.isStyleLoaded()) addLayers();
-  if (map.getLayer('hoco-fill')) map.setPaintProperty('hoco-fill', 'fill-opacity', g?.properties?.hoco_layout === 'bands_v2' ? 0.7 : 0.32);
+  if (map.getLayer('hoco-fill')) map.setPaintProperty('hoco-fill', 'fill-opacity', fillOp(g));
 }
 const LABELS = { ai: 'AI HOCO', automated: 'AUTO-HOCO', 'human-mimic': 'HOCO ENSEMBLE', manual: 'MANUAL HOCO' };
 // Show one chosen run (an ensemble, a manual run, an archived forecast) instead of the live day view.
@@ -722,7 +806,9 @@ async function renderAll() {
     $('sumPeak').textContent = pk.risk >= 1 ? `${Math.round(pk.risk)}%` : '<5%';
     $('sumWhere').textContent = pk.risk >= 5 ? where : 'No notable risk';
     $('sheetPeak').textContent = pk.risk >= 5 ? `Peak ${Math.round(pk.risk)}% ${where}` : 'No notable thunderstorm risk';
-    const u = new URL(location.href); u.search = ''; u.searchParams.set('region', S.region); u.searchParams.set('day', S.day); u.searchParams.set('run', run.id); if (S.product === 'ai') u.searchParams.set('view', 'ai');
+    const u = new URL(location.href); u.search = '';
+    if (EMBED) { u.searchParams.set('embed', '1'); ['theme', 'layers'].forEach(k => params.get(k) && u.searchParams.set(k, params.get(k))); }
+    u.searchParams.set('region', S.region); u.searchParams.set('day', S.day); if (!EMBED) u.searchParams.set('run', run.id); if (S.product === 'ai') u.searchParams.set('view', 'ai');
     history.replaceState(null, '', u);
     renderDays();
   } catch (e) { if (tok === loadToken) toast('Could not load this run'); }
@@ -757,8 +843,11 @@ $('accountBtn').onclick = (e) => { e.stopPropagation();
   const u = auth.currentUser; const role = { developer: 'Developer', exclusive: 'Exclusive', external_developer: 'External developer', normal: 'Normal', guest: 'Guest' }[S.role] || S.role;
   $('accountPop').innerHTML = `<div style="padding:8px 8px 12px;border-bottom:1px solid var(--border);margin-bottom:4px"><b style="font-size:14px">${u?.email || ''}</b><div class="muted" style="font-size:12px">${role}</div></div>
     <button class="item" id="acctRuns">My runs</button>
+    <button class="item" id="acctSettings">Settings and alerts</button>
+    <button class="item" id="acctAcc">Accuracy and AI HOCO status</button>
+    ${Stage4.canInstall() ? '<button class="item" id="acctInstall">Install the HOCO app</button>' : ''}
+    <button class="item" id="acctTour">Show the tutorial</button>
     <a class="item btn" style="justify-content:flex-start;border:none;background:transparent;height:44px" href="../index.html">Classic HOCO site</a>
-    <button class="item" id="themeAuto">Theme: follow my device</button>
     <button class="item" id="acctKeys">Keyboard shortcuts</button>
     <button class="item" id="acctCookies">Cookie settings</button>
     <button class="item" id="signOutBtn" style="color:#b42318">Sign out</button>
@@ -769,7 +858,10 @@ $('accountBtn').onclick = (e) => { e.stopPropagation();
   $('acctRuns').onclick = () => { pop.classList.add('hidden'); Tools.openTab('runs', 'mine'); };
   $('acctKeys').onclick = () => { pop.classList.add('hidden'); Extras.openShortcuts(); };
   $('acctCookies').onclick = () => { pop.classList.add('hidden'); Extras.openCookies(); };
-  $('themeAuto').onclick = () => { S.theme = 'auto'; localStorage.setItem('hocoTheme', 'auto'); applyTheme(); pop.classList.add('hidden'); };
+  $('acctSettings').onclick = () => { pop.classList.add('hidden'); Stage4.openSettings(); };
+  $('acctAcc').onclick = () => { pop.classList.add('hidden'); Stage4.openAccuracy(); };
+  $('acctTour').onclick = () => { pop.classList.add('hidden'); Stage4.startTutorial(true); };
+  $('acctInstall') && ($('acctInstall').onclick = () => { pop.classList.add('hidden'); Stage4.install(); });
 };
 async function share() {
   const url = location.href, text = `HOCO thunderstorm outlook · ${S.region} · Day ${S.day}`;
@@ -790,28 +882,63 @@ $('registerBtn').onclick = async () => { $('authErr').textContent = '';
   try { await createUserWithEmailAndPassword(auth, $('email').value.trim(), $('password').value); } catch (err) { $('authErr').textContent = err.code === 'auth/email-already-in-use' ? 'That email already has an account. Sign in instead.' : 'Could not register. Use a valid email and a password of 6+ characters.'; } };
 
 let unsub = null;
+function runsFor(d, type) {
+  const today = new Date(); today.setHours(0, 0, 0, 0); const key = dateKey(addDays(today, d));
+  return S.runs.filter(r => r.type === type && r.status !== 'pending' && regionMatches(S.region, r) && startOf(r) && dateKey(startOf(r)) === key &&
+    (r.geojsonUrl || r.inlineGeojson || r.inlineGeojsonText || r.geojson || r.ensembleGeojson)).sort((a, b) => (created(a)?.getTime() || 0) - (created(b)?.getTime() || 0));
+}
+function riskAtGeo(g, lon, lat) {
+  let best = 0, near = 0, bd = 1e9;
+  for (const f of g.features) { const gm = f.geometry; if (!gm || gm.type !== 'Point') continue;
+    const dx = (gm.coordinates[0] - lon) * Math.cos(lat * Math.PI / 180), dy = gm.coordinates[1] - lat, d = dx * dx + dy * dy;
+    if (d < bd) { bd = d; near = riskOf(f.properties); } if (d < 0.0081) best = Math.max(best, riskOf(f.properties)); }
+  if (bd < 1e9) return Math.max(best, bd < 0.03 ? near : 0);
+  let r = 0; for (const f of g.features) { const gm = f.geometry; if (gm?.type !== 'Polygon') continue; const ring = gm.coordinates[0]; let ins = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if ((yi > lat) !== (yj > lat) && lon < (xj - xi) * (lat - yi) / (yj - yi) + xi) ins = !ins; }
+    if (ins) r = Math.max(r, riskOf(f.properties)); }
+  return r;
+}
+let firstLoad = true;
+function startData() {
+  if (unsub) return;
+  let first = true;
+  unsub = onSnapshot(query(collection(db, 'hoco_requests'), orderBy('createdAt', 'desc'), limit(300)), (snap) => {
+    S.runs = []; snap.forEach(d => S.runs.push({ id: d.id, ...d.data() }));
+    buildDays();
+    if (first) { first = false; $('skel').classList.add('hidden'); $('dock').classList.remove('hidden'); measureDock(); if (S.region !== 'England') fitRegion();
+      if (firstLoad && !EMBED) { firstLoad = false; Stage4.startTutorial(); } }
+    // keep the viewer on the latest run when a new one arrives, unless they chose an older one
+    for (let d = 0; d < 3; d++) if (S.follow[d]) S.idx[d] = null;
+    loadPeaks(); renderAll(); Tools.onRuns();
+    if (!EMBED) Stage4.checkAlerts([0, 1, 2].map(d => S.byDay[d].at(-1)));
+  }, (err) => { $('skel').classList.add('hidden'); toast('Could not load runs. Try the classic site.'); console.error(err); });
+}
+if (EMBED) { $('welcome').classList.add('hidden'); const u = new URL(location.href); u.searchParams.delete('embed'); u.searchParams.delete('theme'); u.searchParams.delete('layers'); $('embedCredit').href = u.href; startData(); }
 onAuthStateChanged(auth, async (user) => {
+  if (EMBED) return;
   if (unsub) { unsub(); unsub = null; }
   if (!user) { Tools.signedOut(); S.role = 'guest'; $('welcome').classList.remove('hidden'); $('skel').classList.add('hidden'); $('dock').classList.add('hidden'); $('summary').classList.add('hidden'); $('accountBtn').textContent = '?'; return; }
   $('welcome').classList.add('hidden'); $('skel').classList.remove('hidden');
   $('accountBtn').textContent = (user.email || '?')[0].toUpperCase();
   try { const u = await getDoc(doc(db, 'users', user.uid)); S.role = u.exists() ? (u.data().role || 'normal') : 'normal'; } catch (e) { S.role = 'normal'; }
-  let first = true;
-  unsub = onSnapshot(query(collection(db, 'hoco_requests'), orderBy('createdAt', 'desc'), limit(300)), (snap) => {
-    S.runs = []; snap.forEach(d => S.runs.push({ id: d.id, ...d.data() }));
-    buildDays();
-    if (first) { first = false; $('skel').classList.add('hidden'); $('dock').classList.remove('hidden'); measureDock(); if (S.region !== 'England') fitRegion(); }
-    // keep the viewer on the latest run when a new one arrives, unless they chose an older one
-    for (let d = 0; d < 3; d++) if (S.follow[d]) S.idx[d] = null;
-    loadPeaks(); renderAll(); Tools.onRuns();
-  }, (err) => { $('skel').classList.add('hidden'); toast('Could not load runs. Try the classic site.'); console.error(err); });
+  Stage4.renderAds();
+  startData();
 });
 
 // ---------- extras (radar, strikes, export, search, change, cookies) ----------
-import('./extras.js?v=6').then((m) => {
-  m.initExtras({ map, S, BANDS, REGIONS, TYPE_LABEL: LABELS, toast, openPop, measureDock, fetchGeo, peakOf, riskOf, bandFor, bandLabel, created, startOf, endOf, hhmm, dayName, dayDate });
+import('./extras.js?v=7').then((m) => {
+  m.initExtras({ map, S, BANDS, REGIONS, TYPE_LABEL: LABELS, toast, openPop, measureDock, fetchGeo, peakOf, riskOf, bandFor, bandLabel, created, startOf, endOf, hhmm, dayName, dayDate,
+    embed: EMBED, embedLayers: EMBED ? (params.get('layers') || '') : null, radarOpacity: () => SETTINGS.radarOpacity, showChanged: () => SETTINGS.changed !== false, openEmbed: EMBED ? null : () => Stage4.openEmbed() });
   Extras = m;
   if (S.custom || S.current) m.onShown(S.custom || S.current, S.geo, null);
+}).catch((e) => console.error(e));
+
+// ---------- stage 4 (settings, compare, accuracy, alerts, install, tutorial, embed, ads) ----------
+import('./stage4.js?v=1').then((m) => {
+  m.initStage4({ map, S, BANDS, REGIONS, db, storage, doc, getDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, nearestPlace,
+    colorExpr, styleUrl, applySettings, setTheme, setProduct, runsFor, riskAt: riskAtGeo, embed: EMBED, goDay: (d) => { S.day = d; clearCustom(); renderAll(); } });
+  Stage4 = m;
+  if (S.role === 'developer') m.renderAds();
 }).catch((e) => console.error(e));
 
 // ---------- tools (runs, ensemble, manual run, developer) ----------
