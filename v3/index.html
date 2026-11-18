@@ -253,7 +253,7 @@ body.custom .dock-row,body.custom .dock .sep,body.custom .runrow,body.custom .ru
 .obsbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--dockh,170px) + 26px);width:min(680px,calc(100vw - 32px));z-index:11;display:flex;align-items:center;gap:12px;padding:10px 12px}
 body.custom .obsbar{bottom:16px}
 .obs-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-.obs-mid b{font-size:15px}.obs-mid small{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.obs-mid b{font-size:15px;white-space:nowrap}.obs-mid .rowbetween small{min-width:0}.obs-mid small{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .obsbar .btn.icon{width:40px;height:40px;flex:none}
 .obsbar .ticks2{font-size:11px}
 .pin{width:22px;height:30px;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 30'%3E%3Cpath d='M11 1C5.5 1 1 5.3 1 10.8 1 18 11 29 11 29s10-11 10-18.2C21 5.3 16.5 1 11 1z' fill='%232f5fe0' stroke='%23fff' stroke-width='2'/%3E%3Ccircle cx='11' cy='11' r='3.6' fill='%23fff'/%3E%3C/svg%3E");filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
@@ -808,7 +808,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ---------- extras (radar, strikes, export, search, change, cookies) ----------
-import('./extras.js?v=5').then((m) => {
+import('./extras.js?v=6').then((m) => {
   m.initExtras({ map, S, BANDS, REGIONS, TYPE_LABEL: LABELS, toast, openPop, measureDock, fetchGeo, peakOf, riskOf, bandFor, bandLabel, created, startOf, endOf, hhmm, dayName, dayDate });
   Extras = m;
   if (S.custom || S.current) m.onShown(S.custom || S.current, S.geo, null);

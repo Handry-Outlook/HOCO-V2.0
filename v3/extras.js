@@ -164,7 +164,8 @@ function setObsInfo(t) { const el = $('obsInfo'); if (el) { el.dataset.msg = t |
 function setObsCount(n) { const el = $('obsInfo'); if (el) { el.dataset.count = n; renderObsInfo(); } }
 function renderObsInfo() {
   const el = $('obsInfo'); if (!el) return; const msg = el.dataset.msg, n = el.dataset.count;
-  el.textContent = msg || (O.strikes ? `${n ?? 0} strike${+n === 1 ? '' : 's'} so far${O.radar ? ' · radar' : ''}` : 'Radar');
+  const narrow = innerWidth <= 640;
+  el.textContent = msg || (O.strikes ? `${n ?? 0} strike${+n === 1 ? '' : 's'}${narrow ? '' : ' so far'}${O.radar && !narrow ? ' · radar' : ''}` : 'Radar');
 }
 function fmtObs(ms) { const d = new Date(ms); return `${d.toLocaleDateString('en-GB', { weekday: 'short' })} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 function syncObs() {
