@@ -100,9 +100,9 @@ function drawCompare() {
       <div class="cx-title"><b>Compare maps</b><small>${esc(reg?.name || X.S.region)} · ${n} map${n > 1 ? 's' : ''}</small></div>
       <div class="cx-tools">
         <div class="seg" role="group" aria-label="Forecast day for Traditional and AI maps">${[0, 1, 2].map(d => { const x = new Date(dt); x.setDate(x.getDate() - C.day + d); return `<button data-cday="${d}" aria-pressed="${C.day === d}" title="${X.dayDate(x)}">Day ${d}</button>`; }).join('')}</div>
-        ${n === 2 ? `<div class="seg" role="group" aria-label="Layout"><button data-cmode="side" aria-pressed="${C.mode === 'side'}">Side by side</button><button data-cmode="swipe" aria-pressed="${C.mode === 'swipe'}">Swipe</button></div>` : ''}
-        <button class="btn" id="cmpAdd" ${n >= 4 ? 'disabled title="Up to 4 maps"' : ''}>+ Add map</button>
-        <label class="cx-sync" title="Pan and zoom all maps together"><input type="checkbox" id="cmpLink" ${C.link || C.mode === 'swipe' ? 'checked' : ''} ${C.mode === 'swipe' ? 'disabled' : ''}><span>Move together</span></label>
+        ${n === 2 ? `<div class="seg" role="group" aria-label="Layout"><button data-cmode="side" aria-pressed="${C.mode === 'side'}">Side<span class="cx-long"> by side</span></button><button data-cmode="swipe" aria-pressed="${C.mode === 'swipe'}">Swipe</button></div>` : ''}
+        <button class="btn" id="cmpAdd" ${n >= 4 ? 'disabled title="Up to 4 maps"' : 'title="Add a map"'} aria-label="Add a map">+<span class="cx-long">&nbsp;Add map</span></button>
+        <label class="cx-sync" title="Pan and zoom all maps together"><input type="checkbox" id="cmpLink" ${C.link || C.mode === 'swipe' ? 'checked' : ''} ${C.mode === 'swipe' ? 'disabled' : ''}><span>Move<span class="cx-long"> together</span></span></label>
       </div>
       <div class="cx-key" aria-label="Colour key: chance of lightning within 20 km"><span class="cx-bar">${X.BANDS.map(b => `<i style="background:${b.fill}"></i>`).join('')}</span><span class="cx-ticks"><span>5%</span><span>50%</span><span>90%</span></span></div>
       <button class="btn primary" id="cmpClose">Done</button>
@@ -116,6 +116,8 @@ function drawCompare() {
   C.panes.forEach((id, i) => {
     const m = new mapboxgl.Map({ container: `cmpMap${i}`, style: X.styleUrl(), bounds, fitBoundsOptions: { padding: 10 }, attributionControl: false, logoPosition: 'bottom-left', projection: 'mercator', dragRotate: false, pitchWithRotate: false });
     m.touchZoomRotate.disableRotation();
+    let moved = false; m.once('dragstart', () => { moved = true; }); m.once('zoomstart', (e) => { if (e.originalEvent) moved = true; });
+    try { new ResizeObserver(() => { m.resize(); if (!moved && i === 0 && C.view) { C.syncing = true; m.fitBounds(C.view, { padding: 10, duration: 0 }); C.syncing = false; C.maps.forEach(o => { if (o !== m) o.jumpTo({ center: m.getCenter(), zoom: m.getZoom() }); }); } }).observe($(`cmpMap${i}`)); } catch (e) { /* older browsers */ }
     if (i === C.panes.length - 1) m.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right');
     m.on('style.load', () => { addPaneLayers(m); loadPane(i); });
     m.on('move', () => { if (C.syncing) return; if (i === 0 || C.link || C.mode === 'swipe') C.view = m.getBounds(); if (!C.link && C.mode !== 'swipe') return; C.syncing = true; C.maps.forEach(o => { if (o !== m) o.jumpTo({ center: m.getCenter(), zoom: m.getZoom() }); }); C.syncing = false; });
