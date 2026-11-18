@@ -75,7 +75,10 @@ export function openCompare(n = 2, sel) {
     C.panes = (n === 4 ? [latest(0, 'automated'), latest(1, 'automated'), latest(2, 'automated'), latest(day, 'ai') || prev(day, 'automated')]
       : [latest(day, 'automated'), latest(day, 'ai') || prev(day, 'automated')]).slice(0, n).filter(Boolean);
   }
-  C.view = X.map.getBounds();
+  // Start on the forecast region, or on what you were looking at if you had zoomed in further than that.
+  const reg = X.REGIONS.find(r => r.id === X.S.region && r.west !== undefined), rb = reg && [[reg.west, reg.south], [reg.east, reg.north]];
+  const fitZ = rb ? X.map.cameraForBounds(rb)?.zoom : null;
+  C.view = rb && (fitZ == null || X.map.getZoom() < fitZ + 0.6) ? rb : X.map.getBounds();
   drawCompare();
 }
 const CHEV = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
@@ -148,7 +151,7 @@ function openMenu(i, btn) {
   const row = (r, extraTxt) => { const c = X.created(r), pk = X.S.peaks?.[r.id];
     return `<button class="cx-row" role="menuitemradio" data-run="${esc(r.id)}" aria-checked="${r.id === cur}"><b>${c ? X.hhmm(c) : '–'}</b><span>${extraTxt || (c ? X.dayDate(c) : '')}</span><em>${pk != null ? (pk >= 5 ? Math.round(pk) + '%' : '<5%') : ''}</em></button>`; };
   const draw = () => {
-    const grp = (t, name) => { const list = X.runsFor(day, t).slice().reverse(); return list.length ? `<div class="cx-grp"><span class="kicker">${name}</span>${list.map((r, k) => row(r, k === 0 ? 'Latest' : `${k} run${k > 1 ? 's' : ''} earlier`)).join('')}</div>` : ''; };
+    const grp = (t, name) => { const list = X.runsFor(day, t).slice().reverse(); return list.length ? `<div class="cx-grp"><span class="kicker">${name}</span>${list.map((r, k) => row(r, k === 0 ? 'Latest' : X.dayDate(X.created(r)))).join('')}</div>` : ''; };
     const ens = ensembles();
     menu.innerHTML = `<div class="cx-mhead"><b>${i < C.panes.length ? `Map ${i + 1}` : 'Add a map'}</b><div class="seg" role="group">${[0, 1, 2].map(d => `<button data-mday="${d}" aria-pressed="${d === day}">Day ${d}</button>`).join('')}</div></div>
       <div class="cx-mbody">${grp('automated', 'Traditional')}${grp('ai', 'AI HOCO')}
@@ -160,8 +163,11 @@ function openMenu(i, btn) {
     $('cxMore').onclick = () => { menu.classList.add('hidden'); C.pickInto = i; X.openTools('runs'); X.toast('Choose a run and press Load'); };
   };
   draw(); menu.classList.remove('hidden');
+  (async () => { const tok = C.menuTok = (C.menuTok || 0) + 1; const todo = ['automated', 'ai'].flatMap(t => X.runsFor(day, t).slice().reverse()).filter(r => X.S.peaks?.[r.id] == null);
+    for (const r of todo) { if (C.menuTok !== tok || menu.classList.contains('hidden')) return; try { X.S.peaks[r.id] = X.peakOf(await X.fetchGeo(r)).risk; } catch (e) { X.S.peaks[r.id] = 0; }
+      const em = menu.querySelector(`[data-run="${CSS.escape(r.id)}"] em`); if (em) { const pk = X.S.peaks[r.id]; em.textContent = pk >= 5 ? Math.round(pk) + '%' : '<5%'; } } })();
   const r = btn.getBoundingClientRect(), w = Math.min(340, innerWidth - 16), h = Math.min(menu.scrollHeight, innerHeight - 24);
-  let x = Math.min(r.left, innerWidth - w - 8), y = r.bottom + 6; if (y + h > innerHeight - 8) y = Math.max(8, innerHeight - h - 8);
+  let x = Math.min(r.left, innerWidth - w - 8), y = r.bottom + 6;
   Object.assign(menu.style, { left: Math.max(8, x) + 'px', top: y + 'px', width: w + 'px', maxHeight: (innerHeight - y - 8) + 'px' });
   menu.querySelector('[aria-checked="true"]')?.scrollIntoView({ block: 'nearest' });
 }
