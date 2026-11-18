@@ -466,6 +466,12 @@ i.exp{background:var(--track);border:1px solid var(--muted)}i.obs{background:var
 .installbar img{width:40px;height:40px;border-radius:10px}.installbar span{flex:1;display:flex;flex-direction:column;font-size:13px}.installbar small{color:var(--muted)}
 body.obs-on .installbar,body.comparing .installbar{display:none}
 
+/* keep the summary clear of the bottom bars on short screens */
+.summary{max-height:calc(100dvh - 92px - var(--dockh,170px) - var(--obsh,0px) - 56px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+body.custom .summary{max-height:calc(100dvh - 120px - var(--obsh,0px))}
+.okey small,.okey.rain>small{display:none}
+@media (min-height:820px) and (min-width:1101px){ .okey small,.okey.rain>small{display:block} }
+
 /* iPad */
 @media (max-width:1100px){
   .topbar .brand small{display:none}
