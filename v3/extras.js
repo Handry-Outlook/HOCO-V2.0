@@ -55,7 +55,8 @@ async function loadTile(frameMs, z, x, y) {
 const lon2x = (lon, z) => (lon + 180) / 360 * 2 ** z;
 const lat2y = (lat, z) => { const r = lat * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 2 ** z; };
 const radarCanvas = document.createElement('canvas');
-let radarToken = 0, radarBusy = false, radarAgain = false;
+const MAIN_RADAR = { canvas: radarCanvas, key: '', tok: 0, id: 'radar' };
+let radarBusy = false, radarAgain = false;
 async function drawRadar() {
   if (!O.radar || O.t == null) return;
   if (radarBusy) { radarAgain = true; return; }
@@ -63,9 +64,13 @@ async function drawRadar() {
   try { await drawRadarFrame(); } finally { radarBusy = false; if (radarAgain) { radarAgain = false; drawRadar(); } }
 }
 async function drawRadarFrame() {
-  const map = X.map, cv = map.getCanvas(), W = cv.clientWidth, H = cv.clientHeight; if (!W || !H) return;
+  await paintRadar(X.map, MAIN_RADAR, O.t, O.playing, setObsInfo);
+}
+// Draw one radar frame for any map (the main map, or a compare map). st keeps that map's canvas and state.
+export async function paintRadar(map, st, t, playing, info) {
+  const cv = map.getCanvas(), W = cv.clientWidth, H = cv.clientHeight; if (!W || !H || t == null) return;
   // backing resolution: screen pixels x device ratio (rounded up like RadarLoop), lighter while playing
-  let dpr = O.playing ? 1 : Math.max(1, Math.min(2, Math.ceil((devicePixelRatio || 1) - 1e-3)));
+  let dpr = playing ? 1 : Math.max(1, Math.min(2, Math.ceil((devicePixelRatio || 1) - 1e-3)));
   while ((W * dpr > 4096 || H * dpr > 4096 || W * H * dpr * dpr > 5e6) && dpr > 1) dpr -= 0.5;
   const Wd = Math.round(W * dpr), Hd = Math.round(H * dpr);
   const nw = map.unproject([0, 0]), se = map.unproject([W, H]);
@@ -77,12 +82,12 @@ async function drawRadarFrame() {
     tx0 = Math.floor(gx0 / 256) - 1; tx1 = Math.floor(gx1 / 256) + 1; ty0 = Math.max(0, Math.floor(gy0 / 256) - 1); ty1 = Math.min(2 ** z - 1, Math.floor(gy1 / 256) + 1);
     if ((tx1 - tx0 + 1) * (ty1 - ty0 + 1) <= 110 || z <= 3) break; z--;
   }
-  const frame = frameOf(O.t), key = `${frame}|${z}|${Wd}x${Hd}|${nw.lng.toFixed(4)},${nw.lat.toFixed(4)},${se.lng.toFixed(4)},${se.lat.toFixed(4)}`;
-  if (key === O.frameKey) return;
-  const tok = ++radarToken; setObsInfo('Loading radar…');
+  const frame = frameOf(t), key = `${frame}|${z}|${Wd}x${Hd}|${nw.lng.toFixed(4)},${nw.lat.toFixed(4)},${se.lng.toFixed(4)},${se.lat.toFixed(4)}`;
+  if (key === st.key) return;
+  const tok = ++st.tok; info?.('Loading radar…');
   const n = 2 ** z, jobs = [];
   for (let x = tx0; x <= tx1; x++) for (let y = ty0; y <= ty1; y++) { const wx = ((x % n) + n) % n; jobs.push(loadTile(frame, z, wx, y).then(d => [x, y, d])); }
-  const tiles = await Promise.all(jobs); if (tok !== radarToken) return;
+  const tiles = await Promise.all(jobs); if (tok !== st.tok) return;
   const cols = tx1 - tx0 + 1, grid = new Array(cols * (ty1 - ty0 + 1)).fill(null); let got = 0;
   tiles.forEach(([x, y, d]) => { if (d) { got++; grid[(y - ty0) * cols + (x - tx0)] = d; } });
   // sample positions per output column / row (mercator is linear on screen when the map is not rotated)
@@ -91,8 +96,8 @@ async function drawRadarFrame() {
   for (let j = 0; j < Hd; j++) sy[j] = gy0 + (j + 0.5) / Hd * (gy1 - gy0) - 0.5 - ty0 * 256;
   const rowsT = ty1 - ty0 + 1, maxX = cols * 256 - 1, maxY = rowsT * 256 - 1;
   const val = (X_, Y_) => { if (X_ < 0 || Y_ < 0 || X_ > maxX || Y_ > maxY) return 0; const t = grid[(Y_ >> 8) * cols + (X_ >> 8)]; return t ? t[((Y_ & 255) << 8) | (X_ & 255)] : 0; };
-  radarCanvas.width = Wd; radarCanvas.height = Hd;
-  const g = radarCanvas.getContext('2d'), img = g.createImageData(Wd, Hd), out = img.data, L = LUT;
+  const canvas = st.canvas; canvas.width = Wd; canvas.height = Hd;
+  const g = canvas.getContext('2d'), img = g.createImageData(Wd, Hd), out = img.data, L = LUT;
   for (let j = 0; j < Hd; j++) {
     const fy = sy[j], y0 = Math.floor(fy), wy = fy - y0, row = j * Wd * 4;
     for (let i = 0; i < Wd; i++) {
@@ -105,11 +110,18 @@ async function drawRadarFrame() {
     }
   }
   g.putImageData(img, 0, 0);
-  O.frameKey = key;
+  st.key = key;
   const coords = [[nw.lng, nw.lat], [se.lng, nw.lat], [se.lng, se.lat], [nw.lng, se.lat]];
-  const src = map.getSource('radar');
-  if (!src) addRadarLayer(coords); else { src.setCoordinates(coords); src.play(); map.triggerRepaint(); requestAnimationFrame(() => requestAnimationFrame(() => map.getSource('radar')?.pause())); }
-  setObsInfo(got ? '' : 'No radar for this time');
+  const src = map.getSource(st.id || 'radar');
+  if (!src) (st.add || addRadarLayer)(coords, map, st); else { src.setCoordinates(coords); src.play(); map.triggerRepaint(); requestAnimationFrame(() => requestAnimationFrame(() => map.getSource(st.id || 'radar')?.pause())); }
+  info?.(got ? '' : 'No radar for this time');
+  return got;
+}
+export const newRadarState = (id = 'radar') => ({ canvas: document.createElement('canvas'), key: '', tok: 0, id });
+export function addCanvasRadar(coords, map, st, before, opacity = 0.85) {
+  if (map.getSource(st.id)) return;
+  map.addSource(st.id, { type: 'canvas', canvas: st.canvas, coordinates: coords, animate: false });
+  map.addLayer({ id: st.id, type: 'raster', source: st.id, paint: { 'raster-opacity': opacity, 'raster-fade-duration': 0, 'raster-resampling': 'nearest' } }, before);
 }
 function labelLayer() { return X.map.getStyle().layers.find(l => l.type === 'symbol' && l.layout && l.layout['text-field'])?.id; }
 function addRadarLayer(coords) {
@@ -118,7 +130,7 @@ function addRadarLayer(coords) {
   const before = map.getLayer('hoco-coast') ? 'hoco-coast' : map.getLayer('strikes') ? 'strikes' : labelLayer();
   map.addLayer({ id: 'radar', type: 'raster', source: 'radar', paint: { 'raster-opacity': X.radarOpacity ? X.radarOpacity() : 0.85, 'raster-fade-duration': 0, 'raster-resampling': 'nearest' } }, before);
 }
-function removeRadar() { const map = X.map; if (map.getLayer('radar')) map.removeLayer('radar'); if (map.getSource('radar')) map.removeSource('radar'); O.frameKey = ''; }
+function removeRadar() { const map = X.map; if (map.getLayer('radar')) map.removeLayer('radar'); if (map.getSource('radar')) map.removeSource('radar'); MAIN_RADAR.key = ''; O.frameKey = ''; }
 
 // ------------------------------------------------------------------ lightning strikes (same feeds as the classic site)
 const GH = 'https://raw.githubusercontent.com/HandryOutlook/';
@@ -133,9 +145,9 @@ async function getJson(url, fresh) {
 }
 const strikesOf = (raw) => Array.isArray(raw) ? raw : (raw?.lightning_strikes || raw?.strikes || []);
 const ukwxOf = (raw) => (raw?.points || []).map(p => ({ t: p.t * 1000, lon: p.lon, lat: p.lat }));
-async function loadStrikes(startMs, endMs, regionId) {
+async function loadStrikes(startMs, endMs, regionId, own) {
   const key = `${regionId}|${startMs}|${endMs}`, live = Date.now() - endMs < 15 * 60000;
-  if (O.strikeKey === key && O.strikeData && (!live || Date.now() - O.strikeAt < 120000)) return O.strikeData;
+  if (!own && O.strikeKey === key && O.strikeData && (!live || Date.now() - O.strikeAt < 120000)) return O.strikeData;
   const out = [], add = (t, lon, lat) => { if (t >= startMs && t <= endMs && Number.isFinite(lon) && Number.isFinite(lat)) out.push({ t, lon, lat }); };
   const fromStd = (raw) => strikesOf(raw).forEach(s => s?.coordinates && add(new Date(s.strike_time).getTime(), +s.coordinates[0], +s.coordinates[1]));
   const uk = regionId === 'England' || regionId === 'Scotland', s = new Date(startMs), mo = s.getMonth(), yr = s.getFullYear();
@@ -159,14 +171,15 @@ async function loadStrikes(startMs, endMs, regionId) {
   const list = out.filter(p => (!r || (p.lon >= r.west && p.lon <= r.east && p.lat >= r.south && p.lat <= r.north)))
     .filter(p => { const k = `${Math.round(p.t / 1000)}|${p.lon.toFixed(3)}|${p.lat.toFixed(3)}`; if (seen.has(k)) return false; seen.add(k); return true; })
     .sort((a, b) => a.t - b.t);
-  O.strikeKey = key; O.strikeData = list; O.strikeAt = Date.now();
+  if (!own) { O.strikeKey = key; O.strikeData = list; O.strikeAt = Date.now(); }
   return list;
 }
 // newest strikes are gold, fading through orange and red to dark plum
 // strike colour = how far through the observed part of the forecast period it happened (newest in gold)
 const STRIKE_CLASSES = [['#ffd21f', 'Newest'], ['#ff9a1f', 'Recent'], ['#f0442a', 'Mid'], ['#b3173d', 'Older'], ['#5c1a4f', 'Oldest']];
-function strikeGeo() {
-  const t = O.t, s = O.t0, list = O.strikeData || [], span = Math.max(1, t - s);
+function strikeGeo() { return strikeFeatures(O.strikeData || [], O.t, O.t0); }
+export function strikeFeatures(list, t, s) {
+  const span = Math.max(1, t - s);
   const feats = []; for (const p of list) { if (p.t > t) break; const f = (p.t - s) / span, c = Math.min(4, Math.max(0, 4 - Math.floor(f * 5)));
     feats.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [p.lon, p.lat] }, properties: { c, t: p.t } }); }
   return { type: 'FeatureCollection', features: feats };
@@ -177,13 +190,17 @@ function drawStrikes() {
   if (map.getSource('strikes')) map.getSource('strikes').setData(g);
   else {
     map.addSource('strikes', { type: 'geojson', data: g });
-    map.addLayer({ id: 'strikes', type: 'circle', source: 'strikes', layout: { 'circle-sort-key': ['-', 4, ['get', 'c']] }, paint: {
-      'circle-color': ['match', ['get', 'c'], 0, STRIKE_CLASSES[0][0], 1, STRIKE_CLASSES[1][0], 2, STRIKE_CLASSES[2][0], 3, STRIKE_CLASSES[3][0], STRIKE_CLASSES[4][0]],
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, ['match', ['get', 'c'], 0, 3.6, 2.4], 9, ['match', ['get', 'c'], 0, 6.5, 4.5]],
-      'circle-stroke-color': '#1a1205', 'circle-stroke-width': ['match', ['get', 'c'], 0, 0.9, 0.4], 'circle-opacity': ['match', ['get', 'c'], 4, 0.75, 0.95] } }, labelLayer());
+    map.addLayer(strikeLayer('strikes'), labelLayer());
   }
   O.strikeCount = g.features.length; renderObsHead();
 }
+export function strikeLayer(id) {
+  return { id, type: 'circle', source: id, layout: { 'circle-sort-key': ['-', 4, ['get', 'c']] }, paint: {
+    'circle-color': ['match', ['get', 'c'], 0, STRIKE_CLASSES[0][0], 1, STRIKE_CLASSES[1][0], 2, STRIKE_CLASSES[2][0], 3, STRIKE_CLASSES[3][0], STRIKE_CLASSES[4][0]],
+    'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, ['match', ['get', 'c'], 0, 3.6, 2.4], 9, ['match', ['get', 'c'], 0, 6.5, 4.5]],
+    'circle-stroke-color': '#1a1205', 'circle-stroke-width': ['match', ['get', 'c'], 0, 0.9, 0.4], 'circle-opacity': ['match', ['get', 'c'], 4, 0.75, 0.95] } };
+}
+export { loadStrikes, frameOf, STRIKE_CLASSES, RADAR_STEP };
 function removeStrikes() { const map = X.map; strikePopup?.remove(); if (map.getLayer('strikes')) map.removeLayer('strikes'); if (map.getSource('strikes')) map.removeSource('strikes'); }
 let strikePopup = null;
 function strikeClick(e) {
@@ -668,7 +685,7 @@ export function onShown(run, geo, prev) {
 export function onEmpty() { O.run = null; changeState = null; renderChangeBox(); document.querySelectorAll('[data-plain]').forEach(e => e.classList.add('hidden')); syncObs(); }
 // the basemap style was swapped: our layers must be added again
 export function onStyle() {
-  O.frameKey = ''; lineSaved = null;
+  O.frameKey = ''; MAIN_RADAR.key = ''; lineSaved = null;
   if (!O.forecast) setLayer('forecast', false);
   if (O.strikes && O.strikeData) drawStrikes();
   if (O.radar) drawRadar();

@@ -65,6 +65,114 @@ const runDay = (r) => { const s = r && X.startOf(r); if (!s) return null; const 
 function ensembles() { const me = X.auth?.currentUser?.uid; return X.S.runs.filter(r => r.type === 'human-mimic' && (r.userId === me || r.public) && r.cancelled !== true).slice(0, 12); }
 const extra = new Map();   // runs loaded from Tools › Runs that are not in the normal lists (archive, manual)
 const findRun = (id) => { if (!id) return null; for (const t of ['automated', 'ai']) for (let d = 0; d < 3; d++) { const r = X.runsFor(d, t).find(x => x.id === id); if (r) return r; } return extra.get(id) || X.S.runs.find(r => r.id === id) || null; };
+// ------------------------------------------------------------------ radar and lightning on the compare maps (one shared time)
+const RAD = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 12 19 5"/><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7a5 5 0 1 0 5 5"/></svg>';
+const BOLT = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>';
+const PLAYI = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>';
+const PAUSEI = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>';
+const CO = { radar: false, strikes: false, t: null, t0: null, t1: null, playing: false, list: null, listKey: '', states: [], timer: null, keyOpen: false, note: '' };
+const E = () => X.extras?.();
+const hmm = (ms) => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+function obsRange() {
+  const runs = C.panes.map(findRun).filter(Boolean), now = Date.now();
+  const starts = runs.map(r => X.startOf(r)?.getTime()).filter(Number.isFinite), ends = runs.map(r => X.endOf(r)?.getTime()).filter(Number.isFinite);
+  if (!starts.length) return null;
+  const s = Math.min(...starts), e = Math.max(...ends);
+  if (s > now) return { future: true, s };
+  const ex = E(); const f = ex?.frameOf || ((m) => Math.floor(m / 3e5) * 3e5);
+  return { s: f(s), e: f(Math.min(e, now - 5 * 60000)) };
+}
+function obsButtons() {
+  return `<button class="btn cx-tog" data-obs="radar" aria-pressed="${CO.radar}" title="Rain radar">${RAD}<span class="cx-long">Radar</span></button><button class="btn cx-tog" data-obs="strikes" aria-pressed="${CO.strikes}" title="Lightning strikes">${BOLT}<span class="cx-long">Strikes</span></button>`;
+}
+function obsBar() {
+  if (!CO.radar && !CO.strikes) return '';
+  const r = obsRange(), ex = E(), step = ex?.RADAR_STEP || 3e5;
+  if (!r || r.future) return `<div class="cx-obs"><span class="cx-obsnote">Radar and strikes appear once these forecasts start${r ? ` (${X.dayName(new Date(r.s))} ${hmm(r.s)})` : ''}.</span><button class="btn sm" id="cxObsOff">Turn off</button></div>`;
+  if (CO.t == null || CO.t < r.s || CO.t > r.e) CO.t = r.e;
+  CO.t0 = r.s; CO.t1 = r.e;
+  const n = Math.max(0, Math.round((r.e - r.s) / step)), i = Math.round((CO.t - r.s) / step), live = Date.now() - CO.t < 20 * 60000;
+  const key = CO.keyOpen ? `<div class="cx-okeys">${CO.strikes ? `<span class="okey"><b>Strikes</b>${(ex?.STRIKE_CLASSES || []).map(c => `<span><i style="background:${c[0]}"></i>${c[1]}</span>`).join('')}</span>` : ''}${CO.radar ? `<span class="okey rain"><b>Rain rate</b><span class="rainwrap"><span class="rainbar"></span><span class="rticks"><span>0.1</span><span>1</span><span>5</span><span>20</span><span>100 mm/h</span></span></span></span>` : ''}</div>` : '';
+  return `<div class="cx-obs" role="group" aria-label="Radar and strikes time">
+    <button class="btn icon" id="cxPlay" aria-label="${CO.playing ? 'Pause' : 'Play'}">${CO.playing ? PAUSEI : PLAYI}</button>
+    <div class="cx-omid"><div class="cx-ohead"><b id="cxOTime">${CO.radar ? 'Radar' : 'Strikes'} · ${X.dayName(new Date(CO.t))} ${hmm(CO.t)}</b>${live ? '<span class="tag live">Live</span>' : ''}<small id="cxOInfo">${esc(CO.note)}</small></div>
+      <label class="sr" for="cxOSlider">Observed time</label><input type="range" id="cxOSlider" min="0" max="${n}" value="${i}" step="1" style="--pct:${n ? i / n * 100 : 100}%">
+      <div class="cx-oticks"><span>${X.dayName(new Date(r.s))} ${hmm(r.s)}</span><span>${hmm(r.e)}</span></div></div>
+    <button class="btn sm" id="cxONow">Now</button><button class="btn sm" id="cxOKey" aria-expanded="${CO.keyOpen}">Key</button><button class="btn icon sm" id="cxObsOff" aria-label="Turn off radar and strikes">✕</button>
+    ${key}</div>`;
+}
+function renderObsBar() {
+  const host = $('cxObsHost'); if (!host) return;
+  host.innerHTML = obsBar();
+  document.querySelectorAll('[data-obs]').forEach(b => b.setAttribute('aria-pressed', CO[b.dataset.obs]));
+  $('cxObsOff') && ($('cxObsOff').onclick = () => { stopObs(); CO.radar = CO.strikes = false; applyObsAll(); renderObsBar(); });
+  if (!$('cxOSlider')) return;
+  const step = E()?.RADAR_STEP || 3e5;
+  $('cxOSlider').oninput = (e) => { stopObs(); CO.t = CO.t0 + (+e.target.value) * step; updateObsHead(); paintAll(); };
+  $('cxONow').onclick = () => { stopObs(); CO.t = CO.t1; renderObsBar(); paintAll(); };
+  $('cxOKey').onclick = () => { CO.keyOpen = !CO.keyOpen; renderObsBar(); };
+  $('cxPlay').onclick = () => { if (CO.playing) { stopObs(); renderObsBar(); return; } CO.playing = true; if (CO.t >= CO.t1) CO.t = CO.t0; renderObsBar(); playStep(); };
+}
+function updateObsHead() {
+  const s = $('cxOSlider'), step = E()?.RADAR_STEP || 3e5; if (!s) return;
+  const i = Math.round((CO.t - CO.t0) / step); s.value = i; s.style.setProperty('--pct', (+s.max ? i / +s.max * 100 : 100) + '%');
+  const t = $('cxOTime'); if (t) t.textContent = `${CO.radar ? 'Radar' : 'Strikes'} · ${X.dayName(new Date(CO.t))} ${hmm(CO.t)}`;
+  const inf = $('cxOInfo'); if (inf) inf.textContent = CO.note;
+}
+function stopObs() { CO.playing = false; clearTimeout(CO.timer); }
+async function playStep() {
+  if (!CO.playing || !comparing()) return;
+  const step = E()?.RADAR_STEP || 3e5;
+  CO.t = CO.t + step > CO.t1 ? CO.t0 : CO.t + step; updateObsHead();
+  await paintAll();
+  if (CO.playing) CO.timer = setTimeout(playStep, CO.t >= CO.t1 ? 1400 : 450);
+}
+// forecast drawn as coloured outlines while radar is on, so the rain stays readable
+function forecastStyle(m) {
+  if (!m.getLayer('hoco-fill')) return;
+  if (CO.radar) { m.setLayoutProperty('hoco-fill', 'visibility', 'none'); m.setPaintProperty('hoco-line', 'line-color', ['coalesce', ['get', 'fill'], X.colorExpr()]); m.setPaintProperty('hoco-line', 'line-width', 2.2); }
+  else { m.setLayoutProperty('hoco-fill', 'visibility', 'visible'); m.setPaintProperty('hoco-line', 'line-color', 'rgba(16,34,56,0.45)'); m.setPaintProperty('hoco-line', 'line-width', 0.6); }
+}
+function applyObs(i) {
+  const m = C.maps[i]; if (!m || !m.isStyleLoaded?.() && !m.getSource('hoco')) return;
+  forecastStyle(m);
+  if (!CO.radar) { if (m.getLayer('cx-radar')) m.removeLayer('cx-radar'); if (m.getSource('cx-radar')) m.removeSource('cx-radar'); if (CO.states[i]) CO.states[i].key = ''; }
+  if (!CO.strikes) { if (m.getLayer('cx-strikes')) m.removeLayer('cx-strikes'); if (m.getSource('cx-strikes')) m.removeSource('cx-strikes'); }
+  paintPane(i);
+}
+function applyObsAll() { C.maps.forEach((_, i) => applyObs(i)); }
+async function paintPane(i) {
+  const m = C.maps[i], ex = E(); if (!m || !ex || CO.t == null || (!CO.radar && !CO.strikes)) return;
+  const r = obsRange(); if (!r || r.future) return;
+  if (CO.radar) {
+    const st = CO.states[i] || (CO.states[i] = ex.newRadarState('cx-radar'));
+    st.add = (coords, map, s) => ex.addCanvasRadar(coords, map, s, map.getLayer('hoco-line') ? 'hoco-line' : map.getLayer('cx-coast') ? 'cx-coast' : undefined, getSettings().radarOpacity ?? 0.85);
+    const got = await ex.paintRadar(m, st, CO.t, CO.playing);
+    if (got === 0) { CO.note = 'No radar for this time'; updateObsHead(); } else if (got) { if (CO.note) { CO.note = ''; updateObsHead(); } }
+  }
+  if (CO.strikes && CO.list) {
+    const g = ex.strikeFeatures(CO.list, CO.t, CO.t0);
+    if (m.getSource('cx-strikes')) m.getSource('cx-strikes').setData(g);
+    else if (m.getSource('hoco')) { m.addSource('cx-strikes', { type: 'geojson', data: g }); m.addLayer(ex.strikeLayer('cx-strikes')); }
+  }
+}
+async function paintAll() {
+  if (CO.strikes) await ensureStrikes();
+  await Promise.all(C.maps.map((_, i) => paintPane(i)));
+}
+async function ensureStrikes() {
+  const r = obsRange(), ex = E(); if (!r || r.future || !ex) return;
+  const key = `${X.S.region}|${r.s}|${r.e}`; if (CO.listKey === key && CO.list && Date.now() - (CO.listAt || 0) < 120000) return;
+  CO.note = 'Loading strikes…'; updateObsHead();
+  try { CO.list = await ex.loadStrikes(r.s, r.e + 5 * 60000, X.S.region, true); CO.listKey = key; CO.listAt = Date.now(); CO.note = ''; }
+  catch (e) { CO.note = 'Strikes are unavailable right now'; }
+  updateObsHead();
+}
+function wireObs() {
+  document.querySelectorAll('[data-obs]').forEach(b => b.onclick = () => { const k = b.dataset.obs; CO[k] = !CO[k]; if (!CO.radar && !CO.strikes) stopObs(); renderObsBar(); applyObsAll(); if (CO.strikes) paintAll(); });
+  renderObsBar();
+}
+
 export const comparing = () => document.body.classList.contains('comparing');
 export function openCompare(n = 2, sel) {
   const latest = (d, t) => X.runsFor(d, t).at(-1)?.id, prev = (d, t) => X.runsFor(d, t).at(-2)?.id;
@@ -104,14 +212,16 @@ function drawCompare() {
         <button class="btn" id="cmpAdd" ${n >= 4 ? 'disabled title="Up to 4 maps"' : 'title="Add a map"'} aria-label="Add a map">+<span class="cx-long">&nbsp;Add map</span></button>
         <label class="cx-sync" title="Pan and zoom all maps together"><input type="checkbox" id="cmpLink" ${C.link || C.mode === 'swipe' ? 'checked' : ''} ${C.mode === 'swipe' ? 'disabled' : ''}><svg class="cx-short" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span class="cx-long">Move together</span></label>
       </div>
+      <span class="cx-obsbtns">${obsButtons()}</span>
       <div class="cx-key" aria-label="Colour key: chance of lightning within 20 km"><span class="cx-bar">${X.BANDS.map(b => `<i style="background:${b.fill}"></i>`).join('')}</span><span class="cx-ticks"><span>5%</span><span>50%</span><span>90%</span></span></div>
       <button class="btn primary" id="cmpClose">Done</button>
     </header>
     <div class="cx-grid" data-n="${n}" data-mode="${C.mode}">${C.panes.map((_, i) => `<section class="cx-pane" data-i="${i}" aria-label="Map ${i + 1}"><div class="cx-map" id="cmpMap${i}"></div>${paneHead(i)}</section>`).join('')}
       ${C.mode === 'swipe' ? `<div class="cx-divider" id="cxDiv" role="slider" tabindex="0" aria-label="Swipe between map 1 and map 2" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(C.split * 100)}"><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6-6 6 6 6M15 6l6 6-6 6"/></svg></span></div>` : ''}
     </div>
+    <div id="cxObsHost"></div>
     <div class="cx-menu hidden" id="cxMenu" role="menu"></div>`;
-  C.maps.forEach(m => m && m.remove()); C.maps = []; C.marks = [];
+  C.maps.forEach(m => m && m.remove()); C.maps = []; C.marks = []; CO.states = [];
   const bounds = C.view || X.map.getBounds();
   C.panes.forEach((id, i) => {
     const m = new mapboxgl.Map({ container: `cmpMap${i}`, style: X.styleUrl(), bounds, fitBoundsOptions: { padding: 10 }, attributionControl: false, logoPosition: 'bottom-left', projection: 'mercator', dragRotate: false, pitchWithRotate: false });
@@ -119,7 +229,8 @@ function drawCompare() {
     let moved = false; m.once('dragstart', () => { moved = true; }); m.once('zoomstart', (e) => { if (e.originalEvent) moved = true; });
     try { new ResizeObserver(() => { m.resize(); if (!moved && i === 0 && C.view) { C.syncing = true; m.fitBounds(C.view, { padding: 10, duration: 0 }); C.syncing = false; C.maps.forEach(o => { if (o !== m) o.jumpTo({ center: m.getCenter(), zoom: m.getZoom() }); }); } }).observe($(`cmpMap${i}`)); } catch (e) { /* older browsers */ }
     if (i === C.panes.length - 1) m.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right');
-    m.on('style.load', () => { addPaneLayers(m); loadPane(i); });
+    m.on('style.load', () => { addPaneLayers(m); loadPane(i).then(() => applyObs(i)); });
+    m.on('moveend', () => { if (CO.radar) paintPane(i); });
     m.on('move', () => { if (C.syncing) return; if (i === 0 || C.link || C.mode === 'swipe') C.view = m.getBounds(); if (!C.link && C.mode !== 'swipe') return; C.syncing = true; C.maps.forEach(o => { if (o !== m) o.jumpTo({ center: m.getCenter(), zoom: m.getZoom() }); }); C.syncing = false; });
     m.on('mousemove', (e) => paneProbe(i, e.lngLat));
     m.on('click', (e) => paneProbe(i, e.lngLat));
@@ -128,6 +239,7 @@ function drawCompare() {
     C.maps.push(m);
   });
   if (C.mode === 'swipe') wireSwipe();
+  wireObs();
   el.querySelectorAll('[data-pick]').forEach(b => b.onclick = (e) => { e.stopPropagation(); openMenu(+b.dataset.pick, b); });
   el.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { C.panes.splice(+b.dataset.rm, 1); drawCompare(); });
   el.querySelectorAll('[data-cday]').forEach(b => b.onclick = () => { C.day = +b.dataset.cday;
@@ -174,7 +286,7 @@ function openMenu(i, btn) {
   menu.querySelector('[aria-checked="true"]')?.scrollIntoView({ block: 'nearest' });
 }
 function setPane(i, id) { if (i >= C.panes.length) C.panes.push(id); else C.panes[i] = id; drawCompare(); }
-export function closeCompare() { C.maps.forEach(m => m && m.remove()); C.maps = []; const el = $('compare'); el.classList.add('hidden'); el.innerHTML = ''; document.body.classList.remove('comparing'); X.map.resize(); }
+export function closeCompare() { stopObs(); CO.states = []; C.maps.forEach(m => m && m.remove()); C.maps = []; const el = $('compare'); el.classList.add('hidden'); el.innerHTML = ''; document.body.classList.remove('comparing'); X.map.resize(); }
 export function loadTo(run) {
   extra.set(run.id, run);
   if (C.pickInto != null) { const i = C.pickInto; C.pickInto = null; X.closeTools(); setPane(Math.min(i, C.panes.length), run.id); return; }

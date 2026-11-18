@@ -811,6 +811,26 @@ body.comparing .tools{z-index:40}
   .cx-grid[data-mode="swipe"] .cx-stat{max-width:calc(50% - 12px)}
   .cx-grid[data-mode="swipe"] .cx-stat>span:not(.cx-d){display:none}
 }
+
+/* compare: radar and strikes */
+.cx-obsbtns{display:flex;gap:4px}
+.cx-tog{height:40px;gap:6px}
+.cx-tog[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+#cxObsHost{flex:none}
+.cx-obs{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:8px 12px calc(8px + env(safe-area-inset-bottom));background:var(--surface);border-top:1px solid var(--border);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.cx-obs .btn.icon{width:36px;height:36px;flex:none}
+.cx-obs .btn.sm{height:32px;padding:0 10px;font-size:12.5px}
+.cx-omid{flex:1;min-width:180px;display:flex;flex-direction:column;gap:0}
+.cx-ohead{display:flex;align-items:center;gap:8px;font-size:13px;min-width:0}.cx-ohead .tag{margin:0;font-size:10px;padding:2px 6px}
+.cx-ohead small{margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cx-omid input[type=range]{height:22px}
+.cx-oticks{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:-2px}
+.cx-okeys{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px 18px;padding-top:6px;border-top:1px solid var(--border)}
+.cx-okeys .okey small{display:none!important}
+.cx-obsnote{flex:1;font-size:13px;color:var(--muted)}
+@media (max-width:640px){ .cx-tog{height:34px;padding:0 9px} .cx-obs{padding:6px 8px calc(6px + env(safe-area-inset-bottom));gap:6px} .cx-oticks{display:none} .cx-ohead small{display:none} .cx-omid{min-width:120px} }
+
+@media (max-width:640px){ .cx-title{display:none} .cx-key{margin-left:auto} }
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -1547,7 +1567,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ---------- extras (radar, strikes, export, search, change, cookies) ----------
-import('./extras.js?v=14').then((m) => {
+import('./extras.js?v=15').then((m) => {
   m.initExtras({ openSummary: () => { $('summary').classList.add('open'); $('sumHead').setAttribute('aria-expanded', 'true'); }, map, S, BANDS, REGIONS, TYPE_LABEL: LABELS, toast, openPop, measureDock, fetchGeo, peakOf, riskOf, bandFor, bandLabel, created, startOf, endOf, hhmm, dayName, dayDate,
     embed: EMBED, embedLayers: EMBED ? (params.get('layers') || '') : null, radarOpacity: () => SETTINGS.radarOpacity, showChanged: () => SETTINGS.changed !== false, openEmbed: EMBED ? null : () => Stage4.openEmbed(),
     riskAtGeo, runsFor, addDays, nearestPlace, colorExpr, mapStyle: () => SETTINGS.mapStyle, setMapStyle: (k) => { const s = { ...SETTINGS, mapStyle: k, styleV2: true }; try { localStorage.setItem('hocoSettings', JSON.stringify(s)); } catch (e) { } applySettings(s, { mapStyle: k }); },
@@ -1558,8 +1578,8 @@ import('./extras.js?v=14').then((m) => {
 }).catch((e) => console.error(e));
 
 // ---------- stage 4 (settings, compare, accuracy, alerts, install, tutorial, embed, ads) ----------
-import('./stage4.js?v=10').then((m) => {
-  m.initStage4({ map, S, BANDS, REGIONS, db, auth, storage, doc, getDoc, getDocs, query, collection, where, orderBy, limit, addDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, dateKey, nearestPlace, regionMatches,
+import('./stage4.js?v=11').then((m) => {
+  m.initStage4({ extras: () => Extras, map, S, BANDS, REGIONS, db, auth, storage, doc, getDoc, getDocs, query, collection, where, orderBy, limit, addDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, dateKey, nearestPlace, regionMatches,
     colorExpr, fillColor, styleUrl, applySettings, setTheme, setProduct, setRegion, runsFor, riskAt: riskAtGeo, embed: EMBED, goDay: (d) => { S.day = d; clearCustom(); renderAll(); },
     callable: (name) => async (data) => { const f = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js'); return f.httpsCallable(f.getFunctions(app, 'us-central1'), name)(data); },
     openTools: (t) => Tools.openTab(t), closeTools: () => Tools.toggle?.(false), openAlerts: (p) => Extras.openAlerts(p), openShortcuts: () => Extras.openShortcuts(), setNotifyRuns: (v) => Tools.setNotify?.(v) });
