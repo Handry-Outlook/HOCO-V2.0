@@ -268,7 +268,7 @@ function ask({ title, text, ok = 'Confirm', danger = false, word = null }) {
 function renderHeader() {
   const st = stage(), pill = $('statusPill');
   pill.className = `status ${st}`;
-  pill.textContent = { live: `Live · v${state.ai?.version ?? "–"}`, paused: "Paused", ready: "Ready to publish", training: "Training" }[st];
+  if (!state.loaded) { pill.className = 'status paused'; pill.textContent = 'Loading…'; } else pill.textContent = { live: `Live · v${state.ai?.version ?? "–"}`, paused: "Paused", ready: "Ready to publish", training: "Training" }[st];
   const featRuns = state.ml?.readiness?.featureRuns ?? 0, anyCandidate = Object.keys(state.ml?.candidate || {}).length > 0;
   const steps = [
     { t: "Collect", d: "AUTO runs log every model's forecast", done: featRuns > 0 },
@@ -287,18 +287,19 @@ function renderHeader() {
     live: `AI HOCO is live alongside Traditional HOCO. It is retrained daily and only replaced when the new model is no worse.`,
     paused: 'AI HOCO is paused. No new AI runs are made until a developer resumes it.'
   }[st];
-  $('nextText').textContent = next;
+  $('nextText').textContent = state.loaded ? next : 'Loading the latest training results…';
   $('nextProgress').innerHTML = checks.length ? (() => { const p = passed / checks.length, r = 26, c = 2 * Math.PI * r;
     return `<div class="ring"><svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="${r}" fill="none" stroke="var(--track)" stroke-width="7"/><circle cx="32" cy="32" r="${r}" fill="none" stroke="${p === 1 ? 'var(--good)' : 'var(--accent)'}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${c * p} ${c}" transform="rotate(-90 32 32)"/></svg><div><b>${passed}/${checks.length}</b><div class="note">launch checks passed</div></div></div>`; })()
     : `<p class="note">Last trained: ${fmtDate(state.ml?.trainedAt, true)}</p>`;
   const data = state.ml?.data || {};
-  const kpi = (l, v) => `<div class="kpi"><small>${l}</small><strong>${v}</strong></div>`;
+  const kpi = (l, v) => `<div class="kpi"><small>${l}</small><strong>${state.loaded ? v : '…'}</strong></div>`;
   $('kpis').innerHTML = [kpi("Verified runs", (data.runs ?? 0).toLocaleString()), kpi("With per-model data", featRuns.toLocaleString()), kpi("Lightning days", (state.ml?.readiness?.lightningDays ?? 0).toLocaleString()),
     kpi("Lightning cells", (state.ml?.readiness?.featurePositives ?? 0).toLocaleString()), kpi("Lightning data to", fmtDate(state.ml?.observationsCoverUntil)), kpi("Last trained", fmtDate(state.ml?.trainedAt, true))].join("");
 }
 
 function renderChecklist() {
   const checks = state.ml?.readiness?.checks || [], el = $('checklist');
+  if (!state.loaded) { el.innerHTML = '<div class="empty" style="margin-top:12px">Loading…</div>'; return; }
   if (!checks.length) { el.innerHTML = `<div class="empty" style="margin-top:12px">No training has run yet. Every AUTO run now logs per-model data. Press <b>Run training now</b> once a few days have been verified.</div>`; return; }
   const passed = checks.filter((c) => c.ok).length;
   $('checklistNote').textContent = `${passed} of ${checks.length} checks passed. AI HOCO can be published when every check passes.`;
@@ -439,7 +440,7 @@ if (location.hash) document.querySelector(`[data-tab="${location.hash.slice(1)}"
 if (window.__HOCO_LAB_DEMO__) { Object.assign(state, window.__HOCO_LAB_DEMO__); renderAll(); }
 else {
   const watch = (id, key) => onSnapshot(doc(db, "system_stats", id), (snap) => { state[key] = snap.exists() ? snap.data() : null; renderAll(); }, (err) => console.warn(`Could not read ${id}:`, err.message));
-  watch("hoco_ml", "ml"); watch("ai_hoco", "ai"); watch("accuracy_v2", "accAuto"); watch("accuracy_ai", "accAi");
+  onSnapshot(doc(db, "system_stats", "hoco_ml"), (snap) => { state.ml = snap.exists() ? snap.data() : null; state.loaded = true; renderAll(); }, (err) => { state.loaded = true; console.warn('Could not read hoco_ml:', err.message); renderAll(); }); watch("ai_hoco", "ai"); watch("accuracy_v2", "accAuto"); watch("accuracy_ai", "accAi");
   onAuthStateChanged(auth, async (user) => {
     state.role = "guest"; devNames = null; $('who').textContent = user ? (user.email || "Signed in") : "Not signed in";
     if (user) { try { const u = await getDoc(doc(db, "users", user.uid)); state.role = u.exists() ? (u.data().role || "normal") : "normal";
