@@ -453,7 +453,7 @@ function renderDev(body) {
       <div class="runners">${Object.entries(RUNNERS).map(([k, v]) => `<label class="runner${pick === k ? ' on' : ''}"><input type="radio" name="runner" value="${k}" ${pick === k ? 'checked' : ''}><span><b>${v.label}</b><small>${v.owner} / ${v.repo}</small></span>${cur === k ? '<span class="tag live">Active</span>' : ''}</label>`).join('')}</div>
       <button class="btn primary" id="saveRunner" ${pick === cur ? 'disabled' : ''}>Switch runner</button></section>
     <section class="devsec"><b>Accuracy</b><small class="muted">Recalculate AUTO-HOCO accuracy against observed lightning.</small>
-      <div class="chips"><button class="btn" id="recalc">Recalculate now</button><a class="btn" href="../ai-hoco-lab.html">Open the AI HOCO Lab</a></div></section>
+      <div class="chips"><button class="btn" id="recalc">Recalculate now</button><a class="btn" href="ai-lab.html">Open the AI HOCO Lab</a></div></section>
     <section class="devsec"><div class="rowbetween"><b>Access requests</b><span class="tag">${T.reqs ? T.reqs.length : '…'}</span></div>
       ${T.reqs == null ? '<small class="muted">Loading…</small>' : !T.reqs.length ? '<small class="muted">No pending requests.</small>' : T.reqs.map(r => `<div class="req"><div><b>${esc(r.email)}</b> wants <b>${esc(r.requestedRole)}</b></div>
         <small class="muted">${esc(r.social)} · ${esc(r.reason)}</small><div class="chips"><button class="btn primary sm" data-ok="${esc(r.id)}">Approve</button><button class="btn sm" data-no="${esc(r.id)}">Reject</button></div></div>`).join('')}</section>

@@ -1,0 +1,742 @@
+<!doctype html>
+<html lang="en-GB" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HOCO for developers · Handry Outlook</title>
+<meta name="description" content="How to find public AUTO-HOCO thunderstorm forecasts, download the GeoJSON and draw it on a map.">
+<link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>try { const t = localStorage.getItem('hocoTheme') || 'auto'; document.documentElement.dataset.theme = t === 'auto' ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t; } catch (e) {}</script>
+<style>
+:root{--bg:#eef2f7;--surface:rgba(255,255,255,.94);--solid:#fff;--text:#0f1b2d;--muted:#55657a;--border:rgba(15,27,45,.10);--chip:#f2f5f9;--accent:#2f5fe0;--accent-text:#fff;--accent-soft:rgba(47,95,224,.10);--shadow:0 10px 28px rgba(15,27,45,.08);--good:#11734f;--good-soft:rgba(31,157,112,.13);--warn:#9a5b00;--warn-soft:rgba(255,179,39,.18);--bad:#b42318;--bad-soft:rgba(180,35,24,.1);
+  --code-bg:#0f1826;--code-text:#dbe6f5;--code-muted:#7f93ad;--code-key:#8fb4ff;--code-str:#9be3c0;--code-num:#ffc27a;--code-com:#6f8199}
+[data-theme="dark"]{--bg:#070d16;--surface:rgba(13,21,33,.9);--solid:#0f1826;--text:#e8eef6;--muted:#9aabc0;--border:rgba(255,255,255,.09);--chip:#182334;--accent:#6f9cff;--accent-text:#08101c;--accent-soft:rgba(111,156,255,.16);--shadow:0 12px 32px rgba(0,0,0,.4);--good:#5fd3a6;--good-soft:rgba(95,211,166,.14);--warn:#ffc25e;--warn-soft:rgba(255,194,94,.14);--bad:#ff8a80;--bad-soft:rgba(255,138,128,.12);--code-bg:#060b13}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}button{cursor:pointer}
+a{color:var(--accent)}
+.hidden{display:none!important}
+code,pre,.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace}
+:not(pre)>code{font-size:.88em;padding:2px 6px;border-radius:6px;background:var(--chip);border:1px solid var(--border);white-space:nowrap}
+.btn{height:38px;padding:0 13px;border-radius:10px;border:1px solid var(--border);background:var(--chip);font-weight:600;font-size:13.5px;display:inline-flex;align-items:center;justify-content:center;gap:7px;text-decoration:none;color:inherit;white-space:nowrap}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-text)}
+.btn.sm{height:30px;padding:0 10px;font-size:12.5px;border-radius:8px}
+.btn.icon{width:38px;padding:0}
+.btn[disabled]{opacity:.55;cursor:not-allowed}
+.btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.kicker{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}
+/* top */
+.top{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--border);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.top-in{max-width:1240px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit}
+.brand img{width:36px;height:36px;border-radius:10px}.brand b{font-size:16px;font-weight:800;display:block}.brand small{font-size:11px;color:var(--muted)}
+.top .sp{flex:1}
+.top nav{display:flex;gap:2px}
+.top nav a{padding:8px 10px;border-radius:9px;font-size:13.5px;font-weight:600;color:var(--muted);text-decoration:none}
+.top nav a:hover{background:var(--chip);color:var(--text)}
+/* layout */
+.layout{max-width:1240px;margin:0 auto;padding:24px 20px 80px;display:grid;grid-template-columns:220px minmax(0,1fr);gap:36px}
+.toc{position:sticky;top:84px;align-self:start;display:flex;flex-direction:column;gap:2px}
+.toc a{padding:7px 10px;border-radius:9px;font-size:13.5px;font-weight:500;color:var(--muted);text-decoration:none;border-left:2px solid transparent}
+.toc a:hover{color:var(--text);background:var(--chip)}
+.toc a.on{color:var(--accent);border-left-color:var(--accent);background:var(--accent-soft);font-weight:600;border-radius:0 9px 9px 0}
+.toc .kicker{padding:0 10px 8px}
+main{min-width:0;display:flex;flex-direction:column;gap:56px}
+section>h2{margin:0 0 6px;font-size:24px;letter-spacing:-.015em}
+section>p.lead{margin:0 0 18px;color:var(--muted);font-size:15px;line-height:1.55;max-width:720px}
+h3{margin:22px 0 8px;font-size:16px}
+p{line-height:1.6}
+/* hero */
+.hero{display:flex;flex-direction:column;gap:14px;padding:30px;border-radius:22px;background:linear-gradient(135deg,var(--accent-soft),transparent 60%),var(--solid);border:1px solid var(--border);box-shadow:var(--shadow)}
+.hero h1{margin:0;font-size:38px;letter-spacing:-.025em;line-height:1.08;max-width:720px}
+.hero p{margin:0;color:var(--muted);font-size:16px;line-height:1.55;max-width:680px}
+.hero .chips{display:flex;gap:8px;flex-wrap:wrap}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--chip);border:1px solid var(--border)}
+.badge.ok{background:var(--good-soft);color:var(--good);border-color:transparent}
+/* flow */
+.flow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.fstep{position:relative;padding:16px;border-radius:16px;background:var(--solid);border:1px solid var(--border);display:flex;flex-direction:column;gap:6px}
+.fstep .n{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--text);color:var(--bg);font-weight:800;font-size:14px}
+.fstep b{font-size:15px}.fstep span{font-size:13.5px;color:var(--muted);line-height:1.5}
+.fstep:not(:last-child)::after{content:'→';position:absolute;right:-14px;top:50%;transform:translateY(-50%);width:20px;text-align:center;color:var(--muted);font-weight:700;z-index:1}
+/* steps list */
+.steps{counter-reset:s;display:flex;flex-direction:column;gap:14px}
+.steps>li{list-style:none;display:grid;grid-template-columns:32px minmax(0,1fr);gap:14px;counter-increment:s}
+.steps>li::before{content:counter(s);width:32px;height:32px;border-radius:999px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);font-weight:800;font-size:14px}
+.steps>li>div{padding-top:5px;min-width:0}
+.steps b{display:block;margin-bottom:4px}
+/* code */
+.code{position:relative;border-radius:14px;background:var(--code-bg);border:1px solid var(--border);overflow:hidden;margin:10px 0}
+.code-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 8px 6px 14px;border-bottom:1px solid rgba(255,255,255,.07);color:var(--code-muted);font-size:12px;font-weight:600}
+.code-head .btn{height:28px;font-size:12px;background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.1);color:#dbe6f5}
+.code pre{margin:0;padding:14px 16px;overflow:auto;max-height:520px;color:var(--code-text);font-size:12.8px;line-height:1.6;tab-size:2;scrollbar-width:thin}
+.code pre .k{color:var(--code-key)}.code pre .s{color:var(--code-str)}.code pre .c{color:var(--code-com);font-style:italic}.code pre .n{color:var(--code-num)}
+.tabsbar{display:flex;gap:4px;padding:4px;border-radius:12px;background:var(--chip);border:1px solid var(--border);width:max-content;max-width:100%;overflow-x:auto}
+.tabsbar button{height:32px;padding:0 14px;border:none;border-radius:9px;background:transparent;font-weight:600;font-size:13.5px;color:var(--muted);white-space:nowrap}
+.tabsbar button[aria-selected="true"]{background:var(--solid);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+/* id breakdown */
+.idbox{display:flex;flex-wrap:wrap;gap:4px;align-items:stretch;padding:14px;border-radius:14px;background:var(--solid);border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:15px}
+.idbox span{display:flex;flex-direction:column;gap:4px;padding:6px 10px;border-radius:9px;background:var(--chip)}
+.idbox span small{font-family:Inter,sans-serif;font-size:11px;color:var(--muted);font-weight:600}
+.idbox i{font-style:normal;color:var(--muted);align-self:center}
+.idbox .a{background:var(--accent-soft)}.idbox .b{background:var(--warn-soft)}.idbox .c{background:var(--good-soft)}.idbox .d{background:rgba(139,92,246,.14)}
+/* tables */
+.tbl{width:100%;border-collapse:collapse;font-size:13.5px;background:var(--solid);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.tbl th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--chip)}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+.tbl tr:last-child td{border-bottom:none}
+.scroll{overflow-x:auto;border-radius:14px}
+.sw{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:6px;border:1px solid rgba(0,0,0,.12)}
+.st{font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px}.st.on{background:var(--good-soft);color:var(--good)}.st.off{background:var(--chip);color:var(--muted)}
+.callout{display:flex;gap:12px;padding:14px 16px;border-radius:14px;background:var(--warn-soft);font-size:14px;line-height:1.5;margin:12px 0}
+.callout.info{background:var(--accent-soft)}
+.callout b{display:block;margin-bottom:2px}
+/* playground */
+.play{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:0;border-radius:18px;overflow:hidden;background:var(--solid);border:1px solid var(--border);box-shadow:var(--shadow);min-height:560px}
+.pside{display:flex;flex-direction:column;border-right:1px solid var(--border);min-height:0}
+.pfilters{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px;border-bottom:1px solid var(--border)}
+.pfilters label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--muted)}
+.pfilters select{height:38px;padding:0 10px;border-radius:10px;border:1px solid var(--border);background:var(--chip);font-size:13.5px;color:var(--text)}
+.pfilters .btn{grid-column:1/-1}
+.pstatus{padding:8px 14px;font-size:12.5px;color:var(--muted);border-bottom:1px solid var(--border)}
+.plist{flex:1;min-height:0;overflow-y:auto;max-height:520px;scrollbar-width:thin}
+.prow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center;width:100%;padding:10px 14px;border:none;border-bottom:1px solid var(--border);background:transparent;text-align:left;color:inherit}
+.prow:hover{background:var(--chip)}.prow[aria-pressed="true"]{background:var(--accent-soft)}
+.prow b{font-size:13.5px}.prow small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.prow .tagd{font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;background:var(--chip)}
+.pmain{position:relative;display:flex;flex-direction:column;min-width:0}
+#map{flex:1;min-height:380px;background:var(--chip)}
+[data-theme="dark"] #map .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.9)}
+.leaflet-container{font-family:Inter,system-ui,sans-serif}
+.pkey{position:absolute;right:12px;top:12px;z-index:500;padding:8px 10px;border-radius:12px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);width:180px}
+.pkey .bar{display:flex;height:8px;border-radius:999px;overflow:hidden}.pkey .bar i{flex:1}
+.pkey .ticks{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:3px}
+.pdetail{border-top:1px solid var(--border);padding:12px 14px;display:flex;flex-direction:column;gap:8px;font-size:13px}
+.kv{display:grid;grid-template-columns:120px minmax(0,1fr) auto;gap:6px 10px;align-items:center}
+.kv>span:first-child{color:var(--muted);font-size:12px;font-weight:600}
+.kv code{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:100%}
+.ok{color:var(--good);font-weight:600}.err{color:var(--bad);font-weight:600}
+.foot{margin-top:20px;padding-top:20px;border-top:1px solid var(--border);color:var(--muted);font-size:13px;display:flex;gap:16px;flex-wrap:wrap}
+@media (max-width:1100px){ .layout{grid-template-columns:1fr;gap:20px} .toc{position:sticky;top:57px;z-index:10;flex-direction:row;overflow-x:auto;scrollbar-width:none;margin:0 -20px;padding:8px 20px;background:var(--surface);border-bottom:1px solid var(--border);backdrop-filter:blur(14px)} .toc::-webkit-scrollbar{display:none} .toc .kicker{display:none} .toc a{flex:none;border-left:none;border-radius:9px}.toc a.on{border-radius:9px} .top nav{display:none} }
+@media (max-width:820px){ .play{grid-template-columns:1fr} .pside{border-right:none;border-bottom:1px solid var(--border)} .plist{max-height:260px} .flow{grid-template-columns:1fr} .fstep:not(:last-child)::after{content:'↓';right:auto;left:50%;top:auto;bottom:-16px;transform:translateX(-50%)} }
+@media (max-width:640px){
+  .top-in{padding:8px 12px}.brand small{display:none}.backtxt{display:none}
+  .layout{padding:14px 12px 60px}.toc{margin:0 -12px;padding:8px 12px;top:53px}
+  .hero{padding:20px}.hero h1{font-size:28px}.hero p{font-size:15px}
+  section>h2{font-size:21px}
+  main{gap:40px}
+  .kv{grid-template-columns:1fr auto}.kv>span:first-child{grid-column:1/-1}
+  .code pre{font-size:12px}
+}
+</style>
+</head>
+<body>
+<header class="top"><div class="top-in">
+  <a class="brand" href="./"><img src="https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png" alt=""><span><b>HOCO for developers</b><small>Public AUTO-HOCO forecast data</small></span></a>
+  <span class="sp"></span>
+  <nav aria-label="Main"><a href="#start">Quick start</a><a href="#format">Data format</a><a href="#code">Code</a><a href="#try">Try it</a></nav>
+  <button class="btn icon" id="themeBtn" aria-label="Switch light or dark theme"></button>
+  <a class="btn" href="./"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg><span class="backtxt">Back to HOCO</span></a>
+</div></header>
+
+<div class="layout">
+  <nav class="toc" id="toc" aria-label="On this page"><span class="kicker">On this page</span>
+    <a href="#overview">Overview</a><a href="#start">Quick start</a><a href="#ids">Run IDs</a><a href="#config">Connect</a><a href="#regions">Regions</a><a href="#format">Data format</a><a href="#code">Code examples</a><a href="#try">Try it live</a>
+  </nav>
+  <main>
+    <section id="overview">
+      <div class="hero">
+        <div class="chips"><span class="badge ok">● Public data</span><span class="badge">No API key for reading</span><span class="badge">GeoJSON</span><span class="badge">Updated every 3 hours</span></div>
+        <h1>Put HOCO thunderstorm outlooks in your own app</h1>
+        <p>Every AUTO-HOCO run is published as a GeoJSON file: shaded areas for the chance of lightning within 20 km, for today and the next two days. Find the runs in Firestore, download the file from Firebase Storage, and draw it with any map library.</p>
+        <div class="chips"><a class="btn primary" href="#try">Try it live</a><a class="btn" href="#code">See the code</a></div>
+      </div>
+      <h3>How it works</h3>
+      <div class="flow">
+        <div class="fstep"><span class="n">1</span><b>Find runs</b><span>Query the <code>hoco_requests</code> collection for public, completed AUTO-HOCO runs.</span></div>
+        <div class="fstep"><span class="n">2</span><b>Get the file</b><span>Build the Storage URL from the run ID, read its download token, fetch the GeoJSON.</span></div>
+        <div class="fstep"><span class="n">3</span><b>Draw it</b><span>Add the GeoJSON to Leaflet, Mapbox or MapLibre and colour it by <code>risk</code>.</span></div>
+      </div>
+    </section>
+
+    <section id="start">
+      <h2>Quick start</h2>
+      <p class="lead">Seven steps from nothing to a map. Each one has working code in <a href="#code">Code examples</a>.</p>
+      <ol class="steps">
+        <li><div><b>Connect to the HOCO Firebase project</b>Use the Firebase Web SDK with the <a href="#config">config below</a>, or the Firestore REST API from any language.</div></li>
+        <li><div><b>Query <code>hoco_requests</code></b>Every forecast run is one document in this collection.</div></li>
+        <li><div><b>Keep only public, completed AUTO-HOCO runs</b><div class="code"><div class="code-head"><span>Filters</span></div><pre>public == true
+status == "completed"
+type   == "automated"</pre></div></div></li>
+        <li><div><b>Read the document ID</b>The document ID is the run ID, for example <code>AUTO-1782803122360-England-Day1-2</code>. See <a href="#ids">Run IDs</a>.</div></li>
+        <li><div><b>Build the Storage metadata URL</b><div class="code"><div class="code-head"><span>URL</span><button class="btn sm" data-copy>Copy</button></div><pre>https://firebasestorage.googleapis.com/v0/b/hoco-3b23e.firebasestorage.app/o/forecasts%2F{runId}.geojson</pre></div></div></li>
+        <li><div><b>Fetch the metadata and read <code>downloadTokens</code></b>Add <code>?alt=media&amp;token={token}</code> to the same URL to get the file itself.</div></li>
+        <li><div><b>Fetch the GeoJSON and draw it</b>Colour each area by its <code>risk</code> value, or use the <code>fill</code> colour that comes with it.</div></li>
+      </ol>
+      <div class="callout info"><span aria-hidden="true">💡</span><span><b>Don't guess run IDs</b>The number in a run ID is not predictable. Always discover runs from Firestore first.</span></div>
+    </section>
+
+    <section id="ids">
+      <h2>Run IDs</h2>
+      <p class="lead">A run ID tells you what the run is without opening it.</p>
+      <div class="idbox" aria-label="AUTO-1782803122360-England-Day1-2"><span class="a"><small>type</small>AUTO</span><i>-</i><span class="b"><small>autoCode</small>1782803122360</span><i>-</i><span class="c"><small>region</small>England</span><i>-</i><span class="d"><small>forecastDay</small>Day1-2</span></div>
+      <div class="scroll" style="margin-top:12px"><table class="tbl"><thead><tr><th>Part</th><th>Meaning</th></tr></thead><tbody>
+        <tr><td><code>AUTO</code></td><td>An automated run, made by HOCO on a schedule.</td></tr>
+        <tr><td><code>1782803122360</code></td><td>The <code>autoCode</code>: a unique number for this run.</td></tr>
+        <tr><td><code>England</code></td><td>The region. See <a href="#regions">Regions</a>.</td></tr>
+        <tr><td><code>Day0-1</code>, <code>Day1-2</code>, <code>Day2-3</code></td><td>Which day the run covers: today, tomorrow, or the day after.</td></tr>
+      </tbody></table></div>
+      <div class="code"><div class="code-head"><span>JavaScript · parse a run ID</span><button class="btn sm" data-copy>Copy</button></div><pre>const m = runId.match(/^AUTO-(\d+)-(.+)-(Day\d+-\d+)$/);
+const { autoCode, region, forecastDay } = { autoCode: m?.[1], region: m?.[2], forecastDay: m?.[3] };</pre></div>
+    </section>
+
+    <section id="config">
+      <h2>Connect</h2>
+      <p class="lead">Copy this into a Firebase Web SDK app. Reading public runs needs no sign-in. Access is controlled by Firestore and Storage rules.</p>
+      <div class="code"><div class="code-head"><span>JavaScript · Firebase config</span><button class="btn sm" data-copy>Copy</button></div><pre>const firebaseConfig = {
+  apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ",
+  authDomain: "hoco-3b23e.firebaseapp.com",
+  projectId: "hoco-3b23e",
+  storageBucket: "hoco-3b23e.firebasestorage.app",
+  messagingSenderId: "409513272369",
+  appId: "1:409513272369:web:a857d9b039d53710f8a110"
+};</pre></div>
+    </section>
+
+    <section id="regions">
+      <h2>Regions</h2>
+      <p class="lead">Use the region ID in the <code>region</code> filter. Inactive regions are listed so your code keeps working when they launch.</p>
+      <div class="scroll"><table class="tbl" id="regionTable"><thead><tr><th>ID</th><th>Name</th><th>Status</th><th>Bounds (W, S, E, N)</th></tr></thead><tbody></tbody></table></div>
+      <div class="code"><div class="code-head"><span>JavaScript · regions</span><button class="btn sm" data-copy>Copy</button></div><pre>const HOCO_REGIONS = [
+  { id: 'England', name: 'England', status: 'active', west: -10.234, south: 48.788, east: 5.471, north: 56.578 },
+  { id: 'Scotland', name: 'Scotland (Beta)', status: 'active', west: -9.4482, south: 55.9161, east: 0, north: 60 },
+  { id: 'France', name: 'Coming Soon', status: 'inactive', west: -7.9761, south: 42.1448, east: 12.0850, north: 53.2849 },
+  { id: 'Spain', name: 'Coming Soon', status: 'inactive', west: -9.5, south: 36.0, east: 4.5, north: 43.8 },
+  { id: 'Germany', name: 'Germany (Beta)', status: 'active', west: 0.9558, south: 46.9809, east: 16.9409, north: 55.8567 },
+  { id: 'Poland', name: 'Poland (Beta)', status: 'active', west: 11.7142, south: 47.9787, east: 27.1252, north: 55.4243 },
+  { id: 'Baltics', name: 'Baltics (Beta)', status: 'active', west: 11.6949, south: 52.7695, east: 36.4801, north: 63.4481 }
+];</pre></div>
+    </section>
+
+    <section id="format">
+      <h2>Data format</h2>
+      <p class="lead">Each file is a GeoJSON <code>FeatureCollection</code>. Newer runs use the banded layout: one polygon per chance band, nested from low to high.</p>
+      <h3>Run document fields you can rely on</h3>
+      <div class="scroll"><table class="tbl"><thead><tr><th>Field</th><th>Example</th><th>Meaning</th></tr></thead><tbody>
+        <tr><td><code>region</code></td><td>England</td><td>Region ID</td></tr>
+        <tr><td><code>startTime</code>, <code>endTime</code></td><td>2026-11-18T06:00</td><td>The period the forecast covers</td></tr>
+        <tr><td><code>createdAt</code>, <code>completedAt</code></td><td>Timestamp</td><td>When the run started and finished</td></tr>
+        <tr><td><code>geojsonUrl</code></td><td>https://…</td><td>A direct link to the file (you can use this instead of steps 5 and 6)</td></tr>
+        <tr><td><code>geojsonLayout</code></td><td>bands_v2</td><td>Which layout the file uses</td></tr>
+      </tbody></table></div>
+      <h3>Feature properties</h3>
+      <div class="scroll"><table class="tbl"><thead><tr><th>Property</th><th>Example</th><th>Meaning</th></tr></thead><tbody>
+        <tr><td><code>feature_type</code></td><td>polygon</td><td><code>polygon</code> for shaded areas, <code>point</code> for the grid values underneath</td></tr>
+        <tr><td><code>risk</code></td><td>30</td><td>Chance of lightning within 20 km, in %. On polygons it is the band's lower edge</td></tr>
+        <tr><td><code>band_min</code>, <code>band_max</code>, <code>band_label</code></td><td>30, 40, "30-40%"</td><td>The band a polygon belongs to</td></tr>
+        <tr><td><code>fill</code>, <code>stroke</code>, <code>fill-opacity</code></td><td>#ffb327</td><td>HOCO's own colours, ready to use</td></tr>
+      </tbody></table></div>
+      <p class="muted" style="font-size:13.5px">Draw only <code>feature_type == "polygon"</code> for the shaded map. Grid points are many thousands of features and are meant for looking up a value at one spot.</p>
+      <h3>HOCO colours</h3>
+      <div class="scroll"><table class="tbl" id="bandTable"><thead><tr><th>Chance of lightning</th><th>Colour</th></tr></thead><tbody></tbody></table></div>
+    </section>
+
+    <section id="code">
+      <h2>Code examples</h2>
+      <p class="lead">Complete, copy-and-run examples. JavaScript runs in the browser, Python uses the Firestore REST API.</p>
+      <div class="tabsbar" role="tablist" aria-label="Language"><button role="tab" data-lang="js" aria-selected="true">JavaScript</button><button role="tab" data-lang="py" aria-selected="false">Python</button><button role="tab" data-lang="leaflet" aria-selected="false">Draw with Leaflet</button></div>
+      <div data-langpanel="js"><div class="code"><div class="code-head"><span>index.html · find AUTO-HOCO runs</span><button class="btn sm" data-copy>Copy</button></div><pre>&lt;script type="module"&gt;
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ",
+  authDomain: "hoco-3b23e.firebaseapp.com",
+  projectId: "hoco-3b23e",
+  storageBucket: "hoco-3b23e.firebasestorage.app",
+  messagingSenderId: "409513272369",
+  appId: "1:409513272369:web:a857d9b039d53710f8a110"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+function parseAutoHocoRunId(runId) {
+  const match = String(runId).match(/^AUTO-(\d+)-(.+)-(Day\d+-\d+)$/);
+  return {
+    autoCode: match?.[1] || null,
+    region: match?.[2] || null,
+    forecastDay: match?.[3] || null
+  };
+}
+
+function buildMetadataUrl(runId) {
+  const bucket = "hoco-3b23e.firebasestorage.app";
+  const objectPath = `forecasts/${runId}.geojson`;
+  return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(objectPath)}`;
+}
+
+async function fetchAutoHocoRuns() {
+  const q = query(
+    collection(db, "hoco_requests"),
+    where("public", "==", true),
+    where("status", "==", "completed"),
+    where("type", "==", "automated"),
+    orderBy("completedAt", "desc"),
+    limit(20)
+  );
+
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((docSnap) =&gt; {
+    const runId = docSnap.id;
+    const parsed = parseAutoHocoRunId(runId);
+
+    const data = docSnap.data();
+
+    return {
+      runId,
+      ...parsed,
+      region: data.region,
+      startTime: data.startTime,
+      endTime: data.endTime,
+      completedAt: data.completedAt,
+      geojsonUrl: data.geojsonUrl,
+      metadataUrl: buildMetadataUrl(runId)
+    };
+  });
+}
+
+const runs = await fetchAutoHocoRuns();
+console.log(runs);
+&lt;/script&gt;</pre></div></div>
+      <div data-langpanel="py" class="hidden"><div class="callout info"><span aria-hidden="true">📦</span><span>Install the one dependency first: <code>pip install requests</code></span></div><div class="code"><div class="code-head"><span>hoco.py · find, download and save a run</span><button class="btn sm" data-copy>Copy</button></div><pre>import re
+import json
+import requests
+from urllib.parse import quote
+
+API_KEY = "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ"
+PROJECT_ID = "hoco-3b23e"
+DATABASE_ID = "(default)"
+STORAGE_BUCKET = "hoco-3b23e.firebasestorage.app"
+
+HOCO_REGIONS = [
+    { "id": "England", "name": "England", "status": "active", "west": -10.234, "south": 48.788, "east": 5.471, "north": 56.578 },
+    { "id": "Scotland", "name": "Scotland (Beta)", "status": "active", "west": -9.4482, "south": 55.9161, "east": 0, "north": 60 },
+    { "id": "France", "name": "Coming Soon", "status": "inactive", "west": -7.9761, "south": 42.1448, "east": 12.0850, "north": 53.2849 },
+    { "id": "Spain", "name": "Coming Soon", "status": "inactive", "west": -9.5, "south": 36.0, "east": 4.5, "north": 43.8 },
+    { "id": "Germany", "name": "Germany (Beta)", "status": "active", "west": 0.9558, "south": 46.9809, "east": 16.9409, "north": 55.8567 },
+    { "id": "Poland", "name": "Poland (Beta)", "status": "active", "west": 11.7142, "south": 47.9787, "east": 27.1252, "north": 55.4243 },
+    { "id": "Baltics", "name": "Baltics (Beta)", "status": "active", "west": 11.6949, "south": 52.7695, "east": 36.4801, "north": 63.4481 }
+]
+
+def parse_auto_hoco_run_id(run_id):
+    match = re.match(r"^AUTO-(\d+)-(.+)-(Day\d+-\d+)$", run_id)
+
+    if not match:
+        return {
+            "autoCode": None,
+            "regionFromId": None,
+            "forecastDay": None
+        }
+
+    return {
+        "autoCode": match.group(1),
+        "regionFromId": match.group(2),
+        "forecastDay": match.group(3)
+    }
+
+def firestore_value_to_python(value):
+    if "stringValue" in value:
+        return value["stringValue"]
+
+    if "booleanValue" in value:
+        return value["booleanValue"]
+
+    if "integerValue" in value:
+        return int(value["integerValue"])
+
+    if "doubleValue" in value:
+        return float(value["doubleValue"])
+
+    if "timestampValue" in value:
+        return value["timestampValue"]
+
+    if "arrayValue" in value:
+        return [
+            firestore_value_to_python(item)
+            for item in value.get("arrayValue", {}).get("values", [])
+        ]
+
+    if "mapValue" in value:
+        return {
+            key: firestore_value_to_python(item)
+            for key, item in value.get("mapValue", {}).get("fields", {}).items()
+        }
+
+    return None
+
+def firestore_doc_to_python(document):
+    fields = document.get("fields", {})
+
+    data = {
+        key: firestore_value_to_python(value)
+        for key, value in fields.items()
+    }
+
+    document_path = document.get("name", "")
+    run_id = document_path.split("/")[-1]
+
+    data["runId"] = data.get("id") or run_id
+
+    return data
+
+def build_storage_metadata_url(run_id):
+    object_path = f"forecasts/{run_id}.geojson"
+    encoded_path = quote(object_path, safe="")
+    return f"https://firebasestorage.googleapis.com/v0/b/{STORAGE_BUCKET}/o/{encoded_path}"
+
+def build_geojson_download_url_from_metadata(metadata):
+    bucket = metadata["bucket"]
+    name = metadata["name"]
+
+    token = metadata.get("downloadTokens", "").split(",")[0]
+    encoded_name = quote(name, safe="")
+
+    return f"https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{encoded_name}?alt=media&amp;token={token}"
+
+def fetch_storage_metadata(metadata_url):
+    response = requests.get(metadata_url)
+    response.raise_for_status()
+    return response.json()
+
+def fetch_geojson(download_url):
+    response = requests.get(download_url)
+    response.raise_for_status()
+    return response.json()
+
+def fetch_auto_hoco_catalogue(region=None, forecast_day=None, limit_count=20):
+    url = (
+        f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}"
+        f"/databases/{DATABASE_ID}/documents:runQuery?key={API_KEY}"
+    )
+
+    filters = [
+        {
+            "fieldFilter": {
+                "field": { "fieldPath": "public" },
+                "op": "EQUAL",
+                "value": { "booleanValue": True }
+            }
+        },
+        {
+            "fieldFilter": {
+                "field": { "fieldPath": "status" },
+                "op": "EQUAL",
+                "value": { "stringValue": "completed" }
+            }
+        },
+        {
+            "fieldFilter": {
+                "field": { "fieldPath": "type" },
+                "op": "EQUAL",
+                "value": { "stringValue": "automated" }
+            }
+        }
+    ]
+
+    if region:
+        filters.append({
+            "fieldFilter": {
+                "field": { "fieldPath": "region" },
+                "op": "EQUAL",
+                "value": { "stringValue": region }
+            }
+        })
+
+    body = {
+        "structuredQuery": {
+            "from": [
+                { "collectionId": "hoco_requests" }
+            ],
+            "where": {
+                "compositeFilter": {
+                    "op": "AND",
+                    "filters": filters
+                }
+            },
+            "orderBy": [
+                {
+                    "field": { "fieldPath": "completedAt" },
+                    "direction": "DESCENDING"
+                }
+            ],
+            "limit": limit_count
+        }
+    }
+
+    response = requests.post(url, json=body)
+    response.raise_for_status()
+
+    raw_results = response.json()
+    runs = []
+
+    for item in raw_results:
+        document = item.get("document")
+
+        if not document:
+            continue
+
+        run = firestore_doc_to_python(document)
+        run_id = run["runId"]
+        parsed = parse_auto_hoco_run_id(run_id)
+
+        catalogue_item = {
+            "runId": run_id,
+            "autoCode": parsed["autoCode"],
+            "region": run.get("region") or parsed["regionFromId"],
+            "forecastDay": parsed["forecastDay"],
+            "weather": run.get("weather"),
+            "startTime": run.get("startTime"),
+            "endTime": run.get("endTime"),
+            "createdAt": run.get("createdAt"),
+            "completedAt": run.get("completedAt"),
+            "metadataUrl": build_storage_metadata_url(run_id),
+            "existingGeojsonUrl": run.get("geojsonUrl")
+        }
+
+        if forecast_day and catalogue_item["forecastDay"] != forecast_day:
+            continue
+
+        runs.append(catalogue_item)
+
+    return runs
+
+if __name__ == "__main__":
+    runs = fetch_auto_hoco_catalogue(
+        region="England",
+        forecast_day=None,
+        limit_count=10
+    )
+
+    print(f"Found {len(runs)} AUTO-HOCO runs")
+
+    for run in runs:
+        print(json.dumps(run, indent=2))
+
+    if not runs:
+        raise SystemExit("No AUTO-HOCO runs found.")
+
+    selected_run = runs[0]
+
+    print("\nSelected run:")
+    print(selected_run["runId"])
+
+    metadata = fetch_storage_metadata(selected_run["metadataUrl"])
+
+    print("\nStorage metadata:")
+    print(json.dumps(metadata, indent=2))
+
+    download_url = build_geojson_download_url_from_metadata(metadata)
+
+    print("\nGeoJSON download URL:")
+    print(download_url)
+
+    geojson = fetch_geojson(download_url)
+
+    feature_count = len(geojson.get("features", []))
+    print(f"\nGeoJSON loaded. Feature count: {feature_count}")
+
+    output_file = f"{selected_run['runId']}.geojson"
+
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(geojson, f)
+
+    print(f"Saved GeoJSON to {output_file}")</pre></div></div>
+      <div data-langpanel="leaflet" class="hidden"><div class="code"><div class="code-head"><span>JavaScript · draw a run with Leaflet</span><button class="btn sm" data-copy>Copy</button></div><pre>// HOCO's colour bands (chance of lightning within 20 km, %)
+const HOCO_BANDS = [
+  [5, "#9fd8c4"], [10, "#66c2a4"], [15, "#b3e05a"], [20, "#fff200"], [30, "#ffb327"], [40, "#ff7f27"],
+  [50, "#ff4127"], [60, "#e0182d"], [70, "#b0186b"], [80, "#8a2bbd"], [90, "#4b1fd1"]
+];
+
+function getRiskColor(risk) {
+  let color = "#b8c2cc";
+  for (const [min, fill] of HOCO_BANDS) if (risk &gt;= min) color = fill;
+  return color;
+}
+
+// Draw only the shaded areas, not the grid points
+const areas = { ...geojson, features: geojson.features.filter((f) =&gt; f.properties?.feature_type !== "point") };
+
+const layer = L.geoJSON(areas, {
+  style: function(feature) {
+    const risk = Number(
+      feature.properties?.riskValue ??
+      feature.properties?.peak_risk ??
+      feature.properties?.risk ??
+      0
+    );
+
+    return {
+      color: getRiskColor(risk),
+      weight: 2,
+      fillColor: getRiskColor(risk),
+      fillOpacity: 0.35
+    };
+  },
+  onEachFeature: function(feature, layer) {
+    layer.bindPopup(JSON.stringify(feature.properties, null, 2));
+  }
+}).addTo(map);
+
+map.fitBounds(layer.getBounds());</pre></div></div>
+    </section>
+
+    <section id="try">
+      <h2>Try it live</h2>
+      <p class="lead">This uses exactly the steps above. Load runs, pick one, and it is drawn on the map with the URLs it used.</p>
+      <div class="play">
+        <div class="pside">
+          <div class="pfilters">
+            <label>Region<select id="regionSelect"></select></label>
+            <label>Day<select id="daySelect"><option value="">Any day</option><option value="Day0-1">Day 0 · today</option><option value="Day1-2">Day 1</option><option value="Day2-3">Day 2</option></select></label>
+            <label>How many<select id="limitSelect"><option value="20">20 runs</option><option value="50" selected>50 runs</option><option value="100">100 runs</option></select></label>
+            <label style="justify-content:flex-end"><span>&nbsp;</span><button class="btn primary" id="loadRunsBtn">Load runs</button></label>
+          </div>
+          <div class="pstatus" id="catalogueStatus" role="status">Press Load runs to start.</div>
+          <div class="plist" id="runList"></div>
+        </div>
+        <div class="pmain">
+          <div id="map" aria-label="Map preview"></div>
+          <div class="pkey" aria-label="Colour key"><div class="bar" id="keyBar"></div><div class="ticks"><span>5%</span><span>50%</span><span>90%</span></div></div>
+          <div class="pdetail" id="detail"><span class="muted">Pick a run to see the URLs and draw it.</span></div>
+        </div>
+      </div>
+      <div class="foot"><span>Need more than public reads? Request API access from your HOCO account menu.</span><a href="./">Open HOCO</a><a href="privacy.html">Privacy</a></div>
+    </section>
+  </main>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getFirestore, collection, query, where, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+const app = initializeApp({ apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ", authDomain: "hoco-3b23e.firebaseapp.com", projectId: "hoco-3b23e", storageBucket: "hoco-3b23e.firebasestorage.app", messagingSenderId: "409513272369", appId: "1:409513272369:web:a857d9b039d53710f8a110" });
+const db = getFirestore(app);
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const STORAGE_BUCKET = "hoco-3b23e.firebasestorage.app";
+const HOCO_REGIONS = [
+  { id: "England", name: "England", status: "active", west: -10.234, south: 48.788, east: 5.471, north: 56.578 },
+  { id: "Scotland", name: "Scotland (Beta)", status: "active", west: -9.4482, south: 55.9161, east: 0, north: 60 },
+  { id: "France", name: "Coming Soon", status: "inactive", west: -7.9761, south: 42.1448, east: 12.0850, north: 53.2849 },
+  { id: "Spain", name: "Coming Soon", status: "inactive", west: -9.5, south: 36.0, east: 4.5, north: 43.8 },
+  { id: "Germany", name: "Germany (Beta)", status: "active", west: 0.9558, south: 46.9809, east: 16.9409, north: 55.8567 },
+  { id: "Poland", name: "Poland (Beta)", status: "active", west: 11.7142, south: 47.9787, east: 27.1252, north: 55.4243 },
+  { id: "Baltics", name: "Baltics (Beta)", status: "active", west: 11.6949, south: 52.7695, east: 36.4801, north: 63.4481 }
+];
+const BANDS = [[5,'#9fd8c4','5-10%'],[10,'#66c2a4','10-15%'],[15,'#b3e05a','15-20%'],[20,'#fff200','20-30%'],[30,'#ffb327','30-40%'],[40,'#ff7f27','40-50%'],[50,'#ff4127','50-60%'],[60,'#e0182d','60-70%'],[70,'#b0186b','70-80%'],[80,'#8a2bbd','80-90%'],[90,'#4b1fd1','90%+']];
+const colorFor = (r) => { let c = null; for (const [m, f] of BANDS) if (r >= m) c = f; return c; };
+
+// theme
+const SUN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+const MOON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+const media = matchMedia('(prefers-color-scheme: dark)');
+const theme = () => { const t = localStorage.getItem('hocoTheme') || 'auto'; return t === 'auto' ? (media.matches ? 'dark' : 'light') : t; };
+const applyTheme = () => { document.documentElement.dataset.theme = theme(); $('themeBtn').innerHTML = theme() === 'dark' ? SUN : MOON; };
+$('themeBtn').onclick = () => { try { localStorage.setItem('hocoTheme', theme() === 'dark' ? 'light' : 'dark'); } catch (e) {} applyTheme(); };
+media.addEventListener?.('change', applyTheme); applyTheme();
+
+// light syntax colouring for the code blocks (keeps the text as it is)
+function paint(pre) {
+  const lang = pre.closest('[data-langpanel="py"]') ? 'py' : 'js';
+  const kw = lang === 'py' ? /\b(import|from|def|return|if|not|for|in|with|as|raise|None|True|False|and|or|continue|print|open)\b/g : /\b(import|from|const|let|function|return|async|await|if|else|new|export|true|false|null)\b/g;
+  const parts = pre.textContent.split(/("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`|#[^\n]*|\/\/[^\n]*)/g);
+  pre.innerHTML = parts.map((p, i) => { if (i % 2) { if (p.startsWith('#') && lang === 'py' || p.startsWith('//')) return `<span class="c">${esc(p)}</span>`; if (p.startsWith('#')) return esc(p); return `<span class="s">${esc(p)}</span>`; }
+    return esc(p).replace(kw, '<span class="k">$1</span>').replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="n">$1</span>'); }).join('');
+}
+document.querySelectorAll('.code pre').forEach(paint);
+document.querySelectorAll('[data-copy]').forEach(b => b.onclick = async () => { const t = b.closest('.code').querySelector('pre').textContent; try { await navigator.clipboard.writeText(t); b.textContent = 'Copied'; } catch (e) { b.textContent = 'Press Ctrl+C'; } setTimeout(() => b.textContent = 'Copy', 1400); });
+document.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => { document.querySelectorAll('[data-lang]').forEach(x => x.setAttribute('aria-selected', x === b)); document.querySelectorAll('[data-langpanel]').forEach(p => p.classList.toggle('hidden', p.dataset.langpanel !== b.dataset.lang)); });
+
+// tables
+$('regionTable').querySelector('tbody').innerHTML = HOCO_REGIONS.map(r => `<tr><td><code>${r.id}</code></td><td>${esc(r.name)}</td><td><span class="st ${r.status === 'active' ? 'on' : 'off'}">${r.status}</span></td><td class="mono" style="font-size:12px;white-space:nowrap">${r.west}, ${r.south}, ${r.east}, ${r.north}</td></tr>`).join('');
+$('bandTable').querySelector('tbody').innerHTML = BANDS.map(([m, f, l]) => `<tr><td>${l}</td><td><span class="sw" style="background:${f}"></span><code>${f}</code></td></tr>`).join('');
+$('keyBar').innerHTML = BANDS.map(([, f]) => `<i style="background:${f}"></i>`).join('');
+
+// table of contents highlight
+const links = [...document.querySelectorAll('#toc a')], secs = links.map(a => document.querySelector(a.getAttribute('href')));
+const io = new IntersectionObserver((es) => { es.forEach(e => { if (e.isIntersecting) { links.forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id)); links.find(a => a.classList.contains('on'))?.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } }); }, { rootMargin: '-80px 0px -65% 0px' });
+secs.forEach(s => s && io.observe(s));
+
+// ---------- live demo ----------
+const regionSelect = $('regionSelect');
+regionSelect.innerHTML = '<option value="">All active regions</option>' + HOCO_REGIONS.map(r => `<option value="${r.id}" ${r.status !== 'active' ? 'disabled' : ''}>${r.id}${r.status !== 'active' ? ' (coming soon)' : ''}</option>`).join('');
+regionSelect.value = 'England';
+const map = L.map('map', { center: [54.5, -2.5], zoom: 5, zoomControl: true });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+let layer = null;
+const fit = (r) => r && map.fitBounds([[r.south, r.west], [r.north, r.east]], { padding: [20, 20] });
+fit(HOCO_REGIONS[0]);
+const parseId = (id) => { const m = String(id).match(/^AUTO-(\d+)-(.+)-(Day\d+-\d+)$/); return { autoCode: m?.[1] || null, regionFromId: m?.[2] || null, forecastDay: m?.[3] || null }; };
+const metaUrl = (id) => `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/${encodeURIComponent(`forecasts/${id}.geojson`)}`;
+const fileUrl = (meta) => `https://firebasestorage.googleapis.com/v0/b/${meta.bucket}/o/${encodeURIComponent(meta.name)}?alt=media&token=${String(meta.downloadTokens || '').split(',')[0]}`;
+const when = (v) => { const d = v?.toDate ? v.toDate() : v ? new Date(v) : null; return d && !isNaN(d) ? d.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '–'; };
+const dayTxt = { 'Day0-1': 'Day 0', 'Day1-2': 'Day 1', 'Day2-3': 'Day 2' };
+let runs = [];
+$('loadRunsBtn').onclick = async () => {
+  const st = $('catalogueStatus'); st.textContent = 'Loading runs…'; $('runList').innerHTML = ''; $('loadRunsBtn').disabled = true;
+  try {
+    const reg = regionSelect.value, n = Number($('limitSelect').value || 50), day = $('daySelect').value;
+    const f = [where("public", "==", true), where("status", "==", "completed"), where("type", "==", "automated")]; if (reg) f.push(where("region", "==", reg));
+    const snap = await getDocs(query(collection(db, "hoco_requests"), ...f, orderBy("completedAt", "desc"), limit(n)));
+    // Only the documented fields are read here.
+    runs = snap.docs.map(d => { const x = d.data(), id = x.id || d.id, p = parseId(id); return { runId: id, ...p, region: x.region || p.regionFromId, startTime: x.startTime || null, endTime: x.endTime || null, completedAt: x.completedAt || null, geojsonUrl: x.geojsonUrl || null, metadataUrl: metaUrl(id) }; });
+    if (day) runs = runs.filter(r => r.forecastDay === day);
+    st.textContent = `${runs.length} run${runs.length === 1 ? '' : 's'} found${day ? ` for ${dayTxt[day]}` : ''}.`;
+    fit(HOCO_REGIONS.find(r => r.id === reg));
+    $('runList').innerHTML = runs.length ? runs.map((r, i) => `<button class="prow" data-i="${i}" aria-pressed="false"><span><b>${esc(r.region)} · ${esc(dayTxt[r.forecastDay] || r.forecastDay || '')}</b><small>Finished ${when(r.completedAt)}</small></span><span class="tagd mono">${esc(r.autoCode?.slice(-6) || '')}</span></button>`).join('')
+      : '<div class="pstatus">No runs found. Try another region or day, or load more.</div>';
+    $('runList').querySelectorAll('[data-i]').forEach(b => b.onclick = () => { $('runList').querySelectorAll('[data-i]').forEach(x => x.setAttribute('aria-pressed', x === b)); show(runs[+b.dataset.i]); });
+    if (runs[0]) $('runList').querySelector('[data-i="0"]').click();
+  } catch (e) { st.innerHTML = `<span class="err">Could not load runs: ${esc(e.message)}</span>`; }
+  $('loadRunsBtn').disabled = false;
+};
+const kv = (k, v, copy) => `<div class="kv"><span>${k}</span><code title="${esc(v)}">${esc(v)}</code>${copy ? `<button class="btn sm" data-c="${esc(v)}">Copy</button>` : '<span></span>'}</div>`;
+async function show(run) {
+  const d = $('detail'); d.innerHTML = `<div class="kv"><span>Run ID</span><code>${esc(run.runId)}</code><span></span></div><span class="muted">Step 1 of 2 · fetching Storage metadata…</span>`;
+  try {
+    const mr = await fetch(run.metadataUrl); if (!mr.ok) throw new Error(`metadata request failed (${mr.status})`); const meta = await mr.json();
+    const url = fileUrl(meta); d.lastElementChild.textContent = 'Step 2 of 2 · downloading the GeoJSON…';
+    const gr = await fetch(url); if (!gr.ok) throw new Error(`GeoJSON request failed (${gr.status})`); const g = await gr.json();
+    draw(g);
+    const polys = (g.features || []).filter(f => f.properties?.feature_type !== 'point').length, peak = Math.max(0, ...(g.features || []).map(f => +f.properties?.risk || 0));
+    d.innerHTML = kv('Run ID', run.runId, true) + kv('Covers', `${run.startTime || '–'} → ${run.endTime || '–'}`) + kv('Metadata URL', run.metadataUrl, true) + kv('GeoJSON URL', url, true)
+      + `<div class="kv"><span>Result</span><span class="ok">✓ ${(g.features || []).length.toLocaleString()} features · ${polys} areas · peak ${Math.round(peak)}%</span><a class="btn sm" href="${esc(url)}" target="_blank" rel="noopener">Open file</a></div>`;
+    d.querySelectorAll('[data-c]').forEach(b => b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.c); b.textContent = 'Copied'; setTimeout(() => b.textContent = 'Copy', 1200); } catch (e) {} });
+  } catch (e) { d.innerHTML = kv('Run ID', run.runId, true) + `<span class="err">${esc(e.message)}</span>`; }
+}
+function draw(g) {
+  if (layer) map.removeLayer(layer);
+  const polys = { ...g, features: (g.features || []).filter(f => f.properties?.feature_type !== 'point') };
+  layer = L.geoJSON(polys, { style: (f) => { const r = +f.properties?.risk || 0, c = f.properties?.fill || colorFor(r) || '#b8c2cc'; return { color: 'rgba(15,27,45,.45)', weight: .6, fillColor: c, fillOpacity: .7 }; },
+    onEachFeature: (f, l) => l.bindTooltip(`${esc(f.properties?.band_label || (Math.round(+f.properties?.risk || 0) + '%+'))} chance of lightning`, { sticky: true }) }).addTo(map);
+  const b = layer.getBounds(); if (b.isValid()) map.fitBounds(b, { padding: [20, 20] });
+}
+new ResizeObserver(() => map.invalidateSize()).observe($('map'));
+</script>
+</body>
+</html>

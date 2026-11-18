@@ -322,7 +322,7 @@ export async function openAccuracy(tab = 'accuracy') {
       body.innerHTML = `<div class="rowbetween"><p class="lead">${status === 'published' ? `Live${s.version ? ` · v${esc(s.version)}` : ''}` : status === 'paused' ? 'Paused. Traditional is unaffected.' : 'Learning from verified lightning'}${trained && !isNaN(trained) ? ` · last trained ${X.dayDate(trained)}, ${X.hhmm(trained)}` : ''}${m?.data?.featureRuns ? ` · ${m.data.featureRuns} runs with per-model data` : ''}</p>${chip}</div>
         <table class="acctable"><thead><tr><th>Day</th><th>Lab picked</th><th>Brier vs Trad</th><th>AUC</th></tr></thead><tbody>${['day0', 'day1', 'day2'].map(row).join('')}</tbody></table>
         ${checks.length ? `<div class="setgrp"><span class="kicker">Launch checklist · ${passed} of ${checks.length}</span>${checks.map(c => `<div class="check ${c.ok ? 'ok' : ''}"><i>${c.ok ? '✓' : ''}</i><span>${esc(c.label)}<small>${esc(c.detail || '')}</small></span></div>`).join('')}</div>` : ''}
-        ${X.S.role === 'developer' ? `<div class="chips" style="justify-content:flex-end"><a class="btn" href="../ai-hoco-lab.html" target="_blank" rel="noopener">Open the Lab ↗</a><button class="btn primary" id="aiPublish" ${status === 'published' ? 'disabled' : ''}>${status === 'published' ? 'Published' : ready ? 'Publish AI HOCO' : 'Publish AI HOCO (checks not passed)'}</button></div>
+        ${X.S.role === 'developer' ? `<div class="chips" style="justify-content:flex-end"><a class="btn" href="ai-lab.html" target="_blank" rel="noopener">Open the Lab ↗</a><button class="btn primary" id="aiPublish" ${status === 'published' ? 'disabled' : ''}>${status === 'published' ? 'Published' : ready ? 'Publish AI HOCO' : 'Publish AI HOCO (checks not passed)'}</button></div>
           <small class="muted">Model weights stay in the Lab and are only shown to developers.</small>` : '<small class="muted">AI HOCO runs next to Traditional HOCO. Traditional keeps its own hand-tuned weights.</small>'}`;
       $('aiPublish') && ($('aiPublish').onclick = async (ev) => {
         if (!ready) { const w = prompt('Not every launch check has passed. AI HOCO may be worse than Traditional HOCO.\n\nType PUBLISH to publish anyway:'); if (w !== 'PUBLISH') return; }
@@ -364,7 +364,7 @@ export function openApi() {
     <div class="setgrp"><span class="kicker">1 · Find the latest runs (catalogue)</span><code class="apiline"><b>POST</b> firestore …/documents:runQuery?key=&lt;web key&gt;</code></div>
     <div class="setgrp"><span class="kicker">2 · Download a run as GeoJSON</span><code class="apiline"><b>GET</b> firebasestorage …/o/&lt;run file&gt;?alt=media&amp;token=&lt;downloadToken&gt;</code></div>
     <p class="lead">The guide has ready-made JavaScript and Python code and the list of supported regions.</p>
-    <div class="chips" style="justify-content:flex-end"><a class="btn primary" href="../api_usage.html" target="_blank" rel="noopener">Open the API guide ↗</a></div>`, 'API access');
+    <div class="chips" style="justify-content:flex-end"><a class="btn primary" href="developers.html" target="_blank" rel="noopener">Open the API guide ↗</a></div>`, 'API access');
 }
 
 // ------------------------------------------------------------------ Europe region map
