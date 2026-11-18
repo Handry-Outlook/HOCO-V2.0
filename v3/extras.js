@@ -488,14 +488,14 @@ export function openAlerts(focus) {
       <div class="chips" style="justify-content:space-between"><button class="btn" id="alAdd">+ Add a place</button><button class="btn primary" id="alDone">Done</button></div>
       <small class="muted">Alerts are checked whenever a new run arrives while HOCO is open. On phones, alerts need HOCO added to your home screen.</small></section>`;
     d.classList.remove('hidden');
-    d.querySelector('[data-x]').onclick = () => d.classList.add('hidden');
+    d.querySelector('[data-x]').onclick = () => { d.classList.add('hidden'); renderPlace(); };
     d.querySelectorAll('[data-sel]').forEach(b => b.onclick = (e) => { if (e.target.closest('[data-del]')) return; sel = +b.dataset.sel; draw(); });
     d.querySelectorAll('[data-del]').forEach(b => b.onclick = (e) => { e.stopPropagation(); const s = loadPlaces(); s.splice(+b.dataset.del, 1); savePlaces(s); sel = 0; draw(); renderPlace(); });
     d.querySelectorAll('[data-lvl]').forEach(b => b.onclick = async () => { const s = loadPlaces(); s[sel].alertAt = b.dataset.lvl === 'null' ? null : +b.dataset.lvl; savePlaces(s);
       if (s[sel].alertAt && 'Notification' in window && Notification.permission === 'default') { try { await Notification.requestPermission(); } catch (e) { } }
       draw(); renderPlace(); });
     $('alAdd').onclick = (e) => { e.stopPropagation(); d.classList.add('hidden'); $('searchBtn').click(); addingAlert = true; X.toast('Search for a town or postcode to add it'); };
-    $('alDone').onclick = () => d.classList.add('hidden');
+    $('alDone').onclick = () => { d.classList.add('hidden'); renderPlace(); };
   };
   draw();
 }
