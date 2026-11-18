@@ -833,6 +833,8 @@ body.comparing .tools{z-index:40}
 @media (max-width:640px){ .cx-title{display:none} .cx-key{margin-left:auto} }
 
 .cx-obs .cx-tog.sm{height:32px}
+
+@media (max-width:640px){ .cx-obs{flex-wrap:nowrap} .cx-obs .btn.sm{padding:0 8px} .cx-ohead b{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .cx-okeys{display:none} }
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -1580,7 +1582,7 @@ import('./extras.js?v=15').then((m) => {
 }).catch((e) => console.error(e));
 
 // ---------- stage 4 (settings, compare, accuracy, alerts, install, tutorial, embed, ads) ----------
-import('./stage4.js?v=13').then((m) => {
+import('./stage4.js?v=14').then((m) => {
   m.initStage4({ extras: () => Extras, map, S, BANDS, REGIONS, db, auth, storage, doc, getDoc, getDocs, query, collection, where, orderBy, limit, addDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, dateKey, nearestPlace, regionMatches,
     colorExpr, fillColor, styleUrl, applySettings, setTheme, setProduct, setRegion, runsFor, riskAt: riskAtGeo, embed: EMBED, goDay: (d) => { S.day = d; clearCustom(); renderAll(); },
     callable: (name) => async (data) => { const f = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js'); return f.httpsCallable(f.getFunctions(app, 'us-central1'), name)(data); },

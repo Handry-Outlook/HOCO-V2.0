@@ -98,7 +98,7 @@ function obsBar() {
     <div class="cx-omid"><div class="cx-ohead"><b id="cxOTime">${CO.radar ? 'Radar' : 'Strikes'} · ${X.dayName(new Date(CO.t))} ${hmm(CO.t)}</b><span class="tag live${live ? '' : ' hidden'}" id="cxOLive">Live</span><small id="cxOInfo">${esc(CO.note)}</small></div>
       <label class="sr" for="cxOSlider">Observed time</label><input type="range" id="cxOSlider" min="0" max="${n}" value="${i}" step="1" style="--pct:${n ? i / n * 100 : 100}%">
       <div class="cx-oticks"><span>${X.dayName(new Date(r.s))} ${hmm(r.s)}</span><span>${hmm(r.e)}</span></div></div>
-    ${CO.radar ? `<button class="btn sm cx-tog" id="cxOLines" aria-pressed="${CO.outlines}" title="Draw the forecast as coloured outlines while radar is on">Outlines</button>` : ''}<button class="btn sm" id="cxONow">Now</button><button class="btn sm" id="cxOKey" aria-expanded="${CO.keyOpen}">Key</button><button class="btn icon sm" id="cxObsOff" aria-label="Turn off radar and strikes">✕</button>
+    ${CO.radar ? `<button class="btn sm cx-tog" id="cxOLines" aria-pressed="${CO.outlines}" title="Draw the forecast as coloured outlines while radar is on" aria-label="Forecast as outlines"><svg class="cx-short" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M4 8c2-4 9-5 13-2s4 9 0 11-10 3-12-1-3-5-1-8z"/></svg><span class="cx-long">Outlines</span></button>` : ''}<button class="btn sm" id="cxONow">Now</button><button class="btn sm" id="cxOKey" aria-expanded="${CO.keyOpen}">Key</button><button class="btn icon sm" id="cxObsOff" aria-label="Turn off radar and strikes">✕</button>
     ${key}</div>`;
 }
 function renderObsBar() {
