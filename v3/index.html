@@ -681,6 +681,16 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom))}
 .obsbar .btn.icon{width:32px;height:32px}
 @media (max-width:640px){ body.obs-on .summary .legend.mini .ticks{display:none} }
 @media (max-width:640px){ .obs-head small{display:none} }
+@media (max-width:640px){
+  .sum-where{-webkit-line-clamp:1}
+  .summary{padding:6px 10px 6px;gap:4px}
+  .obsbar{padding:4px 6px}
+  .obs-ticks,.obs-future em{display:none}
+  .obs-head{line-height:1.1}.obs-head b{font-size:12px}
+  .obsbar input[type=range]{height:20px}
+  .obsbar .obs-row{gap:6px}
+  .obsbar .obs-btns{gap:4px}.obsbar .obs-btns .btn{height:28px;padding:0 8px}
+}
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
