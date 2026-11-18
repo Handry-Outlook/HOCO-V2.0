@@ -4283,7 +4283,7 @@
 
         function attachHocoProbe(map, mapIndex) {
             let frame = null;
-            map.on('mousemove', (e) => {
+            const update = (e) => {
                 if (frame) return;
                 frame = requestAnimationFrame(() => {
                     frame = null;
@@ -4317,7 +4317,9 @@
                         ${props.src && isHocoDeveloper() ? `<div class="hoco-probe-sub" style="margin-top:6px;">Main contributors</div>${sourceRowsHtml(props.src)}` : ''}`;
                     probe.classList.add('is-visible');
                 });
-            });
+            };
+            map.on('mousemove', update);
+            map.on('click', update);
             map.on('mouseout', () => {
                 const probe = ensureHocoProbe(mapIndex);
                 if (probe) probe.classList.remove('is-visible');
@@ -6872,16 +6874,7 @@
             });
 
             attachHocoProbe(maps[i], i);
-            maps[i].on('click', 'hoco-points', (e) => showHocoFeaturePopup(maps[i], e));
-            maps[i].on('click', 'hoco-polygons', (e) => {
-                const pointHits = maps[i].queryRenderedFeatures(e.point, { layers: ['hoco-points'] });
-                if (pointHits.length) return;
-                showHocoFeaturePopup(maps[i], e);
-            });
-            maps[i].on('mouseenter', 'hoco-points', () => { maps[i].getCanvas().style.cursor = 'pointer'; });
-            maps[i].on('mouseleave', 'hoco-points', () => { maps[i].getCanvas().style.cursor = ''; });
-            maps[i].on('mouseenter', 'hoco-polygons', () => { maps[i].getCanvas().style.cursor = 'pointer'; });
-            maps[i].on('mouseleave', 'hoco-polygons', () => { maps[i].getCanvas().style.cursor = ''; });
+            // Forecast details show in the hover card (attachHocoProbe); tapping updates it on touch screens.
 
             maps[i].on('move', (e) => {
                 if (e.originalEvent) {
