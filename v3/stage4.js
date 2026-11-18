@@ -70,7 +70,7 @@ const RAD = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke=
 const BOLT = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>';
 const PLAYI = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>';
 const PAUSEI = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>';
-const CO = { radar: false, strikes: false, t: null, t0: null, t1: null, playing: false, list: null, listKey: '', states: [], timer: null, keyOpen: false, note: '' };
+const CO = { outlines: (() => { try { return localStorage.getItem('hocoCmpOutlines') !== '0'; } catch (e) { return true; } })(), radar: false, strikes: false, t: null, t0: null, t1: null, playing: false, list: null, listKey: '', states: [], timer: null, keyOpen: false, note: '' };
 const E = () => X.extras?.();
 const hmm = (ms) => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 function obsRange() {
@@ -98,7 +98,7 @@ function obsBar() {
     <div class="cx-omid"><div class="cx-ohead"><b id="cxOTime">${CO.radar ? 'Radar' : 'Strikes'} · ${X.dayName(new Date(CO.t))} ${hmm(CO.t)}</b><span class="tag live${live ? '' : ' hidden'}" id="cxOLive">Live</span><small id="cxOInfo">${esc(CO.note)}</small></div>
       <label class="sr" for="cxOSlider">Observed time</label><input type="range" id="cxOSlider" min="0" max="${n}" value="${i}" step="1" style="--pct:${n ? i / n * 100 : 100}%">
       <div class="cx-oticks"><span>${X.dayName(new Date(r.s))} ${hmm(r.s)}</span><span>${hmm(r.e)}</span></div></div>
-    <button class="btn sm" id="cxONow">Now</button><button class="btn sm" id="cxOKey" aria-expanded="${CO.keyOpen}">Key</button><button class="btn icon sm" id="cxObsOff" aria-label="Turn off radar and strikes">✕</button>
+    ${CO.radar ? `<button class="btn sm cx-tog" id="cxOLines" aria-pressed="${CO.outlines}" title="Draw the forecast as coloured outlines while radar is on">Outlines</button>` : ''}<button class="btn sm" id="cxONow">Now</button><button class="btn sm" id="cxOKey" aria-expanded="${CO.keyOpen}">Key</button><button class="btn icon sm" id="cxObsOff" aria-label="Turn off radar and strikes">✕</button>
     ${key}</div>`;
 }
 function renderObsBar() {
@@ -111,6 +111,7 @@ function renderObsBar() {
   $('cxOSlider').oninput = (e) => { stopObs(); CO.t = CO.t0 + (+e.target.value) * step; updateObsHead(); paintAll(); };
   $('cxONow').onclick = () => { stopObs(); CO.t = CO.t1; renderObsBar(); paintAll(); };
   $('cxOKey').onclick = () => { CO.keyOpen = !CO.keyOpen; renderObsBar(); };
+  $('cxOLines') && ($('cxOLines').onclick = () => { CO.outlines = !CO.outlines; try { localStorage.setItem('hocoCmpOutlines', CO.outlines ? '1' : '0'); } catch (e) {} $('cxOLines').setAttribute('aria-pressed', CO.outlines); C.maps.forEach(forecastStyle); });
   $('cxPlay').onclick = () => { if (CO.playing) { stopObs(); renderObsBar(); return; } CO.playing = true; if (CO.t >= CO.t1) CO.t = CO.t0; renderObsBar(); playStep(); };
 }
 function updateObsHead() {
@@ -131,7 +132,7 @@ async function playStep() {
 // forecast drawn as coloured outlines while radar is on, so the rain stays readable
 function forecastStyle(m) {
   if (!m.getLayer('hoco-fill')) return;
-  if (CO.radar) { m.setLayoutProperty('hoco-fill', 'visibility', 'none'); m.setPaintProperty('hoco-line', 'line-color', ['coalesce', ['get', 'fill'], X.colorExpr()]); m.setPaintProperty('hoco-line', 'line-width', 2.2); }
+  if (CO.radar && CO.outlines) { m.setLayoutProperty('hoco-fill', 'visibility', 'none'); m.setPaintProperty('hoco-line', 'line-color', ['coalesce', ['get', 'fill'], X.colorExpr()]); m.setPaintProperty('hoco-line', 'line-width', 2.2); }
   else { m.setLayoutProperty('hoco-fill', 'visibility', 'visible'); m.setPaintProperty('hoco-line', 'line-color', 'rgba(16,34,56,0.45)'); m.setPaintProperty('hoco-line', 'line-width', 0.6); }
 }
 function applyObs(i) {
