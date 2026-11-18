@@ -150,6 +150,89 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:999px;b
 .empty{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9;width:min(380px,calc(100vw - 32px));padding:18px;display:flex;flex-direction:column;gap:8px;text-align:center}
 .preview-note{position:fixed;left:16px;bottom:16px;z-index:9;font-size:12px;padding:6px 10px;border-radius:999px}
 
+/* tools drawer */
+.tools{position:fixed;top:92px;right:16px;bottom:16px;width:440px;z-index:25;display:flex;flex-direction:column;overflow:hidden;background:var(--solid);backdrop-filter:none}
+.tools-head{display:flex;align-items:center;gap:8px;padding:10px 10px 10px 14px;border-bottom:1px solid var(--border)}
+.tools-head .tabs{display:flex;gap:4px;flex:1;overflow-x:auto;scrollbar-width:none}
+.tools-head .tabs button{height:36px;padding:0 12px;border-radius:9px;border:none;background:transparent;color:var(--muted);font-weight:600;font-size:14px;white-space:nowrap}
+.tools-head .tabs button[aria-selected="true"]{background:var(--accent-soft);color:var(--accent)}
+.tools-body{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:14px;overscroll-behavior:contain}
+.tools .lead{margin:0;font-size:14px;line-height:1.45;color:var(--muted)}
+.tools .field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.tools select,.tools input:not([type]),.tools input[type=date],.tools input[type=datetime-local],.tools input[type=number],.tools textarea{height:42px;padding:0 12px;border-radius:10px;border:1px solid var(--border);background:var(--chip);font-size:14px;width:100%;min-width:0}
+.tools textarea{height:auto;padding:10px 12px;resize:vertical}
+.tools input[type=number]{height:36px;padding:0 8px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px}
+.grid3 label{display:flex;flex-direction:column;gap:4px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chipbtn{height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--border);background:var(--chip);font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:6px}
+.chipbtn small{font-weight:500;color:var(--muted);font-size:11px}
+.chipbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-text)}
+.chipbtn[aria-pressed="true"] small{color:inherit;opacity:.85}
+.runchips .chipbtn{height:30px;font-size:12px;padding:0 10px}
+.seg.wide{width:100%}.seg.wide button{flex:1;justify-content:center}
+.seg button[disabled]{opacity:.4;cursor:not-allowed}
+.rowbetween{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.linkbtn{border:none;background:none;padding:0;color:var(--accent);font-weight:600;font-size:13px}
+.center{text-align:center;padding:24px 0;display:flex;align-items:center;justify-content:center;gap:8px}
+.note{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:12px;background:var(--chip);font-size:14px;line-height:1.4}
+.note.slim{padding:10px 12px;font-size:13px}
+.note.good{background:var(--accent-soft)}
+.note small{color:var(--muted)}
+.datebar{display:flex;align-items:flex-end;gap:8px}
+.datebar .btn.icon{font-size:20px}
+.dateinput{flex:1;display:flex;flex-direction:column;gap:4px}
+.runlist{display:flex;flex-direction:column;gap:6px}
+.runitem{display:flex;align-items:center;gap:10px;padding:10px 10px 10px 12px;border-radius:12px;border:1px solid var(--border);background:var(--chip)}
+.runitem.on{border-color:var(--accent);background:var(--accent-soft)}
+.runitem .tag{margin:0;flex:none;min-width:64px;text-align:center}
+.ri-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ri-main b{font-size:14px}.ri-main small{font-size:12px;color:var(--muted)}
+.ri-main .linkbtn{align-self:flex-start;font-size:12px}
+.runitem .btn{height:34px}
+.proc{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--accent);line-height:1.2}
+.proc small{font-weight:500;color:var(--muted)}
+.tag.ens{background:rgba(31,157,112,.15);color:var(--good)}
+.wlist{display:flex;flex-direction:column;gap:4px;max-height:none}
+.wrow{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(80px,1.1fr) 40px;align-items:center;gap:10px;padding:6px 8px 6px 10px;border-radius:10px;background:var(--chip)}
+.wrow:has(.sm){grid-template-columns:minmax(0,1fr) minmax(80px,1.1fr) 40px 32px}
+.wrow.off{opacity:.55}
+.wrow output{font-size:13px;font-weight:700;text-align:right}
+.wrow .tag{margin:0}
+.scenlabel{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.scenlabel small{color:var(--muted)}
+.chk{display:flex;align-items:center;gap:8px;font-size:14px;min-width:0}
+.chk input{width:18px;height:18px;accent-color:var(--accent);flex:none}
+.chk small{color:var(--muted)}
+.btn.big{height:48px;font-size:15px}
+.btn.sm{height:32px;font-size:13px}.btn.icon.sm{width:32px}
+.spin.light{border-color:rgba(255,255,255,.4);border-top-color:#fff}
+.devbox{padding:10px 12px;border-radius:12px;border:1px dashed var(--border)}
+.devbox summary{cursor:pointer;list-style:none}
+.devbox summary::-webkit-details-marker{display:none}
+.devbox summary::after{content:' ▾';color:var(--muted)}
+.devbox[open]{gap:8px}
+.devsec{display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:14px;border:1px solid var(--border)}
+.runners{display:flex;flex-direction:column;gap:6px}
+.runner{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--chip);cursor:pointer}
+.runner.on{border-color:var(--accent);background:var(--accent-soft)}
+.runner span:first-of-type{flex:1;display:flex;flex-direction:column}
+.runner small{color:var(--muted);font-size:12px}
+.runner input{accent-color:var(--accent)}
+.req{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:10px;background:var(--chip);font-size:14px}
+.userlist{display:flex;flex-direction:column;gap:4px;max-height:360px;overflow:auto}
+.urow{display:flex;align-items:center;gap:8px;font-size:13px}
+.urow span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.urow select{width:150px!important;height:34px!important;flex:none}
+.acttoast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:61;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;border-radius:14px;background:var(--text);color:var(--bg);font-weight:600;font-size:14px;box-shadow:var(--shadow)}
+.acttoast .btn.icon{background:transparent;border:none;color:inherit;width:34px;height:34px}
+.acttoast .btn.primary{height:34px}
+body.tools-open .ctrls{display:none}
+@media (min-width:1101px){ body.tools-open .dock{left:16px;transform:none;width:calc(100vw - 488px)} body.tools-open .banner{left:calc(50% - 228px)} }
+body.custom .dock-row,body.custom .dock .sep,body.custom .runrow,body.custom .runcount{display:none}
+@media (min-width:641px){ body.custom .dock{display:none!important} }
+
 /* iPad */
 @media (max-width:1100px){
   .topbar .brand small{display:none}
@@ -162,6 +245,7 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:999px;b
   .covers{width:100%;text-align:left;margin:0;display:flex;gap:8px;align-items:baseline}
   .navtext{display:none}
   .preview-note{display:none}
+  .tools{width:400px;top:86px;right:12px;bottom:12px}
 }
 /* phone: one bottom sheet */
 @media (max-width:640px){
@@ -187,6 +271,10 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:999px;b
   .tiers{grid-template-columns:1fr 1fr}
   .welcome{padding:20px}
   .welcome h1{font-size:32px}
+  .tools{inset:0;width:auto;border-radius:0;z-index:45;padding-top:env(safe-area-inset-top)}
+  .tools-body{padding:14px 14px calc(20px + env(safe-area-inset-bottom))}
+  .grid3{grid-template-columns:1fr 1fr}
+  .wrow{grid-template-columns:minmax(0,1fr) auto minmax(70px,1fr) 36px;gap:8px}
 }
 </style>
 </head>
@@ -204,7 +292,7 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:999px;b
     <button id="typeAi" aria-pressed="false">AI HOCO <span class="pill">Beta</span></button>
   </div>
   <nav>
-    <a class="btn navlink" href="../index.html" title="Open the classic HOCO site for tools, accuracy and manual runs"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span class="navtext">Tools</span></a>
+    <button class="btn navlink" id="toolsBtn" aria-expanded="false" aria-controls="tools" title="Runs, ensembles and manual runs"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span class="navtext">Tools</span></button>
     <button class="btn icon" id="themeBtn" aria-label="Switch light or dark theme"></button>
     <button class="avatar" id="accountBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Account">?</button>
   </nav>
@@ -251,6 +339,12 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:999px;b
 </section>
 
 <div class="probe hidden" id="probe" aria-live="polite"></div>
+<section class="tools card hidden" id="tools" aria-label="Tools">
+  <div class="tools-head"><div class="tabs" id="toolsTabs" role="tablist"><button data-tab="runs" role="tab">Runs</button><button data-tab="ensemble" role="tab">Ensemble</button><button data-tab="manual" role="tab">Manual run</button><button data-tab="dev" role="tab" class="hidden">Developer</button></div>
+    <button class="btn icon" id="toolsClose" aria-label="Close tools"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <div class="tools-body" id="toolsBody"></div>
+</section>
+<div class="acttoast hidden" id="actToast" role="status"></div>
 <div class="pop hidden" id="regionPop" role="menu" aria-label="Region"></div>
 <div class="pop hidden" id="accountPop" role="menu" aria-label="Account"></div>
 <div class="card empty hidden" id="empty"><b id="emptyTitle">No runs yet</b><span class="muted" id="emptyText"></span></div>
@@ -290,6 +384,7 @@ const app = initializeApp({
   storageBucket: "hoco-3b23e.firebasestorage.app", messagingSenderId: "409513272369", appId: "1:409513272369:web:a857d9b039d53710f8a110"
 });
 const auth = getAuth(app), db = getFirestore(app), storage = getStorage(app);
+window.__hocoApp = app;
 mapboxgl.accessToken = 'pk.eyJ1IjoiaGFuZHJ5MjAxOTEwMjYiLCJhIjoiY21jYWg2eG1lMDNkYTJxczVyOWM5bW9mciJ9.bA-qxiByTB_RseY1fgU4rg';
 
 // ---------- constants (match the classic site / backend) ----------
@@ -313,7 +408,8 @@ const PLACES = [['London',51.51,-0.13],['Brighton',50.82,-0.14],['Southampton',5
   ['the Netherlands',52.20,5.30],['Belgium',50.80,4.40]];
 
 // ---------- state ----------
-const S = { theme: localStorage.getItem('hocoTheme') || 'auto', product: localStorage.getItem('hocoAutoProduct') === 'ai' ? 'ai' : 'traditional',
+let Tools = { onRuns() {}, signedOut() {}, openTab() {} };
+const S = { custom: null, theme: localStorage.getItem('hocoTheme') || 'auto', product: localStorage.getItem('hocoAutoProduct') === 'ai' ? 'ai' : 'traditional',
   region: 'England', day: 0, follow: [true, true, true], runs: [], byDay: [[],[],[]], idx: [null,null,null], current: null, geo: null, peaks: {}, role: 'guest' };
 const params = new URLSearchParams(location.search);
 if (params.get('region') && REGIONS.some(r => r.id === params.get('region') && r.west !== undefined)) S.region = params.get('region');
@@ -449,7 +545,7 @@ function renderDays() {
   $('dayTabs').innerHTML = [0, 1, 2].map(d => { const dt = addDays(today, d), last = S.byDay[d].at(-1), pk = last && S.peaks[last.id];
     const b = pk != null ? bandFor(pk) : null;
     return `<button class="daytab" role="tab" aria-selected="${d === S.day}" data-day="${d}"><span>Day ${d}<small>${dayName(dt)} ${dt.getDate()}</small></span>${pk != null ? `<em style="background:${b ? b.fill : 'var(--track)'}">${Math.round(pk)}%</em>` : ''}</button>`; }).join('');
-  $('dayTabs').querySelectorAll('.daytab').forEach(b => b.onclick = () => { S.day = +b.dataset.day; renderAll(); });
+  $('dayTabs').querySelectorAll('.daytab').forEach(b => b.onclick = () => { S.day = +b.dataset.day; clearCustom(); renderAll(); });
 }
 async function loadPeaks() {
   for (let d = 0; d < 3; d++) { const last = S.byDay[d].at(-1); if (!last || S.peaks[last.id] != null) continue;
@@ -457,7 +553,45 @@ async function loadPeaks() {
   renderDays();
 }
 let loadToken = 0;
+function setGeo(g) {
+  S.geo = g; const src = map.getSource('hoco');
+  if (src) src.setData(g); else if (map.isStyleLoaded()) addLayers();
+  if (map.getLayer('hoco-fill')) map.setPaintProperty('hoco-fill', 'fill-opacity', g?.properties?.hoco_layout === 'bands_v2' ? 0.7 : 0.32);
+}
+const LABELS = { ai: 'AI HOCO', automated: 'AUTO-HOCO', 'human-mimic': 'HOCO ENSEMBLE', manual: 'MANUAL HOCO' };
+// Show one chosen run (an ensemble, a manual run, an archived forecast) instead of the live day view.
+async function showCustom(run) {
+  S.custom = run; document.body.classList.add('custom');
+  const tok = ++loadToken;
+  $('empty').classList.add('hidden');
+  const label = LABELS[run.type] || 'HOCO', c = created(run), st = startOf(run), en = endOf(run);
+  $('sumKicker').textContent = $('sheetKicker').textContent = label;
+  $('sumTitle').textContent = `Thunderstorm risk, ${run.region || S.region}`;
+  $('sumValid').textContent = $('sheetValid').textContent = st ? `${dayName(st)} ${hhmm(st)} – ${dayName(en)} ${hhmm(en)}` : '–';
+  $('sumIssued').textContent = $('sheetIssued').textContent = c ? `${dayDate(c)}, ${hhmm(c)}` : '–';
+  const mine = run.userId && run.userId === auth.currentUser?.uid;
+  const what = { ai: 'an AI HOCO run', automated: 'an AUTO-HOCO run', 'human-mimic': mine ? 'your ensemble' : 'an ensemble', manual: mine ? 'your manual run' : 'a manual run' }[run.type] || 'a HOCO run';
+  $('oldText').textContent = `Viewing ${what}, issued ${c ? `${dayDate(c)} ${hhmm(c)}` : ''}`;
+  $('toLatest').textContent = 'Back to the forecast';
+  $('oldBanner').classList.remove('hidden');
+  if (innerWidth > 640) $('summary').classList.remove('hidden');
+  const u = new URL(location.href); u.search = ''; u.searchParams.set('open', run.id); history.replaceState(null, '', u);
+  try {
+    const g = await fetchGeo(run); if (tok !== loadToken) return;
+    setGeo(g);
+    const pk = peakOf(g), where = pk.lat != null ? `near ${nearestPlace(pk.lat, pk.lon)}` : '';
+    $('sumPeak').textContent = pk.risk >= 1 ? `${Math.round(pk.risk)}%` : '<5%';
+    $('sumWhere').textContent = pk.risk >= 5 ? where : 'No notable risk';
+    $('sheetPeak').textContent = pk.risk >= 5 ? `Peak ${Math.round(pk.risk)}% ${where}` : 'No notable thunderstorm risk';
+    measureDock();
+    const reg = REGIONS.find(x => regionMatches(x.id, run));
+    if (reg && reg.id !== S.region) { S.region = reg.id; $('regionName').textContent = reg.id; buildDays(); fitRegion(); }
+  } catch (e) { if (tok === loadToken) { toast('Could not load this run'); clearCustom(); } }
+}
+function clearCustom() { if (!S.custom) return; S.custom = null; document.body.classList.remove('custom'); loadToken++; renderAll(); }
+
 async function renderAll() {
+  if (S.custom) return;
   renderDays();
   const runs = S.byDay[S.day], n = runs.length;
   const label = S.product === 'ai' ? 'AI HOCO' : 'AUTO-HOCO';
@@ -492,10 +626,7 @@ async function renderAll() {
   const tok = ++loadToken;
   try {
     const g = await fetchGeo(run); if (tok !== loadToken) return;
-    S.geo = g; S.current = run;
-    const src = map.getSource('hoco');
-    if (src) src.setData(g); else if (map.isStyleLoaded()) addLayers(); /* otherwise style.load will add it with S.geo */
-    if (map.getLayer('hoco-fill')) map.setPaintProperty('hoco-fill', 'fill-opacity', g?.properties?.hoco_layout === 'bands_v2' ? 0.7 : 0.32);
+    S.current = run; setGeo(g);
     const pk = peakOf(g); S.peaks[run.id] = pk.risk;
     const where = pk.lat != null ? `near ${nearestPlace(pk.lat, pk.lon)}` : '';
     $('sumPeak').textContent = pk.risk >= 1 ? `${Math.round(pk.risk)}%` : '<5%';
@@ -506,17 +637,17 @@ async function renderAll() {
     renderDays();
   } catch (e) { if (tok === loadToken) toast('Could not load this run'); }
 }
-function setRun(i) { const n = S.byDay[S.day].length; S.idx[S.day] = Math.max(0, Math.min(n - 1, i)); S.follow[S.day] = S.idx[S.day] === n - 1; renderAll(); }
+function setRun(i) { if (S.custom) clearCustom(); const n = S.byDay[S.day].length; S.idx[S.day] = Math.max(0, Math.min(n - 1, i)); S.follow[S.day] = S.idx[S.day] === n - 1; renderAll(); }
 $('runSlider').oninput = (e) => setRun(+e.target.value);
 $('prevRun').onclick = () => setRun(S.idx[S.day] - 1);
 $('nextRun').onclick = () => setRun(S.idx[S.day] + 1);
-$('toLatest').onclick = () => setRun(S.byDay[S.day].length - 1);
+$('toLatest').onclick = () => S.custom ? clearCustom() : setRun(S.byDay[S.day].length - 1);
 addEventListener('keydown', (e) => { if (e.target.closest('input,textarea,select')) return;
   if (e.key === 'ArrowLeft') setRun(S.idx[S.day] - 1); else if (e.key === 'ArrowRight') setRun(S.idx[S.day] + 1);
   else if (['1', '2', '3'].includes(e.key)) { S.day = +e.key - 1; renderAll(); } else if (e.key.toLowerCase() === 't') setProduct(S.product === 'ai' ? 'traditional' : 'ai'); });
 
 // ---------- product, region, account ----------
-function setProduct(p) { S.product = p; localStorage.setItem('hocoAutoProduct', p); $('typeTrad').setAttribute('aria-pressed', p !== 'ai'); $('typeAi').setAttribute('aria-pressed', p === 'ai'); S.idx = [null, null, null]; S.follow = [true, true, true]; buildDays(); loadPeaks(); renderAll(); }
+function setProduct(p) { S.custom && clearCustom(); S.product = p; localStorage.setItem('hocoAutoProduct', p); $('typeTrad').setAttribute('aria-pressed', p !== 'ai'); $('typeAi').setAttribute('aria-pressed', p === 'ai'); S.idx = [null, null, null]; S.follow = [true, true, true]; buildDays(); loadPeaks(); renderAll(); }
 $('typeTrad').onclick = () => setProduct('traditional'); $('typeAi').onclick = () => setProduct('ai');
 $('typeTrad').setAttribute('aria-pressed', S.product !== 'ai'); $('typeAi').setAttribute('aria-pressed', S.product === 'ai');
 function openPop(pop, btn) {
@@ -529,20 +660,22 @@ function renderRegionPop() {
   $('regionPop').innerHTML = `<span class="kicker" style="padding:4px 6px 6px">Region</span>` + REGIONS.map(r => {
     const cls = { Live: 'live', Beta: 'beta', Archive: 'arch' }[r.tag] || '', off = r.west === undefined;
     return `<button class="item" role="menuitem" data-r="${r.id}" aria-pressed="${r.id === S.region}" ${off ? 'disabled style="opacity:.55;cursor:not-allowed"' : ''}>${r.name}<span class="tag ${cls}">${r.tag}</span></button>`; }).join('');
-  $('regionPop').querySelectorAll('button[data-r]:not([disabled])').forEach(b => b.onclick = () => { S.region = b.dataset.r; $('regionName').textContent = S.region; $('regionPop').classList.add('hidden'); S.idx = [null, null, null]; buildDays(); loadPeaks(); renderAll(); fitRegion(); });
+  $('regionPop').querySelectorAll('button[data-r]:not([disabled])').forEach(b => b.onclick = () => { clearCustom(); S.region = b.dataset.r; $('regionName').textContent = S.region; $('regionPop').classList.add('hidden'); S.idx = [null, null, null]; buildDays(); loadPeaks(); renderAll(); fitRegion(); });
 }
 $('regionBtn').onclick = (e) => { e.stopPropagation(); renderRegionPop(); openPop($('regionPop'), $('regionBtn')); };
 $('regionName').textContent = S.region;
 $('accountBtn').onclick = (e) => { e.stopPropagation();
   const u = auth.currentUser; const role = { developer: 'Developer', exclusive: 'Exclusive', external_developer: 'External developer', normal: 'Normal', guest: 'Guest' }[S.role] || S.role;
   $('accountPop').innerHTML = `<div style="padding:8px 8px 12px;border-bottom:1px solid var(--border);margin-bottom:4px"><b style="font-size:14px">${u?.email || ''}</b><div class="muted" style="font-size:12px">${role}</div></div>
-    <a class="item btn" style="justify-content:flex-start;border:none;background:transparent;height:44px" href="../index.html">Tools, manual runs and ensembles (classic site)</a>
+    <button class="item" id="acctRuns">My runs</button>
+    <a class="item btn" style="justify-content:flex-start;border:none;background:transparent;height:44px" href="../index.html">Classic HOCO site</a>
     <button class="item" id="themeAuto">Theme: follow my device</button>
     <button class="item" id="signOutBtn" style="color:#b42318">Sign out</button>
     <div class="legal"><a href="../index.html">Privacy</a><a href="../index.html">Terms</a><a href="../index.html">Cookies</a></div>`;
   openPop($('accountPop'), $('accountBtn'));
   const pop = $('accountPop'); pop.style.left = ''; pop.style.right = '16px';
   $('signOutBtn').onclick = () => signOut(auth);
+  $('acctRuns').onclick = () => { pop.classList.add('hidden'); Tools.openTab('runs', 'mine'); };
   $('themeAuto').onclick = () => { S.theme = 'auto'; localStorage.setItem('hocoTheme', 'auto'); applyTheme(); pop.classList.add('hidden'); };
 };
 async function share() {
@@ -566,7 +699,7 @@ $('registerBtn').onclick = async () => { $('authErr').textContent = '';
 let unsub = null;
 onAuthStateChanged(auth, async (user) => {
   if (unsub) { unsub(); unsub = null; }
-  if (!user) { $('welcome').classList.remove('hidden'); $('skel').classList.add('hidden'); $('dock').classList.add('hidden'); $('summary').classList.add('hidden'); $('accountBtn').textContent = '?'; return; }
+  if (!user) { Tools.signedOut(); S.role = 'guest'; $('welcome').classList.remove('hidden'); $('skel').classList.add('hidden'); $('dock').classList.add('hidden'); $('summary').classList.add('hidden'); $('accountBtn').textContent = '?'; return; }
   $('welcome').classList.add('hidden'); $('skel').classList.remove('hidden');
   $('accountBtn').textContent = (user.email || '?')[0].toUpperCase();
   try { const u = await getDoc(doc(db, 'users', user.uid)); S.role = u.exists() ? (u.data().role || 'normal') : 'normal'; } catch (e) { S.role = 'normal'; }
@@ -577,9 +710,17 @@ onAuthStateChanged(auth, async (user) => {
     if (first) { first = false; $('skel').classList.add('hidden'); $('dock').classList.remove('hidden'); measureDock(); if (S.region !== 'England') fitRegion(); }
     // keep the viewer on the latest run when a new one arrives, unless they chose an older one
     for (let d = 0; d < 3; d++) if (S.follow[d]) S.idx[d] = null;
-    loadPeaks(); renderAll();
+    loadPeaks(); renderAll(); Tools.onRuns();
   }, (err) => { $('skel').classList.add('hidden'); toast('Could not load runs. Try the classic site.'); console.error(err); });
 });
+
+// ---------- tools (runs, ensemble, manual run, developer) ----------
+import('./tools.js').then((m) => {
+  m.initTools({ app, auth, db, S, BANDS, REGIONS, fetchGeo, cachePut: (id, g) => cache.set(id, g), showCustom, clearCustom, toast,
+    created, startOf, endOf, hhmm, dayName, dayDate, addDays, parseHocoTime, regionMatches });
+  Tools = m;
+  if (S.runs.length) m.onRuns();
+}).catch((e) => { console.error(e); $('toolsBtn').onclick = () => { location.href = '../index.html'; }; });
 </script>
 </body>
 </html>
