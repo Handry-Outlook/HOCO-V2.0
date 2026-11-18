@@ -697,6 +697,11 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom))}
   .daytab em{font-size:10px;padding:1px 4px}
   .allruns{padding:0 8px;gap:4px}
 }
+
+.skel .sk-sum{top:var(--topy);left:var(--gap);width:290px;height:76px}
+.skel .sk-dock{left:50%;bottom:var(--gap);transform:translateX(-50%);width:min(880px,calc(100vw - 2 * var(--gap)));height:54px}
+.skel .msg{white-space:nowrap}
+@media (max-width:640px){ .skel .sk-sum{width:240px;height:56px} .skel .sk-dock{height:84px} }
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -803,8 +808,8 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom))}
 <div class="card empty hidden" id="empty"><b id="emptyTitle">No runs yet</b><span class="muted" id="emptyText"></span></div>
 
 <div class="skel" id="skel" aria-busy="true" aria-label="Loading the forecast">
-  <div class="s" style="top:92px;left:16px;width:340px;height:300px"></div>
-  <div class="s" style="left:50%;bottom:16px;transform:translateX(-50%);width:min(900px,calc(100vw - 32px));height:170px"></div>
+  <div class="s sk-sum"></div>
+  <div class="s sk-dock"></div>
   <div class="msg"><span class="spin"></span>Loading the latest run…</div>
 </div>
 
