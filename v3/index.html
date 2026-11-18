@@ -808,7 +808,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ---------- extras (radar, strikes, export, search, change, cookies) ----------
-import('./extras.js?v=3').then((m) => {
+import('./extras.js?v=4').then((m) => {
   m.initExtras({ map, S, BANDS, REGIONS, TYPE_LABEL: LABELS, toast, openPop, measureDock, fetchGeo, peakOf, riskOf, bandFor, bandLabel, created, startOf, endOf, hhmm, dayName, dayDate });
   Extras = m;
   if (S.custom || S.current) m.onShown(S.custom || S.current, S.geo, null);

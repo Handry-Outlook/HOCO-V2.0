@@ -232,8 +232,18 @@ function setLayer(k, on) {
 // ------------------------------------------------------------------ PNG export (plain chart style)
 const EXPORTS = { landscape: [1600, 1000, 'Landscape'], square: [1080, 1080, 'Square'], story: [1080, 1920, 'Story'] };
 async function exportPng(kind) {
-  const [W, H] = EXPORTS[kind], run = O.run; if (!run) return X.toast('Nothing to export yet');
+  const run = O.run; if (!run) return X.toast('Nothing to export yet');
   X.toast('Preparing image…');
+  const c = await renderExport(kind), st = X.startOf(run);
+  const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+  const name = `HOCO-${run.region || X.S.region}-${st ? `${st.getFullYear()}${pad(st.getMonth() + 1)}${pad(st.getDate())}` : 'run'}-${kind}.png`;
+  const file = new File([blob], name, { type: 'image/png' });
+  if (matchMedia('(pointer: coarse)').matches && navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file], title: 'HOCO outlook' }); return; } catch (e) { /* fall back to download */ } }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  X.toast('Image saved');
+}
+async function renderExport(kind) {
+  const [W, H] = EXPORTS[kind], run = O.run;
   await new Promise(r => { X.map.once('render', r); X.map.triggerRepaint(); });
   const src = X.map.getCanvas(), c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
   g.fillStyle = '#eef2f7'; g.fillRect(0, 0, W, H);
@@ -260,12 +270,7 @@ async function exportPng(kind) {
   g.fillText('Handry Outlook · HOCO', 28 * u, mapH + stripH / 2 + 7 * u);
   g.font = F(16, 500); g.textAlign = 'right'; g.fillStyle = '#c9d3e0';
   g.fillText(`${(X.TYPE_LABEL[run.type] || 'HOCO')}  ·  Map © Mapbox © OpenStreetMap`, W - 28 * u, mapH + stripH / 2 + 6 * u); g.textAlign = 'left';
-  const blob = await new Promise(r => c.toBlob(r, 'image/png'));
-  const name = `HOCO-${run.region || X.S.region}-${st ? `${st.getFullYear()}${pad(st.getMonth() + 1)}${pad(st.getDate())}` : 'run'}-${kind}.png`;
-  const file = new File([blob], name, { type: 'image/png' });
-  if (matchMedia('(pointer: coarse)').matches && navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file], title: 'HOCO outlook' }); return; } catch (e) { /* fall back to download */ } }
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  X.toast('Image saved');
+  return c;
 }
 function openExport(btn) {
   const pop = $('exportPop');
@@ -365,6 +370,7 @@ export function openShortcuts() {
 // ------------------------------------------------------------------ init + hooks
 export function initExtras(ctx) {
   X = ctx;
+  window.__hocoRenderExport = (k) => renderExport(k || 'landscape').then(c => c.toDataURL('image/png'));   // for checking the layout
   try { const l = JSON.parse(localStorage.getItem('hocoLayers') || '{}'); O.radar = !!l.radar; O.strikes = !!l.strikes; } catch (e) { }
   $('layersBtn').onclick = (e) => { e.stopPropagation(); renderLayersPop(); X.openPop($('layersPop'), $('layersBtn')); const p = $('layersPop'), r = $('layersBtn').getBoundingClientRect();
     if (innerWidth > 640) { p.style.left = ''; p.style.right = (innerWidth - r.left + 8) + 'px'; p.style.top = r.top + 'px'; } else { p.style.left = ''; p.style.right = '10px'; p.style.top = ''; p.style.bottom = (innerHeight - r.top + 8) + 'px'; } };
