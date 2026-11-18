@@ -798,6 +798,9 @@ body.comparing .tools{z-index:40}
   .cx-sync{gap:5px}
   .cx-title small{display:none}
 }
+
+.cx-short{display:none}
+@media (max-width:640px){ .cx-short{display:block} .cx-sync{height:34px;padding:0 8px;border-radius:10px;border:1px solid var(--border);background:var(--chip)} .cx-tools{gap:5px} .cx-tools .seg{padding:3px} }
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -1545,7 +1548,7 @@ import('./extras.js?v=14').then((m) => {
 }).catch((e) => console.error(e));
 
 // ---------- stage 4 (settings, compare, accuracy, alerts, install, tutorial, embed, ads) ----------
-import('./stage4.js?v=9').then((m) => {
+import('./stage4.js?v=10').then((m) => {
   m.initStage4({ map, S, BANDS, REGIONS, db, auth, storage, doc, getDoc, getDocs, query, collection, where, orderBy, limit, addDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, dateKey, nearestPlace, regionMatches,
     colorExpr, fillColor, styleUrl, applySettings, setTheme, setProduct, setRegion, runsFor, riskAt: riskAtGeo, embed: EMBED, goDay: (d) => { S.day = d; clearCustom(); renderAll(); },
     callable: (name) => async (data) => { const f = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js'); return f.httpsCallable(f.getFunctions(app, 'us-central1'), name)(data); },
