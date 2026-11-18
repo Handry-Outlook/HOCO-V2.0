@@ -1061,7 +1061,8 @@ function probeAt(point) {
   if (near) return near.properties;
   return polys.length ? polys.reduce((a, f) => riskOf(f.properties) > riskOf(a.properties) ? f : a).properties : null;
 }
-let lastProbe = null;
+let lastProbe = null, SRC_GEO = null, SRC_HAS = false;
+const geoHasSrc = () => { if (SRC_GEO !== S.geo) { SRC_GEO = S.geo; SRC_HAS = (S.geo?.features || []).some(f => f.properties?.src); } return SRC_HAS; };
 function showProbe(props, point) {
   if (!props) { probe.classList.add('hidden'); return; }
   lastProbe = { props, point };
@@ -1074,6 +1075,7 @@ function showProbe(props, point) {
     const parts = String(props.src).split(',').map(x => x.split(':')).filter(x => x.length === 2).map(([c, v]) => [(MODEL_NAMES && MODEL_NAMES[c]) || c, +v]).sort((a, b) => b[1] - a[1]).slice(0, 4);
     if (parts.length) contrib = `<div class="contrib"><span class="kicker">Main contributors · developers only</span>${parts.map(([n, v]) => `<div><span>${n}</span><span class="bar"><i style="width:${Math.min(100, v)}%"></i></span><b>${v}%</b></div>`).join('')}</div>`;
   }
+  if (S.role === 'developer' && !props.src && !geoHasSrc()) contrib = `<div class="contrib"><span class="kicker">Main contributors · developers only</span><small>This run has no model details saved. They are only in runs made from Tue 17 Nov, 16:05 onwards.</small></div>`;
   probe.innerHTML = `<div class="top"><span class="sw" style="background:${b ? b.fill : 'transparent'};border:1px solid var(--border)"></span><b>${risk < 1 ? '<1' : Math.round(risk)}%</b><small>chance of lightning<br>within 20 km · ${bandLabel(b)}</small></div>${pips}<small>Near ${near} · whole period</small>${contrib}`;
   probe.classList.remove('hidden');
   if (innerWidth > 640) { const w = probe.offsetWidth || 250, h = probe.offsetHeight || 160; let x = point.x + 18, y = point.y + 18; if (x + w > innerWidth - 10) x = point.x - w - 18; if (y + h > innerHeight - 10) y = point.y - h - 18; probe.style.left = Math.max(10, x) + 'px'; probe.style.top = Math.max(10, y) + 'px'; }
