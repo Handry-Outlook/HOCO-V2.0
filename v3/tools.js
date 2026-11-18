@@ -25,7 +25,7 @@ const fmtHoco = (d) => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFull
 const localInput = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const $ = (id) => document.getElementById(id);
 const hasGeo = (r) => !!(r.geojsonUrl || r.inlineGeojson || r.inlineGeojsonText || r.geojson || r.ensembleGeojson);
-const isPending = (r) => r.status === 'pending' || (!hasGeo(r) && r.status !== 'failed' && r.status !== 'error');
+const isPending = (r) => r.cancelled !== true && (r.status === 'pending' || (!hasGeo(r) && r.status !== 'failed' && r.status !== 'error'));
 const isFailed = (r) => r.status === 'failed' || r.status === 'error';
 const role = () => X.S.role;
 const uid = () => X.auth.currentUser?.uid;
@@ -37,6 +37,7 @@ export function typeInfo(r) {
   return { label: 'Manual HOCO', chip: r.userId === uid() ? 'MINE' : (r.public ? 'PUBLIC' : 'PRIVATE'), cls: 'arch' };
 }
 function visible(r) {
+  if (r.cancelled === true) return false;
   if (role() === 'developer') return true;
   return r.type === 'automated' || r.type === 'ai' || r.public === true || (uid() && r.userId === uid());
 }
@@ -50,16 +51,18 @@ function estMinutes(r) {
 // ---------------------------------------------------------------- shell
 export function initTools(ctx) {
   X = ctx;
+  T.man.notify = X.notifyDefault !== false;
   T.date = dateKey(new Date());
   $('toolsBtn').onclick = () => toggle();
   $('toolsClose').onclick = () => toggle(false);
   document.querySelectorAll('#toolsTabs button').forEach(b => b.onclick = () => { T.tab = b.dataset.tab; render(); });
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && T.open) toggle(false); });
   const p = new URLSearchParams(location.search);
-  if (p.get('tools')) { T.tab = ['runs', 'ensemble', 'manual', 'dev'].includes(p.get('tools')) ? p.get('tools') : 'runs'; T.pendingOpen = true; }
+  if (p.get('tools')) { T.tab = ['runs', 'ensemble', 'manual', 'settings', 'dev'].includes(p.get('tools')) ? p.get('tools') : 'runs'; T.pendingOpen = true; }
   T.wantOpen = p.get('open');
 }
 
+export function setNotify(v) { T.man.notify = !!v; }
 export function openTab(tab, filter) { T.tab = tab; if (filter) T.filter = filter; toggle(true); }
 export function toggle(force) {
   T.open = force ?? !T.open;
@@ -83,6 +86,36 @@ export function onRuns() {
   if (T.pendingOpen && X.S.role) { T.pendingOpen = false; toggle(true); }
   if (T.wantOpen) { const r = X.S.runs.find(x => x.id === T.wantOpen); if (r && visible(r) && !isPending(r)) { T.wantOpen = null; X.showCustom(r); } }
   if (T.open && (T.tab === 'runs' || T.tab === 'ensemble')) render();
+  renderMyRun();
+}
+
+// ---------------------------------------------------------------- your run is processing (progress card)
+// The backend does not report progress, so stages are estimated from the time taken so far.
+let myRunTimer = null;
+function renderMyRun() {
+  const el = $('myRun'), me = uid(); if (!el) return;
+  const r = X.S.runs.filter(x => x.userId === me && x.type !== 'automated' && x.type !== 'ai' && x.cancelled !== true && isPending(x)).sort((a, b) => (X.created(b)?.getTime() || 0) - (X.created(a)?.getTime() || 0))[0];
+  clearTimeout(myRunTimer);
+  if (!r || T.hideRun === r.id) { el.classList.add('hidden'); document.body.classList.remove('myrun-on'); return; }
+  const c = X.created(r), est = estMinutes(r), el_ = c ? (Date.now() - c.getTime()) / 60000 : 0, frac = Math.min(0.95, el_ / est), pct = Math.round(frac * 100);
+  const n = Array.isArray(r.scenarios) && r.scenarios.length ? r.scenarios.length : 6, s = X.startOf(r), e = X.endOf(r);
+  const stages = ['Queued', `Fetching the ${n} model runs`, 'Blending with your weights', 'Drawing the map'], at = frac < 0.1 ? 0 : frac < 0.6 ? 1 : frac < 0.85 ? 2 : 3;
+  const left = Math.max(1, Math.round(est - el_));
+  el.innerHTML = `<div class="rowbetween"><b>Your run is processing</b><b class="mr-pct">${pct}%</b></div>
+    <small class="muted">${esc(r.region || '')} · ${s ? `${X.dayName(s)} ${X.hhmm(s)}` : ''} → ${e ? `${X.dayName(e)} ${X.hhmm(e)}` : ''} · ${n} model run${n > 1 ? 's' : ''}</small>
+    <div class="mr-bar"><i style="width:${pct}%"></i></div>
+    <ol class="mr-steps">${stages.map((t, i) => `<li class="${i < at ? 'done' : i === at ? 'now' : ''}"><i>${i < at ? '✓' : ''}</i>${t}</li>`).join('')}</ol>
+    <small class="muted">About ${left} min left${el_ > est ? ' (taking longer than usual)' : ''}. You can close this or leave the page; it keeps running.</small>
+    <label class="chk sm"><input type="checkbox" id="mrNotify" ${T.man.notify ? 'checked' : ''}><span>Notify me when it's ready</span></label>
+    <div class="chips" style="justify-content:flex-end"><button class="btn sm" id="mrHide">Hide</button><button class="btn sm" id="mrCancel" style="color:#b42318">Cancel run</button></div>`;
+  el.classList.remove('hidden'); document.body.classList.add('myrun-on');
+  $('mrNotify').onchange = async (ev) => { T.man.notify = ev.target.checked; if (ev.target.checked && 'Notification' in window && Notification.permission === 'default') { try { await Notification.requestPermission(); } catch (err) { } } };
+  $('mrHide').onclick = () => { T.hideRun = r.id; renderMyRun(); };
+  $('mrCancel').onclick = async () => {
+    if (!confirm('Cancel this run? It will be removed from your runs. A job that has already started on the server may still finish in the background.')) return;
+    try { await updateDoc(doc(X.db, 'hoco_requests', r.id), { cancelled: true }); T.known.delete(r.id); X.toast('Run cancelled'); } catch (err) { X.toast('Could not cancel the run'); }
+  };
+  myRunTimer = setTimeout(renderMyRun, 15000);
 }
 
 function ready(r) {
@@ -105,7 +138,7 @@ function render() {
   document.querySelectorAll('#toolsTabs button').forEach(b => { b.setAttribute('aria-selected', b.dataset.tab === T.tab); if (b.dataset.tab === 'dev') b.classList.toggle('hidden', !dev); });
   if (T.tab === 'dev' && !dev) T.tab = 'runs';
   const body = $('toolsBody'), keep = body.scrollTop;
-  ({ runs: renderRuns, ensemble: renderEnsemble, manual: renderManual, dev: renderDev })[T.tab](body);
+  ({ runs: renderRuns, ensemble: renderEnsemble, manual: renderManual, dev: renderDev, settings: (b) => X.renderSettings(b) })[T.tab](body);
   body.scrollTop = keep;
 }
 
@@ -129,7 +162,7 @@ function runsForDate() {
   const byId = new Map(T.archive.map(r => [r.id, r]));
   X.S.runs.forEach(r => byId.set(r.id, r));          // live copies win (status changes while processing)
   return [...byId.values()].filter(r => visible(r) && X.regionMatches(X.S.region, r) && X.startOf(r) && dateKey(X.startOf(r)) === T.date)
-    .filter(r => T.filter === 'all' ? true : T.filter === 'mine' ? r.userId === uid() : T.filter === 'ens' ? r.type === 'human-mimic' : T.filter === 'auto' ? (r.type === 'automated' || r.type === 'ai') : r.public === true)
+    .filter(r => T.filter === 'all' ? true : T.filter === 'mine' ? r.userId === uid() : T.filter === 'ens' ? r.type === 'human-mimic' : T.filter === 'manens' ? (r.type !== 'automated' && r.type !== 'ai') : T.filter === 'auto' ? (r.type === 'automated' || r.type === 'ai') : r.public === true)
     .sort((a, b) => (X.created(b)?.getTime() || 0) - (X.created(a)?.getTime() || 0));
 }
 
@@ -140,7 +173,7 @@ function runRow(r) {
     const mins = c ? Math.max(0, Math.round((Date.now() - c.getTime()) / 60000)) : 0;
     right = `<span class="proc"><span class="spin"></span><span>Processing<br><small>${mins} of about ${estMinutes(r)} min</small></span></span>`;
   } else if (isFailed(r)) right = `<span class="tag" style="color:#b42318">Failed</span>`;
-  else right = `<button class="btn" data-open="${esc(r.id)}">Open</button>`;
+  else right = `<button class="btn" data-open="${esc(r.id)}">Load</button>`;
   const devPub = role() === 'developer' && !isPending(r) && r.public !== true && r.type !== 'automated' && r.type !== 'ai'
     ? `<button class="linkbtn" data-pub="${esc(r.id)}">Make public</button>` : '';
   const scen = Array.isArray(r.scenarios) && r.scenarios.length ? ` · ${r.scenarios.length} model run${r.scenarios.length > 1 ? 's' : ''}` : '';
@@ -151,7 +184,7 @@ function runRow(r) {
 
 function renderRuns(body) {
   const list = runsForDate(), d = new Date(T.date + 'T00:00:00'), isToday = T.date === dateKey(new Date());
-  const chips = [['all', 'All'], ['auto', 'Forecasts'], ['mine', 'Mine'], ['ens', 'Ensembles'], ['pub', 'Public']]
+  const chips = [['all', 'All'], ['auto', 'AUTO'], ['manens', 'Manual + Ensemble'], ['mine', 'My runs'], ['pub', 'Public']]
     .map(([k, l]) => `<button class="chipbtn" aria-pressed="${T.filter === k}" data-f="${k}">${l}</button>`).join('');
   const mine = X.S.runs.filter(r => r.userId === uid() && isPending(r));
   const shown = list ? (T.showMore ? list : list.slice(0, 40)) : [];
@@ -163,7 +196,8 @@ function renderRuns(body) {
     <div class="chips">${chips}</div>
     <div class="muted" style="font-size:13px">${esc(X.S.region)} · ${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}${isToday ? ' (today)' : ''}</div>
     <div class="runlist">${list == null ? '<div class="muted center"><span class="spin"></span> Loading runs…</div>' : shown.length ? shown.map(runRow).join('') : `<div class="muted center">No runs here${T.filter !== 'all' ? ' with this filter' : ''}.</div>`}</div>
-    ${list && list.length > shown.length ? `<button class="btn" id="moreRuns">Show all ${list.length} runs</button>` : ''}`;
+    ${list && list.length > shown.length ? `<button class="btn" id="moreRuns">Show all ${list.length} runs</button>` : ''}
+    <div class="adslot hidden" data-ad="runs"></div>`;
   const shift = (n) => { const x = new Date(T.date + 'T00:00:00'); x.setDate(x.getDate() + n); T.date = dateKey(x); T.showMore = false; render(); };
   $('dPrev').onclick = () => shift(-1); $('dNext').onclick = () => shift(1);
   $('dPick').onchange = (e) => { if (e.target.value) { T.date = e.target.value; T.showMore = false; render(); } };
@@ -171,8 +205,10 @@ function renderRuns(body) {
   $('moreRuns') && ($('moreRuns').onclick = () => { T.showMore = true; render(); });
   body.querySelectorAll('[data-open]').forEach(b => b.onclick = () => {
     const r = [...X.S.runs, ...(T.archive || [])].find(x => x.id === b.dataset.open); if (!r) return;
+    if (X.comparing?.()) { X.loadTo(r); return; }
     X.showCustom(r); if (innerWidth <= 640) toggle(false); else render();
   });
+  X.renderAds?.();
   body.querySelectorAll('[data-pub]').forEach(b => b.onclick = async () => {
     try { await updateDoc(doc(X.db, 'hoco_requests', b.dataset.pub), { public: true }); X.toast('Run is now public'); } catch (e) { X.toast('Could not make it public'); }
   });
@@ -216,6 +252,9 @@ function renderEnsemble(body) {
   pool.forEach(r => { if (E.w[r.id] == null) E.w[r.id] = dw[r.id]; });
   if (E.seed !== `${grp.key}|${E.src}`) { E.seed = `${grp.key}|${E.src}`; E.sel = new Set(pool.slice(-6).map(r => r.id)); }
   const chosen = pool.filter(r => E.sel.has(r.id)), mixOn = E.src === 'both' && chosen.some(r => r.type === 'ai') && chosen.some(r => r.type === 'automated');
+  if (E.wmode !== 'custom') pool.forEach(r => { E.w[r.id] = dw[r.id]; });
+  const share = (r) => !mixOn ? 1 : (r.type === 'ai' ? (100 - E.mix) / 50 : E.mix / 50);
+  const tot = chosen.reduce((a, r) => a + E.w[r.id] * share(r), 0) || 1, pctOf = (r) => E.sel.has(r.id) ? Math.round(E.w[r.id] * share(r) / tot * 100) : 0;
   body.innerHTML = `
     <p class="lead">Blend several runs into one forecast. Newer runs count a little more by default; drag a weight to change that.</p>
     <div class="field"><span class="kicker">Day</span><div class="chips">${groups.map(x => `<button class="chipbtn" aria-pressed="${x.key === grp.key}" data-g="${x.key}">${X.dayDate(x.start)}<small>${x.runs.length} runs</small></button>`).join('')}</div></div>
@@ -226,23 +265,26 @@ function renderEnsemble(body) {
       ${hasAi ? '' : '<small class="muted">No AI HOCO runs for this day yet, so only Traditional runs can be blended.</small>'}</div>
     ${mixOn ? `<div class="field"><span class="kicker">Traditional vs AI HOCO</span><input type="range" id="mix" min="0" max="100" step="5" value="${E.mix}" style="--pct:${E.mix}%">
       <div class="ticks2"><span>Traditional ${E.mix}%</span><span>AI HOCO ${100 - E.mix}%</span></div></div>` : ''}
-    <div class="field"><div class="rowbetween"><span class="kicker">Runs (${chosen.length} of ${pool.length} chosen)</span>
-      <span><button class="linkbtn" id="selLatest">Latest 6</button> · <button class="linkbtn" id="selAll">All</button> · <button class="linkbtn" id="resetW">Reset weights</button></span></div>
+    <div class="field"><div class="rowbetween"><span class="kicker">Run weights</span><span><button class="linkbtn" id="selLatest">Latest 6</button> · <button class="linkbtn" id="selAll">All</button></span></div>
+      <div class="seg wide" role="group"><button data-wmode="auto" aria-pressed="${E.wmode !== 'custom'}">Auto (newer counts more)</button><button data-wmode="custom" aria-pressed="${E.wmode === 'custom'}">Custom</button></div>
       <div class="wlist">${pool.slice().reverse().map(r => { const c = X.created(r), on = E.sel.has(r.id), w = E.w[r.id], ti = typeInfo(r);
         return `<div class="wrow${on ? '' : ' off'}"><label class="chk"><input type="checkbox" data-sel="${esc(r.id)}" ${on ? 'checked' : ''}><span><b>${X.hhmm(c)}</b> <small>${X.dayName(c)}</small></span></label>
           <span class="tag ${ti.cls}">${ti.chip}</span>
-          <input type="range" min="0" max="2" step="0.1" value="${w}" data-w="${esc(r.id)}" aria-label="Weight for run issued ${X.hhmm(c)}" style="--pct:${w * 50}%" ${on ? '' : 'disabled'}>
-          <output>×${(+w).toFixed(1)}</output></div>`; }).join('')}</div></div>
-    <button class="btn primary big" id="buildEns" ${E.busy || !chosen.length ? 'disabled' : ''}>${E.busy ? '<span class="spin light"></span> Building…' : `Build ensemble from ${chosen.length} run${chosen.length === 1 ? '' : 's'}`}</button>
+          <input type="range" min="0.1" max="2" step="0.1" value="${w}" data-w="${esc(r.id)}" aria-label="Weight for run issued ${X.hhmm(c)}" style="--pct:${(w - 0.1) / 1.9 * 100}%" ${on && E.wmode === 'custom' ? '' : 'disabled'}>
+          <output>${on ? pctOf(r) + '%' : '–'}</output></div>`; }).join('')}</div>
+      <small class="muted">Weights always add up to 100%. Untick a run to leave it out.</small></div>
+    <div class="runfoot"><button class="btn" id="resetW">Reset</button><button class="btn primary big" id="buildEns" ${E.busy || !chosen.length ? 'disabled' : ''}>${E.busy ? '<span class="spin light"></span> Building…' : `Build ensemble (${chosen.length} run${chosen.length === 1 ? '' : 's'})`}</button></div>
     <small class="muted" id="ensStatus">Saved to your runs. Only you can see it unless a developer makes it public.</small>`;
   body.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { E.key = b.dataset.g; E.sel = new Set(); E.w = {}; render(); });
   body.querySelectorAll('[data-src]').forEach(b => b.onclick = () => { E.src = b.dataset.src; E.sel = new Set(); render(); });
   $('mix') && ($('mix').oninput = (e) => { E.mix = +e.target.value; e.target.style.setProperty('--pct', E.mix + '%'); const t = e.target.nextElementSibling.children; t[0].textContent = `Traditional ${E.mix}%`; t[1].textContent = `AI HOCO ${100 - E.mix}%`; });
   body.querySelectorAll('[data-sel]').forEach(c => c.onchange = () => { c.checked ? E.sel.add(c.dataset.sel) : E.sel.delete(c.dataset.sel); render(); });
-  body.querySelectorAll('[data-w]').forEach(s => s.oninput = () => { E.w[s.dataset.w] = +s.value; s.style.setProperty('--pct', s.value * 50 + '%'); s.nextElementSibling.textContent = `×${(+s.value).toFixed(1)}`; });
+  body.querySelectorAll('[data-w]').forEach(x => { x.oninput = () => { E.w[x.dataset.w] = +x.value; x.style.setProperty('--pct', (x.value - 0.1) / 1.9 * 100 + '%');
+    const t2 = chosen.reduce((a, r) => a + E.w[r.id] * share(r), 0) || 1; body.querySelectorAll('[data-w]').forEach(y => { const rr = pool.find(r => r.id === y.dataset.w); if (rr && E.sel.has(rr.id)) y.nextElementSibling.textContent = Math.round(E.w[rr.id] * share(rr) / t2 * 100) + '%'; }); }; });
+  body.querySelectorAll('[data-wmode]').forEach(b => b.onclick = () => { E.wmode = b.dataset.wmode; render(); });
   $('selLatest').onclick = () => { E.sel = new Set(pool.slice(-6).map(r => r.id)); render(); };
   $('selAll').onclick = () => { E.sel = new Set(pool.map(r => r.id)); render(); };
-  $('resetW').onclick = () => { E.w = { ...E.w, ...dw }; render(); };
+  $('resetW').onclick = () => { E.w = { ...E.w, ...dw }; E.wmode = 'auto'; E.sel = new Set(pool.slice(-6).map(r => r.id)); E.mix = 50; render(); };
   $('buildEns').onclick = () => buildEnsemble(grp, chosen, mixOn);
 }
 
@@ -288,85 +330,75 @@ function runOptions(model, startVal) {
     return { iso: d.toISOString(), label: `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)} ${pad(d.getUTCHours())}z` }; });
 }
 
+function manualEst(nScen, hours) { return Math.max(2, Math.ceil((nScen || 6) * 35 * (hours / 24) / 60)); }
 function renderManual(body) {
   const M = T.man, r = role(), cap = CAPS[r], canScen = r === 'exclusive' || r === 'developer', dev = r === 'developer';
-  if (r === 'guest') { body.innerHTML = `<div class="note">Guests can't start runs. Request a Normal account below.</div>${upgradeForm()}`; wireUpgrade(); return; }
-  const startEl = $('mStart'), endEl = $('mEnd');
-  const sv = startEl?.value || M.start || '', ev = endEl?.value || M.end || '';
-  const used = Math.min(T.myToday, cap), left = cap === Infinity ? Infinity : Math.max(0, cap - T.myToday);
-  const opts = runOptions(M.model, sv);
+  if (r === 'guest') { body.innerHTML = `<div class="note">Guests can't start runs. Sign in with a free account to run HOCO.</div>`; return; }
+  if (!M.start) { const d = new Date(); d.setMinutes(0, 0, 0); d.setHours(d.getHours() + 1); M.start = localInput(d); }
+  if (!M.len) M.len = 12;
+  const st = new Date(M.start), en = M.customEnd && M.end ? new Date(M.end) : new Date(st.getTime() + M.len * 3.6e6), hours = Math.max(1, (en - st) / 3.6e6);
+  const left = cap === Infinity ? Infinity : Math.max(0, cap - T.myToday), opts = runOptions(M.model, M.start);
+  const nModels = new Set(M.scen.map(x => x.model)).size, mode = M.mode || 'custom';
   body.innerHTML = `
-    <p class="lead">Start your own HOCO run for any time window. It takes a few minutes; you can keep browsing and we'll tell you when it's ready.</p>
-    <div class="note slim"><b>${cap === Infinity ? 'Unlimited runs' : `${used} of ${cap} runs used today`}</b>${cap !== Infinity && !left ? ' · daily limit reached' : ''}</div>
-    <div class="grid2">
-      <label class="field"><span class="kicker">Region</span><select id="mRegion">${X.REGIONS.filter(x => x.west !== undefined).map(x => `<option value="${x.id}" ${x.id === (M.region || X.S.region) ? 'selected' : ''}>${x.name}</option>`).join('')}</select></label>
-      <label class="field"><span class="kicker">Hazard</span><select disabled><option>Lightning</option></select></label>
-    </div>
-    <div class="grid2 times">
-      <label class="field"><span class="kicker">Start</span><input type="datetime-local" id="mStart" value="${sv}"></label>
-      <label class="field"><span class="kicker">End</span><input type="datetime-local" id="mEnd" value="${ev}"></label>
-    </div>
-    <div class="chips">${[3, 6, 12, 24].map(h => `<button class="chipbtn" data-h="${h}">+${h} h</button>`).join('')}</div>
+    <div class="field"><span class="kicker">Region</span><div class="chips">${X.REGIONS.filter(x => x.west !== undefined).map(x => `<button class="chipbtn" data-reg="${x.id}" aria-pressed="${x.id === (M.region || X.S.region)}">${x.name}</button>`).join('')}</div></div>
+    <div class="grid2"><label class="field"><span class="kicker">Starts</span><input type="datetime-local" id="mStart" value="${M.start}"></label>
+      <div class="field"><span class="kicker">Length</span><div class="chips">${[3, 6, 12, 24].map(h => `<button class="chipbtn" data-h="${h}" aria-pressed="${!M.customEnd && M.len === h}">${h} h</button>`).join('')}</div></div></div>
+    <div class="rowbetween"><small class="muted">→ ends <b>${X.dayName(en)} ${X.hhmm(en)}</b> · ${Math.round(hours)} h</small><button class="linkbtn" id="mCustomEnd">${M.customEnd ? 'Use a length' : 'Pick an end time'}</button></div>
+    ${M.customEnd ? `<label class="field"><span class="kicker">Ends</span><input type="datetime-local" id="mEnd" value="${M.end || localInput(en)}"></label>` : ''}
     ${canScen ? `
-      <div class="field"><span class="kicker">Model runs</span>
-        <small class="muted">Leave empty to use HOCO's standard model set. Pick a model, tap one or more of its runs, then add them. Each run gets its own weight.</small>
-        <div class="grid2" style="margin-top:6px"><select id="mModel">${Object.entries(MODELS).map(([k, m]) => `<option value="${k}" ${k === M.model ? 'selected' : ''}>${m.name}</option>`).join('')}</select>
-        <button class="btn" id="mAdd" ${M.picked.size ? '' : 'disabled'}>Add ${M.picked.size || ''} run${M.picked.size === 1 ? '' : 's'}</button></div>
+      <div class="field"><div class="rowbetween"><span class="kicker">Models and runs</span><small class="muted">${M.scen.length ? `${M.scen.length} run${M.scen.length > 1 ? 's' : ''} · ${nModels} model${nModels > 1 ? 's' : ''}` : 'standard set'}</small></div>
+        <div class="seg wide" role="group" aria-label="Weighting"><button data-mode="learned" aria-pressed="${mode === 'learned'}">Learned</button><button data-mode="custom" aria-pressed="${mode === 'custom'}">Custom</button></div>
+        ${mode === 'learned' ? '<small class="muted">AI HOCO\'s learned weights decide how much each model counts. Falls back to the standard weights if none is live.</small>' : ''}
+        <div class="chips modelchips">${Object.entries(MODELS).map(([k, m]) => `<button class="chipbtn" data-model="${k}" aria-pressed="${k === M.model}">${m.name}</button>`).join('')}</div>
         <div class="chips runchips">${opts.map(o => { const added = M.scen.some(x => x.model === M.model && x.run === o.iso);
           return `<button class="chipbtn${added ? ' added' : ''}" data-iso="${o.iso}" aria-pressed="${M.picked.has(o.iso)}" ${added ? 'disabled title="Already added"' : ''}>${o.label}</button>`; }).join('')}</div>
-        <div class="wlist">${M.scen.length ? M.scen.map((s, i) => `<div class="wrow"><span class="scenlabel"><b>${esc(MODELS[s.model]?.name || s.model)}</b> <small>${esc(s.runLabel)}</small></span>
-          <input type="range" min="0.1" max="2" step="0.1" value="${s.weight}" data-sw="${i}" aria-label="Weight" style="--pct:${(s.weight - 0.1) / 1.9 * 100}%"><output>×${(+s.weight).toFixed(1)}</output>
-          <button class="btn icon sm" data-rm="${i}" aria-label="Remove">✕</button></div>`).join('') : '<div class="muted center" style="padding:10px">No model runs added. HOCO will use its standard set.</div>'}</div>
-      </div>` : `<div class="note slim">Your runs use HOCO's standard model blend. Exclusive members can pick individual model runs and weights.</div>`}
+        <button class="btn" id="mAdd" ${M.picked.size ? '' : 'disabled'}>Add ${M.picked.size || ''} ${MODELS[M.model].name} run${M.picked.size === 1 ? '' : 's'}</button>
+        <div class="wlist">${M.scen.length ? M.scen.map((x, i) => `<div class="wrow"><span class="scenlabel"><b>${esc(MODELS[x.model]?.name || x.model)}</b> <small>${esc(x.runLabel)}</small></span>
+          ${mode === 'custom' ? `<input type="range" min="0.1" max="2" step="0.1" value="${x.weight}" data-sw="${i}" aria-label="Weight" style="--pct:${(x.weight - 0.1) / 1.9 * 100}%"><output>×${(+x.weight).toFixed(1)}</output>` : '<span class="muted" style="font-size:12px">learned</span><span></span>'}
+          <button class="btn icon sm" data-rm="${i}" aria-label="Remove">✕</button></div>`).join('') : ''}</div>
+        <small class="muted">Add the same model more than once to use several of its runs.${mode === 'custom' ? ' Each run has its own weight.' : ''}</small>
+      </div>` : `<div class="note slim">Your runs use HOCO's standard model blend. Exclusive accounts can pick model runs and weights.</div>`}
     ${dev ? `<details class="field devbox" ${M.devOpen ? 'open' : ''}><summary><span class="kicker">Developer · model weighting</span></summary>
       <small class="muted">Leave blank to use the backend default for that model.</small>
-      <div class="grid3">${Object.entries(MODELS).map(([k, m]) => `<label><small>${m.name}</small><input type="number" step="0.1" min="0" id="mw-${k}" placeholder="default" value="${M.w?.[k] ?? ''}"></label>`).join('')}</div>
-      <label class="chk" style="margin-top:8px"><input type="checkbox" id="mLearned" ${M.learned ? 'checked' : ''}><span>Use the AI HOCO learned weighting (falls back to these weights if none is live)</span></label></details>` : ''}
+      <div class="grid3">${Object.entries(MODELS).map(([k, m]) => `<label><small>${m.name}</small><input type="number" step="0.1" min="0" id="mw-${k}" placeholder="default" value="${M.w?.[k] ?? ''}"></label>`).join('')}</div></details>` : ''}
     <label class="chk"><input type="checkbox" id="mNotify" ${M.notify ? 'checked' : ''}><span>Notify me when it's ready</span></label>
-    <button class="btn primary big" id="mGo" ${M.busy || (cap !== Infinity && !left) ? 'disabled' : ''}>${M.busy ? '<span class="spin light"></span> Starting…' : 'Start run'}</button>
-    ${r !== 'developer' && r !== 'exclusive' ? upgradeForm() : ''}`;
-  const save = () => { M.start = $('mStart').value; M.end = $('mEnd').value; M.region = $('mRegion').value; };
-  $('mStart').onchange = () => { save(); render(); };
-  $('mEnd').onchange = save; $('mRegion').onchange = save;
-  body.querySelectorAll('[data-h]').forEach(b => b.onclick = () => {
-    let s = $('mStart').value ? new Date($('mStart').value) : null;
-    if (!s) { s = new Date(); s.setMinutes(0, 0, 0); s.setHours(s.getHours() + 1); }
-    const e = new Date(s.getTime() + +b.dataset.h * 3.6e6); M.start = localInput(s); M.end = localInput(e); M.region = $('mRegion').value; render();
-  });
+    <div class="runfoot"><span><b>${cap === Infinity ? 'Unlimited runs' : `${left} of ${cap} runs left today`}</b><small>Takes about ${manualEst(M.scen.length, hours)} min</small></span>
+      <button class="btn primary big" id="mGo" ${M.busy || (cap !== Infinity && !left) ? 'disabled' : ''}>${M.busy ? '<span class="spin light"></span> Starting…' : 'Run HOCO'}</button></div>`;
+  body.querySelectorAll('[data-reg]').forEach(b => b.onclick = () => { M.region = b.dataset.reg; render(); });
+  $('mStart').onchange = (e) => { M.start = e.target.value || M.start; render(); };
+  body.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { M.len = +b.dataset.h; M.customEnd = false; render(); });
+  $('mCustomEnd').onclick = () => { M.customEnd = !M.customEnd; if (M.customEnd && !M.end) M.end = localInput(en); render(); };
+  $('mEnd') && ($('mEnd').onchange = (e) => { M.end = e.target.value; render(); });
   if (canScen) {
-    $('mModel').onchange = (e) => { save(); M.model = e.target.value; M.picked = new Set(); render(); };
-    body.querySelectorAll('[data-iso]').forEach(b => b.onclick = () => { M.picked.has(b.dataset.iso) ? M.picked.delete(b.dataset.iso) : M.picked.add(b.dataset.iso); save(); render(); });
-    $('mAdd').onclick = () => { save();
-      opts.filter(o => M.picked.has(o.iso)).forEach(o => { if (!M.scen.some(s => s.model === M.model && s.run === o.iso)) M.scen.push({ model: M.model, run: o.iso, runLabel: o.label, weight: 1 }); });
-      M.picked = new Set(); render(); };
-    body.querySelectorAll('[data-sw]').forEach(s => s.oninput = () => { M.scen[+s.dataset.sw].weight = +s.value; s.style.setProperty('--pct', (s.value - 0.1) / 1.9 * 100 + '%'); s.nextElementSibling.textContent = `×${(+s.value).toFixed(1)}`; });
-    body.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { save(); M.scen.splice(+b.dataset.rm, 1); render(); });
+    body.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { M.mode = b.dataset.mode; render(); });
+    body.querySelectorAll('[data-model]').forEach(b => b.onclick = () => { M.model = b.dataset.model; M.picked = new Set(); render(); });
+    body.querySelectorAll('[data-iso]').forEach(b => b.onclick = () => { M.picked.has(b.dataset.iso) ? M.picked.delete(b.dataset.iso) : M.picked.add(b.dataset.iso); render(); });
+    $('mAdd').onclick = () => { opts.filter(o => M.picked.has(o.iso)).forEach(o => { if (!M.scen.some(x => x.model === M.model && x.run === o.iso)) M.scen.push({ model: M.model, run: o.iso, runLabel: o.label, weight: 1 }); }); M.picked = new Set(); render(); };
+    body.querySelectorAll('[data-sw]').forEach(x => x.oninput = () => { M.scen[+x.dataset.sw].weight = +x.value; x.style.setProperty('--pct', (x.value - 0.1) / 1.9 * 100 + '%'); x.nextElementSibling.textContent = `×${(+x.value).toFixed(1)}`; });
+    body.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { M.scen.splice(+b.dataset.rm, 1); render(); });
   }
-  if (dev) {
-    body.querySelector('.devbox').ontoggle = (e) => { M.devOpen = e.target.open; };
-    Object.keys(MODELS).forEach(k => $(`mw-${k}`).oninput = (e) => { M.w = { ...(M.w || {}), [k]: e.target.value }; });
-    $('mLearned').onchange = (e) => { M.learned = e.target.checked; };
-  }
+  if (dev) { body.querySelector('.devbox').ontoggle = (e) => { M.devOpen = e.target.open; };
+    Object.keys(MODELS).forEach(k => $(`mw-${k}`).oninput = (e) => { M.w = { ...(M.w || {}), [k]: e.target.value }; }); }
   $('mNotify').onchange = (e) => { M.notify = e.target.checked; };
   $('mGo').onclick = startManual;
-  if (r !== 'developer' && r !== 'exclusive') wireUpgrade();
 }
 
 async function startManual() {
   const M = T.man, r = role(), cap = CAPS[r];
-  const sIn = $('mStart').value, eIn = $('mEnd').value;
-  if (!sIn || !eIn) return X.toast('Choose a start and an end time');
-  const s = new Date(sIn), e = new Date(eIn);
+  const sIn = M.start, s = new Date(sIn), e = M.customEnd && M.end ? new Date(M.end) : new Date(s.getTime() + (M.len || 12) * 3.6e6);
+  if (!sIn || isNaN(s) || isNaN(e)) return X.toast('Choose when the run starts');
   if (s >= e) return X.toast('The start must be before the end');
   if (r !== 'developer' && (e - s) / 3.6e6 > 72) return X.toast('A run can cover up to 72 hours');
   if (cap !== Infinity && T.myToday >= cap) return X.toast(`You've used all ${cap} runs for today`);
-  M.busy = true; M.start = sIn; M.end = eIn; M.region = $('mRegion').value; render();
+  M.busy = true; M.region = M.region || X.S.region; render();
   if (M.notify && 'Notification' in window && Notification.permission === 'default') { try { await Notification.requestPermission(); } catch (err) { /* ignore */ } }
   // Normal users always get the standard blend, as on the classic site. Weights left blank use the backend defaults.
   const canScen = r === 'exclusive' || r === 'developer';
-  const scenarios = canScen ? M.scen.map(x => ({ model: x.model, run: x.run, label: `${MODELS[x.model].name} (${x.runLabel})`, weight: x.weight })) : [];
+  const learned = canScen && M.mode === 'learned';
+  const scenarios = canScen ? M.scen.map(x => ({ model: x.model, run: x.run, label: `${MODELS[x.model].name} (${x.runLabel})`, ...(learned ? {} : { weight: x.weight }) })) : [];
   const weights = {};
-  if (r === 'developer') { Object.entries(M.w || {}).forEach(([k, v]) => { if (v !== '' && Number.isFinite(+v)) weights[k] = +v; }); if (M.learned) weights._mode = 'learned'; }
+  if (r === 'developer') Object.entries(M.w || {}).forEach(([k, v]) => { if (v !== '' && Number.isFinite(+v)) weights[k] = +v; });
+  if (learned) weights._mode = 'learned';
   const payload = { region: M.region, scenarios, startTime: fmtHoco(s), endTime: fmtHoco(e), weather: 'lightning', weights: JSON.stringify(weights),
     userId: uid(), createdAt: new Date(), status: 'pending', public: false, type: 'manual' };
   try {
@@ -424,9 +456,10 @@ function renderDev(body) {
       ${T.reqs == null ? '<small class="muted">Loading…</small>' : !T.reqs.length ? '<small class="muted">No pending requests.</small>' : T.reqs.map(r => `<div class="req"><div><b>${esc(r.email)}</b> wants <b>${esc(r.requestedRole)}</b></div>
         <small class="muted">${esc(r.social)} · ${esc(r.reason)}</small><div class="chips"><button class="btn primary sm" data-ok="${esc(r.id)}">Approve</button><button class="btn sm" data-no="${esc(r.id)}">Reject</button></div></div>`).join('')}</section>
     <section class="devsec"><div class="rowbetween"><b>Users</b><small class="muted">${T.users ? T.users.length : '…'}</small></div>
+      <small class="muted">G guest · N normal · E exclusive · API external developer · D developer</small>
       <input id="userQ" placeholder="Search by email" value="${esc(T.userQ || '')}">
       <div class="userlist">${T.users == null ? '<small class="muted">Loading…</small>' : users.slice(0, 60).map(u => `<div class="urow"><span>${esc(u.email || u.id)}</span>
-        <select data-role="${esc(u.id)}" aria-label="Role for ${esc(u.email)}">${ROLES.map(([k, l]) => `<option value="${k}" ${u.role === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>`).join('')}
+        <span class="rolechips" role="group" aria-label="Role for ${esc(u.email)}">${ROLES.map(([k, l]) => `<button data-role="${esc(u.id)}" data-v="${k}" title="${l}" aria-pressed="${(u.role || 'normal') === k}">${{ guest: 'G', normal: 'N', exclusive: 'E', external_developer: 'API', developer: 'D' }[k]}</button>`).join('')}</span></div>`).join('')}
         ${users.length > 60 ? `<small class="muted">Showing 60 of ${users.length}. Search to narrow.</small>` : ''}</div></section>`;
   body.querySelectorAll('[name=runner]').forEach(i => i.onchange = () => { T.runnerPick = i.value; render(); });
   $('saveRunner').onclick = async () => {
@@ -441,5 +474,5 @@ function renderDev(body) {
     try { await updateDoc(doc(X.db, 'users', r.userId), { role: r.requestedRole }); await updateDoc(doc(X.db, 'role_requests', r.id), { status: 'approved' }); X.toast('Approved'); } catch (e) { X.toast('Could not approve'); } });
   body.querySelectorAll('[data-no]').forEach(b => b.onclick = async () => { try { await updateDoc(doc(X.db, 'role_requests', b.dataset.no), { status: 'rejected' }); X.toast('Rejected'); } catch (e) { X.toast('Could not reject'); } });
   $('userQ').oninput = (e) => { T.userQ = e.target.value; const pos = e.target.selectionStart; render(); const i = $('userQ'); i.focus(); i.setSelectionRange(pos, pos); };
-  body.querySelectorAll('[data-role]').forEach(s => s.onchange = async () => { try { await updateDoc(doc(X.db, 'users', s.dataset.role), { role: s.value }); X.toast('Role updated'); } catch (e) { X.toast('Could not update the role'); } });
+  body.querySelectorAll('[data-role]').forEach(b => b.onclick = async () => { try { await updateDoc(doc(X.db, 'users', b.dataset.role), { role: b.dataset.v }); X.toast('Role updated'); } catch (e) { X.toast('Could not update the role'); } });
 }

@@ -1,173 +1,232 @@
-// HOCO v3 stage 4: settings, compare maps, accuracy + AI HOCO status, alerts, install, tutorial, embed code, ad spaces.
+// HOCO v3 account side: settings, compare maps (+ load a run into a map), accuracy, AI HOCO status,
+// upgrade requests, API access, install, tutorial, embed code, Europe map, ad spaces.
 let X;
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = (n) => String(n).padStart(2, '0');
 
 // ------------------------------------------------------------------ settings
-export const DEFAULTS = { mapStyle: 'standard', opacity: 1, radarOpacity: 0.85, region: '', changed: true, alerts: false, alertAt: 30 };
+export const DEFAULTS = { mapStyle: 'default', opacity: 1, radarOpacity: 0.85, region: '', changed: true, palette: 'standard', strikesDefault: false, notifyRuns: true };
 export function getSettings() { try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('hocoSettings') || '{}') }; } catch (e) { return { ...DEFAULTS }; } }
-function saveSettings(patch) { const s = { ...getSettings(), ...patch }; try { localStorage.setItem('hocoSettings', JSON.stringify(s)); } catch (e) { } X.applySettings(s, patch); return s; }
-
-function dialog(html, label) {
+function saveSettings(patch) { const s = { ...getSettings(), ...patch, styleV2: true }; try { localStorage.setItem('hocoSettings', JSON.stringify(s)); } catch (e) { } X.applySettings(s, patch); return s; }
+function dialog(html, label, wide) {
   const d = $('cookieDlg');
-  d.innerHTML = `<section class="dialog" role="dialog" aria-modal="true" aria-label="${esc(label)}">${html}</section>`;
+  d.innerHTML = `<section class="dialog${wide ? ' wide' : ''}" role="dialog" aria-modal="true" aria-label="${esc(label)}">${html}</section>`;
   d.classList.remove('hidden');
   d.querySelectorAll('[data-x]').forEach(b => b.onclick = () => d.classList.add('hidden'));
   return d;
 }
 const seg = (name, cur, opts) => `<div class="seg wide" role="group">${opts.map(([v, l]) => `<button data-${name}="${v}" aria-pressed="${String(cur) === String(v)}">${l}</button>`).join('')}</div>`;
+const STYLE_NAMES = [['default', 'Default'], ['standard', 'Standard'], ['satellite', 'Satellite'], ['satellite-streets', 'Satellite + streets'], ['light', 'Light'], ['outdoors', 'Outdoors']];
 
-export function openSettings() {
-  const s = getSettings(), place = (() => { try { return JSON.parse(localStorage.getItem('hocoPlace') || 'null'); } catch (e) { return null; } })();
-  const d = dialog(`<div class="rowbetween"><h2>Settings</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
-    <div class="setgrp"><span class="kicker">Theme</span>${seg('th', X.S.theme, [['auto', 'Follow device'], ['light', 'Light'], ['dark', 'Dark']])}</div>
-    <div class="setgrp"><span class="kicker">Map style</span>${seg('style', s.mapStyle, [['standard', 'Standard'], ['satellite', 'Satellite'], ['outdoors', 'Outdoors']])}</div>
-    <div class="setgrp"><div class="rowbetween"><span class="kicker">Forecast colour strength</span><output id="opOut">${Math.round(s.opacity * 100)}%</output></div>
-      <input type="range" id="setOp" min="0.3" max="1.2" step="0.05" value="${s.opacity}" style="--pct:${(s.opacity - 0.3) / 0.9 * 100}%"></div>
-    <div class="setgrp"><div class="rowbetween"><span class="kicker">Radar strength</span><output id="rOut">${Math.round(s.radarOpacity * 100)}%</output></div>
-      <input type="range" id="setROp" min="0.3" max="1" step="0.05" value="${s.radarOpacity}" style="--pct:${(s.radarOpacity - 0.3) / 0.7 * 100}%"></div>
-    <div class="setgrp"><span class="kicker">Start on</span><div class="grid2">
-      <select id="setRegion"><option value="">Last region used</option>${X.REGIONS.filter(r => r.west !== undefined).map(r => `<option value="${r.id}" ${s.region === r.id ? 'selected' : ''}>${r.name}</option>`).join('')}</select>
-      <select id="setProduct"><option value="traditional" ${X.S.product !== 'ai' ? 'selected' : ''}>Traditional</option><option value="ai" ${X.S.product === 'ai' ? 'selected' : ''}>AI HOCO</option></select></div></div>
-    <label class="item layer"><span><b>Show what changed</b><small>A line under the peak comparing with the previous run.</small></span><input type="checkbox" class="switch" id="setChanged" ${s.changed ? 'checked' : ''}></label>
-    <div class="setgrp alertbox"><label class="item layer" style="padding-left:0;padding-right:0"><span><b>Storm alerts</b><small>${place ? `Notify me when the chance near <b>${esc(place.name)}</b> reaches the level below.` : 'Search for a place first (magnifier at the top), then turn this on.'}</small></span>
-      <input type="checkbox" class="switch" id="setAlerts" ${s.alerts && place ? 'checked' : ''} ${place ? '' : 'disabled'}></label>
-      <div class="chips" id="alertLevels">${[20, 30, 50, 70].map(v => `<button class="chipbtn" data-lvl="${v}" aria-pressed="${s.alertAt === v}" ${place ? '' : 'disabled'}>${v}%+</button>`).join('')}</div>
-      <small class="muted">Alerts work while HOCO is open in a tab or installed as an app. Alerts with the app fully closed need push notifications, which aren't set up yet.</small></div>`, 'Settings');
-  d.querySelectorAll('[data-th]').forEach(b => b.onclick = () => { X.setTheme(b.dataset.th); d.querySelectorAll('[data-th]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
-  d.querySelectorAll('[data-style]').forEach(b => b.onclick = () => { saveSettings({ mapStyle: b.dataset.style }); d.querySelectorAll('[data-style]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
-  $('setOp').oninput = (e) => { const v = +e.target.value; e.target.style.setProperty('--pct', (v - 0.3) / 0.9 * 100 + '%'); $('opOut').textContent = Math.round(v * 100) + '%'; saveSettings({ opacity: v }); };
+export function renderSettings(root) {
+  const s = getSettings();
+  root.innerHTML = `
+    <div class="setgrp"><span class="kicker">Look</span>
+      <small class="muted">Theme</small>${seg('th', X.S.theme, [['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']])}
+      <div class="rowbetween"><small class="muted">Grid opacity</small><output id="opOut">${Math.round(s.opacity * 70)}%</output></div>
+      <input type="range" id="setOp" min="0.4" max="1.4" step="0.05" value="${s.opacity}" style="--pct:${(s.opacity - 0.4) * 100}%">
+      <small class="muted">Risk colours</small>${seg('pal', s.palette, [['standard', 'Standard'], ['colourblind', 'Colour-blind friendly']])}</div>
+    <div class="setgrp"><span class="kicker">Map</span>
+      <label class="item layer"><span><b>Show lightning strikes by default</b><small>Turn strikes on whenever HOCO opens</small></span><input type="checkbox" class="switch" id="setStrikes" ${s.strikesDefault ? 'checked' : ''}></label>
+      <div class="rowbetween"><small class="muted">Map style</small><select id="setStyle">${STYLE_NAMES.map(([k, l]) => `<option value="${k}" ${s.mapStyle === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+      <div class="rowbetween"><small class="muted">Radar strength</small><output id="rOut">${Math.round(s.radarOpacity * 100)}%</output></div>
+      <input type="range" id="setROp" min="0.3" max="1" step="0.05" value="${s.radarOpacity}" style="--pct:${(s.radarOpacity - 0.3) / 0.7 * 100}%">
+      <label class="item layer"><span><b>Show what changed</b><small>A line comparing each run with the one before</small></span><input type="checkbox" class="switch" id="setChanged" ${s.changed ? 'checked' : ''}></label>
+      <div class="grid2"><select id="setRegion" aria-label="Start on region"><option value="">Start: last region used</option>${X.REGIONS.filter(r => r.west !== undefined).map(r => `<option value="${r.id}" ${s.region === r.id ? 'selected' : ''}>Start: ${r.name}</option>`).join('')}</select>
+        <select id="setProduct" aria-label="Start on forecast"><option value="traditional" ${X.S.product !== 'ai' ? 'selected' : ''}>Traditional</option><option value="ai" ${X.S.product === 'ai' ? 'selected' : ''}>AI HOCO</option></select></div></div>
+    <div class="setgrp"><span class="kicker">Notifications</span>
+      <label class="item layer"><span><b>Notify me when my runs are ready</b><small>A message in HOCO and, if allowed, on your device</small></span><input type="checkbox" class="switch" id="setNotify" ${s.notifyRuns ? 'checked' : ''}></label>
+      <div class="rowbetween"><span><b style="font-size:14px">Storm alerts</b><small class="muted" style="display:block">For your saved places</small></span><button class="btn sm" id="setAlerts">Manage</button></div></div>
+    <div class="setgrp"><div class="rowbetween"><span class="kicker">Keyboard shortcuts</span><button class="btn sm" id="setKeys">Show list</button></div></div>`;
+  root.querySelectorAll('[data-th]').forEach(b => b.onclick = () => { X.setTheme(b.dataset.th); root.querySelectorAll('[data-th]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+  root.querySelectorAll('[data-pal]').forEach(b => b.onclick = () => { saveSettings({ palette: b.dataset.pal }); root.querySelectorAll('[data-pal]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+  $('setOp').oninput = (e) => { const v = +e.target.value; e.target.style.setProperty('--pct', (v - 0.4) * 100 + '%'); $('opOut').textContent = Math.round(v * 70) + '%'; saveSettings({ opacity: v }); };
   $('setROp').oninput = (e) => { const v = +e.target.value; e.target.style.setProperty('--pct', (v - 0.3) / 0.7 * 100 + '%'); $('rOut').textContent = Math.round(v * 100) + '%'; saveSettings({ radarOpacity: v }); };
+  $('setStrikes').onchange = (e) => saveSettings({ strikesDefault: e.target.checked });
+  $('setStyle').onchange = (e) => saveSettings({ mapStyle: e.target.value });
+  $('setChanged').onchange = (e) => saveSettings({ changed: e.target.checked });
   $('setRegion').onchange = (e) => saveSettings({ region: e.target.value });
   $('setProduct').onchange = (e) => X.setProduct(e.target.value);
-  $('setChanged').onchange = (e) => saveSettings({ changed: e.target.checked });
-  $('setAlerts').onchange = async (e) => {
-    if (e.target.checked && 'Notification' in window && Notification.permission === 'default') { try { await Notification.requestPermission(); } catch (err) { } }
-    if (e.target.checked && 'Notification' in window && Notification.permission === 'denied') X.toast('Notifications are blocked for this site, so alerts will show inside HOCO only');
-    saveSettings({ alerts: e.target.checked });
-  };
-  d.querySelectorAll('[data-lvl]').forEach(b => b.onclick = () => { saveSettings({ alertAt: +b.dataset.lvl }); d.querySelectorAll('[data-lvl]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+  $('setNotify').onchange = (e) => { saveSettings({ notifyRuns: e.target.checked }); X.setNotifyRuns?.(e.target.checked); };
+  $('setAlerts').onclick = () => X.openAlerts();
+  $('setKeys').onclick = () => X.openShortcuts();
+}
+export function openSettings() {
+  dialog(`<div class="rowbetween"><h2>Settings</h2><button class="btn icon" data-x aria-label="Close">✕</button></div><div id="setRoot" class="setroot"></div>`, 'Settings');
+  renderSettings($('setRoot'));
 }
 
-// ------------------------------------------------------------------ alerts (checked on every new run while the app is open)
-export async function checkAlerts(latest) {
-  const s = getSettings(); if (!s.alerts) return;
-  let place; try { place = JSON.parse(localStorage.getItem('hocoPlace') || 'null'); } catch (e) { } if (!place) return;
-  let done; try { done = JSON.parse(localStorage.getItem('hocoAlerted') || '[]'); } catch (e) { done = []; }
-  for (const [day, run] of latest.entries()) {
-    if (!run || done.includes(run.id)) continue;
-    try {
-      const g = await X.fetchGeo(run), r = X.riskAt(g, place.lon, place.lat);
-      done.push(run.id);
-      if (r >= s.alertAt) {
-        const when = day === 0 ? 'today' : day === 1 ? 'tomorrow' : X.dayName(X.startOf(run));
-        const msg = `${Math.round(r)}% chance of lightning near ${place.name} ${when}`;
-        X.toast(`⚡ ${msg}`);
-        if ('Notification' in window && Notification.permission === 'granted') {
-          try { const n = new Notification('HOCO storm alert', { body: msg, icon: 'icons/icon-192.png', tag: `hoco-${run.id}` }); n.onclick = () => { focus(); X.goDay(day); }; } catch (e) { }
-        }
-      }
-    } catch (e) { /* try again on the next run */ }
-  }
-  try { localStorage.setItem('hocoAlerted', JSON.stringify(done.slice(-60))); } catch (e) { }
-}
-
-// ------------------------------------------------------------------ compare maps (2 or 4)
-const C = { n: 2, maps: [], sel: [], link: true, syncing: false };
+// ------------------------------------------------------------------ compare maps: 1-4 maps, add a map, load a run into a map
+const C = { panes: [], maps: [], link: true, syncing: false, day: 0 };
+const typeLabel = (r) => ({ automated: 'AUTO', ai: 'AI HOCO', 'human-mimic': 'Ensemble', manual: 'Manual' }[r?.type] || 'Run');
+const typeCls = (r) => ({ automated: 'live', ai: 'beta', 'human-mimic': 'ens' }[r?.type] || 'arch');
 function paneOptions() {
   const out = [];
   for (const type of ['automated', 'ai']) for (let d = 0; d < 3; d++) {
-    const runs = X.runsFor(d, type);
-    runs.slice().reverse().forEach((r, i) => out.push({ id: r.id, run: r, label: `Day ${d} · ${type === 'ai' ? 'AI HOCO' : 'Traditional'} · ${X.hhmm(X.created(r))}${i === 0 ? ' (latest)' : ''}`, group: `Day ${d} · ${type === 'ai' ? 'AI HOCO' : 'Traditional'}` }));
+    X.runsFor(d, type).slice().reverse().forEach((r, i) => out.push({ id: r.id, run: r, label: `Day ${d} · ${type === 'ai' ? 'AI' : 'AUTO'} · ${X.hhmm(X.created(r))}${i === 0 ? ' (latest)' : ''}`, group: `Day ${d} · ${type === 'ai' ? 'AI HOCO' : 'Traditional'}` }));
   }
+  const me = X.auth?.currentUser?.uid;
+  X.S.runs.filter(r => r.type === 'human-mimic' && (r.userId === me || r.public) && r.cancelled !== true).slice(0, 12)
+    .forEach(r => out.push({ id: r.id, run: r, label: `Ensemble · ${X.dayName(X.created(r))} ${X.hhmm(X.created(r))}`, group: 'Ensembles' }));
   return out;
 }
-function defaultSel(n, opts) {
-  const latest = (d, t) => X.runsFor(d, t).at(-1)?.id, prev = (d, t) => X.runsFor(d, t).at(-2)?.id;
-  const want = n === 2 ? [latest(X.S.day, 'automated'), latest(X.S.day, 'ai') || prev(X.S.day, 'automated')]
-    : [latest(0, 'automated'), latest(1, 'automated'), latest(2, 'automated'), latest(0, 'ai') || prev(0, 'automated')];
-  return want.map((id, i) => id || opts[i]?.id || opts[0]?.id);
+const extra = new Map();   // runs loaded from Tools › Runs that are not in the pick list (archive, manual)
+const findRun = (id) => paneOptions().find(o => o.id === id)?.run || extra.get(id) || X.S.runs.find(r => r.id === id) || null;
+export const comparing = () => document.body.classList.contains('comparing');
+export function openCompare(n = 2, sel) {
+  const opts = paneOptions(); if (!opts.length && !sel) return X.toast('No runs to compare yet');
+  if (sel) C.panes = sel.slice(0, 4);
+  else if (!comparing() || C.panes.length !== n) {
+    const latest = (d, t) => X.runsFor(d, t).at(-1)?.id, prev = (d, t) => X.runsFor(d, t).at(-2)?.id, day = X.S.day;
+    C.day = day;
+    C.panes = (n === 4 ? [latest(0, 'automated'), latest(1, 'automated'), latest(2, 'automated'), latest(0, 'ai') || prev(0, 'automated')]
+      : [latest(day, 'automated'), latest(day, 'ai') || prev(day, 'automated')]).slice(0, n).filter(Boolean);
+  }
+  drawCompare();
 }
-export function openCompare(n = 2) {
-  const opts = paneOptions(); if (!opts.length) return X.toast('No runs to compare yet');
-  C.n = n; if (C.sel.length !== n || C.sel.some(id => !opts.some(o => o.id === id))) C.sel = defaultSel(n, opts);
+function addCell(i) { return `<div class="cmp-pane cmp-empty"><b>Add a map</b><div class="chips"><button class="btn" data-add-latest="${i}">Latest</button><button class="btn" data-add-ens="${i}">Ensemble</button><button class="btn" data-add-pick="${i}">Pick a run…</button></div></div>`; }
+function drawCompare() {
+  const opts = paneOptions(), groups = [...new Set(opts.map(o => o.group))], n = C.panes.length;
   document.body.classList.add('comparing');
-  const el = $('compare'); el.classList.remove('hidden'); el.dataset.n = n;
-  const groups = [...new Set(opts.map(o => o.group))];
-  el.innerHTML = `<div class="cmp-grid">${C.sel.map((id, i) => `<div class="cmp-pane"><div class="cmp-map" id="cmpMap${i}"></div>
-      <div class="cmp-head card"><label class="sr" for="cmpSel${i}">Run for map ${i + 1}</label><select id="cmpSel${i}" data-i="${i}">${groups.map(g => `<optgroup label="${g}">${opts.filter(o => o.group === g).map(o => `<option value="${o.id}" ${o.id === id ? 'selected' : ''}>${o.label.replace(' · Traditional', '').replace(' · AI HOCO', ' · AI')}</option>`).join('')}</optgroup>`).join('')}</select>
-      <div class="cmp-peak" id="cmpPeak${i}">–</div></div></div>`).join('')}</div>
-    <div class="cmp-bar card"><b>Compare</b>${seg('cmpn', n, [[2, '2 maps'], [4, '4 maps']])}
+  const el = $('compare'); el.classList.remove('hidden');
+  const showAdd = n < 4, cells = n + (showAdd ? 1 : 0);
+  el.dataset.n = cells > 2 ? 4 : 2;
+  el.innerHTML = `<div class="cmp-grid">${C.panes.map((id, i) => { const r = findRun(id);
+      return `<div class="cmp-pane"><div class="cmp-map" id="cmpMap${i}"></div>
+      <div class="cmp-head card"><span class="tag ${typeCls(r)}">${typeLabel(r)}</span>
+        <label class="sr" for="cmpSel${i}">Run for map ${i + 1}</label><select id="cmpSel${i}" data-i="${i}">${groups.map(g => `<optgroup label="${g}">${opts.filter(o => o.group === g).map(o => `<option value="${o.id}" ${o.id === id ? 'selected' : ''}>${o.label}</option>`).join('')}</optgroup>`).join('')}${opts.some(o => o.id === id) ? '' : `<option value="${esc(id)}" selected>${esc(typeLabel(r))} · ${r ? X.hhmm(X.created(r)) : ''}</option>`}</select>
+        <div class="cmp-peak" id="cmpPeak${i}">–</div>${n > 1 ? `<button class="btn icon sm" data-rm="${i}" aria-label="Remove map ${i + 1}">✕</button>` : ''}</div></div>`; }).join('')}${showAdd ? addCell(n) : ''}</div>
+    <div class="cmp-bar card"><b>Compare maps</b>${seg('cday', C.day, [[0, 'Day 0'], [1, 'Day 1'], [2, 'Day 2']])}
       <label class="chk"><input type="checkbox" id="cmpLink" ${C.link ? 'checked' : ''}><span>Move maps together</span></label>
       <span class="cmp-key">${X.BANDS.map(b => `<i style="background:${b.fill}"></i>`).join('')}<small>5% → 90%+</small></span>
       <button class="btn primary" id="cmpClose">Done</button></div>`;
-  C.maps.forEach(m => m.remove()); C.maps = [];
-  const main = X.map, center = main.getCenter(), zoom = main.getZoom() - (n === 4 ? 0.7 : 0.3);
-  C.sel.forEach((id, i) => {
+  C.maps.forEach(m => m && m.remove()); C.maps = [];
+  const main = X.map, center = main.getCenter(), zoom = main.getZoom() - (cells > 2 ? 0.7 : 0.3);
+  C.panes.forEach((id, i) => {
     const m = new mapboxgl.Map({ container: `cmpMap${i}`, style: X.styleUrl(), center, zoom, attributionControl: false, logoPosition: 'bottom-left', projection: 'mercator' });
     if (i === 0) m.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-left');
     m.on('style.load', () => { addPaneLayers(m); loadPane(i); });
     m.on('move', () => { if (!C.link || C.syncing) return; C.syncing = true; C.maps.forEach(o => { if (o !== m) o.jumpTo({ center: m.getCenter(), zoom: m.getZoom() }); }); C.syncing = false; });
     m.on('mousemove', (e) => paneProbe(i, e));
-    m.on('mouseleave', () => C.maps.forEach((_, j) => { const el = $(`cmpPeak${j}`); if (el) { el.dataset.hover = ''; renderPeak(j); } }));
+    m.on('mouseleave', () => C.maps.forEach((_, j) => { const p = $(`cmpPeak${j}`); if (p) { p.dataset.hover = ''; renderPeak(j); } }));
     C.maps.push(m);
   });
-  el.querySelectorAll('select[data-i]').forEach(s => s.onchange = () => { C.sel[+s.dataset.i] = s.value; loadPane(+s.dataset.i); });
-  el.querySelectorAll('[data-cmpn]').forEach(b => b.onclick = () => openCompare(+b.dataset.cmpn));
+  el.querySelectorAll('select[data-i]').forEach(s => s.onchange = () => { C.panes[+s.dataset.i] = s.value; drawCompare(); });
+  el.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { C.panes.splice(+b.dataset.rm, 1); drawCompare(); });
+  el.querySelectorAll('[data-add-latest]').forEach(b => b.onclick = () => { const t = X.S.product === 'ai' ? 'ai' : 'automated'; const id = X.runsFor(C.day, t).at(-1)?.id || X.runsFor(C.day, 'automated').at(-1)?.id; if (!id) return X.toast('No run for that day yet'); setPane(+b.dataset.addLatest, id); });
+  el.querySelectorAll('[data-add-ens]').forEach(b => b.onclick = () => { const e = paneOptions().find(o => o.group === 'Ensembles'); if (!e) return X.toast('No ensembles yet. Build one in Tools › Ensemble.'); setPane(+b.dataset.addEns, e.id); });
+  el.querySelectorAll('[data-add-pick]').forEach(b => b.onclick = () => { C.pickInto = +b.dataset.addPick; X.openTools('runs'); X.toast('Choose a run and press Load'); });
+  el.querySelectorAll('[data-cday]').forEach(b => b.onclick = () => { C.day = +b.dataset.cday;
+    C.panes = C.panes.map(id => { const r = findRun(id); if (!r || (r.type !== 'automated' && r.type !== 'ai')) return id; return X.runsFor(C.day, r.type).at(-1)?.id || id; }); drawCompare(); });
   $('cmpLink').onchange = (e) => { C.link = e.target.checked; };
   $('cmpClose').onclick = closeCompare;
 }
-export function closeCompare() { C.maps.forEach(m => m.remove()); C.maps = []; $('compare').classList.add('hidden'); $('compare').innerHTML = ''; document.body.classList.remove('comparing'); X.map.resize(); }
+function setPane(i, id) { if (i >= C.panes.length) C.panes.push(id); else C.panes[i] = id; drawCompare(); }
+export function closeCompare() { C.maps.forEach(m => m && m.remove()); C.maps = []; $('compare').classList.add('hidden'); $('compare').innerHTML = ''; document.body.classList.remove('comparing'); X.map.resize(); }
+export function loadTo(run) {
+  extra.set(run.id, run);
+  if (C.pickInto != null) { const i = C.pickInto; C.pickInto = null; X.closeTools(); setPane(i, run.id); return; }
+  const c = X.created(run), slots = [0, 1, 2, 3].map(i => ({ i, r: C.panes[i] ? findRun(C.panes[i]) : null }));
+  let pick = slots.find(s => !s.r)?.i ?? 1;
+  const d = dialog(`<div class="rowbetween"><h2>Load run</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
+    <div class="note slim"><span class="tag ${typeCls(run)}" style="margin:0">${typeLabel(run)}</span><span>${esc(run.region || '')} · issued ${c ? `${X.dayDate(c)} ${X.hhmm(c)}` : ''}</span></div>
+    <span class="kicker">Put it on which map?</span>
+    <div class="alist">${slots.map(s => `<button class="arow" data-slot="${s.i}" aria-pressed="${s.i === pick}"><span><b>Map ${s.i + 1}</b><small>${s.r ? `Now: ${typeLabel(s.r)} · ${X.hhmm(X.created(s.r))}` : 'Empty'}</small></span></button>`).join('')}</div>
+    <div class="chips" style="justify-content:flex-end"><button class="btn" data-x>Cancel</button><button class="btn primary" id="ltGo"></button></div>`, 'Load run');
+  const lbl = () => { $('ltGo').textContent = slots[pick].r ? `Replace Map ${pick + 1}` : `Put on Map ${pick + 1}`; }; lbl();
+  d.querySelectorAll('[data-slot]').forEach(b => b.onclick = () => { pick = +b.dataset.slot; d.querySelectorAll('[data-slot]').forEach(x => x.setAttribute('aria-pressed', x === b)); lbl(); });
+  $('ltGo').onclick = () => { d.classList.add('hidden'); X.closeTools(); const i = Math.min(pick, C.panes.length); setPane(i, run.id); };
+}
 function addPaneLayers(m) {
   if (m.getSource('hoco')) return;
   const label = m.getStyle().layers.find(l => l.type === 'symbol' && l.layout && l.layout['text-field'])?.id;
   m.addSource('hoco', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-  m.addLayer({ id: 'hoco-fill', type: 'fill', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'polygon'], paint: { 'fill-color': ['coalesce', ['get', 'fill'], X.colorExpr()], 'fill-opacity': 0.7 } }, label);
+  m.addLayer({ id: 'hoco-fill', type: 'fill', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'polygon'], paint: { 'fill-color': X.fillColor(), 'fill-opacity': 0.7 } }, label);
   m.addLayer({ id: 'hoco-line', type: 'line', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'polygon'], paint: { 'line-color': 'rgba(16,34,56,0.5)', 'line-width': 0.6 } }, label);
 }
 const paneGeo = [];
 async function loadPane(i) {
-  const m = C.maps[i], id = C.sel[i], opt = paneOptions().find(o => o.id === id); if (!m || !opt) return;
+  const m = C.maps[i], run = findRun(C.panes[i]); if (!m || !run) return;
   $(`cmpPeak${i}`).textContent = 'Loading…';
   try {
-    const g = await X.fetchGeo(opt.run); paneGeo[i] = g;
+    const g = await X.fetchGeo(run); paneGeo[i] = g;
     if (!m.getSource('hoco')) addPaneLayers(m);
     m.getSource('hoco').setData(g);
-    m.setPaintProperty('hoco-fill', 'fill-opacity', (g?.properties?.hoco_layout === 'bands_v2' ? 0.7 : 0.32) * getSettings().opacity);
+    m.setPaintProperty('hoco-fill', 'fill-opacity', Math.min(1, (g?.properties?.hoco_layout === 'bands_v2' ? 0.7 : 0.32) * getSettings().opacity));
     renderPeak(i);
   } catch (e) { $(`cmpPeak${i}`).textContent = 'Could not load this run'; }
 }
 function renderPeak(i) {
   const el = $(`cmpPeak${i}`), g = paneGeo[i]; if (!el || !g) return;
   if (el.dataset.hover) { el.innerHTML = el.dataset.hover; return; }
-  const pk = X.peakOf(g), opt = paneOptions().find(o => o.id === C.sel[i]), s = opt && X.startOf(opt.run), e = opt && X.endOf(opt.run);
+  const pk = X.peakOf(g), run = findRun(C.panes[i]), s = run && X.startOf(run), e = run && X.endOf(run);
   el.innerHTML = `<b>${pk.risk >= 5 ? Math.round(pk.risk) + '%' : '<5%'}</b> peak${pk.lat != null && pk.risk >= 5 ? ` near ${esc(X.nearestPlace(pk.lat, pk.lon))}` : ''}<small>${s ? `${X.dayName(s)} ${X.hhmm(s)} – ${X.dayName(e)} ${X.hhmm(e)}` : ''}</small>`;
 }
 function paneProbe(i, e) {
-  const g = paneGeo[i], el = $(`cmpPeak${i}`); if (!g || !el) return;
-  // show the value under the cursor on every map, so the same spot can be compared
   C.maps.forEach((_, j) => { const gj = paneGeo[j], ej = $(`cmpPeak${j}`); if (!gj || !ej) return; const rj = X.riskAt(gj, e.lngLat.lng, e.lngLat.lat);
     ej.dataset.hover = `<b>${rj >= 5 ? Math.round(rj) + '%' : '<5%'}</b> here<small>${j === i ? 'under your cursor' : 'same spot'}</small>`; renderPeak(j); });
 }
 
-// ------------------------------------------------------------------ accuracy + AI HOCO status
-const fmt = (v, d = 2) => Number.isFinite(+v) ? (+v).toFixed(d) : '–';
+// ------------------------------------------------------------------ accuracy page
+const f2 = (v, d = 2) => Number.isFinite(+v) ? (+v).toFixed(d) : '–';
+function binStats(day) {
+  const F = day?.reliabilityForecast, O = day?.reliabilityObserved, N = day?.reliabilityCount; if (!Array.isArray(F) || !Array.isArray(N)) return null;
+  let pos = 0, n = 0, posHi = 0, nHi = 0, bs = 0; const bins = [];
+  F.forEach((f, i) => { const o = O[i] || 0, c = N[i] || 0; if (!c) return; const lo = i / F.length; pos += o * c; n += c; bs += c * (o * (1 - f) ** 2 + (1 - o) * f ** 2); bins.push({ f, o, c, lo }); if (lo >= 0.1 - 1e-9) { posHi += o * c; nHi += c; } });
+  if (!n) return null; const ob = pos / n, clim = ob * (1 - ob);
+  return { pod: pos ? posHi / pos : null, far: nHi ? 1 - posHi / nHi : null, bss: clim ? 1 - (bs / n) / clim : null, bins };
+}
 function relChart(f, o, n) {
   if (!Array.isArray(f) || !f.length) return '';
-  const W = 300, H = 200, P = 30, x = (v) => P + v * (W - P - 10), y = (v) => H - P - v * (H - P - 10);
+  const W = 320, H = 210, P = 34, x = (v) => P + v * (W - P - 10), y = (v) => H - P - v * (H - P - 10);
   const pts = f.map((v, i) => [v, o[i], n?.[i] || 0]).filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]) && p[2] !== 0);
-  return `<svg viewBox="0 0 ${W} ${H}" class="relchart" role="img" aria-label="Reliability: forecast chance against how often lightning happened">
-    <line x1="${x(0)}" y1="${y(0)}" x2="${x(1)}" y2="${y(1)}" stroke="currentColor" stroke-opacity=".3" stroke-dasharray="4 4"/>
+  return `<svg viewBox="0 0 ${W} ${H}" class="relchart" role="img" aria-label="Forecast chance against how often lightning happened">
+    <line x1="${x(0)}" y1="${y(0)}" x2="${x(1)}" y2="${y(1)}" stroke="currentColor" stroke-opacity=".35" stroke-dasharray="4 4"/>
     <line x1="${x(0)}" y1="${y(0)}" x2="${x(1)}" y2="${y(0)}" stroke="currentColor" stroke-opacity=".4"/><line x1="${x(0)}" y1="${y(0)}" x2="${x(0)}" y2="${y(1)}" stroke="currentColor" stroke-opacity=".4"/>
-    ${[0, 0.5, 1].map(t => `<text x="${x(t)}" y="${H - 10}" font-size="10" text-anchor="middle" fill="currentColor" opacity=".6">${t * 100}%</text><text x="${P - 6}" y="${y(t) + 3}" font-size="10" text-anchor="end" fill="currentColor" opacity=".6">${t * 100}%</text>`).join('')}
+    ${[0, 0.5, 1].map(t => `<text x="${x(t)}" y="${H - 16}" font-size="10" text-anchor="middle" fill="currentColor" opacity=".6">${t * 100}%</text><text x="${P - 6}" y="${y(t) + 3}" font-size="10" text-anchor="end" fill="currentColor" opacity=".6">${t * 100}%</text>`).join('')}
     <polyline fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" points="${pts.map(p => `${x(p[0])},${y(p[1])}`).join(' ')}"/>
     ${pts.map(p => `<circle cx="${x(p[0])}" cy="${y(p[1])}" r="3.5" fill="var(--accent)"/>`).join('')}
-    <text x="${W / 2}" y="${H}" font-size="10" text-anchor="middle" fill="currentColor" opacity=".6">HOCO said</text></svg>`;
+    <text x="${(W + P) / 2}" y="${H - 2}" font-size="10" text-anchor="middle" fill="currentColor" opacity=".6">HOCO said</text></svg>`;
+}
+function bandBars(bins) {
+  const groups = [['Under 10%', 0, 0.1], ['10–30%', 0.1, 0.3], ['30–50%', 0.3, 0.5], ['50%+', 0.5, 1.01]].map(([l, a, b]) => {
+    const bs = bins.filter(x => x.lo >= a - 1e-9 && x.lo < b - 1e-9), c = bs.reduce((s, x) => s + x.c, 0);
+    return { l, exp: c ? bs.reduce((s, x) => s + x.f * x.c, 0) / c : 0, obs: c ? bs.reduce((s, x) => s + x.o * x.c, 0) / c : 0, c };
+  }).filter(g => g.c);
+  const max = Math.max(...groups.map(g => Math.max(g.exp, g.obs)), 0.01);
+  return `<div class="bars">${groups.map(g => `<div class="bar-g"><div class="bar-pair"><i class="exp" style="height:${g.exp / max * 100}%" title="Expected ${Math.round(g.exp * 100)}%"></i><i class="obs" style="height:${g.obs / max * 100}%" title="Observed ${Math.round(g.obs * 100)}%"></i></div><small>${g.l}</small><small class="muted">${Math.round(g.exp * 100)}% / ${Math.round(g.obs * 100)}%</small></div>`).join('')}</div>
+    <div class="bar-key"><span><i class="exp"></i>Expected</span><span><i class="obs"></i>Observed</span></div>`;
+}
+// Recent days, checked here against observed strikes: peak of that day's latest Day 0 run vs lightning in the region.
+async function recentDays(nDays) {
+  const out = [], today = new Date(); today.setHours(0, 0, 0, 0);
+  const r = X.REGIONS.find(x => x.id === X.S.region);
+  for (let k = 1; k <= nDays; k++) {
+    const day = new Date(today); day.setDate(day.getDate() - k); const key = `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
+    const row = { day, key, peak: null, lightning: null };
+    try {
+      const s0 = new Date(key + 'T00:00:00'), s1 = new Date(key + 'T23:59:59');
+      const snap = await X.getDocs(X.query(X.collection(X.db, 'hoco_requests'), X.where('createdAt', '>=', s0), X.where('createdAt', '<=', s1), X.orderBy('createdAt', 'desc'), X.limit(60)));
+      let last = null; snap.forEach(x => { const d = { id: x.id, ...x.data() }; if (!last && d.type === 'automated' && X.regionMatches(X.S.region, d) && X.startOf(d) && X.dateKey(X.startOf(d)) === key) last = d; });
+      if (last) row.peak = X.peakOf(await X.fetchGeo(last)).risk;
+    } catch (e) { }
+    try {
+      const resp = await fetch(`https://ukwx.duckdns.org/lightning/archive/europe/${key}.json`, { cache: 'force-cache' });
+      if (resp.ok) { const j = await resp.json(); row.lightning = (j.points || []).filter(p => !r || (p.lon >= r.west && p.lon <= r.east && p.lat >= r.south && p.lat <= r.north)).length; }
+    } catch (e) { }
+    out.push(row);
+  }
+  return out;
+}
+function verdict(peak, n) {
+  if (peak == null || n == null) return ['–', ''];
+  if (n >= 5) return peak >= 50 ? ['Good', 'good'] : peak >= 15 ? ['Fair', 'fair'] : ['Missed', 'bad'];
+  return peak < 30 ? ['Good', 'good'] : peak < 50 ? ['Fair', 'fair'] : ['False alarm', 'bad'];
 }
 export async function openAccuracy(tab = 'accuracy') {
-  const d = dialog(`<div class="rowbetween"><h2>How good is HOCO?</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
-    ${seg('acctab', tab, [['accuracy', 'Accuracy'], ['ai', 'AI HOCO status']])}<div id="accBody" class="accbody"><div class="muted center"><span class="spin"></span> Loading…</div></div>`, 'Accuracy');
+  const d = dialog(`<div class="rowbetween"><h2>${tab === 'ai' ? 'AI HOCO status' : 'How accurate is HOCO?'}</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
+    ${seg('acctab', tab, [['accuracy', 'Accuracy'], ['ai', 'AI HOCO status']])}<div id="accBody" class="accbody"><div class="muted center"><span class="spin"></span> Loading…</div></div>`, 'Accuracy', tab === 'accuracy');
   d.querySelectorAll('[data-acctab]').forEach(b => b.onclick = () => openAccuracy(b.dataset.acctab));
   const body = $('accBody');
   try {
@@ -176,110 +235,207 @@ export async function openAccuracy(tab = 'accuracy') {
       if (!snap.exists()) { body.innerHTML = '<p class="muted">No accuracy figures yet.</p>'; return; }
       const a = snap.data(); let curves = null;
       if (a.curveStoragePath) { try { curves = await (await fetch(await X.getDownloadURL(X.ref(X.storage, a.curveStoragePath)), { cache: 'no-store' })).json(); } catch (e) { } }
-      const upd = a.lastUpdated?.toDate ? a.lastUpdated.toDate() : (a.lastUpdated || a.timestamp ? new Date(a.lastUpdated || a.timestamp) : null);
-      body.innerHTML = `<p class="lead">Checked against observed lightning for every AUTO-HOCO run. ${upd && !isNaN(upd) ? `Last updated ${X.dayDate(upd)}.` : ''}</p>
-        <div class="acc-grid">${[0, 1, 2].map(i => { const x = a[`day${i}`] || {}; return `<div class="acc-card"><span class="kicker">Day ${i}</span>
-          <div class="acc-big">${fmt(x.auc)}</div><small>AUC · 1.0 is perfect, 0.5 is a coin toss</small>
-          <div class="acc-row"><span>Precision–recall</span><b>${fmt(x.prAuc)}</b></div><div class="acc-row"><span>Brier score</span><b>${fmt(x.brierScore, 3)}</b></div><div class="acc-row"><span>Grid points checked</span><b>${x.count || 0}</b></div></div>`; }).join('')}</div>
-        ${curves?.day0?.reliabilityForecast ? `<div class="setgrp"><span class="kicker">When HOCO says a chance, how often does lightning happen? (Day 0)</span>${relChart(curves.day0.reliabilityForecast, curves.day0.reliabilityObserved, curves.day0.reliabilityCount)}
-          <small class="muted">Points on the dashed line mean HOCO's chances match what happened. Below the line: HOCO was too high; above: too low.</small></div>` : ''}`;
+      const upd = a.lastUpdated?.toDate ? a.lastUpdated.toDate() : (a.lastUpdated ? new Date(a.lastUpdated) : null);
+      const st = [0, 1, 2].map(i => binStats(curves?.[`day${i}`])), s0 = st[0];
+      const pct = (v) => v == null || !Number.isFinite(v) ? '–' : Math.round(v * 100) + '%';
+      body.innerHTML = `<div class="rowbetween"><p class="lead">AUTO-HOCO checked against real lightning, all verified runs${upd && !isNaN(upd) ? ` · updated ${X.dayDate(upd)}` : ''}</p>${X.S.role === 'developer' ? '<button class="btn sm" id="accRecalc">↻ Recalculate · dev</button>' : ''}</div>
+        <div class="acc-grid">
+          <div class="acc-card"><span class="kicker">Lightning inside a 10%+ area</span><div class="acc-big">${pct(s0?.pod)}</div><small>Day 0</small></div>
+          <div class="acc-card"><span class="kicker">10%+ areas that stayed dry</span><div class="acc-big">${pct(s0?.far)}</div><small>false alarms, Day 0. Lightning is rare, so many areas stay dry.</small></div>
+          <div class="acc-card"><span class="kicker">Better than climatology</span><div class="acc-big">${s0?.bss != null ? `${s0.bss >= 0 ? '+' : ''}${Math.round(s0.bss * 100)}%` : '–'}</div><small>Brier skill, Day 0 (approximate)</small></div></div>
+        <div class="setgrp"><span class="kicker">Lightning caught, by day</span><div class="caught">${[0, 1, 2].map(i => `<div><b>${pct(st[i]?.pod)}</b><small>Day ${i}</small><span class="cbar"><i style="width:${(st[i]?.pod || 0) * 100}%"></i></span><small class="muted">AUC ${f2(a[`day${i}`]?.auc)}</small></div>`).join('')}</div></div>
+        <div class="acc-2col">
+          ${curves?.day0?.reliabilityForecast ? `<div class="setgrp"><span class="kicker">Are the percentages honest?</span>${relChart(curves.day0.reliabilityForecast, curves.day0.reliabilityObserved, curves.day0.reliabilityCount)}<small class="muted">Closer to the dashed line is better. Below it, HOCO's chances were too high.</small></div>` : ''}
+          ${s0 ? `<div class="setgrp"><span class="kicker">Chance of lightning by risk band</span>${bandBars(s0.bins)}</div>` : ''}</div>
+        <div class="setgrp"><div class="rowbetween"><span class="kicker">Recent days · ${esc(X.S.region)}</span>${seg('accn', 7, [[7, '7 days'], [14, '14 days']])}</div>
+          <table class="acctable"><thead><tr><th>Day</th><th>Peak</th><th>Lightning?</th><th>Result</th></tr></thead><tbody id="accRows"><tr><td colspan="4" class="muted">Checking recent days…</td></tr></tbody></table>
+          <small class="muted">Peak of the last Day 0 run for each day, against observed strikes in the region (5+ strikes counts as lightning).</small></div>
+        <div class="adslot hidden" data-ad="accuracy"></div>`;
+      renderAds();
+      $('accRecalc') && ($('accRecalc').onclick = async (ev) => { const b = ev.currentTarget; b.disabled = true; b.textContent = 'Calculating…';
+        try { await X.callable('calculateAutoAccuracy')(); X.toast('Accuracy recalculated'); openAccuracy('accuracy'); } catch (e) { X.toast('Recalculation failed'); b.disabled = false; b.textContent = '↻ Recalculate · dev'; } });
+      let job = 0;
+      const fill = async (n) => { const me = ++job, rows = $('accRows'); if (!rows) return; rows.innerHTML = `<tr><td colspan="4" class="muted"><span class="spin"></span> Checking ${n} days…</td></tr>`;
+        const list = await recentDays(n); if (me !== job || !$('accRows')) return;
+        $('accRows').innerHTML = list.map(r => { const [v, c] = verdict(r.peak, r.lightning); return `<tr><td>${X.dayDate(r.day)}</td><td>${r.peak == null ? '–' : r.peak < 5 ? '<5%' : Math.round(r.peak) + '%'}</td><td>${r.lightning == null ? '–' : r.lightning >= 5 ? `Yes · ${r.lightning}` : 'No'}</td><td><span class="verdict ${c}">${v}</span></td></tr>`; }).join(''); };
+      d.querySelectorAll('[data-accn]').forEach(b => b.onclick = () => { d.querySelectorAll('[data-accn]').forEach(x => x.setAttribute('aria-pressed', x === b)); fill(+b.dataset.accn); });
+      fill(7);
     } else {
       const [ml, ai] = await Promise.all([X.getDoc(X.doc(X.db, 'system_stats', 'hoco_ml')), X.getDoc(X.doc(X.db, 'system_stats', 'ai_hoco'))]);
       const m = ml.exists() ? ml.data() : null, s = ai.exists() ? ai.data() : null, status = s?.status || 'training';
-      const checks = m?.readiness?.checks || [], passed = checks.filter(c => c.ok).length;
-      const pub = s?.publishedAt?.toDate ? s.publishedAt.toDate() : null;
-      const head = status === 'published' ? `AI HOCO is <b>live</b>${s.version ? ` (v${esc(s.version)})` : ''}${pub ? `, published ${X.dayDate(pub)}` : ''}, and checked daily against fresh lightning. Traditional HOCO keeps its hand-tuned weights.`
-        : status === 'paused' ? 'AI HOCO is <b>paused</b>. Traditional HOCO is unaffected.'
-        : m ? `AI HOCO is <b>training</b>: ${passed} of ${checks.length} launch checks passed. It goes live alongside Traditional once a developer publishes it.` : 'AI HOCO is <b>collecting data</b> from every AUTO run so it can learn from verified lightning.';
-      const stat = (e) => { const vt = e?.vsTraditional, gain = vt ? 1 - vt.model.brier / vt.traditional.brier : NaN;
-        return `<div class="acc-row"><span>vs Traditional</span><b>${Number.isFinite(gain) ? `${gain >= 0 ? '+' : ''}${(gain * 100).toFixed(1)}%` : '–'}</b></div><div class="acc-row"><span>AUC</span><b>${vt?.model?.auc != null ? vt.model.auc.toFixed(2) : '–'}</b></div>
-          <div class="acc-row"><span>Method</span><b>${e ? ({ context: 'Learned + context', weights: 'Learned', calibration: 'Calibrated' }[e.kind] || 'Learned') : 'Hand-tuned'}</b></div>`; };
-      body.innerHTML = `<p class="lead">${head}</p>
-        <div class="acc-grid">${['day0', 'day1', 'day2'].map((b, i) => { const e = status === 'published' ? s.model?.[b] : m?.candidate?.[b]; return `<div class="acc-card"><span class="kicker">Day ${i} · ${status === 'published' ? 'live' : 'candidate'}</span>${stat(e)}</div>`; }).join('')}</div>
-        ${checks.length ? `<div class="setgrp"><span class="kicker">Launch checklist</span>${checks.map(c => `<div class="check ${c.ok ? 'ok' : ''}"><i>${c.ok ? '✓' : ''}</i><span>${esc(c.label)}<small>${esc(c.detail || '')}</small></span></div>`).join('')}</div>` : ''}
-        ${X.S.role === 'developer' ? '<a class="btn" href="../ai-hoco-lab.html">Open the AI HOCO Lab</a>' : ''}`;
+      const checks = m?.readiness?.checks || [], passed = checks.filter(c => c.ok).length, ready = checks.length > 0 && passed === checks.length;
+      const trained = m?.trainedAt ? new Date(m.trainedAt) : null;
+      const chip = status === 'published' ? '<span class="tag live">Live</span>' : status === 'paused' ? '<span class="tag arch">Paused</span>' : '<span class="tag beta">Training</span>';
+      const row = (b, i) => { const e = status === 'published' ? s.model?.[b] : m?.candidate?.[b], vt = e?.vsTraditional, gain = vt ? 1 - vt.model.brier / vt.traditional.brier : NaN;
+        return `<tr><td>Day ${i}</td><td>${e ? ({ context: 'Setup model', weights: 'Learned weights', calibration: 'Calibrated' }[e.kind] || 'Learned') : '–'}</td><td><b class="${gain >= 0 ? 'good' : 'bad'}">${Number.isFinite(gain) ? `${gain >= 0 ? '+' : ''}${(gain * 100).toFixed(1)}%` : '–'}</b></td><td>${vt ? `${f2(vt.model.auc)} vs ${f2(vt.traditional.auc)}` : '–'}</td></tr>`; };
+      body.innerHTML = `<div class="rowbetween"><p class="lead">${status === 'published' ? `Live${s.version ? ` · v${esc(s.version)}` : ''}` : status === 'paused' ? 'Paused. Traditional is unaffected.' : 'Learning from verified lightning'}${trained && !isNaN(trained) ? ` · last trained ${X.dayDate(trained)}, ${X.hhmm(trained)}` : ''}${m?.data?.featureRuns ? ` · ${m.data.featureRuns} runs with per-model data` : ''}</p>${chip}</div>
+        <table class="acctable"><thead><tr><th>Day</th><th>Lab picked</th><th>Brier vs Trad</th><th>AUC</th></tr></thead><tbody>${['day0', 'day1', 'day2'].map(row).join('')}</tbody></table>
+        ${checks.length ? `<div class="setgrp"><span class="kicker">Launch checklist · ${passed} of ${checks.length}</span>${checks.map(c => `<div class="check ${c.ok ? 'ok' : ''}"><i>${c.ok ? '✓' : ''}</i><span>${esc(c.label)}<small>${esc(c.detail || '')}</small></span></div>`).join('')}</div>` : ''}
+        ${X.S.role === 'developer' ? `<div class="chips" style="justify-content:flex-end"><a class="btn" href="../ai-hoco-lab.html" target="_blank" rel="noopener">Open the Lab ↗</a><button class="btn primary" id="aiPublish" ${status === 'published' ? 'disabled' : ''}>${status === 'published' ? 'Published' : ready ? 'Publish AI HOCO' : 'Publish AI HOCO (checks not passed)'}</button></div>
+          <small class="muted">Model weights stay in the Lab and are only shown to developers.</small>` : '<small class="muted">AI HOCO runs next to Traditional HOCO. Traditional keeps its own hand-tuned weights.</small>'}`;
+      $('aiPublish') && ($('aiPublish').onclick = async (ev) => {
+        if (!ready) { const w = prompt('Not every launch check has passed. AI HOCO may be worse than Traditional HOCO.\n\nType PUBLISH to publish anyway:'); if (w !== 'PUBLISH') return; }
+        else if (!confirm('Publish AI HOCO? AI runs will appear alongside Traditional HOCO from the next AUTO cycle.')) return;
+        const b = ev.currentTarget; b.disabled = true; b.textContent = 'Publishing…';
+        try { const r = await X.callable('aiHocoAdmin')({ action: 'publish', force: !ready }); X.toast(r.data?.message || 'AI HOCO published'); openAccuracy('ai'); }
+        catch (e) { X.toast(e.message || 'Publishing failed'); b.disabled = false; b.textContent = 'Publish AI HOCO'; } });
     }
   } catch (e) { console.error(e); body.innerHTML = '<p class="muted">Could not load this right now. Try again in a moment.</p>'; }
 }
 
-// ------------------------------------------------------------------ install as an app
+// ------------------------------------------------------------------ upgrade request + API access
+export async function openUpgrade() {
+  const role = X.S.role, label = { normal: 'Normal · 7 runs a day', guest: 'Guest', external_developer: 'External developer', exclusive: 'Exclusive', developer: 'Developer' }[role] || role;
+  let pick = 'exclusive', last = null;
+  const d = dialog(`<div class="rowbetween"><h2>Apply for an upgrade</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
+    <div class="note slim"><span class="muted">Your account</span><b style="margin-left:auto">${esc(label)}</b></div>
+    <div class="alist">
+      <button class="arow" data-up="exclusive" aria-pressed="true"><span><b>Upgrade to Exclusive</b><small>Custom scenarios and weights, 15 runs a day, no ads</small></span></button>
+      <button class="arow" data-up="external_developer" aria-pressed="false"><span><b>External developer</b><small>API access and GeoJSON downloads for your own apps</small></span></button></div>
+    <label class="field"><span class="kicker">Social link or handle</span><input id="upSocial" placeholder="e.g. @yourname or a link to your page"></label>
+    <label class="field"><span class="kicker">Why do you need it?</span><textarea id="upReason" rows="3" placeholder="e.g. I post storm outlooks for my local weather page and want to test my own model weights."></textarea></label>
+    <div class="chips" style="justify-content:flex-end"><button class="btn" data-x>Cancel</button><button class="btn primary" id="upSend">Send request</button></div>
+    <small class="muted" id="upStatus">A developer reviews requests, usually within a few days. You'll see the answer here.</small>`, 'Upgrade');
+  d.querySelectorAll('[data-up]').forEach(b => b.onclick = () => { pick = b.dataset.up; d.querySelectorAll('[data-up]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+  const uid = X.auth.currentUser?.uid; if (!uid) return;
+  try { const snap = await X.getDocs(X.query(X.collection(X.db, 'role_requests'), X.where('userId', '==', uid))); snap.forEach(x => { const r = x.data(); const t = r.createdAt?.toDate ? r.createdAt.toDate() : new Date(r.createdAt); if (!last || t > last.t) last = { ...r, t }; }); } catch (e) { }
+  if (last && $('upStatus')) $('upStatus').innerHTML = `Your last request (${esc(last.requestedRole)}, ${X.dayDate(last.t)}): <b>${{ pending: 'waiting for review', approved: 'approved', rejected: 'declined' }[last.status] || esc(last.status)}</b>.`;
+  $('upSend').onclick = async () => {
+    const social = $('upSocial').value.trim(), reason = $('upReason').value.trim();
+    if (!social || !reason) return X.toast('Fill in both boxes');
+    try { await X.addDoc(X.collection(X.db, 'role_requests'), { userId: uid, email: X.auth.currentUser.email, requestedRole: pick, social, reason, status: 'pending', createdAt: new Date() });
+      X.toast('Request sent'); $('upStatus').innerHTML = 'Request sent: <b>waiting for review</b>.'; $('upSocial').value = ''; $('upReason').value = ''; } catch (e) { X.toast('Could not send the request'); }
+  };
+}
+export function openApi() {
+  dialog(`<div class="rowbetween"><h2>API access</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
+    <div class="note slim"><span class="tag live" style="margin:0">Public</span><span>No personal key. Public AUTO-HOCO runs are read straight from the HOCO database with the shared web key in the guide.</span></div>
+    <div class="setgrp"><span class="kicker">1 · Find the latest runs (catalogue)</span><code class="apiline"><b>POST</b> firestore …/documents:runQuery?key=&lt;web key&gt;</code></div>
+    <div class="setgrp"><span class="kicker">2 · Download a run as GeoJSON</span><code class="apiline"><b>GET</b> firebasestorage …/o/&lt;run file&gt;?alt=media&amp;token=&lt;downloadToken&gt;</code></div>
+    <p class="lead">The guide has ready-made JavaScript and Python code and the list of supported regions.</p>
+    <div class="chips" style="justify-content:flex-end"><a class="btn primary" href="../api_usage.html" target="_blank" rel="noopener">Open the API guide ↗</a></div>`, 'API access');
+}
+
+// ------------------------------------------------------------------ Europe region map
+const REGION_TAG = { Live: ['#1f9d70', 'Live'], Beta: ['#6c47ff', 'Beta'], Archive: ['#8a94a6', 'Archive only'] };
+export function openEurope() {
+  const d = dialog(`<div class="rowbetween"><h2>Choose a region</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
+    <p class="lead">Tap a box on the map, or pick from the list.</p>
+    <div class="eu-wrap"><div id="euMap" class="eu-map"></div><div class="eu-list">${X.REGIONS.map(r => { const t = REGION_TAG[r.tag], off = r.west === undefined;
+      return `<button class="arow" data-eu="${r.id}" ${off ? 'disabled' : ''} aria-pressed="${r.id === X.S.region}"><span><b>${esc(r.name)}</b><small>${off ? 'Coming soon' : t ? t[1] : esc(r.tag)}</small></span><i class="eu-dot" style="background:${t ? t[0] : 'transparent'};border-color:${t ? t[0] : 'var(--muted)'}"></i></button>`; }).join('')}</div></div>`, 'Europe map', true);
+  const feats = X.REGIONS.filter(r => r.west !== undefined).map(r => ({ type: 'Feature', properties: { id: r.id, name: r.name, col: (REGION_TAG[r.tag] || ['#8a94a6'])[0], on: r.id === X.S.region ? 1 : 0 },
+    geometry: { type: 'Polygon', coordinates: [[[r.west, r.south], [r.east, r.south], [r.east, r.north], [r.west, r.north], [r.west, r.south]]] } }));
+  const m = new mapboxgl.Map({ container: 'euMap', style: X.styleUrl(), center: [8, 52], zoom: 2.9, attributionControl: false, logoPosition: 'bottom-left', projection: 'mercator' });
+  m.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-left');
+  const close = () => { d.classList.add('hidden'); try { m.remove(); } catch (e) { } };
+  const pickR = (id) => { close(); X.setRegion(id); };
+  d.querySelectorAll('[data-eu]').forEach(b => b.onclick = () => pickR(b.dataset.eu));
+  d.querySelectorAll('[data-x]').forEach(b => b.onclick = close);
+  m.on('load', () => {
+    m.addSource('regions', { type: 'geojson', data: { type: 'FeatureCollection', features: feats } });
+    m.addLayer({ id: 'reg-fill', type: 'fill', source: 'regions', paint: { 'fill-color': ['get', 'col'], 'fill-opacity': ['case', ['==', ['get', 'on'], 1], 0.35, 0.16] } });
+    m.addLayer({ id: 'reg-line', type: 'line', source: 'regions', paint: { 'line-color': ['get', 'col'], 'line-width': ['case', ['==', ['get', 'on'], 1], 3, 1.5] } });
+    try { const b = new mapboxgl.LngLatBounds(); feats.forEach(f => f.geometry.coordinates[0].forEach(c => b.extend(c))); m.fitBounds(b, { padding: 20, duration: 0 }); } catch (e) { }
+    m.on('click', 'reg-fill', (e) => { const f = e.features?.[0]; if (f) pickR(f.properties.id); });
+    m.on('mouseenter', 'reg-fill', () => { m.getCanvas().style.cursor = 'pointer'; }); m.on('mouseleave', 'reg-fill', () => { m.getCanvas().style.cursor = ''; });
+  });
+}
+
+// ------------------------------------------------------------------ install as an app (+ banner)
 let installEvt = null;
-export const canInstall = () => !!installEvt || isIos();
 const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent) && !matchMedia('(display-mode: standalone)').matches;
+export const canInstall = () => !!installEvt || isIos();
 export async function install() {
-  if (installEvt) { installEvt.prompt(); const r = await installEvt.userChoice; installEvt = null; if (r.outcome === 'accepted') X.toast('HOCO installed'); return; }
+  if (installEvt) { installEvt.prompt(); const r = await installEvt.userChoice; installEvt = null; $('installBar')?.classList.add('hidden'); if (r.outcome === 'accepted') X.toast('HOCO installed'); return; }
   dialog(`<div class="rowbetween"><h2>Add HOCO to your home screen</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
-    <ol class="steps"><li>Tap the <b>Share</b> button in Safari (the square with an arrow).</li><li>Scroll down and tap <b>Add to Home Screen</b>.</li><li>Tap <b>Add</b>. HOCO opens full screen like an app.</li></ol>`, 'Install');
+    <ol class="steps"><li>Tap the <b>Share</b> button in Safari (the square with an arrow).</li><li>Scroll down and tap <b>Add to Home Screen</b>.</li><li>Tap <b>Add</b>. HOCO opens full screen like an app and can send storm alerts.</li></ol>`, 'Install');
+}
+export function installBanner() {
+  if (X.embed || matchMedia('(display-mode: standalone)').matches) return;
+  try { if (localStorage.getItem('hocoInstallDismissed')) return; } catch (e) { }
+  if (!canInstall()) return;
+  const b = $('installBar'); if (!b) return; b.classList.remove('hidden');
+  b.innerHTML = `<img src="icons/icon-192.png" alt=""><span><b>Add HOCO to your home screen</b><small>Opens like an app and can send storm alerts</small></span><button class="btn primary sm" id="ibGo">Install</button><button class="btn icon sm" id="ibX" aria-label="Not now">✕</button>`;
+  $('ibGo').onclick = install; $('ibX').onclick = () => { b.classList.add('hidden'); try { localStorage.setItem('hocoInstallDismissed', '1'); } catch (e) { } };
 }
 
 // ------------------------------------------------------------------ tutorial (coach marks)
 const STEPS = [
-  ['#summary, .dock-head', 'The headline', 'This is the highest chance of lightning within 20 km for the run you are looking at, and roughly where it is.'],
-  ['#dayTabs', 'Pick a day', 'Day 0 is today, then tomorrow and the day after. The coloured pill is that day\'s peak chance.'],
-  ['.runrow', 'The slider picks a run, not a time', 'HOCO issues a new run about every hour. Drag to see an earlier run of the same forecast. The map always shows the whole forecast period, not one moment.'],
+  ['#dayTabs', 'Pick a day', 'Day 0 is today and tonight, Day 1 is tomorrow, Day 2 the day after. Each shows its highest chance.'],
+  ['.runrow', 'The slider picks a run, not a time', 'HOCO issues a new run about every hour. Each run is one map for the whole period. Drag to see an earlier run; "All runs" lists them with their peaks.'],
+  ['#summary, .dock-head', 'The headline', 'The highest chance of lightning within 20 km, where it is, and what changed since the last run.'],
   ['#layersBtn', 'Radar and lightning', 'Turn on rain radar and lightning strikes, then play them back through the forecast period up to now.'],
-  ['#toolsBtn', 'Tools', 'Blend runs into an ensemble, start your own manual run, or browse past forecasts.'],
 ];
 export function startTutorial(force) {
   if (!force) { try { if (localStorage.getItem('hocoTutorial')) return; } catch (e) { return; } }
   let i = 0; const ov = $('coach');
+  const end = () => { ov.classList.add('hidden'); ov.innerHTML = ''; try { localStorage.setItem('hocoTutorial', '1'); } catch (e) { } };
   const show = () => {
     const [sel, title, text] = STEPS[i];
     const el = [...document.querySelectorAll(sel)].find(e => e.offsetParent !== null && e.getBoundingClientRect().width > 0);
     if (!el) { if (++i < STEPS.length) return show(); return end(); }
-    const r = el.getBoundingClientRect(), pad = 6;
+    const r = el.getBoundingClientRect(), pd = 6;
     ov.classList.remove('hidden');
-    ov.innerHTML = `<div class="coach-hole" style="left:${r.left - pad}px;top:${r.top - pad}px;width:${r.width + pad * 2}px;height:${r.height + pad * 2}px"></div>
-      <div class="coach-card card" role="dialog" aria-live="polite"><span class="kicker">${i + 1} of ${STEPS.length}</span><b>${title}</b><p>${text}</p>
+    ov.innerHTML = `<div class="coach-hole" style="left:${r.left - pd}px;top:${r.top - pd}px;width:${r.width + pd * 2}px;height:${r.height + pd * 2}px"></div>
+      <div class="coach-card card" role="dialog" aria-live="polite"><span class="kicker">Quick tutorial · step ${i + 1} of ${STEPS.length}</span><b>${title}</b><p>${text}</p>
       <div class="rowbetween"><button class="linkbtn" data-skip>Skip</button><button class="btn primary sm" data-next>${i === STEPS.length - 1 ? 'Done' : 'Next'}</button></div></div>`;
     const card = ov.querySelector('.coach-card'), cw = Math.min(320, innerWidth - 20);
     card.style.width = cw + 'px';
-    const below = r.bottom + 12 + 170 < innerHeight;
+    const below = r.bottom + 12 + 180 < innerHeight;
     card.style.top = (below ? r.bottom + 12 : Math.max(10, r.top - 12 - card.offsetHeight)) + 'px';
     card.style.left = Math.max(10, Math.min(innerWidth - cw - 10, r.left + r.width / 2 - cw / 2)) + 'px';
     ov.querySelector('[data-next]').onclick = () => { if (++i < STEPS.length) show(); else end(); };
     ov.querySelector('[data-skip]').onclick = end;
   };
-  const end = () => { ov.classList.add('hidden'); ov.innerHTML = ''; try { localStorage.setItem('hocoTutorial', '1'); } catch (e) { } };
   setTimeout(show, 400);
 }
 
 // ------------------------------------------------------------------ embed code
 export function openEmbed() {
   const base = location.origin + location.pathname;
+  let size = '300x250', prod = 'traditional';
   const d = dialog(`<div class="rowbetween"><h2>Embed HOCO on your site</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
-    <p class="lead">Paste this into any web page. It always shows the latest forecast, and nobody needs to sign in.</p>
+    <div class="embprev"><div class="embbox" id="emBox"><span class="tag live" style="margin:0">Live</span><b id="emTitle">HOCO · ${esc(X.S.region)} · Day 0</b><small>handry-outlook.github.io/HOCO-V2.0</small></div></div>
+    <div class="setgrp"><span class="kicker">Size</span>${seg('emsize', size, [['300x250', '300 × 250'], ['600x300', '600 × 300'], ['full', 'Full width']])}</div>
+    <div class="setgrp"><span class="kicker">Show</span>${seg('emprod', prod, [['traditional', 'Traditional'], ['ai', 'AI HOCO']])}</div>
     <div class="grid2"><label class="field"><span class="kicker">Region</span><select id="emRegion">${X.REGIONS.filter(r => r.west !== undefined).map(r => `<option value="${r.id}" ${r.id === X.S.region ? 'selected' : ''}>${r.name}</option>`).join('')}</select></label>
       <label class="field"><span class="kicker">Day</span><select id="emDay"><option value="0">Day 0 (today)</option><option value="1">Day 1</option><option value="2">Day 2</option></select></label>
-      <label class="field"><span class="kicker">Forecast</span><select id="emProd"><option value="traditional">Traditional</option><option value="ai">AI HOCO</option></select></label>
       <label class="field"><span class="kicker">Theme</span><select id="emTheme"><option value="auto">Follow visitor's device</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
-      <label class="field"><span class="kicker">Height</span><select id="emH"><option>420</option><option selected>520</option><option>640</option></select></label>
       <label class="field"><span class="kicker">Extras</span><select id="emLayers"><option value="">Forecast only</option><option value="strikes">+ lightning strikes</option><option value="radar,strikes">+ radar and strikes</option></select></label></div>
     <label class="sr" for="emCode">Embed code</label><textarea id="emCode" rows="4" readonly class="code"></textarea>
-    <div class="chips" style="justify-content:flex-end"><a class="btn" id="emOpen" target="_blank" rel="noopener">Preview</a><button class="btn primary" id="emCopy">Copy code</button></div>`, 'Embed');
+    <div class="rowbetween"><small class="muted">The widget updates itself with every new run.</small><span class="chips"><a class="btn" id="emOpen" target="_blank" rel="noopener">Preview</a><button class="btn primary" id="emCopy">Copy code</button></span></div>`, 'Embed');
   const upd = () => {
     const u = new URL(base); u.searchParams.set('embed', '1'); u.searchParams.set('region', $('emRegion').value); u.searchParams.set('day', $('emDay').value);
-    if ($('emProd').value === 'ai') u.searchParams.set('view', 'ai'); if ($('emTheme').value !== 'auto') u.searchParams.set('theme', $('emTheme').value);
+    if (prod === 'ai') u.searchParams.set('view', 'ai'); if ($('emTheme').value !== 'auto') u.searchParams.set('theme', $('emTheme').value);
     if ($('emLayers').value) u.searchParams.set('layers', $('emLayers').value);
-    $('emCode').value = `<iframe src="${u.href}" width="100%" height="${$('emH').value}" style="border:0;border-radius:12px" loading="lazy" title="HOCO thunderstorm outlook · ${$('emRegion').value}" allow="fullscreen"></iframe>`;
-    $('emOpen').href = u.href;
+    const [w, h] = size === 'full' ? ['100%', '520'] : size.split('x');
+    $('emCode').value = `<iframe src="${u.href}" width="${w}" height="${h}" style="border:0;border-radius:12px" loading="lazy" title="HOCO thunderstorm outlook · ${$('emRegion').value}"></iframe>`;
+    $('emOpen').href = u.href; $('emTitle').textContent = `HOCO · ${$('emRegion').value} · Day ${$('emDay').value}${prod === 'ai' ? ' · AI' : ''}`;
+    const box = $('emBox'); box.style.width = size === 'full' ? '100%' : `${Math.min(+w, 460)}px`; box.style.aspectRatio = size === 'full' ? '16/7' : `${w}/${h}`;
   };
+  d.querySelectorAll('[data-emsize]').forEach(b => b.onclick = () => { size = b.dataset.emsize; d.querySelectorAll('[data-emsize]').forEach(x => x.setAttribute('aria-pressed', x === b)); upd(); });
+  d.querySelectorAll('[data-emprod]').forEach(b => b.onclick = () => { prod = b.dataset.emprod; d.querySelectorAll('[data-emprod]').forEach(x => x.setAttribute('aria-pressed', x === b)); upd(); });
   d.querySelectorAll('select').forEach(s => s.onchange = upd); upd();
   $('emCopy').onclick = async () => { try { await navigator.clipboard.writeText($('emCode').value); X.toast('Embed code copied'); } catch (e) { $('emCode').select(); X.toast('Press Ctrl+C to copy'); } };
 }
 
 // ------------------------------------------------------------------ ad spaces
-// Off until there is an ad account. Developers see where the spaces sit; nobody else sees anything.
-export const ADS = { enabled: false, client: '', slots: { summary: '', sheet: '' } };
+// Never on top of the map: Tools › Runs (300×100), end of the Accuracy page (728×90 laptop, banner on iPad, 320×50 phone),
+// bottom of the pulled-up phone sheet (320×50). Hidden for Exclusive accounts. Off until an AdSense account is added here.
+export const ADS = { enabled: false, client: '', slots: { runs: '', accuracy: '', sheet: '' } };
+const adLabel = (k) => k === 'runs' ? '300 × 100' : k === 'sheet' ? '320 × 50' : innerWidth <= 640 ? '320 × 50' : innerWidth <= 1100 ? '468 × 60' : '728 × 90';
 export function renderAds() {
   let consent = null; try { consent = JSON.parse(localStorage.getItem('hocoConsent') || 'null'); } catch (e) { }
+  const role = X.S.role, noAds = role === 'exclusive' || X.embed;
   document.querySelectorAll('[data-ad]').forEach(el => {
-    if (ADS.enabled && ADS.client && consent?.ads) {
+    if (noAds) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+    if (ADS.enabled && ADS.client && role !== 'developer') {
       if (el.dataset.loaded) return; el.dataset.loaded = '1'; el.classList.remove('hidden', 'preview');
-      el.innerHTML = `<ins class="adsbygoogle" style="display:block" data-ad-client="${ADS.client}" data-ad-slot="${ADS.slots[el.dataset.ad] || ''}" data-ad-format="auto" data-full-width-responsive="true"></ins>`;
+      el.innerHTML = `<small class="adlbl">Advertisement</small><ins class="adsbygoogle" style="display:block" data-ad-client="${ADS.client}" data-ad-slot="${ADS.slots[el.dataset.ad] || ''}" data-ad-format="auto" data-full-width-responsive="true"></ins>`;
+      window.adsbygoogle = window.adsbygoogle || []; if (!consent?.ads) window.adsbygoogle.requestNonPersonalizedAds = 1;
       if (!document.querySelector('script[data-ads]')) { const s = document.createElement('script'); s.async = true; s.dataset.ads = '1'; s.crossOrigin = 'anonymous'; s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADS.client}`; document.head.appendChild(s); }
-      try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch (e) { }
-    } else if (X.S.role === 'developer' && !X.embed) { el.classList.remove('hidden'); el.classList.add('preview'); el.innerHTML = `<span>Ad space · ${el.dataset.ad === 'summary' ? '320 × 100' : '320 × 50'}</span><small>Only developers see this until ads are switched on</small>`; }
+      try { window.adsbygoogle.push({}); } catch (e) { }
+    } else if (role === 'developer') { el.classList.remove('hidden'); el.classList.add('preview'); el.innerHTML = `<small class="adlbl">Advertisement</small><span>Ad space · ${adLabel(el.dataset.ad)}</span><small>Hidden for Exclusive accounts · only developers see this until ads are switched on</small>`; }
     else { el.classList.add('hidden'); el.innerHTML = ''; }
   });
 }
@@ -287,9 +443,9 @@ export function renderAds() {
 // ------------------------------------------------------------------ init
 export function initStage4(ctx) {
   X = ctx;
-  addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; });
+  addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; installBanner(); });
   if ('serviceWorker' in navigator && !X.embed) navigator.serviceWorker.register('sw.js').catch(() => { });
   document.querySelectorAll('[data-compare]').forEach(b => b.onclick = () => openCompare(2));
-  addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.body.classList.contains('comparing')) closeCompare();
-    if (e.key.toLowerCase() === 'c' && !e.target.closest('input,textarea,select') && !e.metaKey && !e.ctrlKey) document.body.classList.contains('comparing') ? closeCompare() : openCompare(2); });
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && comparing()) closeCompare();
+    if (e.key.toLowerCase() === 'c' && !e.target.closest('input,textarea,select') && !e.metaKey && !e.ctrlKey) comparing() ? closeCompare() : openCompare(2); });
 }
