@@ -657,6 +657,18 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom))}
   .ctrls #themeBtn{display:inline-flex}
 }
 .ctrls #themeBtn{width:40px;height:40px;border-radius:12px;background:var(--surface);box-shadow:var(--shadow)}
+.topbar .type button{gap:0}.topbar .type .pill{margin-left:6px}
+.sum-where{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.25}
+@media (max-width:640px){
+  .summary{min-width:0;max-width:min(260px,calc(100vw - 2 * var(--gap) - 48px))}
+  .summary.open{max-width:none}
+  .daytab{height:36px;gap:5px}.daytab span{flex-direction:row;white-space:nowrap}
+  .datebtn,.allruns{height:36px}
+  .dock{padding:5px 6px}
+  .dock .runrow .btn.icon{height:30px}
+  body.obs-on .dock .runrow,body.obs-on .dock .runlabel{display:none}
+  body.obs-on .dock{grid-template-areas:"days date all"}
+}
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
