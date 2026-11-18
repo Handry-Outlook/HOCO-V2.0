@@ -57,116 +57,166 @@ export function openSettings() {
   renderSettings($('setRoot'));
 }
 
-// ------------------------------------------------------------------ compare maps: 1-4 maps, add a map, load a run into a map
-const C = { panes: [], maps: [], link: true, syncing: false, day: 0 };
-const typeLabel = (r) => ({ automated: 'AUTO', ai: 'AI HOCO', 'human-mimic': 'Ensemble', manual: 'Manual' }[r?.type] || 'Run');
-const typeCls = (r) => ({ automated: 'live', ai: 'beta', 'human-mimic': 'ens' }[r?.type] || 'arch');
-function paneOptions() {
-  const out = [];
-  for (const type of ['automated', 'ai']) for (let d = 0; d < 3; d++) {
-    X.runsFor(d, type).slice().reverse().forEach((r, i) => out.push({ id: r.id, run: r, label: `Day ${d} · ${type === 'ai' ? 'AI' : 'AUTO'} · ${X.hhmm(X.created(r))}${i === 0 ? ' (latest)' : ''}`, group: `Day ${d} · ${type === 'ai' ? 'AI HOCO' : 'Traditional'}` }));
-  }
-  const me = X.auth?.currentUser?.uid;
-  X.S.runs.filter(r => r.type === 'human-mimic' && (r.userId === me || r.public) && r.cancelled !== true).slice(0, 12)
-    .forEach(r => out.push({ id: r.id, run: r, label: `Ensemble · ${X.dayName(X.created(r))} ${X.hhmm(X.created(r))}`, group: 'Ensembles' }));
-  return out;
-}
-const extra = new Map();   // runs loaded from Tools › Runs that are not in the pick list (archive, manual)
-const findRun = (id) => paneOptions().find(o => o.id === id)?.run || extra.get(id) || X.S.runs.find(r => r.id === id) || null;
+// ------------------------------------------------------------------ compare maps: 1-4 maps side by side, or two maps with a swipe divider
+const C = { panes: [], days: [], maps: [], marks: [], link: true, syncing: false, day: 0, mode: 'side', split: 0.5 };
+const typeLabel = (r) => ({ automated: 'Traditional', ai: 'AI HOCO', 'human-mimic': 'Ensemble', manual: 'Manual' }[r?.type] || 'Run');
+const typeCls = (r) => ({ automated: 'trad', ai: 'ai', 'human-mimic': 'ens', manual: 'man' }[r?.type] || 'man');
+const runDay = (r) => { const s = r && X.startOf(r); if (!s) return null; const t = new Date(); t.setHours(0, 0, 0, 0); const d = Math.round((new Date(s).setHours(0, 0, 0, 0) - t) / 864e5); return d >= 0 && d <= 2 ? d : null; };
+function ensembles() { const me = X.auth?.currentUser?.uid; return X.S.runs.filter(r => r.type === 'human-mimic' && (r.userId === me || r.public) && r.cancelled !== true).slice(0, 12); }
+const extra = new Map();   // runs loaded from Tools › Runs that are not in the normal lists (archive, manual)
+const findRun = (id) => { if (!id) return null; for (const t of ['automated', 'ai']) for (let d = 0; d < 3; d++) { const r = X.runsFor(d, t).find(x => x.id === id); if (r) return r; } return extra.get(id) || X.S.runs.find(r => r.id === id) || null; };
 export const comparing = () => document.body.classList.contains('comparing');
 export function openCompare(n = 2, sel) {
-  const opts = paneOptions(); if (!opts.length && !sel) return X.toast('No runs to compare yet');
+  const latest = (d, t) => X.runsFor(d, t).at(-1)?.id, prev = (d, t) => X.runsFor(d, t).at(-2)?.id;
+  if (!latest(X.S.day, 'automated') && !sel) return X.toast('No runs to compare yet');
   if (sel) C.panes = sel.slice(0, 4);
   else if (!comparing() || C.panes.length !== n) {
-    const latest = (d, t) => X.runsFor(d, t).at(-1)?.id, prev = (d, t) => X.runsFor(d, t).at(-2)?.id, day = X.S.day;
-    C.day = day;
-    C.panes = (n === 4 ? [latest(0, 'automated'), latest(1, 'automated'), latest(2, 'automated'), latest(0, 'ai') || prev(0, 'automated')]
+    const day = X.S.day; C.day = day;
+    C.panes = (n === 4 ? [latest(0, 'automated'), latest(1, 'automated'), latest(2, 'automated'), latest(day, 'ai') || prev(day, 'automated')]
       : [latest(day, 'automated'), latest(day, 'ai') || prev(day, 'automated')]).slice(0, n).filter(Boolean);
   }
+  C.view = X.map.getBounds();
   drawCompare();
 }
-function addCell(i) { return `<div class="cmp-pane cmp-empty"><b>Add a map</b><div class="chips"><button class="btn" data-add-latest="${i}">Latest</button><button class="btn" data-add-ens="${i}">Ensemble</button><button class="btn" data-add-pick="${i}">Pick a run…</button></div></div>`; }
+const CHEV = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+function paneHead(i) {
+  const r = findRun(C.panes[i]), c = r && X.created(r), d = runDay(r), list = r && (r.type === 'automated' || r.type === 'ai') && d != null ? X.runsFor(d, r.type) : [], latest = list.at(-1)?.id === r?.id;
+  return `<div class="cx-chip"><span class="cx-num">${i + 1}</span>
+    <button class="cx-pick" data-pick="${i}" aria-haspopup="menu" aria-label="Change the run on map ${i + 1}"><span class="cx-tag ${typeCls(r)}">${esc(typeLabel(r))}</span>
+      <span class="cx-when"><b>${c ? X.hhmm(c) : '–'}</b><small>${d != null ? `Day ${d}` : c ? X.dayDate(c) : ''}${latest ? ' · latest' : ''}</small></span>${CHEV}</button>
+    ${C.panes.length > 1 ? `<button class="cx-x" data-rm="${i}" aria-label="Remove map ${i + 1}" title="Remove this map">✕</button>` : ''}</div>
+    <div class="cx-stat" id="cxStat${i}" aria-live="polite">Loading…</div>`;
+}
 function drawCompare() {
-  const opts = paneOptions(), groups = [...new Set(opts.map(o => o.group))], n = C.panes.length;
+  const n = C.panes.length; if (n !== 2 && C.mode === 'swipe') C.mode = 'side';
   document.body.classList.add('comparing');
-  const el = $('compare'); el.classList.remove('hidden');
-  const showAdd = n < 4, cells = n + (showAdd ? 1 : 0);
-  el.dataset.n = cells > 2 ? 4 : 2;
-  el.innerHTML = `<div class="cmp-grid">${C.panes.map((id, i) => { const r = findRun(id);
-      return `<div class="cmp-pane"><div class="cmp-map" id="cmpMap${i}"></div>
-      <div class="cmp-head card"><span class="tag ${typeCls(r)}">${typeLabel(r)}</span>
-        <label class="sr" for="cmpSel${i}">Run for map ${i + 1}</label><select id="cmpSel${i}" data-i="${i}">${groups.map(g => `<optgroup label="${g}">${opts.filter(o => o.group === g).map(o => `<option value="${o.id}" ${o.id === id ? 'selected' : ''}>${o.label}</option>`).join('')}</optgroup>`).join('')}${opts.some(o => o.id === id) ? '' : `<option value="${esc(id)}" selected>${esc(typeLabel(r))} · ${r ? X.hhmm(X.created(r)) : ''}</option>`}</select>
-        <div class="cmp-peak" id="cmpPeak${i}">–</div>${n > 1 ? `<button class="btn icon sm" data-rm="${i}" aria-label="Remove map ${i + 1}">✕</button>` : ''}</div></div>`; }).join('')}${showAdd ? addCell(n) : ''}</div>
-    <div class="cmp-bar card"><b>Compare maps</b>${seg('cday', C.day, [[0, 'Day 0'], [1, 'Day 1'], [2, 'Day 2']])}
-      <label class="chk"><input type="checkbox" id="cmpLink" ${C.link ? 'checked' : ''}><span>Move maps together</span></label>
-      <span class="cmp-key">${X.BANDS.map(b => `<i style="background:${b.fill}"></i>`).join('')}<small>5% → 90%+</small></span>
-      <button class="btn primary" id="cmpClose">Done</button></div>`;
-  C.maps.forEach(m => m && m.remove()); C.maps = [];
-  const main = X.map, center = main.getCenter(), zoom = main.getZoom() - (cells > 2 ? 0.7 : 0.3);
+  const el = $('compare'); el.classList.remove('hidden'); el.classList.add('cx');
+  const reg = X.REGIONS.find(r => r.id === X.S.region), dt = new Date(); dt.setHours(0, 0, 0, 0); dt.setDate(dt.getDate() + C.day);
+  el.innerHTML = `<header class="cx-top">
+      <button class="btn icon" id="cmpBack" aria-label="Back to the forecast map" title="Back (Esc)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <div class="cx-title"><b>Compare maps</b><small>${esc(reg?.name || X.S.region)} · ${n} map${n > 1 ? 's' : ''}</small></div>
+      <div class="cx-tools">
+        <div class="seg" role="group" aria-label="Forecast day for Traditional and AI maps">${[0, 1, 2].map(d => { const x = new Date(dt); x.setDate(x.getDate() - C.day + d); return `<button data-cday="${d}" aria-pressed="${C.day === d}" title="${X.dayDate(x)}">Day ${d}</button>`; }).join('')}</div>
+        ${n === 2 ? `<div class="seg" role="group" aria-label="Layout"><button data-cmode="side" aria-pressed="${C.mode === 'side'}">Side by side</button><button data-cmode="swipe" aria-pressed="${C.mode === 'swipe'}">Swipe</button></div>` : ''}
+        <button class="btn" id="cmpAdd" ${n >= 4 ? 'disabled title="Up to 4 maps"' : ''}>+ Add map</button>
+        <label class="cx-sync" title="Pan and zoom all maps together"><input type="checkbox" id="cmpLink" ${C.link || C.mode === 'swipe' ? 'checked' : ''} ${C.mode === 'swipe' ? 'disabled' : ''}><span>Move together</span></label>
+      </div>
+      <div class="cx-key" aria-label="Colour key: chance of lightning within 20 km"><span class="cx-bar">${X.BANDS.map(b => `<i style="background:${b.fill}"></i>`).join('')}</span><span class="cx-ticks"><span>5%</span><span>50%</span><span>90%</span></span></div>
+      <button class="btn primary" id="cmpClose">Done</button>
+    </header>
+    <div class="cx-grid" data-n="${n}" data-mode="${C.mode}">${C.panes.map((_, i) => `<section class="cx-pane" data-i="${i}" aria-label="Map ${i + 1}"><div class="cx-map" id="cmpMap${i}"></div>${paneHead(i)}</section>`).join('')}
+      ${C.mode === 'swipe' ? `<div class="cx-divider" id="cxDiv" role="slider" tabindex="0" aria-label="Swipe between map 1 and map 2" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(C.split * 100)}"><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6-6 6 6 6M15 6l6 6-6 6"/></svg></span></div>` : ''}
+    </div>
+    <div class="cx-menu hidden" id="cxMenu" role="menu"></div>`;
+  C.maps.forEach(m => m && m.remove()); C.maps = []; C.marks = [];
+  const bounds = C.view || X.map.getBounds();
   C.panes.forEach((id, i) => {
-    const m = new mapboxgl.Map({ container: `cmpMap${i}`, style: X.styleUrl(), center, zoom, attributionControl: false, logoPosition: 'bottom-left', projection: 'mercator' });
-    if (i === 0) m.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-left');
+    const m = new mapboxgl.Map({ container: `cmpMap${i}`, style: X.styleUrl(), bounds, fitBoundsOptions: { padding: 10 }, attributionControl: false, logoPosition: 'bottom-left', projection: 'mercator', dragRotate: false, pitchWithRotate: false });
+    m.touchZoomRotate.disableRotation();
+    if (i === C.panes.length - 1) m.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right');
     m.on('style.load', () => { addPaneLayers(m); loadPane(i); });
-    m.on('move', () => { if (!C.link || C.syncing) return; C.syncing = true; C.maps.forEach(o => { if (o !== m) o.jumpTo({ center: m.getCenter(), zoom: m.getZoom() }); }); C.syncing = false; });
-    m.on('mousemove', (e) => paneProbe(i, e));
-    m.on('mouseleave', () => C.maps.forEach((_, j) => { const p = $(`cmpPeak${j}`); if (p) { p.dataset.hover = ''; renderPeak(j); } }));
+    m.on('move', () => { if (C.syncing) return; if (i === 0 || C.link || C.mode === 'swipe') C.view = m.getBounds(); if (!C.link && C.mode !== 'swipe') return; C.syncing = true; C.maps.forEach(o => { if (o !== m) o.jumpTo({ center: m.getCenter(), zoom: m.getZoom() }); }); C.syncing = false; });
+    m.on('mousemove', (e) => paneProbe(i, e.lngLat));
+    m.on('click', (e) => paneProbe(i, e.lngLat));
+    m.on('mouseout', () => clearProbe());
+    const dot = document.createElement('div'); dot.className = 'cx-cursor'; C.marks.push(new mapboxgl.Marker({ element: dot }));
     C.maps.push(m);
   });
-  el.querySelectorAll('select[data-i]').forEach(s => s.onchange = () => { C.panes[+s.dataset.i] = s.value; drawCompare(); });
+  if (C.mode === 'swipe') wireSwipe();
+  el.querySelectorAll('[data-pick]').forEach(b => b.onclick = (e) => { e.stopPropagation(); openMenu(+b.dataset.pick, b); });
   el.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { C.panes.splice(+b.dataset.rm, 1); drawCompare(); });
-  el.querySelectorAll('[data-add-latest]').forEach(b => b.onclick = () => { const t = X.S.product === 'ai' ? 'ai' : 'automated'; const id = X.runsFor(C.day, t).at(-1)?.id || X.runsFor(C.day, 'automated').at(-1)?.id; if (!id) return X.toast('No run for that day yet'); setPane(+b.dataset.addLatest, id); });
-  el.querySelectorAll('[data-add-ens]').forEach(b => b.onclick = () => { const e = paneOptions().find(o => o.group === 'Ensembles'); if (!e) return X.toast('No ensembles yet. Build one in Tools › Ensemble.'); setPane(+b.dataset.addEns, e.id); });
-  el.querySelectorAll('[data-add-pick]').forEach(b => b.onclick = () => { C.pickInto = +b.dataset.addPick; X.openTools('runs'); X.toast('Choose a run and press Load'); });
   el.querySelectorAll('[data-cday]').forEach(b => b.onclick = () => { C.day = +b.dataset.cday;
-    C.panes = C.panes.map(id => { const r = findRun(id); if (!r || (r.type !== 'automated' && r.type !== 'ai')) return id; return X.runsFor(C.day, r.type).at(-1)?.id || id; }); drawCompare(); });
+    C.panes = C.panes.map(id => { const r = findRun(id); if (!r || (r.type !== 'automated' && r.type !== 'ai')) return id; const list = X.runsFor(runDay(r) ?? C.day, r.type), back = list.length - 1 - list.findIndex(x => x.id === id), t = X.runsFor(C.day, r.type); return t[Math.max(0, t.length - 1 - back)]?.id || id; });
+    drawCompare(); });
+  el.querySelectorAll('[data-cmode]').forEach(b => b.onclick = () => { C.mode = b.dataset.cmode; drawCompare(); });
+  $('cmpAdd').onclick = (e) => { e.stopPropagation(); if (C.panes.length >= 4) return; openMenu(C.panes.length, $('cmpAdd')); };
   $('cmpLink').onchange = (e) => { C.link = e.target.checked; };
-  $('cmpClose').onclick = closeCompare;
+  $('cmpClose').onclick = closeCompare; $('cmpBack').onclick = closeCompare;
+  el.onclick = (e) => { if (!e.target.closest('#cxMenu,[data-pick],#cmpAdd')) $('cxMenu')?.classList.add('hidden'); };
+}
+function wireSwipe() {
+  const grid = document.querySelector('.cx-grid'), top = grid.querySelector('.cx-pane[data-i="1"]'), div = $('cxDiv');
+  const apply = () => { const w = grid.clientWidth, x = Math.round(C.split * w); top.style.clipPath = `inset(0 0 0 ${x}px)`; div.style.left = x + 'px'; div.setAttribute('aria-valuenow', Math.round(C.split * 100)); };
+  apply(); new ResizeObserver(apply).observe(grid);
+  div.onpointerdown = (e) => { e.preventDefault(); div.setPointerCapture(e.pointerId); div.classList.add('drag');
+    const move = (ev) => { const r = grid.getBoundingClientRect(); C.split = Math.min(0.97, Math.max(0.03, (ev.clientX - r.left) / r.width)); apply(); };
+    div.onpointermove = move; div.onpointerup = div.onpointercancel = () => { div.onpointermove = null; div.classList.remove('drag'); }; };
+  div.onkeydown = (e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { C.split = Math.min(0.97, Math.max(0.03, C.split + (e.key === 'ArrowLeft' ? -0.05 : 0.05))); apply(); e.preventDefault(); } };
+}
+function openMenu(i, btn) {
+  const menu = $('cxMenu'), cur = C.panes[i], r0 = findRun(cur); let day = runDay(r0) ?? C.day;
+  const row = (r, extraTxt) => { const c = X.created(r), pk = X.S.peaks?.[r.id];
+    return `<button class="cx-row" role="menuitemradio" data-run="${esc(r.id)}" aria-checked="${r.id === cur}"><b>${c ? X.hhmm(c) : '–'}</b><span>${extraTxt || (c ? X.dayDate(c) : '')}</span><em>${pk != null ? (pk >= 5 ? Math.round(pk) + '%' : '<5%') : ''}</em></button>`; };
+  const draw = () => {
+    const grp = (t, name) => { const list = X.runsFor(day, t).slice().reverse(); return list.length ? `<div class="cx-grp"><span class="kicker">${name}</span>${list.map((r, k) => row(r, k === 0 ? 'Latest' : `${k} run${k > 1 ? 's' : ''} earlier`)).join('')}</div>` : ''; };
+    const ens = ensembles();
+    menu.innerHTML = `<div class="cx-mhead"><b>${i < C.panes.length ? `Map ${i + 1}` : 'Add a map'}</b><div class="seg" role="group">${[0, 1, 2].map(d => `<button data-mday="${d}" aria-pressed="${d === day}">Day ${d}</button>`).join('')}</div></div>
+      <div class="cx-mbody">${grp('automated', 'Traditional')}${grp('ai', 'AI HOCO')}
+      ${ens.length ? `<div class="cx-grp"><span class="kicker">Ensembles</span>${ens.map(r => row(r, `${X.dayName(X.created(r))} · ${esc(r.ensembleName || r.name || 'Ensemble')}`)).join('')}</div>` : ''}
+      ${extra.size ? `<div class="cx-grp"><span class="kicker">Loaded from Tools</span>${[...extra.values()].map(r => row(r, typeLabel(r))).join('')}</div>` : ''}</div>
+      <button class="cx-more" id="cxMore">Find any run in Tools › Runs…</button>`;
+    menu.querySelectorAll('[data-mday]').forEach(b => b.onclick = (e) => { e.stopPropagation(); day = +b.dataset.mday; draw(); });
+    menu.querySelectorAll('[data-run]').forEach(b => b.onclick = () => { menu.classList.add('hidden'); setPane(i, b.dataset.run); });
+    $('cxMore').onclick = () => { menu.classList.add('hidden'); C.pickInto = i; X.openTools('runs'); X.toast('Choose a run and press Load'); };
+  };
+  draw(); menu.classList.remove('hidden');
+  const r = btn.getBoundingClientRect(), w = Math.min(340, innerWidth - 16), h = Math.min(menu.scrollHeight, innerHeight - 24);
+  let x = Math.min(r.left, innerWidth - w - 8), y = r.bottom + 6; if (y + h > innerHeight - 8) y = Math.max(8, innerHeight - h - 8);
+  Object.assign(menu.style, { left: Math.max(8, x) + 'px', top: y + 'px', width: w + 'px', maxHeight: (innerHeight - y - 8) + 'px' });
+  menu.querySelector('[aria-checked="true"]')?.scrollIntoView({ block: 'nearest' });
 }
 function setPane(i, id) { if (i >= C.panes.length) C.panes.push(id); else C.panes[i] = id; drawCompare(); }
-export function closeCompare() { C.maps.forEach(m => m && m.remove()); C.maps = []; $('compare').classList.add('hidden'); $('compare').innerHTML = ''; document.body.classList.remove('comparing'); X.map.resize(); }
+export function closeCompare() { C.maps.forEach(m => m && m.remove()); C.maps = []; const el = $('compare'); el.classList.add('hidden'); el.innerHTML = ''; document.body.classList.remove('comparing'); X.map.resize(); }
 export function loadTo(run) {
   extra.set(run.id, run);
-  if (C.pickInto != null) { const i = C.pickInto; C.pickInto = null; X.closeTools(); setPane(i, run.id); return; }
-  const c = X.created(run), slots = [0, 1, 2, 3].map(i => ({ i, r: C.panes[i] ? findRun(C.panes[i]) : null }));
+  if (C.pickInto != null) { const i = C.pickInto; C.pickInto = null; X.closeTools(); setPane(Math.min(i, C.panes.length), run.id); return; }
+  const c = X.created(run), slots = [0, 1, 2, 3].map(i => ({ i, r: C.panes[i] ? findRun(C.panes[i]) : null })).filter(s => s.i <= C.panes.length);
   let pick = slots.find(s => !s.r)?.i ?? 1;
   const d = dialog(`<div class="rowbetween"><h2>Load run</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
-    <div class="note slim"><span class="tag ${typeCls(run)}" style="margin:0">${typeLabel(run)}</span><span>${esc(run.region || '')} · issued ${c ? `${X.dayDate(c)} ${X.hhmm(c)}` : ''}</span></div>
+    <div class="note slim"><span class="cx-tag ${typeCls(run)}">${typeLabel(run)}</span><span>${esc(run.region || '')} · issued ${c ? `${X.dayDate(c)} ${X.hhmm(c)}` : ''}</span></div>
     <span class="kicker">Put it on which map?</span>
-    <div class="alist">${slots.map(s => `<button class="arow" data-slot="${s.i}" aria-pressed="${s.i === pick}"><span><b>Map ${s.i + 1}</b><small>${s.r ? `Now: ${typeLabel(s.r)} · ${X.hhmm(X.created(s.r))}` : 'Empty'}</small></span></button>`).join('')}</div>
+    <div class="alist">${slots.map(s => `<button class="arow" data-slot="${s.i}" aria-pressed="${s.i === pick}"><span><b>${s.r ? `Map ${s.i + 1}` : 'New map'}</b><small>${s.r ? `Now: ${typeLabel(s.r)} · ${X.hhmm(X.created(s.r))}` : 'Add it as another map'}</small></span></button>`).join('')}</div>
     <div class="chips" style="justify-content:flex-end"><button class="btn" data-x>Cancel</button><button class="btn primary" id="ltGo"></button></div>`, 'Load run');
-  const lbl = () => { $('ltGo').textContent = slots[pick].r ? `Replace Map ${pick + 1}` : `Put on Map ${pick + 1}`; }; lbl();
+  const lbl = () => { const s = slots.find(x => x.i === pick); $('ltGo').textContent = s?.r ? `Replace map ${pick + 1}` : 'Add as a new map'; }; lbl();
   d.querySelectorAll('[data-slot]').forEach(b => b.onclick = () => { pick = +b.dataset.slot; d.querySelectorAll('[data-slot]').forEach(x => x.setAttribute('aria-pressed', x === b)); lbl(); });
-  $('ltGo').onclick = () => { d.classList.add('hidden'); X.closeTools(); const i = Math.min(pick, C.panes.length); setPane(i, run.id); };
+  $('ltGo').onclick = () => { d.classList.add('hidden'); X.closeTools(); setPane(Math.min(pick, C.panes.length), run.id); };
 }
 function addPaneLayers(m) {
   if (m.getSource('hoco')) return;
   const label = m.getStyle().layers.find(l => l.type === 'symbol' && l.layout && l.layout['text-field'])?.id;
   m.addSource('hoco', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
   m.addLayer({ id: 'hoco-fill', type: 'fill', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'polygon'], paint: { 'fill-color': X.fillColor(), 'fill-opacity': 0.7 } }, label);
-  m.addLayer({ id: 'hoco-line', type: 'line', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'polygon'], paint: { 'line-color': 'rgba(16,34,56,0.5)', 'line-width': 0.6 } }, label);
+  m.addLayer({ id: 'hoco-line', type: 'line', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'polygon'], paint: { 'line-color': 'rgba(16,34,56,0.45)', 'line-width': 0.6 } }, label);
+  try { m.addSource('cx-ref', { type: 'vector', url: 'mapbox://mapbox.mapbox-streets-v8' });
+    m.addLayer({ id: 'cx-coast', type: 'line', source: 'cx-ref', 'source-layer': 'water', paint: { 'line-color': 'rgba(15,27,45,0.55)', 'line-width': 0.7 } }, label);
+    m.addLayer({ id: 'cx-borders', type: 'line', source: 'cx-ref', 'source-layer': 'admin', filter: ['all', ['<=', ['get', 'admin_level'], 1], ['==', ['get', 'maritime'], 'false']], paint: { 'line-color': 'rgba(15,27,45,0.5)', 'line-width': 0.8, 'line-dasharray': [2, 1] } }, label); } catch (e) { /* outlines are optional */ }
 }
-const paneGeo = [];
+const paneGeo = [], paneStat = [];
 async function loadPane(i) {
   const m = C.maps[i], run = findRun(C.panes[i]); if (!m || !run) return;
-  $(`cmpPeak${i}`).textContent = 'Loading…';
   try {
-    const g = await X.fetchGeo(run); paneGeo[i] = g;
+    const g = await X.fetchGeo(run); if (C.maps[i] !== m) return; paneGeo[i] = g;
     if (!m.getSource('hoco')) addPaneLayers(m);
     m.getSource('hoco').setData(g);
     m.setPaintProperty('hoco-fill', 'fill-opacity', Math.min(1, (g?.properties?.hoco_layout === 'bands_v2' ? 0.7 : 0.32) * getSettings().opacity));
-    renderPeak(i);
-  } catch (e) { $(`cmpPeak${i}`).textContent = 'Could not load this run'; }
+    paneStat[i] = X.peakOf(g); C.panes.forEach((_, j) => renderStat(j));
+  } catch (e) { const s = $(`cxStat${i}`); if (s) s.textContent = 'Could not load this run'; }
 }
-function renderPeak(i) {
-  const el = $(`cmpPeak${i}`), g = paneGeo[i]; if (!el || !g) return;
-  if (el.dataset.hover) { el.innerHTML = el.dataset.hover; return; }
-  const pk = X.peakOf(g), run = findRun(C.panes[i]), s = run && X.startOf(run), e = run && X.endOf(run);
-  el.innerHTML = `<b>${pk.risk >= 5 ? Math.round(pk.risk) + '%' : '<5%'}</b> peak${pk.lat != null && pk.risk >= 5 ? ` near ${esc(X.nearestPlace(pk.lat, pk.lon))}` : ''}<small>${s ? `${X.dayName(s)} ${X.hhmm(s)} – ${X.dayName(e)} ${X.hhmm(e)}` : ''}</small>`;
+const pctTxt = (v) => v >= 5 ? Math.round(v) + '%' : '<5%';
+function delta(a, b) { if (a == null || b == null) return ''; const d = Math.round(Math.max(a, 0)) - Math.round(Math.max(b, 0)); return `<span class="cx-d ${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d === 0 ? '±0' : (d > 0 ? '+' : '−') + Math.abs(d)} vs map 1</span>`; }
+function renderStat(i, here) {
+  const el = $(`cxStat${i}`), pk = paneStat[i]; if (!el || !pk) return;
+  const run = findRun(C.panes[i]), s = run && X.startOf(run), e = run && X.endOf(run);
+  if (here) { el.innerHTML = `<b>${pctTxt(here.v[i])}</b><span>here</span>${i > 0 ? delta(here.v[i], here.v[0]) : ''}`; el.classList.add('here'); return; }
+  el.classList.remove('here');
+  el.innerHTML = `<b>${pctTxt(pk.risk)}</b><span>peak${pk.lat != null && pk.risk >= 5 ? ` near ${esc(X.nearestPlace(pk.lat, pk.lon))}` : ''}</span>${i > 0 ? delta(pk.risk, paneStat[0]?.risk) : ''}<small>${s ? `${X.dayName(s)} ${X.hhmm(s)} – ${X.dayName(e)} ${X.hhmm(e)}` : ''}</small>`;
 }
-function paneProbe(i, e) {
-  C.maps.forEach((_, j) => { const gj = paneGeo[j], ej = $(`cmpPeak${j}`); if (!gj || !ej) return; const rj = X.riskAt(gj, e.lngLat.lng, e.lngLat.lat);
-    ej.dataset.hover = `<b>${rj >= 5 ? Math.round(rj) + '%' : '<5%'}</b> here<small>${j === i ? 'under your cursor' : 'same spot'}</small>`; renderPeak(j); });
+function paneProbe(i, ll) {
+  const v = C.panes.map((_, j) => paneGeo[j] ? X.riskAt(paneGeo[j], ll.lng, ll.lat) : null);
+  C.marks.forEach((mk, j) => { if (j === i || !C.maps[j]) mk.remove(); else mk.setLngLat(ll).addTo(C.maps[j]); });
+  C.panes.forEach((_, j) => renderStat(j, { v }));
 }
+function clearProbe() { C.marks.forEach(mk => mk.remove()); C.panes.forEach((_, j) => renderStat(j)); }
 
 // ------------------------------------------------------------------ accuracy page
 const f2 = (v, d = 2) => Number.isFinite(+v) ? (+v).toFixed(d) : '–';
