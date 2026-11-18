@@ -31,7 +31,9 @@ a{color:var(--accent)}
 .hidden{display:none!important}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 #map{position:fixed;inset:0}
-.mapboxgl-ctrl-bottom-right,.mapboxgl-ctrl-bottom-left{bottom:auto;top:0;opacity:.85}
+.mapboxgl-ctrl-bottom-left{transition:bottom .2s ease;z-index:8}
+.mapboxgl-ctrl-bottom-left .mapboxgl-ctrl{margin:0 0 0 10px}
+.mapboxgl-ctrl-bottom-right{display:none}
 .mapboxgl-ctrl-attrib{font-size:10px}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 .btn{height:40px;padding:0 14px;border-radius:10px;border:1px solid var(--border);background:var(--chip);font-weight:600;font-size:14px;display:inline-flex;align-items:center;justify-content:center;gap:7px}
@@ -148,7 +150,8 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:999px;b
 .spin{width:18px;height:18px;border:2.5px solid var(--track);border-top-color:var(--accent);border-radius:999px;animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 .empty{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9;width:min(380px,calc(100vw - 32px));padding:18px;display:flex;flex-direction:column;gap:8px;text-align:center}
-.preview-note{position:fixed;left:16px;bottom:16px;z-index:9;font-size:12px;padding:6px 10px;border-radius:999px}
+.viewbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 8px 8px 12px;border-radius:12px;background:var(--warn-bg);color:var(--warn-text);font-size:13px;font-weight:600;line-height:1.3}
+.viewbar button{flex:none;height:32px;padding:0 12px;border-radius:999px;border:none;background:#1a1205;color:#fff;font-weight:600;font-size:13px}
 
 /* tools drawer */
 .tools{position:fixed;top:92px;right:16px;bottom:16px;width:440px;z-index:25;display:flex;flex-direction:column;overflow:hidden;background:var(--solid);backdrop-filter:none}
@@ -236,6 +239,46 @@ body.tools-open .ctrls{display:none}
 body.custom .dock-row,body.custom .dock .sep,body.custom .runrow,body.custom .runcount{display:none}
 @media (min-width:641px){ body.custom .dock{display:none!important} }
 
+/* stage 3: layers, observed bar, place, change, export, cookies, offline */
+.switch{appearance:none;-webkit-appearance:none;width:40px;height:24px;border-radius:999px;background:var(--track);position:relative;flex:none;cursor:pointer;transition:background .15s}
+.switch::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:999px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .15s}
+.switch:checked{background:var(--accent)}.switch:checked::after{left:19px}.switch:disabled{opacity:.6;cursor:not-allowed}
+.pop label.item.layer,.dialog label.item.layer{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 12px;border-radius:10px;cursor:pointer}
+.pop label.item.layer:hover{background:var(--chip)}
+.item.layer b{display:block;font-size:14px}.item.layer small{display:block;font-size:12px;color:var(--muted);font-weight:500}
+.pop .key{display:flex;flex-wrap:wrap;gap:6px 12px;padding:8px 12px 4px;font-size:12px;align-items:center}
+.pop .key .kicker{width:100%;font-size:11px}
+.pop .key i{display:inline-block;width:10px;height:10px;border-radius:999px;margin-right:5px;vertical-align:-1px;border:1px solid rgba(0,0,0,.35)}
+.rainbar{display:block;width:100%;height:8px;border-radius:999px;background:linear-gradient(90deg,#c8e8b4,#36b038,#00741c,#e8e800,#ffa800,#ef1c00,#a30014,#b40078,#6a00b8)}
+.obsbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--dockh,170px) + 26px);width:min(680px,calc(100vw - 32px));z-index:11;display:flex;align-items:center;gap:12px;padding:10px 12px}
+body.custom .obsbar{bottom:16px}
+.obs-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.obs-mid b{font-size:15px}.obs-mid small{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.obsbar .btn.icon{width:40px;height:40px;flex:none}
+.obsbar .ticks2{font-size:11px}
+.pin{width:22px;height:30px;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 30'%3E%3Cpath d='M11 1C5.5 1 1 5.3 1 10.8 1 18 11 29 11 29s10-11 10-18.2C21 5.3 16.5 1 11 1z' fill='%232f5fe0' stroke='%23fff' stroke-width='2'/%3E%3Ccircle cx='11' cy='11' r='3.6' fill='%23fff'/%3E%3C/svg%3E");filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
+.placebar{display:flex;align-items:center;gap:10px;padding:8px 8px 8px 12px;border-radius:12px;background:var(--chip);border:1px solid var(--border)}
+.placebar .sw{width:14px;height:14px;border-radius:4px;flex:none;border:1px solid var(--border)}
+.pl-t{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25}.pl-t b{font-size:14px}.pl-t small{font-size:12px;color:var(--muted)}
+.changed{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.35;color:var(--muted)}
+.changed .arr{font-size:11px;padding-top:2px}.changed .arr.up{color:#c2410c}.changed .arr.down{color:var(--good)}
+[data-theme="dark"] .changed .arr.up{color:#ff9a62}
+.searchpop{width:min(380px,calc(100vw - 20px));gap:6px}
+.searchpop input{height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--border);background:var(--chip);font-size:15px;width:100%}
+.searchpop .item{height:auto!important;padding:8px 12px!important}
+.ratio{width:30px;max-height:36px;border:2px solid var(--muted);border-radius:4px;flex:none}
+.cookiebar{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:70;width:min(720px,calc(100vw - 24px));display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--solid)}
+.cookiebar p{margin:0;flex:1;font-size:13px;line-height:1.45}
+.cookiebar .chips{flex:none}
+.dlgwrap{position:fixed;inset:0;z-index:72;display:flex;align-items:center;justify-content:center;background:rgba(7,13,22,.45);padding:12px}
+.dialog{width:min(520px,100%);max-height:calc(100dvh - 24px);overflow:auto;padding:20px;border-radius:20px;background:var(--solid);border:1px solid var(--border);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px}
+.dialog h2{margin:0;font-size:20px}
+.keys{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px}
+.keys div{display:flex;align-items:center;gap:10px;font-size:14px}
+kbd{min-width:52px;text-align:center;padding:4px 8px;border-radius:8px;background:var(--chip);border:1px solid var(--border);border-bottom-width:2px;font:600 12px Inter,system-ui,sans-serif}
+.offline{position:fixed;top:88px;left:50%;transform:translateX(-50%);z-index:16;padding:6px 14px;border-radius:999px;background:var(--text);color:var(--bg);font-size:13px;font-weight:600;box-shadow:var(--shadow)}
+@media (min-width:1101px){ body.tools-open .obsbar{left:16px;transform:none;width:min(680px,calc(100vw - 488px))} }
+
 /* iPad */
 @media (max-width:1100px){
   .topbar .brand small{display:none}
@@ -247,8 +290,9 @@ body.custom .dock-row,body.custom .dock .sep,body.custom .runrow,body.custom .ru
   .daytab{flex:1;justify-content:space-between}
   .covers{width:100%;text-align:left;margin:0;display:flex;gap:8px;align-items:baseline}
   .navtext{display:none}
-  .preview-note{display:none}
   .tools{width:400px;top:86px;right:12px;bottom:12px}
+  .obsbar{left:20px;right:20px;transform:none;width:auto;bottom:calc(var(--dockh,170px) + 30px)}
+  .cookiebar{flex-direction:column;align-items:stretch}
 }
 /* phone: one bottom sheet */
 @media (max-width:640px){
@@ -258,7 +302,14 @@ body.custom .dock-row,body.custom .dock .sep,body.custom .runrow,body.custom .ru
   .topbar .type{position:fixed;top:74px;left:50%;transform:translateX(-50%);background:var(--surface);box-shadow:var(--shadow)}
   .topbar .type .pill{display:none}
   .topbar .type button{padding:0 12px;font-size:13px;height:32px}
-  .summary,.ctrls{display:none}
+  .summary{display:none}
+  .ctrls{top:auto;right:10px;bottom:calc(var(--dockh,240px) + var(--obsh,0px) + 14px)}
+  .ctrls .btn:not(#layersBtn){display:none}
+  body.obs-on .ctrls{bottom:calc(var(--dockh,240px) + var(--obsh,0px) + 20px)}
+  .obsbar{left:10px;right:10px;bottom:calc(var(--dockh,240px) + 10px);padding:8px 10px;gap:8px}
+  body.custom .obsbar{bottom:calc(var(--dockh,120px) + 10px)}
+  .offline{top:124px}
+  .keys{grid-template-columns:1fr}
   .dock{left:0;right:0;bottom:0;border-radius:22px 22px 0 0;padding:8px 16px calc(18px + env(safe-area-inset-bottom));gap:12px;max-height:82dvh;overflow:auto}
   .dock-head{display:flex;flex-direction:column;gap:12px}
   .handle{align-self:center;width:60px;height:22px;border:none;background:transparent;display:flex;align-items:center;justify-content:center;padding:0}
@@ -297,31 +348,37 @@ body.custom .dock-row,body.custom .dock .sep,body.custom .runrow,body.custom .ru
   </div>
   <nav>
     <button class="btn navlink" id="toolsBtn" aria-expanded="false" aria-controls="tools" title="Runs, ensembles and manual runs"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span class="navtext">Tools</span></button>
+    <button class="btn icon" id="searchBtn" aria-haspopup="dialog" aria-expanded="false" aria-label="Search for a place"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></button>
     <button class="btn icon" id="themeBtn" aria-label="Switch light or dark theme"></button>
     <button class="avatar" id="accountBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Account">?</button>
   </nav>
 </header>
 
 <aside class="summary card hidden" id="summary" aria-label="Forecast summary">
+  <div class="viewbar hidden" data-view role="status"><span data-view-text></span><button data-view-back>Back</button></div>
   <div><div class="kicker" id="sumKicker">AUTO-HOCO · Day 0</div><div style="font-size:15px;font-weight:600;margin-top:4px" id="sumTitle">Thunderstorm risk</div></div>
   <div class="peak"><b id="sumPeak">–</b><span>peak chance of lightning<br><span id="sumWhere">–</span></span></div>
+  <div class="changed hidden" data-changed></div>
+  <div class="placebar hidden" data-place></div>
   <div class="facts"><div><small>Valid</small><strong id="sumValid">–</strong></div><div><small>Issued</small><strong id="sumIssued">–</strong></div></div>
   <div class="legend" aria-label="Colour key: chance of lightning within 20 km"><div class="muted" style="font-size:12px;margin-bottom:6px">Chance of lightning within 20 km</div><div class="bar" id="legendBar"></div><div class="ticks"><span>5</span><span>15</span><span>30</span><span>50</span><span>70</span><span>90%</span></div></div>
-  <div class="actions"><button class="btn" id="shareBtn">Share</button><a class="btn" href="../index.html">Export</a></div>
+  <div class="actions"><button class="btn" id="shareBtn">Share</button><button class="btn" data-export aria-haspopup="menu">Export</button></div>
 </aside>
 
 <div class="ctrls">
   <button class="btn" id="zoomIn" aria-label="Zoom in"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
   <button class="btn" id="zoomOut" aria-label="Zoom out"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
+  <button class="btn" id="layersBtn" aria-haspopup="menu" aria-expanded="false" aria-label="Map layers: radar and lightning"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></svg></button>
   <button class="btn" id="locateBtn" aria-label="Show my location"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
 </div>
 
-<div class="banner old hidden" id="oldBanner" role="status"><span id="oldText">You are viewing an older run</span><button id="toLatest">Back to latest</button></div>
 
 <section class="dock card hidden" id="dock" aria-label="Choose a day and a run">
   <div class="dock-head">
     <button class="handle" id="handle" aria-label="Pull up for details" aria-expanded="false"><i></i></button>
+    <div class="viewbar hidden" data-view role="status"><span data-view-text></span><button data-view-back>Back</button></div>
     <div style="display:flex;align-items:center;gap:12px"><div style="flex:1"><div class="kicker" id="sheetKicker">AUTO-HOCO · Day 0</div><div style="font-size:15px;font-weight:600" id="sheetPeak">–</div></div></div>
+    <div class="placebar hidden" data-place></div>
   </div>
   <div class="dock-row">
     <div class="daytabs" role="tablist" aria-label="Forecast day" id="dayTabs"></div>
@@ -336,9 +393,10 @@ body.custom .dock-row,body.custom .dock .sep,body.custom .runrow,body.custom .ru
   </div>
   <p class="runcount" id="runCount">–</p>
   <div class="sheet-more">
+    <div class="changed hidden" data-changed></div>
     <div class="facts" style="display:grid"><div><small>Valid</small><strong id="sheetValid">–</strong></div><div><small>Issued</small><strong id="sheetIssued">–</strong></div></div>
     <div class="legend"><div class="muted" style="font-size:12px;margin-bottom:6px">Chance of lightning within 20 km</div><div class="bar" id="legendBar2"></div><div class="ticks"><span>5</span><span>15</span><span>30</span><span>50</span><span>70</span><span>90%</span></div></div>
-    <div class="actions"><button class="btn" id="shareBtn2">Share</button><a class="btn" href="../index.html">Classic site</a></div>
+    <div class="actions"><button class="btn" id="shareBtn2">Share</button><button class="btn" data-export aria-haspopup="menu">Export</button></div>
   </div>
 </section>
 
@@ -350,9 +408,22 @@ body.custom .dock-row,body.custom .dock .sep,body.custom .runrow,body.custom .ru
 </section>
 <div class="acttoast hidden" id="actToast" role="status"></div>
 <div class="pop hidden" id="regionPop" role="menu" aria-label="Region"></div>
+<div class="pop hidden" id="layersPop" role="menu" aria-label="Map layers" style="width:300px"></div>
+<div class="pop hidden" id="exportPop" role="menu" aria-label="Export image"></div>
+<div class="pop searchpop hidden" id="searchPop" role="dialog" aria-label="Search for a place"><label class="sr" for="searchIn">Place or postcode</label><input id="searchIn" placeholder="Town, city or postcode" autocomplete="off"><div id="searchList"></div></div>
+<div class="obsbar card hidden" id="obsBar" aria-label="Radar and lightning time">
+  <button class="btn icon" id="obsPlay" aria-label="Play"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg></button>
+  <div class="obs-mid"><div class="rowbetween"><b id="obsTime">–</b><small id="obsInfo"></small></div>
+    <label class="sr" for="obsSlider">Observed time</label><input type="range" id="obsSlider" min="0" max="0" value="0" step="1"><div class="ticks2"><span id="obsStart">–</span><span id="obsEnd">Now</span></div></div>
+  <button class="btn sm" id="obsNow">Now</button>
+  <button class="btn icon sm" id="obsClose" aria-label="Turn off radar and strikes">✕</button>
+</div>
+<div class="offline hidden" id="offline" role="status">You're offline · showing the last loaded forecast</div>
+<div class="cookiebar card hidden" id="cookieBar" role="region" aria-label="Cookies"><p>HOCO uses essential storage to keep you signed in and remember your settings. With your OK we'd also use anonymous usage stats and, later, ads. <a href="privacy.html">Privacy policy</a></p>
+  <div class="chips"><button class="btn" id="ckManage">Manage</button><button class="btn" id="ckEssential">Essential only</button><button class="btn primary" id="ckAll">Accept all</button></div></div>
+<div class="dlgwrap hidden" id="cookieDlg"></div>
 <div class="pop hidden" id="accountPop" role="menu" aria-label="Account"></div>
 <div class="card empty hidden" id="empty"><b id="emptyTitle">No runs yet</b><span class="muted" id="emptyText"></span></div>
-<span class="card preview-note muted">New design preview · <a href="../index.html">classic HOCO</a></span>
 
 <div class="skel" id="skel" aria-busy="true" aria-label="Loading the forecast">
   <div class="s" style="top:92px;left:16px;width:340px;height:300px"></div>
@@ -413,6 +484,7 @@ const PLACES = [['London',51.51,-0.13],['Brighton',50.82,-0.14],['Southampton',5
 
 // ---------- state ----------
 let Tools = { onRuns() {}, signedOut() {}, openTab() {} };
+let Extras = { onShown() {}, onEmpty() {}, onStyle() {}, openShortcuts() {}, openCookies() {} };
 const S = { custom: null, theme: localStorage.getItem('hocoTheme') || 'auto', product: localStorage.getItem('hocoAutoProduct') === 'ai' ? 'ai' : 'traditional',
   region: 'England', day: 0, follow: [true, true, true], runs: [], byDay: [[],[],[]], idx: [null,null,null], current: null, geo: null, peaks: {}, role: 'guest' };
 const params = new URLSearchParams(location.search);
@@ -490,7 +562,20 @@ applyTheme(true);
 
 // ---------- map ----------
 const map = new mapboxgl.Map({ container: 'map', style: effTheme() === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11',
-  bounds: [[-10.234, 48.788], [5.471, 56.578]], fitBoundsOptions: { padding: innerWidth <= 640 ? { top: 120, bottom: 270, left: 10, right: 10 } : { top: 90, bottom: 220, left: innerWidth > 1100 ? 360 : 20, right: 20 } }, attributionControl: true, projection: 'mercator' });
+  bounds: [[-10.234, 48.788], [5.471, 56.578]], fitBoundsOptions: { padding: innerWidth <= 640 ? { top: 120, bottom: 270, left: 10, right: 10 } : { top: 90, bottom: 220, left: innerWidth > 1100 ? 360 : 20, right: 20 } }, attributionControl: false, logoPosition: 'bottom-left', projection: 'mercator', preserveDrawingBuffer: true });
+map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-left');
+// Keep the Mapbox logo and credits visible: lift them above the dock / phone sheet when those cover the corner.
+function placeCtrls() {
+  const el = document.querySelector('.mapboxgl-ctrl-bottom-left'); if (!el) return;
+  let bottom = 8;
+  ['dock', 'obsBar'].forEach(id => { const d = $(id); if (!d || d.classList.contains('hidden') || getComputedStyle(d).display === 'none') return;
+    const r = d.getBoundingClientRect(); if (r.left < 240 && r.height) bottom = Math.max(bottom, innerHeight - r.top + 8); });
+  el.style.bottom = bottom + 'px';
+}
+try { new ResizeObserver(placeCtrls).observe(document.getElementById('dock')); } catch (e) { /* older browsers: resize handler below */ }
+new MutationObserver(() => requestAnimationFrame(placeCtrls)).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+new MutationObserver(() => requestAnimationFrame(placeCtrls)).observe(document.getElementById('dock'), { attributes: true, attributeFilter: ['class'] });
+addEventListener('resize', placeCtrls);
 function addLayers() {
   if (!map.getSource('hoco')) map.addSource('hoco', { type: 'geojson', data: S.geo || { type: 'FeatureCollection', features: [] } });
   const banded = S.geo?.properties?.hoco_layout === 'bands_v2';
@@ -501,7 +586,7 @@ function addLayers() {
     paint: { 'line-color': effTheme() === 'dark' ? 'rgba(8,16,28,0.7)' : 'rgba(16,34,56,0.55)', 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.4, 8, 1.1], 'line-opacity': 0.8 } }, label);
   if (!map.getLayer('hoco-points')) map.addLayer({ id: 'hoco-points', type: 'circle', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'point'], paint: { 'circle-radius': 12, 'circle-opacity': 0 } });
 }
-map.on('style.load', addLayers);
+map.on('style.load', () => { addLayers(); Extras.onStyle(); });
 map.on('load', () => { const src = map.getSource('hoco'); if (src && S.geo) src.setData(S.geo); });
 map.on('error', (e) => console.warn('[map]', e?.error?.message || e));
 window.__hocoMap = map;
@@ -557,6 +642,11 @@ async function loadPeaks() {
   renderDays();
 }
 let loadToken = 0;
+function setNotice(text, back) {
+  document.querySelectorAll('[data-view]').forEach(v => { v.classList.toggle('hidden', !text); if (text) { v.querySelector('[data-view-text]').textContent = text; v.querySelector('[data-view-back]').textContent = back; } });
+  measureDock();
+}
+document.querySelectorAll('[data-view-back]').forEach(b => b.onclick = () => S.custom ? clearCustom() : setRun(S.byDay[S.day].length - 1));
 function setGeo(g) {
   S.geo = g; const src = map.getSource('hoco');
   if (src) src.setData(g); else if (map.isStyleLoaded()) addLayers();
@@ -575,14 +665,12 @@ async function showCustom(run) {
   $('sumIssued').textContent = $('sheetIssued').textContent = c ? `${dayDate(c)}, ${hhmm(c)}` : '–';
   const mine = run.userId && run.userId === auth.currentUser?.uid;
   const what = { ai: 'an AI HOCO run', automated: 'an AUTO-HOCO run', 'human-mimic': mine ? 'your ensemble' : 'an ensemble', manual: mine ? 'your manual run' : 'a manual run' }[run.type] || 'a HOCO run';
-  $('oldText').textContent = `Viewing ${what}, issued ${c ? `${dayDate(c)} ${hhmm(c)}` : ''}`;
-  $('toLatest').textContent = 'Back to the forecast';
-  $('oldBanner').classList.remove('hidden');
+  setNotice(`Viewing ${what}, issued ${c ? `${dayName(c)} ${c.getDate()} ${hhmm(c)}` : ''}`, 'Back to forecast');
   if (innerWidth > 640) $('summary').classList.remove('hidden');
   const u = new URL(location.href); u.search = ''; u.searchParams.set('open', run.id); history.replaceState(null, '', u);
   try {
     const g = await fetchGeo(run); if (tok !== loadToken) return;
-    setGeo(g);
+    setGeo(g); Extras.onShown(run, g, null);
     const pk = peakOf(g), where = pk.lat != null ? `near ${nearestPlace(pk.lat, pk.lon)}` : '';
     $('sumPeak').textContent = pk.risk >= 1 ? `${Math.round(pk.risk)}%` : '<5%';
     $('sumWhere').textContent = pk.risk >= 5 ? where : 'No notable risk';
@@ -602,11 +690,11 @@ async function renderAll() {
   $('sumKicker').textContent = $('sheetKicker').textContent = `${label} · Day ${S.day}`;
   $('sumTitle').textContent = `Thunderstorm risk, ${S.region}`;
   if (!n) {
-    $('empty').classList.remove('hidden'); $('summary').classList.add('hidden'); $('oldBanner').classList.add('hidden');
+    $('empty').classList.remove('hidden'); $('summary').classList.add('hidden'); setNotice(null);
     $('emptyTitle').textContent = S.product === 'ai' ? 'No AI HOCO runs for this day yet' : 'No runs for this day yet';
     $('emptyText').textContent = S.product === 'ai' ? 'AI HOCO is still in training. Switch back to Traditional to see the latest forecast.' : 'The next run usually arrives within the hour.';
     $('runSlider').max = 0; $('runTime').textContent = '–'; $('runNote').textContent = ''; $('covers').textContent = '–'; $('runCount').textContent = '0 runs';
-    S.geo = { type: 'FeatureCollection', features: [] }; map.getSource('hoco')?.setData(S.geo); return;
+    S.geo = { type: 'FeatureCollection', features: [] }; map.getSource('hoco')?.setData(S.geo); Extras.onEmpty(); return;
   }
   $('empty').classList.add('hidden'); if (innerWidth > 640) $('summary').classList.remove('hidden');
   let i = S.idx[S.day]; if (i == null || i >= n) i = n - 1;
@@ -624,13 +712,11 @@ async function renderAll() {
   $('covers').textContent = cov; $('sumValid').textContent = $('sheetValid').textContent = `${dayName(st)} ${hhmm(st)} – ${hhmm(en)}`;
   $('sumIssued').textContent = $('sheetIssued').textContent = `${dayDate(created(run))}, ${hhmm(created(run))}`;
   $('runCount').textContent = `${n} run${n > 1 ? 's' : ''} for ${S.day === 0 ? 'today' : dayDate(st)} · covers ${cov}`;
-  $('oldBanner').classList.toggle('hidden', isLatest);
-  $('oldText').textContent = `You are viewing an older run, issued ${hhmm(created(run))}`;
-  $('toLatest').textContent = `Back to latest (${hhmm(created(runs[n - 1]))})`;
+  setNotice(isLatest ? null : `Older run, issued ${hhmm(created(run))}`, `Latest (${hhmm(created(runs[n - 1]))})`);
   const tok = ++loadToken;
   try {
     const g = await fetchGeo(run); if (tok !== loadToken) return;
-    S.current = run; setGeo(g);
+    S.current = run; setGeo(g); Extras.onShown(run, g, i > 0 ? runs[i - 1] : null);
     const pk = peakOf(g); S.peaks[run.id] = pk.risk;
     const where = pk.lat != null ? `near ${nearestPlace(pk.lat, pk.lon)}` : '';
     $('sumPeak').textContent = pk.risk >= 1 ? `${Math.round(pk.risk)}%` : '<5%';
@@ -645,7 +731,6 @@ function setRun(i) { if (S.custom) clearCustom(); const n = S.byDay[S.day].lengt
 $('runSlider').oninput = (e) => setRun(+e.target.value);
 $('prevRun').onclick = () => setRun(S.idx[S.day] - 1);
 $('nextRun').onclick = () => setRun(S.idx[S.day] + 1);
-$('toLatest').onclick = () => S.custom ? clearCustom() : setRun(S.byDay[S.day].length - 1);
 addEventListener('keydown', (e) => { if (e.target.closest('input,textarea,select')) return;
   if (e.key === 'ArrowLeft') setRun(S.idx[S.day] - 1); else if (e.key === 'ArrowRight') setRun(S.idx[S.day] + 1);
   else if (['1', '2', '3'].includes(e.key)) { S.day = +e.key - 1; renderAll(); } else if (e.key.toLowerCase() === 't') setProduct(S.product === 'ai' ? 'traditional' : 'ai'); });
@@ -674,12 +759,16 @@ $('accountBtn').onclick = (e) => { e.stopPropagation();
     <button class="item" id="acctRuns">My runs</button>
     <a class="item btn" style="justify-content:flex-start;border:none;background:transparent;height:44px" href="../index.html">Classic HOCO site</a>
     <button class="item" id="themeAuto">Theme: follow my device</button>
+    <button class="item" id="acctKeys">Keyboard shortcuts</button>
+    <button class="item" id="acctCookies">Cookie settings</button>
     <button class="item" id="signOutBtn" style="color:#b42318">Sign out</button>
-    <div class="legal"><a href="../index.html">Privacy</a><a href="../index.html">Terms</a><a href="../index.html">Cookies</a></div>`;
+    <div class="legal"><a href="privacy.html">Privacy</a><a href="privacy.html#terms">Terms</a><a href="privacy.html#cookies">Cookies</a></div>`;
   openPop($('accountPop'), $('accountBtn'));
   const pop = $('accountPop'); pop.style.left = ''; pop.style.right = '16px';
   $('signOutBtn').onclick = () => signOut(auth);
   $('acctRuns').onclick = () => { pop.classList.add('hidden'); Tools.openTab('runs', 'mine'); };
+  $('acctKeys').onclick = () => { pop.classList.add('hidden'); Extras.openShortcuts(); };
+  $('acctCookies').onclick = () => { pop.classList.add('hidden'); Extras.openCookies(); };
   $('themeAuto').onclick = () => { S.theme = 'auto'; localStorage.setItem('hocoTheme', 'auto'); applyTheme(); pop.classList.add('hidden'); };
 };
 async function share() {
@@ -691,7 +780,7 @@ $('shareBtn').onclick = share; $('shareBtn2').onclick = share;
 
 // ---------- phone sheet ----------
 $('handle').onclick = () => { const d = $('dock'), open = !d.classList.contains('open'); d.classList.toggle('open', open); $('handle').setAttribute('aria-expanded', open); measureDock(); };
-function measureDock() { requestAnimationFrame(() => document.documentElement.style.setProperty('--dockh', $('dock').offsetHeight + 'px')); }
+function measureDock() { requestAnimationFrame(() => { const st = document.documentElement.style; st.setProperty('--dockh', $('dock').offsetHeight + 'px'); st.setProperty('--obsh', ($('obsBar')?.offsetHeight || 0) + 'px'); placeCtrls(); }); }
 addEventListener('resize', () => { measureDock(); if (innerWidth <= 640) $('summary').classList.add('hidden'); else if (S.byDay[S.day].length) $('summary').classList.remove('hidden'); });
 
 // ---------- sign-in ----------
@@ -717,6 +806,13 @@ onAuthStateChanged(auth, async (user) => {
     loadPeaks(); renderAll(); Tools.onRuns();
   }, (err) => { $('skel').classList.add('hidden'); toast('Could not load runs. Try the classic site.'); console.error(err); });
 });
+
+// ---------- extras (radar, strikes, export, search, change, cookies) ----------
+import('./extras.js?v=3').then((m) => {
+  m.initExtras({ map, S, BANDS, REGIONS, TYPE_LABEL: LABELS, toast, openPop, measureDock, fetchGeo, peakOf, riskOf, bandFor, bandLabel, created, startOf, endOf, hhmm, dayName, dayDate });
+  Extras = m;
+  if (S.custom || S.current) m.onShown(S.custom || S.current, S.geo, null);
+}).catch((e) => console.error(e));
 
 // ---------- tools (runs, ensemble, manual run, developer) ----------
 import('./tools.js?v=3').then((m) => {
