@@ -242,7 +242,7 @@ function buildObsBar() {
         <div class="obs-track"><input type="range" id="obsSlider" min="0" max="0" value="0" step="1"><span class="obs-future" id="obsFuture"><em>not happened yet</em></span></div>
         <div class="obs-ticks" id="obsTicks"></div>
       </div>
-      <div class="obs-btns"><button class="btn sm" id="obsMode" aria-pressed="false" title="Only this forecast's period, with this forecast shown underneath">This run<span class="o-lg"></span></button><button class="btn sm" id="obsNow">Now</button><button class="btn sm" id="obsKeyBtn" aria-expanded="false">Key</button><button class="btn icon sm" id="obsClose" aria-label="Turn off radar and strikes">✕</button></div>
+      <div class="obs-btns"><button class="btn sm" id="obsMode" aria-pressed="false" title="Only this forecast's period, with this forecast shown underneath">This run</button><button class="btn sm" id="obsNow">Now</button><button class="btn sm" id="obsKeyBtn" aria-expanded="false">Key</button><button class="btn icon sm" id="obsClose" aria-label="Turn off radar and strikes">✕</button></div>
     </div>
     <div class="obs-keys hidden" id="obsKeys"></div>`;
   $('obsKeyBtn').onclick = () => { O.keyOpen = !O.keyOpen; $('obsKeys').classList.toggle('hidden', !O.keyOpen); $('obsKeyBtn').setAttribute('aria-expanded', O.keyOpen); X.measureDock(); };
@@ -304,7 +304,7 @@ async function followHoco() {
   const lbl = $('obsHoco');
   if (effMode() !== 'last24' || !(O.radar || O.strikes) || O.t == null) { if (O.hocoId !== undefined) { O.hocoId = undefined; X.showObsGeo(null); } if (lbl) lbl.textContent = ''; return; }
   const run = X.runAt(O.t), id = run ? run.id : null;
-  if (lbl) lbl.innerHTML = run ? `<span class="o-lg">Forecast issued </span><span class="o-sh">HOCO </span>${fmtObs(X.created(run).getTime())}` : 'No forecast for this time';
+  if (lbl) lbl.innerHTML = run ? `<span class="o-lg">Forecast issued </span><span class="o-sh">HOCO </span><span class="o-lg">${new Date(X.created(run)).toLocaleDateString('en-GB', { weekday: 'short' })} </span>${hm(X.created(run).getTime())}` : 'No forecast for this time';
   if (id === O.hocoId) return; O.hocoId = id; const tok = ++hocoTok;
   if (!run) { X.showObsGeo({ type: 'FeatureCollection', features: [] }); return; }
   try { const g = await X.fetchGeo(run); if (tok === hocoTok) X.showObsGeo(g, run); } catch (e) { /* keep what is shown */ }
