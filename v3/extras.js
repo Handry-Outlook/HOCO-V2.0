@@ -223,9 +223,12 @@ function strikeClick(e) {
 // 'run': only the chosen forecast's own period, with that forecast fixed underneath.
 const loadMode = () => { try { return localStorage.getItem('hocoObsMode') === 'run' ? 'run' : 'last24'; } catch (e) { return 'last24'; } };
 O.mode = loadMode(); O.tempRun = false;
-const effMode = () => (O.mode === 'run' || O.tempRun || O.archive || X.S.archive || X.S.custom) ? 'run' : 'last24';
+const effMode = () => (O.mode === 'run' || O.tempRun || X.S.custom) ? 'run' : 'last24';
 function obsRange(run) {
-  if (effMode() === 'last24') { const now = frameOf(Date.now() - 5 * 60000); return { s: now - 24 * 3600000, e: now, now }; }
+  if (effMode() === 'last24') {
+    // archive day: that day's outlook, 06:00 to 06:00 the next morning; live: the past 24 hours
+    if (X.S.archive) { const s = new Date(X.S.archive.date + 'T06:00:00').getTime(), e = frameOf(Math.min(s + 24 * 3600000 - 5 * 60000, Date.now() - 5 * 60000)); return s > Date.now() ? { future: true, s, e: s } : { s, e, now: e }; }
+    const now = frameOf(Date.now() - 5 * 60000); return { s: now - 24 * 3600000, e: now, now }; }
   const s = X.startOf(run), e = X.endOf(run); if (!s || !e) return null;
   const now = Date.now(); if (s.getTime() > now) return { future: true, s: s.getTime(), e: e.getTime() };
   return { s: frameOf(s.getTime()), e: frameOf(e.getTime()), now: frameOf(Math.min(e.getTime(), now - 5 * 60000)) };
@@ -272,9 +275,9 @@ function syncObs() {
     $('obsTitle').textContent = 'Not started yet'; $('obsLive').classList.add('hidden'); $('obsTicks').innerHTML = ''; $('obsFuture').style.width = '100%';
     setObsInfo(`Radar and strikes appear once this forecast starts (${r ? fmtObs(r.s) : '–'})`); removeRadar(); removeStrikes(); X.measureDock(); return; }
   [$('obsSlider'), $('obsPlay'), $('obsNow')].forEach(e => e.disabled = false);
-  const mode = effMode(), mk = mode + '|' + (mode === 'run' ? O.run.id : ''), fresh = O.runId !== mk, atEnd = O.t == null || O.t >= O.tNow;
+  const mode = effMode(), mk = mode + '|' + (mode === 'run' ? O.run.id : (X.S.archive?.date || 'live')), fresh = O.runId !== mk, atEnd = O.t == null || O.t >= O.tNow;
   O.runId = mk;
-  const mb = $('obsMode'); if (mb) { mb.setAttribute('aria-pressed', mode === 'run'); mb.disabled = !!(O.archive || X.S.archive || X.S.custom); } O.t0 = r.s; O.t1 = Math.max(r.e, r.s); O.tNow = Math.max(r.s, r.now);
+  const mb = $('obsMode'); if (mb) { mb.setAttribute('aria-pressed', mode === 'run'); mb.disabled = !!X.S.custom; } O.t0 = r.s; O.t1 = Math.max(r.e, r.s); O.tNow = Math.max(r.s, r.now);
   if (fresh || atEnd || O.t < O.t0 || O.t > O.tNow) O.t = O.tNow;
   const sl = $('obsSlider'); sl.min = 0; sl.max = Math.max(1, Math.round((O.t1 - O.t0) / RADAR_STEP));
   const nowPct = Math.min(100, (O.tNow - O.t0) / Math.max(1, O.t1 - O.t0) * 100);
@@ -291,7 +294,7 @@ async function setTime(ms, force) {
   if (O.strikes) {
     if (!O.strikeData || force) { if (!O.loadingStrikes) { O.loadingStrikes = true; setObsInfo('Loading strikes…');
       const run = O.run, r = obsRange(run);
-      try { await loadStrikes(r.s, effMode() === 'last24' ? Date.now() : Math.min(X.endOf(run).getTime(), Date.now()), X.S.region); } catch (e) { O.strikeData = []; }
+      try { await loadStrikes(r.s, effMode() === 'last24' ? r.e + 5 * 60000 : Math.min(X.endOf(run).getTime(), Date.now()), X.S.region); } catch (e) { O.strikeData = []; }
       O.loadingStrikes = false; setObsInfo(''); } }
     drawStrikes();
   }
