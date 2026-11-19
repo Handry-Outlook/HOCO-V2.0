@@ -597,7 +597,7 @@ export function openEmbed() {
 // bottom of the pulled-up phone sheet (320×50). Hidden for Exclusive accounts. Off until an AdSense account is added here.
 // Map ads: Google's own anchor ad (turned on in AdSense › Auto ads), never a box of ours on top of the map; the layout moves up out of its way.
 // Spots below only show once their ad-unit slot ID is filled in (AdSense › Ads › By ad unit › Display ads).
-export const ADS = { enabled: true, client: 'ca-pub-6850588636991409', slots: { runs: '', accuracy: '', sheet: '' } };
+export const ADS = { enabled: true, client: 'ca-pub-6850588636991409', slots: { runs: '9397566061', accuracy: '6266463706', sheet: '1836264105' } };
 let adScript = false;
 function loadAdScript(consent) {
   if (adScript) return; adScript = true;
@@ -628,7 +628,9 @@ export function renderAds() {
       if (!ADS.slots[el.dataset.ad]) { el.classList.add('hidden'); el.innerHTML = ''; return; }
       if (el.dataset.loaded) return; el.dataset.loaded = '1'; el.classList.remove('hidden', 'preview');
       el.innerHTML = `<small class="adlbl">Advertisement</small><ins class="adsbygoogle" style="display:block" data-ad-client="${ADS.client}" data-ad-slot="${ADS.slots[el.dataset.ad] || ''}" data-ad-format="auto" data-full-width-responsive="true"></ins>`;
-      try { window.adsbygoogle.push({}); } catch (e) { }
+      // fill the ad only once its spot is on screen (the summary details and Tools start closed)
+      const fill = () => { try { window.adsbygoogle.push({}); } catch (e) { } };
+      if (el.offsetWidth > 0) fill(); else { const ro = new ResizeObserver(() => { if (el.offsetWidth > 0) { ro.disconnect(); fill(); } }); ro.observe(el); }
     } else if (role === 'developer') { el.classList.remove('hidden'); el.classList.add('preview'); el.innerHTML = `<small class="adlbl">Advertisement</small><span>Ad space · ${adLabel(el.dataset.ad)}</span><small>${ADS.slots[el.dataset.ad] ? 'Live for normal users' : 'Needs an ad-unit slot ID'} · hidden for Exclusive accounts · developers see this preview</small>`; }
     else { el.classList.add('hidden'); el.innerHTML = ''; }
   });
