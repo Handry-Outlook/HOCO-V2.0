@@ -595,7 +595,28 @@ export function openEmbed() {
 // ------------------------------------------------------------------ ad spaces
 // Never on top of the map: Tools › Runs (300×100), end of the Accuracy page (728×90 laptop, banner on iPad, 320×50 phone),
 // bottom of the pulled-up phone sheet (320×50). Hidden for Exclusive accounts. Off until an AdSense account is added here.
-export const ADS = { enabled: false, client: '', slots: { runs: '', accuracy: '', sheet: '' } };
+// Map ads: Google's own anchor ad (turned on in AdSense › Auto ads), never a box of ours on top of the map; the layout moves up out of its way.
+// Spots below only show once their ad-unit slot ID is filled in (AdSense › Ads › By ad unit › Display ads).
+export const ADS = { enabled: true, client: 'ca-pub-6850588636991409', slots: { runs: '', accuracy: '', sheet: '' } };
+let adScript = false;
+function loadAdScript(consent) {
+  if (adScript) return; adScript = true;
+  window.adsbygoogle = window.adsbygoogle || []; if (consent && !consent.ads) window.adsbygoogle.requestNonPersonalizedAds = 1;
+  const s = document.createElement('script'); s.async = true; s.dataset.ads = '1'; s.crossOrigin = 'anonymous'; s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADS.client}`; document.head.appendChild(s);
+  watchAnchor();
+}
+// keep the time bar, buttons and top bar clear of Google's anchor ad (top or bottom of the screen)
+function watchAnchor() {
+  const fit = () => { let top = 0, bottom = 0;
+    document.querySelectorAll('ins.adsbygoogle[data-anchor-status], .adsbygoogle-noablate[data-anchor-status]').forEach(a => {
+      const st = a.getAttribute('data-anchor-status'); if (st === 'dismissed' || getComputedStyle(a).display === 'none') return;
+      const r = a.getBoundingClientRect(); if (!r.height || r.width < 100) return;
+      if (r.top < innerHeight / 2) top = Math.max(top, r.bottom); else bottom = Math.max(bottom, innerHeight - r.top); });
+    const root = document.documentElement.style, t = top + 'px', b = bottom + 'px';
+    if (root.getPropertyValue('--adt') !== t || root.getPropertyValue('--adb') !== b) { root.setProperty('--adt', t); root.setProperty('--adb', b); X.measureDock?.(); } };
+  new MutationObserver(() => requestAnimationFrame(fit)).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'data-anchor-status'] });
+  addEventListener('resize', fit); setInterval(fit, 3000);
+}
 const adLabel = (k) => k === 'runs' ? '300 × 100' : k === 'sheet' ? '320 × 50' : innerWidth <= 640 ? '320 × 50' : innerWidth <= 1100 ? '468 × 60' : '728 × 90';
 export function renderAds() {
   let consent = null; try { consent = JSON.parse(localStorage.getItem('hocoConsent') || 'null'); } catch (e) { }
@@ -603,12 +624,12 @@ export function renderAds() {
   document.querySelectorAll('[data-ad]').forEach(el => {
     if (noAds) { el.classList.add('hidden'); el.innerHTML = ''; return; }
     if (ADS.enabled && ADS.client && role !== 'developer') {
+      loadAdScript(consent);
+      if (!ADS.slots[el.dataset.ad]) { el.classList.add('hidden'); el.innerHTML = ''; return; }
       if (el.dataset.loaded) return; el.dataset.loaded = '1'; el.classList.remove('hidden', 'preview');
       el.innerHTML = `<small class="adlbl">Advertisement</small><ins class="adsbygoogle" style="display:block" data-ad-client="${ADS.client}" data-ad-slot="${ADS.slots[el.dataset.ad] || ''}" data-ad-format="auto" data-full-width-responsive="true"></ins>`;
-      window.adsbygoogle = window.adsbygoogle || []; if (!consent?.ads) window.adsbygoogle.requestNonPersonalizedAds = 1;
-      if (!document.querySelector('script[data-ads]')) { const s = document.createElement('script'); s.async = true; s.dataset.ads = '1'; s.crossOrigin = 'anonymous'; s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADS.client}`; document.head.appendChild(s); }
       try { window.adsbygoogle.push({}); } catch (e) { }
-    } else if (role === 'developer') { el.classList.remove('hidden'); el.classList.add('preview'); el.innerHTML = `<small class="adlbl">Advertisement</small><span>Ad space · ${adLabel(el.dataset.ad)}</span><small>Hidden for Exclusive accounts · only developers see this until ads are switched on</small>`; }
+    } else if (role === 'developer') { el.classList.remove('hidden'); el.classList.add('preview'); el.innerHTML = `<small class="adlbl">Advertisement</small><span>Ad space · ${adLabel(el.dataset.ad)}</span><small>${ADS.slots[el.dataset.ad] ? 'Live for normal users' : 'Needs an ad-unit slot ID'} · hidden for Exclusive accounts · developers see this preview</small>`; }
     else { el.classList.add('hidden'); el.innerHTML = ''; }
   });
 }

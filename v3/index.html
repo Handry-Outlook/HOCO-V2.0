@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>HOCO · Thunderstorm outlook (new design preview)</title>
-<meta name="description" content="HOCO thunderstorm outlooks for the UK, by Handry Outlook. New design preview.">
+<title>HOCO · Thunderstorm outlook</title>
+<meta name="google-adsense-account" content="ca-pub-6850588636991409">
+<meta name="description" content="HOCO thunderstorm outlooks for the UK, by Handry Outlook.">
 <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -646,7 +647,7 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom))}
   .dock .runrow{grid-area:run;min-width:0}.dock .runlabel{grid-area:lbl}
   .dock .procchip{position:absolute;right:8px;top:-30px;box-shadow:var(--shadow);background:var(--solid);border:1px solid var(--border)}
   .obsbar{left:var(--gap);right:var(--gap);transform:none;width:auto}
-  .probe{left:var(--gap)!important;right:var(--gap);width:auto;top:auto!important;bottom:calc(var(--dockh,90px) + var(--obsh,0px) + 2 * var(--gap) + 6px);padding:10px 12px;gap:4px}
+  .probe{left:var(--gap)!important;right:var(--gap);width:auto;top:auto!important;bottom:calc(var(--dockh,90px) + var(--obsh,0px) + 2 * var(--gap) + 6px + var(--adb,0px));padding:10px 12px;gap:4px}
   .myrun{left:var(--gap)!important;right:var(--gap);width:auto}
   .myrun.collapsed{left:auto!important;right:calc(var(--gap) + 48px)}
   .installbar,.banner{left:var(--gap);right:var(--gap);width:auto;transform:none}
@@ -839,6 +840,14 @@ body.comparing .tools{z-index:40}
 
 .o-sh{display:none}
 @media (max-width:640px){ .obs-head .o-lg{display:none} .obs-head .o-sh{display:inline} .obs-head{gap:6px} #obsHoco{flex:1} }
+
+/* room for Google's anchor ad (top or bottom) when it shows */
+.topbar{top:calc(var(--gap) + var(--adt,0px))}
+:root{--topy:calc(var(--gap) + var(--barh) + 10px + var(--adt,0px))}
+.dock{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(--adb,0px))}
+.obsbar{bottom:calc(var(--dockh,52px) + var(--gap) + 6px + env(safe-area-inset-bottom) + var(--adb,0px))}
+body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(--adb,0px))}
+.cx-obs{margin-bottom:var(--adb,0px)}.compare.cx{top:var(--adt,0px)}
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -1128,6 +1137,7 @@ function placeCtrls() {
   let bottom = 8;
   ['dock', 'obsBar'].forEach(id => { const d = $(id); if (!d || d.classList.contains('hidden') || getComputedStyle(d).display === 'none') return;
     const r = d.getBoundingClientRect(); if (r.left < 240 && r.height) bottom = Math.max(bottom, innerHeight - r.top + 8); });
+  const adb = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--adb')) || 0; if (adb) bottom = Math.max(bottom, adb + 8);
   el.style.bottom = bottom + 'px';
 }
 try { new ResizeObserver(placeCtrls).observe(document.getElementById('dock')); } catch (e) { /* older browsers: resize handler below */ }
@@ -1508,7 +1518,7 @@ $('accountBtn').onclick = (e) => { e.stopPropagation();
     ${Stage4.canInstall() ? '<button class="item" id="acctInstall">Install the HOCO app</button>' : ''}
     <button class="item" id="acctTour">Quick tutorial</button>
     <button class="item" id="acctKeys">Keyboard shortcuts</button>
-    <a class="item btn" style="justify-content:flex-start;border:none;background:transparent;height:44px" href="../index.html">Classic HOCO site</a>
+    <a class="item btn" style="justify-content:flex-start;border:none;background:transparent;height:44px" href="../classic.html">Classic HOCO site</a>
     <button class="item" id="signOutBtn" style="color:#b42318">Sign out</button>
     <div class="legal"><a href="privacy.html">Privacy</a><a href="privacy.html#terms">Terms</a><button class="linkbtn" id="acctCookies" style="font-size:12px;font-weight:500;color:var(--muted)">Cookies</button></div>`;
   openPop($('accountPop'), $('accountBtn'));
@@ -1608,8 +1618,8 @@ import('./extras.js?v=21').then((m) => {
 }).catch((e) => console.error(e));
 
 // ---------- stage 4 (settings, compare, accuracy, alerts, install, tutorial, embed, ads) ----------
-import('./stage4.js?v=16').then((m) => {
-  m.initStage4({ baseDay, extras: () => Extras, map, S, BANDS, REGIONS, db, auth, storage, doc, getDoc, getDocs, query, collection, where, orderBy, limit, addDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, dateKey, nearestPlace, regionMatches,
+import('./stage4.js?v=17').then((m) => {
+  m.initStage4({ measureDock, baseDay, extras: () => Extras, map, S, BANDS, REGIONS, db, auth, storage, doc, getDoc, getDocs, query, collection, where, orderBy, limit, addDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, dateKey, nearestPlace, regionMatches,
     colorExpr, fillColor, styleUrl, applySettings, setTheme, setProduct, setRegion, runsFor, riskAt: riskAtGeo, embed: EMBED, goDay: (d) => { S.day = d; clearCustom(); renderAll(); },
     callable: (name) => async (data) => { const f = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js'); return f.httpsCallable(f.getFunctions(app, 'us-central1'), name)(data); },
     openTools: (t) => Tools.openTab(t), closeTools: () => Tools.toggle?.(false), openAlerts: (p) => Extras.openAlerts(p), openShortcuts: () => Extras.openShortcuts(), setNotifyRuns: (v) => Tools.setNotify?.(v) });
@@ -1624,7 +1634,7 @@ import('./tools.js?v=7').then((m) => {
     renderSettings: (b) => Stage4.renderSettings(b), comparing: () => Stage4.comparing(), loadTo: (r) => Stage4.loadTo(r), renderAds: () => Stage4.renderAds() });
   Tools = m;
   if (S.runs.length) m.onRuns();
-}).catch((e) => { console.error(e); $('toolsBtn').onclick = () => { location.href = '../index.html'; }; });
+}).catch((e) => { console.error(e); $('toolsBtn').onclick = () => { location.href = '../classic.html'; }; });
 </script>
 </body>
 </html>
