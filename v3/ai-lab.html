@@ -67,6 +67,17 @@ a{color:var(--accent)}
 .tabs button[aria-selected="true"]{background:var(--text);color:var(--bg)}
 .panel{display:none;flex-direction:column;gap:16px}.panel.on{display:flex}
 #firstHourLab [hidden]{display:none!important}
+#shadowMap{position:relative;height:clamp(300px,48vw,490px);border-radius:12px;overflow:hidden;background:var(--bg)}
+#shadowMap .shadow-map-pane{position:absolute;inset:0}
+#shadowAiMap{clip-path:inset(0 0 0 var(--shadow-split,50%));pointer-events:none;visibility:hidden}
+#shadowMap[data-ready] #shadowAiMap{visibility:visible}
+#shadowReferenceMap .mapboxgl-ctrl-bottom-right,#shadowReferenceMap .mapboxgl-ctrl-bottom-left{z-index:2}
+.shadow-map-label{position:absolute;top:10px;z-index:2;pointer-events:none;background:var(--solid);border:1px solid var(--border);border-radius:10px;padding:5px 9px;font-size:12px;font-weight:750;box-shadow:var(--shadow)}
+#shadowReferenceLabel{left:10px}#shadowAiLabel{right:10px}
+#shadowDivider{position:absolute;top:0;bottom:0;left:var(--shadow-split,50%);width:44px;transform:translateX(-50%);z-index:3;cursor:ew-resize;touch-action:none;outline:none}
+#shadowDivider::before{content:"";position:absolute;inset:0 auto 0 calc(50% - 1px);width:2px;background:white;box-shadow:0 0 2px #10212a}
+#shadowDivider::after{content:"↔";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:38px;height:38px;display:grid;place-items:center;background:var(--solid);color:var(--text);border-radius:50%;border:1px solid var(--border);box-shadow:var(--shadow);font-size:23px}
+#shadowDivider:focus-visible::after{outline:3px solid var(--accent);outline-offset:2px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 .card h2{margin:0 0 4px;font-size:16px}
@@ -198,15 +209,21 @@ a{color:var(--accent)}
         </select>
         <label for="shadowWindow" id="shadowWindowLabel" hidden>Valid window</label>
         <select class="btn" id="shadowWindow" hidden></select>
-        <label for="shadowLayer">Map</label>
+        <label for="shadowLayer">Compare AI with</label>
         <select class="btn" id="shadowLayer" disabled>
-          <option value="shadow">AI shadow forecast</option>
-          <option value="baseline">Same-window baseline</option>
           <option value="traditional">Traditional full-day outlook</option>
+          <option value="baseline">Same-window baseline</option>
         </select>
       </div>
       <p class="note" id="shadowStatus" role="status"></p>
-      <div id="shadowMap" style="height:clamp(300px, 48vw, 490px);border-radius:12px;overflow:hidden" hidden></div>
+      <div id="shadowMap" hidden>
+        <div class="shadow-map-pane" id="shadowReferenceMap"></div>
+        <div class="shadow-map-pane" id="shadowAiMap" aria-hidden="true"></div>
+        <span class="shadow-map-label" id="shadowReferenceLabel" hidden>Traditional HOCO</span>
+        <span class="shadow-map-label" id="shadowAiLabel" hidden>AI HOCO</span>
+        <div id="shadowDivider" role="slider" tabindex="0" aria-label="Forecast comparison divider"
+          aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" hidden></div>
+      </div>
       <div id="shadowLegend" class="note" hidden></div>
       <h3 style="margin-top:16px">Timing verification</h3>
       <div id="shadowScores"></div>

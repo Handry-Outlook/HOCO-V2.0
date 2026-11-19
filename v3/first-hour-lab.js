@@ -11,6 +11,7 @@ const localTime = new Intl.DateTimeFormat("en-GB", {
 });
 const percentage = (value) => value === null ? "—" : `${(100 * value).toFixed(1)}%`;
 const ratio = (value, total) => total > 0 ? value / total : null;
+const EMPTY_MAP = { type: "FeatureCollection", features: [] };
 
 let mapboxReady;
 function loadMapbox() {
@@ -28,6 +29,31 @@ function loadMapbox() {
         }).catch((error) => { mapboxReady = null; throw error; });
     }
     return mapboxReady;
+}
+
+function addForecastLayers(map) {
+    map.addSource("shadow-risk", { type: "geojson", data: EMPTY_MAP });
+    map.addLayer({ id: "shadow-risk", source: "shadow-risk", type: "fill",
+        filter: ["==", ["geometry-type"], "Polygon"],
+        paint: { "fill-color": ["get", "fill"], "fill-opacity": .68 } });
+    map.addLayer({ id: "shadow-15", source: "shadow-risk", type: "line",
+        filter: ["all", ["==", ["geometry-type"], "Polygon"], ["==", ["get", "band_min"], 15]],
+        paint: { "line-color": "#374815", "line-width": 1.3 } });
+}
+
+async function fetchLayer(value, signal) {
+    const url = new URL(value);
+    if (url.protocol !== "https:" ||
+        !["storage.googleapis.com", "firebasestorage.googleapis.com"].includes(url.hostname)) {
+        throw new Error("Forecast layer unavailable");
+    }
+    const response = await fetch(url, { signal });
+    if (!response.ok) throw new Error("Forecast layer unavailable");
+    const data = await response.json();
+    if (data.type !== "FeatureCollection" || !Array.isArray(data.features)) {
+        throw new Error("Invalid forecast layer");
+    }
+    return data;
 }
 
 function renderScores(target, runs, day) {
@@ -100,44 +126,104 @@ export function startFirstHourLab(db) {
     const layer = document.getElementById("shadowLayer");
     const status = document.getElementById("shadowStatus");
     const target = document.getElementById("shadowMap");
+    const referenceTarget = document.getElementById("shadowReferenceMap");
+    const aiTarget = document.getElementById("shadowAiMap");
+    const divider = document.getElementById("shadowDivider");
+    const referenceLabel = document.getElementById("shadowReferenceLabel");
+    const aiLabel = document.getElementById("shadowAiLabel");
     const legend = document.getElementById("shadowLegend");
     const scores = document.getElementById("shadowScores");
-    let stop, timer, map, selected, abort, revision = 0, runs = [], windowRun = null;
+    let stop, timer, map, aiMap, selected, abort, revision = 0, runs = [], windowRun = null;
+    let split = 50;
+
+    function setSplit(value) {
+        split = Math.max(0, Math.min(100, Math.round(value)));
+        target.style.setProperty("--shadow-split", `${split}%`);
+        divider.setAttribute("aria-valuenow", String(split));
+        divider.setAttribute("aria-valuetext", `${referenceLabel.textContent} ${split}%, AI HOCO ${100 - split}%`);
+        referenceLabel.hidden = divider.hidden || split < 18;
+        aiLabel.hidden = divider.hidden || split > 82;
+    }
+
+    function updateSplitFromPointer(event) {
+        const rect = target.getBoundingClientRect();
+        if (rect.width) setSplit((event.clientX - rect.left) / rect.width * 100);
+    }
+
+    divider.onpointerdown = (event) => {
+        if (event.button !== 0) return;
+        divider.focus();
+        divider.setPointerCapture(event.pointerId);
+        updateSplitFromPointer(event);
+        event.preventDefault();
+    };
+    divider.onpointermove = (event) => {
+        if (divider.hasPointerCapture(event.pointerId)) updateSplitFromPointer(event);
+    };
+    divider.onkeydown = (event) => {
+        const position = { ArrowLeft: split - 5, ArrowRight: split + 5, Home: 0, End: 100 }[event.key];
+        if (position === undefined) return;
+        event.preventDefault();
+        setSplit(position);
+    };
+
+    function syncCamera() {
+        if (map && aiMap) aiMap.jumpTo({ center: map.getCenter(), zoom: map.getZoom(),
+            bearing: map.getBearing(), pitch: map.getPitch() });
+    }
+
     new ResizeObserver(() => {
-        if (map && target.clientWidth && target.clientHeight) map.resize();
+        if (map && aiMap && target.clientWidth && target.clientHeight) {
+            map.resize();
+            aiMap.resize();
+            syncCamera();
+        }
     }).observe(target);
+
+    function setComparisonReady(ready) {
+        target.toggleAttribute("data-ready", ready);
+        divider.hidden = !ready;
+        legend.hidden = !ready;
+        setSplit(split);
+    }
 
     function clearMap() {
         ++revision;
         abort?.abort();
         map?.remove();
+        aiMap?.remove();
         map = null;
+        aiMap = null;
         selected = null;
         target.hidden = true;
-        legend.hidden = true;
+        setComparisonReady(false);
         layer.disabled = true;
     }
 
-    async function showLayer() {
-        if (!selected || !map) return;
+    async function showComparison() {
+        const left = map?.getSource("shadow-risk");
+        const right = aiMap?.getSource("shadow-risk");
+        if (!selected || !left || !right) return;
         const revisionAtStart = ++revision;
         abort?.abort();
         abort = new AbortController();
-        const url = new URL(selected.maps[layer.value]);
-        if (url.protocol !== "https:" ||
-            !["storage.googleapis.com", "firebasestorage.googleapis.com"].includes(url.hostname)) {
-            status.textContent = "The saved layer URL is unavailable.";
-            return;
-        }
+        const reference = layer.value;
+        const maps = selected.maps;
+        setComparisonReady(false);
+        left.setData(EMPTY_MAP);
+        right.setData(EMPTY_MAP);
         try {
-            map.getSource("shadow-risk")?.setData({ type: "FeatureCollection", features: [] });
-            const response = await fetch(url, { signal: abort.signal });
-            if (!response.ok) throw new Error("Layer unavailable");
-            const data = await response.json();
+            const [baseline, shadow] = await Promise.all([
+                fetchLayer(maps[reference], abort.signal),
+                fetchLayer(maps.shadow, abort.signal),
+            ]);
             if (revisionAtStart !== revision) return;
-            map.getSource("shadow-risk").setData(data);
+            left.setData(baseline);
+            right.setData(shadow);
+            referenceLabel.textContent = reference === "traditional" ? "Traditional HOCO" : "Same-window baseline";
+            status.textContent = `Valid ${localTime.format(selected.validFrom.toDate())} to ${localTime.format(selected.validTo.toDate())} UK time.`;
             legend.replaceChildren();
-            for (const band of data.properties?.bands || []) {
+            for (const band of shadow.properties?.bands || baseline.properties?.bands || []) {
                 if (!/^#[0-9a-f]{6}$/i.test(band.fill)) continue;
                 const key = document.createElement("span");
                 key.style.marginRight = "10px";
@@ -147,10 +233,11 @@ export function startFirstHourLab(db) {
                 key.append(swatch, document.createTextNode(band.label));
                 legend.append(key);
             }
-            legend.hidden = false;
+            syncCamera();
+            setComparisonReady(true);
         } catch (err) {
             if (revisionAtStart !== revision || err.name === "AbortError") return;
-            status.textContent = "The saved forecast layer could not be loaded.";
+            status.textContent = "The forecasts could not both be loaded for comparison.";
         }
     }
 
@@ -183,9 +270,9 @@ export function startFirstHourLab(db) {
         const selectionKey = `${key}/${period.validFrom.toMillis()}`;
         if (selected?.key === selectionKey) return;
         status.textContent = `Valid ${localTime.format(period.validFrom.toDate())} to ${localTime.format(period.validTo.toDate())} UK time.`;
-        if (map?.getSource("shadow-risk")) {
+        if (map?.getSource("shadow-risk") && aiMap?.getSource("shadow-risk")) {
             selected = { ...period, key: selectionKey };
-            showLayer();
+            showComparison();
             return;
         }
         clearMap();
@@ -196,22 +283,27 @@ export function startFirstHourLab(db) {
             if (revisionAtStart !== revision || current.validTo.toMillis() <= Date.now()) return;
             mapbox.accessToken = MAPBOX_TOKEN;
             target.hidden = false;
-            map = new mapbox.Map({ container: target, style: "mapbox://styles/mapbox/light-v11",
-                bounds: BOUNDS[region.value], fitBoundsOptions: { padding: 22 }, maxZoom: 11 });
-            map.on("load", () => {
+            const options = { style: "mapbox://styles/mapbox/light-v11",
+                bounds: BOUNDS[region.value], fitBoundsOptions: { padding: 22 }, maxZoom: 11 };
+            map = new mapbox.Map({ ...options, container: referenceTarget });
+            aiMap = new mapbox.Map({ ...options, container: aiTarget, interactive: false, attributionControl: false });
+            map.on("move", syncCamera);
+            const onLoad = (pane) => {
                 if (revisionAtStart !== revision) return;
-                map.addSource("shadow-risk", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-                map.addLayer({ id: "shadow-risk", source: "shadow-risk", type: "fill",
-                    filter: ["==", ["geometry-type"], "Polygon"],
-                    paint: { "fill-color": ["get", "fill"], "fill-opacity": .68 } });
-                map.addLayer({ id: "shadow-15", source: "shadow-risk", type: "line",
-                    filter: ["all", ["==", ["geometry-type"], "Polygon"], ["==", ["get", "band_min"], 15]],
-                    paint: { "line-color": "#374815", "line-width": 1.3 } });
-                layer.disabled = false;
-                showLayer();
-            });
+                addForecastLayers(pane);
+                if (map.getSource("shadow-risk") && aiMap.getSource("shadow-risk")) {
+                    layer.disabled = false;
+                    showComparison();
+                }
+            };
+            const [referencePane, aiPane] = [map, aiMap];
+            referencePane.on("load", () => onLoad(referencePane));
+            aiPane.on("load", () => onLoad(aiPane));
         } catch {
-            if (revisionAtStart === revision) status.textContent = "The comparison map could not be started.";
+            if (revisionAtStart === revision) {
+                clearMap();
+                status.textContent = "The comparison map could not be started.";
+            }
         }
     }
 
@@ -235,7 +327,7 @@ export function startFirstHourLab(db) {
     }
     horizon.onchange = watchRegion;
     region.onchange = watchRegion;
-    layer.onchange = showLayer;
+    layer.onchange = showComparison;
     validWindow.onchange = refresh;
 
     return { setDeveloper(allowed) {
