@@ -142,6 +142,7 @@ export function startFirstHourLab(db) {
     const referenceLabel = document.getElementById("shadowReferenceLabel");
     const aiLabel = document.getElementById("shadowAiLabel");
     const legend = document.getElementById("shadowLegend");
+    const coverageNote = document.getElementById("shadowCoverage");
     const scores = document.getElementById("shadowScores");
     let stop, timer, map, aiMap, selected, abort, revision = 0, runs = [], windowRun = null;
     let subscription = 0;
@@ -195,6 +196,7 @@ export function startFirstHourLab(db) {
         target.toggleAttribute("data-ready", ready);
         divider.hidden = !ready;
         legend.hidden = !ready;
+        coverageNote.hidden = !ready || !selected?.coverageMode;
         setSplit(split);
     }
 
@@ -267,7 +269,7 @@ export function startFirstHourLab(db) {
             return;
         }
         timer = setTimeout(refresh, current.validTo.toMillis() - now + 30);
-        const key = `${current.runId}/${current.publishedAt?.toMillis() ?? current.validFrom.toMillis()}`;
+        const key = `${current.runId}/${current.publishedAt?.toMillis() ?? current.validFrom.toMillis()}/${current.coverageMode || ""}`;
         windowLabel.hidden = validWindow.hidden = firstHour;
         if (!firstHour && windowRun !== key) {
             windowRun = key;
@@ -283,12 +285,12 @@ export function startFirstHourLab(db) {
         if (selected?.key === selectionKey) return;
         status.textContent = `Valid ${localTime.format(period.validFrom.toDate())} to ${localTime.format(period.validTo.toDate())} UK time.`;
         if (map?.getSource("shadow-risk") && aiMap?.getSource("shadow-risk")) {
-            selected = { ...period, key: selectionKey };
+            selected = { ...period, key: selectionKey, coverageMode: current.coverageMode };
             showComparison();
             return;
         }
         clearMap();
-        selected = { ...period, key: selectionKey };
+        selected = { ...period, key: selectionKey, coverageMode: current.coverageMode };
         const revisionAtStart = revision;
         try {
             const mapbox = await loadMapbox();
