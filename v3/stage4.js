@@ -17,7 +17,7 @@ function dialog(html, label, wide) {
   return d;
 }
 const seg = (name, cur, opts) => `<div class="seg wide" role="group">${opts.map(([v, l]) => `<button data-${name}="${v}" aria-pressed="${String(cur) === String(v)}">${l}</button>`).join('')}</div>`;
-const STYLE_NAMES = [['default', 'Default'], ['standard', 'Standard'], ['satellite', 'Satellite'], ['satellite-streets', 'Satellite + streets'], ['light', 'Light'], ['outdoors', 'Outdoors']];
+const STYLE_NAMES = [['default', 'Default'], ['classic', 'Classic HOCO'], ['standard', 'Standard'], ['light', 'Light'], ['dark', 'Dark'], ['outdoors', 'Outdoors'], ['satellite', 'Satellite'], ['satellite-streets', 'Satellite + streets']];
 
 export function renderSettings(root) {
   const s = getSettings();

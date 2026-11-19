@@ -370,11 +370,8 @@ body.embed .tools,body.embed [data-compare],body.embed .adslot{display:none!impo
 .okey.rain .rainbar{width:100%}.rticks{display:flex;justify-content:space-between;width:100%;font-size:10px;color:var(--muted)}
 .chk.sm{font-size:12px}.chk.sm input{width:15px;height:15px}
 .stylegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:0 4px 4px}
-.stylebtn{display:flex;flex-direction:column;gap:4px;align-items:stretch;padding:4px;border-radius:10px;border:1px solid var(--border);background:var(--chip);font-size:11px;font-weight:600;cursor:pointer}
-.stylebtn i{height:34px;border-radius:7px;background:#dfe5ec}.stylebtn[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
-.st-default i{background:linear-gradient(135deg,#eef1f4 50%,#1d2530 50%)}.st-standard i{background:linear-gradient(160deg,#f3efe6,#d6e4ee)}
-.st-satellite i{background:linear-gradient(135deg,#2c4a2a,#5d6b3d 50%,#1f3b57)}.st-satellite-streets i{background:linear-gradient(135deg,#2c4a2a,#5d6b3d 50%,#1f3b57);box-shadow:inset 0 0 0 2px rgba(255,214,92,.8)}
-.st-light i{background:#f1f3f5}.st-outdoors i{background:linear-gradient(135deg,#e7efd9,#c9dcb0 60%,#a9c9e3)}
+.stylebtn{display:flex;flex-direction:column;gap:4px;align-items:stretch;padding:4px;color:var(--text);border-radius:10px;border:1px solid var(--border);background:var(--chip);font-size:11px;font-weight:600;cursor:pointer}
+.stylebtn i{display:block;height:38px;border-radius:7px;overflow:hidden;background:#dfe5ec;box-shadow:inset 0 0 0 1px rgba(15,27,45,.08)}.stylebtn i svg{display:block;width:100%;height:100%}.stylebtn[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
 .mapboxgl-popup.strikepop .mapboxgl-popup-content{background:var(--solid);color:var(--text);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow);font:13px Inter,system-ui,sans-serif;min-width:220px}
 .mapboxgl-popup.strikepop .mapboxgl-popup-tip{border-top-color:var(--solid);border-bottom-color:var(--solid)}
 .mapboxgl-popup.strikepop .mapboxgl-popup-close-button{color:var(--muted);font-size:18px;padding:2px 8px}
@@ -1099,7 +1096,7 @@ function applyTheme(first) {
 }
 function styleUrl() {
   const m = { classic: 'mapbox://styles/handry20191026/cmns2lucg001401s898cuaxjt', standard: 'mapbox://styles/mapbox/standard', satellite: 'mapbox://styles/mapbox/satellite-v9', 'satellite-streets': 'mapbox://styles/mapbox/satellite-streets-v12',
-    light: 'mapbox://styles/mapbox/light-v11', outdoors: 'mapbox://styles/mapbox/outdoors-v12' }[SETTINGS.mapStyle];
+    light: 'mapbox://styles/mapbox/light-v11', dark: 'mapbox://styles/mapbox/dark-v11', outdoors: 'mapbox://styles/mapbox/outdoors-v12' }[SETTINGS.mapStyle];
   return m || (effTheme() === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11');
 }
 const fillOp = (g) => Math.min(1, (g?.properties?.hoco_layout === 'bands_v2' ? 0.7 : 0.32) * (SETTINGS.opacity || 1));
@@ -1144,12 +1141,14 @@ function addLayers() {
   if (!map.getLayer('hoco-fill')) map.addLayer({ id: 'hoco-fill', type: 'fill', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'polygon'],
     paint: { 'fill-color': fillColor(), 'fill-opacity': fillOp(S.geo), 'fill-antialias': true } }, label);
   if (!map.getLayer('hoco-line')) map.addLayer({ id: 'hoco-line', type: 'line', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'polygon'],
-    paint: { 'line-color': effTheme() === 'dark' ? 'rgba(8,16,28,0.7)' : 'rgba(16,34,56,0.55)', 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.4, 8, 1.1], 'line-opacity': 0.8 } }, label);
+    paint: { 'line-color': mapIsDark() ? 'rgba(8,16,28,0.7)' : 'rgba(16,34,56,0.55)', 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.4, 8, 1.1], 'line-opacity': 0.8 } }, label);
   if (!map.getLayer('hoco-points')) map.addLayer({ id: 'hoco-points', type: 'circle', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'point'], paint: { 'circle-radius': 12, 'circle-opacity': 0 } });
   addOutlines(label);
 }
 // Coastlines and borders drawn on top of the risk colours, so the map stays readable under high risk (as on the classic site).
-function outlineColor() { const sat = /satellite/.test(SETTINGS.mapStyle); return effTheme() === 'dark' || sat ? 'rgba(236,241,248,0.75)' : 'rgba(18,28,44,0.8)'; }
+// light lines on dark maps (Dark style, satellite, or Default in dark mode), dark lines on light maps
+const mapIsDark = () => { const st = SETTINGS.mapStyle; if (st === 'dark' || /satellite/.test(st)) return true; if (st === 'default' || !st) return effTheme() === 'dark'; return false; };
+function outlineColor() { return mapIsDark() ? 'rgba(236,241,248,0.75)' : 'rgba(18,28,44,0.8)'; }
 function addOutlines(label) {
   if (!map.getSource('hoco-ref')) map.addSource('hoco-ref', { type: 'vector', url: 'mapbox://mapbox.mapbox-streets-v8' });
   const vis = SETTINGS.outlines === false ? 'none' : 'visible', col = outlineColor();
@@ -1598,7 +1597,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ---------- extras (radar, strikes, export, search, change, cookies) ----------
-import('./extras.js?v=20').then((m) => {
+import('./extras.js?v=21').then((m) => {
   m.initExtras({ baseDay, runAt, showObsGeo, openSummary: () => { $('summary').classList.add('open'); $('sumHead').setAttribute('aria-expanded', 'true'); }, map, S, BANDS, REGIONS, TYPE_LABEL: LABELS, toast, openPop, measureDock, fetchGeo, peakOf, riskOf, bandFor, bandLabel, created, startOf, endOf, hhmm, dayName, dayDate,
     embed: EMBED, embedLayers: EMBED ? (params.get('layers') || '') : null, radarOpacity: () => SETTINGS.radarOpacity, showChanged: () => SETTINGS.changed !== false, openEmbed: EMBED ? null : () => Stage4.openEmbed(),
     riskAtGeo, runsFor, addDays, nearestPlace, colorExpr, mapStyle: () => SETTINGS.mapStyle, setMapStyle: (k) => { const s = { ...SETTINGS, mapStyle: k, styleV2: true }; try { localStorage.setItem('hocoSettings', JSON.stringify(s)); } catch (e) { } applySettings(s, { mapStyle: k }); },
@@ -1609,7 +1608,7 @@ import('./extras.js?v=20').then((m) => {
 }).catch((e) => console.error(e));
 
 // ---------- stage 4 (settings, compare, accuracy, alerts, install, tutorial, embed, ads) ----------
-import('./stage4.js?v=15').then((m) => {
+import('./stage4.js?v=16').then((m) => {
   m.initStage4({ baseDay, extras: () => Extras, map, S, BANDS, REGIONS, db, auth, storage, doc, getDoc, getDocs, query, collection, where, orderBy, limit, addDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, dateKey, nearestPlace, regionMatches,
     colorExpr, fillColor, styleUrl, applySettings, setTheme, setProduct, setRegion, runsFor, riskAt: riskAtGeo, embed: EMBED, goDay: (d) => { S.day = d; clearCustom(); renderAll(); },
     callable: (name) => async (data) => { const f = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js'); return f.httpsCallable(f.getFunctions(app, 'us-central1'), name)(data); },

@@ -332,8 +332,36 @@ function setOutlines(on) {
 }
 
 // ------------------------------------------------------------------ layers + map style popover
-const STYLES = [['default', 'Default', 'Light or dark, follows the theme'], ['classic', 'Classic HOCO', 'The style from the classic site'], ['standard', 'Standard', 'Mapbox Standard, with 3D buildings'], ['satellite', 'Satellite', 'Imagery only'],
-  ['satellite-streets', 'Satellite + streets', 'Imagery with roads and names'], ['light', 'Light', 'Always light'], ['outdoors', 'Outdoors', 'Hills, paths and terrain']];
+const STYLES = [['default', 'Default', 'Light or dark, follows the theme'], ['classic', 'Classic HOCO', 'The style from the classic site'], ['standard', 'Standard', 'Mapbox Standard, with 3D buildings'],
+  ['light', 'Light', 'Always light'], ['dark', 'Dark', 'Always dark'], ['outdoors', 'Outdoors', 'Hills, paths and terrain'],
+  ['satellite', 'Satellite', 'Imagery only'], ['satellite-streets', 'Satellite + streets', 'Imagery with roads and names']];
+// small drawn previews of each style (same coastline, the style's own colours)
+const GB = 'M54 4l7 2-1 6 5 3-2 6 6 4 1 7 7 5-1 6 6 4-4 5-9 1-6 3-9-1-7 2-3-4 5-4-4-3 5-4-6-3 3-5-4-4 4-6-3-5 4-4-2-6z';
+const IE = 'M30 24l7-2 5 3-1 6 2 5-4 5-8 2-6-3 1-6-3-4z';
+const FR = 'M86 56l8-4 12 1 14 3v4H82z';
+const TH = {
+  light: { sea: '#cfd8de', land: '#f7f7f4', line: '#d9d9d4', label: '#9aa4ad' },
+  dark: { sea: '#17191c', land: '#33363a', line: '#4a4e54', label: '#7d848c' },
+  classic: { sea: '#a9c3d9', land: '#eef0ec', line: '#c8ccc6', label: '#7d8b99', coast: '#55687a' },
+  standard: { sea: '#9fcdea', land: '#f2eee4', line: '#ffffff', road: '#f6cf62', park: '#cfe5bf', label: '#6b7a86' },
+  outdoors: { sea: '#a7d2e6', land: '#eef0d8', line: '#e2d9c0', park: '#bcd9a0', contour: '#d4c9a6', label: '#6c7a5f' },
+  satellite: { sea: '#14283c', land: '#3f5a2e', land2: '#6b6a3c', sat: true },
+  'satellite-streets': { sea: '#14283c', land: '#3f5a2e', land2: '#6b6a3c', sat: true, road: '#f2c94c', label: '#ffffff' }
+};
+function styleThumb(k) {
+  const one = (t, id) => {
+    const fill = t.sat ? `url(#g${id})` : t.land;
+    return `${t.sat ? `<defs><linearGradient id="g${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${t.land}"/><stop offset=".55" stop-color="${t.land2}"/><stop offset="1" stop-color="${t.land}"/></linearGradient></defs>` : ''}
+      <rect width="120" height="60" fill="${t.sea}"/><path d="${GB}" fill="${fill}" ${t.coast ? `stroke="${t.coast}" stroke-width=".8"` : ''}/><path d="${IE}" fill="${fill}"/><path d="${FR}" fill="${fill}"/>
+      ${t.park ? `<path d="M58 24c3-2 6 0 5 3s-6 2-5-3zM66 40c3-1 5 1 4 3s-5 1-4-3z" fill="${t.park}"/>` : ''}
+      ${t.contour ? `<path d="M50 14c4 2 6 6 5 10M57 12c3 3 4 7 3 10" fill="none" stroke="${t.contour}" stroke-width=".7"/>` : ''}
+      ${t.line ? `<path d="M56 46l9-8 4-10M65 38l8 4" fill="none" stroke="${t.line}" stroke-width="1"/>` : ''}
+      ${t.road ? `<path d="M55 47l10-9 5-12M66 38l9 5M60 20l6 6" fill="none" stroke="${t.road}" stroke-width="1.3" stroke-linecap="round"/>` : ''}
+      ${t.label ? `<rect x="62" y="44" width="12" height="2" rx="1" fill="${t.label}"/><rect x="58" y="22" width="9" height="2" rx="1" fill="${t.label}"/>` : ''}`;
+  };
+  if (k === 'default') return `<svg viewBox="0 0 120 60" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><clipPath id="cpd"><path d="M120 0v60H40z"/></clipPath></defs>${one(TH.light, 'l')}<g clip-path="url(#cpd)">${one(TH.dark, 'd')}</g><path d="M120 0 40 60" stroke="rgba(255,255,255,.7)" stroke-width="1"/></svg>`;
+  return `<svg viewBox="0 0 120 60" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${one(TH[k], k)}</svg>`;
+}
 function renderLayersPop() {
   const pop = $('layersPop'), cur = X.mapStyle();
   pop.innerHTML = `<span class="kicker" style="padding:4px 6px 6px">Map layers</span>
@@ -342,7 +370,7 @@ function renderLayersPop() {
     <label class="item layer"><span><b>Map outlines</b><small>Coasts and borders on top of the colours</small></span><input type="checkbox" class="switch" id="lyOutlines" ${X.outlines() ? 'checked' : ''}></label>
     <label class="item layer"><span><b>Forecast as outlines only</b><small>Handy with radar on</small></span><input type="checkbox" class="switch" id="lyHocoLines" ${O.outlines ? 'checked' : ''}></label>
     <span class="kicker" style="padding:10px 6px 6px;display:block">Map style</span>
-    <div class="stylegrid">${STYLES.map(([k, l, d]) => `<button class="stylebtn st-${k}" data-style="${k}" aria-pressed="${cur === k}" title="${d}"><i></i><span>${l}</span></button>`).join('')}</div>`;
+    <div class="stylegrid">${STYLES.map(([k, l, d]) => `<button class="stylebtn" data-style="${k}" aria-pressed="${cur === k}" title="${d}"><i>${styleThumb(k)}</i><span>${l}</span></button>`).join('')}</div>`;
   pop.querySelectorAll('[data-layer]').forEach(i => i.onchange = () => setLayer(i.dataset.layer, i.checked));
   $('lyOutlines').onchange = (e) => X.setOutlines(e.target.checked);
   $('lyHocoLines').onchange = (e) => setOutlines(e.target.checked);
