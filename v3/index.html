@@ -1035,6 +1035,7 @@ if (params.get('region') && REGIONS.some(r => r.id === params.get('region') && r
 if (['0','1','2'].includes(params.get('day'))) S.day = +params.get('day');
 if (params.get('view') === 'ai') S.product = 'ai';
 const wantRun = params.get('run');
+let resolvingSharedRun = !!wantRun;
 const cache = new Map();
 const $ = (id) => document.getElementById(id);
 
@@ -1046,10 +1047,10 @@ const hhmm = (d) => d ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : '–';
 const dayName = (d) => d.toLocaleDateString('en-GB', { weekday: 'short' });
 const dayDate = (d) => d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 function parseHocoTime(t) { if (!t) return null; const [dp, tp] = String(t).split(' '); if (!dp || !tp) return null;
-  const [dd, mm, yy] = dp.split('/'); const [h, m] = tp.split(':'); const d = new Date(+yy, +mm - 1, +dd, +h, +m); return isNaN(d) ? null : d; }
+  const [dd, mm, yy] = dp.split('/'); const [h, m] = tp.split(':'); const d = new Date(Date.UTC(+yy, +mm - 1, +dd, +h, +m)); return isNaN(d) ? null : d; }
 const created = (r) => { if (!r?.createdAt) return null; const d = r.createdAt.toDate ? r.createdAt.toDate() : new Date(r.createdAt); return isNaN(d) ? null : d; };
-const startOf = (r) => parseHocoTime(r.startTime) || created(r);
-const endOf = (r) => parseHocoTime(r.endTime) || startOf(r);
+const startOf = (r) => r.validFrom?.toDate?.() || parseHocoTime(r.startTime) || created(r);
+const endOf = (r) => r.validTo?.toDate?.() || parseHocoTime(r.endTime) || startOf(r);
 function regionMatches(regionId, run) { const rr = String(run?.region || 'UK').trim(); if (rr === regionId) return true;
   if (regionId === 'England' && (rr === 'UK' || rr.startsWith('England'))) return true; if (regionId === 'Scotland' && rr.startsWith('Scotland')) return true; return false; }
 const riskOf = (p = {}) => { const v = parseFloat(p.risk ?? p.risk_pct ?? p.prob ?? p.probability ?? p.percent ?? p.percentage); return isFinite(v) ? Math.max(0, Math.min(100, v)) : 0; };
@@ -1369,10 +1370,30 @@ function renderProc() {
 // ---------- AI HOCO vs Traditional card ----------
 async function renderAiCmp(run, g) {
   const els = document.querySelectorAll('[data-aicmp]');
+  if (run.type === 'automated' && !S.custom) {
+    const twin = run.aiRunId || srcRuns().find(r => r.type === 'ai' && r.sourceRunId === run.id && r.status === 'completed')?.id;
+    const message = { pending: 'AI forecast pending', skipped: 'AI forecast skipped for this run', failed: 'AI forecast failed for this run' }[run.aiStatus];
+    els.forEach(el => {
+      el.replaceChildren();
+      if (twin) {
+        const link = document.createElement('a'), url = new URL(location.href);
+        url.searchParams.set('run', twin); url.searchParams.set('view', 'ai');
+        url.searchParams.set('region', S.region); url.searchParams.set('day', S.day);
+        link.href = url.href; link.textContent = 'Open matching AI forecast'; el.append(link);
+      } else { el.textContent = message || 'AI availability unreported for this run'; }
+      el.classList.remove('hidden');
+    });
+    return;
+  }
   if (S.product !== 'ai' || S.custom) { els.forEach(e => e.classList.add('hidden')); return; }
-  const trad = runsFor(S.day, 'automated').at(-1); let tp = null;
+  let trad = srcRuns().find(r => r.type === 'automated' && (r.id === run.sourceRunId || r.aiRunId === run.id));
+  if (!trad && run.sourceRunId) {
+    try { const s = await getDoc(doc(db, 'hoco_requests', run.sourceRunId)); if (s.exists()) trad = { ...s.data(), id: s.id }; } catch {}
+  }
+  let tp = null;
   if (trad) { try { tp = peakOf(await fetchGeo(trad)).risk; } catch (e) { } }
   const ap = peakOf(g).risk;
+  if (S.current?.id !== run.id || S.custom) return;
   els.forEach(e => { e.innerHTML = `<div class="rowbetween"><span class="tag beta" style="margin:0">Beta</span><span class="src">Learned from verified lightning</span></div>
     <div class="rowbetween"><span>Traditional peak</span><b>${tp == null ? '–' : Math.round(tp) + '%'}</b></div><div class="rowbetween"><span>AI HOCO peak</span><b>${Math.round(ap)}%</b></div>
     ${trad ? '<button class="btn sm" data-cmp-ai>Compare side by side</button>' : ''}`; e.classList.remove('hidden');
@@ -1425,7 +1446,7 @@ async function showCustom(run) {
 function clearCustom() { if (!S.custom) return; S.custom = null; document.body.classList.remove('custom'); loadToken++; renderAll(); }
 
 async function renderAll() {
-  if (S.custom) return;
+  if (S.custom || resolvingSharedRun) return;
   renderDays();
   const runs = S.byDay[S.day], n = runs.length;
   const label = S.product === 'ai' ? 'AI HOCO' : 'AUTO-HOCO';
@@ -1434,14 +1455,13 @@ async function renderAll() {
   if (!n) {
     $('empty').classList.remove('hidden'); $('summary').classList.add('hidden'); setNotice(null);
     $('emptyTitle').textContent = S.product === 'ai' ? 'No AI HOCO runs for this day yet' : 'No runs for this day yet';
-    $('emptyText').textContent = S.product === 'ai' ? 'AI HOCO is still in training. Switch back to Traditional to see the latest forecast.' : 'The next run usually arrives within the hour.';
+    $('emptyText').textContent = S.product === 'ai' ? 'No AI forecast is available for the selected date and region.' : 'The next run usually arrives within the hour.';
     if (S.archive) setNotice(`Archive · ${dayDate(baseDay())}`, 'Back to today', 'arch');
     $('runSlider').max = 0; $('runTime').textContent = '–'; $('runNote').textContent = ''; $('covers').textContent = '–'; $('runCount').textContent = '0 runs';
     S.geo = { type: 'FeatureCollection', features: [] }; map.getSource('hoco')?.setData(S.geo); Extras.onEmpty(); return;
   }
   $('empty').classList.add('hidden'); $('summary').classList.remove('hidden');
   let i = S.idx[S.day]; if (i == null || i >= n) i = n - 1;
-  if (wantRun && S.day === (+params.get('day') || 0)) { const j = runs.findIndex(r => r.id === wantRun); if (j >= 0 && S.idx[S.day] == null) i = j; }
   S.idx[S.day] = i;
   const run = runs[i], isLatest = i === n - 1, behind = n - 1 - i;
   const sl = $('runSlider'); sl.max = n - 1; sl.value = i; sl.style.setProperty('--pct', n > 1 ? (i / (n - 1) * 100) + '%' : '100%');
@@ -1470,7 +1490,12 @@ async function renderAll() {
     u.searchParams.set('region', S.region); u.searchParams.set('day', S.day); if (!EMBED) u.searchParams.set('run', run.id); if (S.product === 'ai') u.searchParams.set('view', 'ai');
     history.replaceState(null, '', u);
     renderDays();
-  } catch (e) { if (tok === loadToken) toast('Could not load this run'); }
+  } catch (e) {
+    if (tok !== loadToken) return;
+    S.current = null; setGeo({ type: 'FeatureCollection', features: [] }); Extras.onEmpty();
+    $('summary').classList.add('hidden'); $('empty').classList.remove('hidden');
+    $('emptyTitle').textContent = 'Forecast map unavailable'; $('emptyText').textContent = run.id;
+  }
 }
 function setRun(i) { if (S.custom) clearCustom(); const n = S.byDay[S.day].length; S.idx[S.day] = Math.max(0, Math.min(n - 1, i)); S.follow[S.day] = S.idx[S.day] === n - 1; renderAll(); }
 $('runSlider').oninput = (e) => setRun(+e.target.value);
@@ -1566,11 +1591,59 @@ function riskAtGeo(g, lon, lat) {
   return r;
 }
 let firstLoad = true;
-function startData() {
+async function startData() {
   if (unsub) return;
+  if (resolvingSharedRun) {
+    let cancelled = false;
+    unsub = () => { cancelled = true; };
+    try {
+      const s = await getDoc(doc(db, 'hoco_requests', wantRun));
+      if (cancelled) return;
+      const run = s.exists() && { ...s.data(), id: s.id };
+      if (!run || hidden(run) || !['ai', 'automated'].includes(run.type) || !regionMatches(S.region, run) || !startOf(run)) throw Error();
+      S.product = run.type === 'ai' ? 'ai' : 'traditional';
+      S.archive = { date: dateKey(addDays(startOf(run), -S.day)), runs: [run], sharedId: run.id };
+      buildDays();
+      if (!S.byDay[S.day].length) throw Error();
+      resolvingSharedRun = false;
+      S.idx[S.day] = 0; S.follow[S.day] = false;
+      $('typeAi').setAttribute('aria-pressed', S.product === 'ai');
+      $('typeTrad').setAttribute('aria-pressed', S.product === 'traditional');
+      $('skel').classList.add('hidden'); $('dock').classList.remove('hidden');
+      renderAll();
+      const archive = S.archive, from = addDays(startOf(run), -4), to = addDays(startOf(run), 4);
+      getDocs(query(collection(db, 'hoco_requests'), where('createdAt', '>=', from),
+        where('createdAt', '<=', to), orderBy('createdAt', 'desc'), limit(1200))).then(neighbours => {
+        if (S.archive !== archive) return;
+        const selected = S.byDay.map((list, day) => list[S.idx[day]]?.id);
+        archive.runs = [run];
+        neighbours.forEach(d => { if (d.id !== run.id) archive.runs.push({ ...d.data(), id: d.id }); });
+        buildDays();
+        S.idx = S.byDay.map((list, day) => { const i = list.findIndex(r => r.id === selected[day]); return i < 0 ? null : i; });
+        loadPeaks(); renderAll();
+      }).catch(() => {}); // The exact run is usable even when the archive query fails.
+    } catch {
+      if (cancelled) return;
+      S.archive = null;
+      $('skel').classList.add('hidden'); $('summary').classList.add('hidden');
+      $('empty').classList.remove('hidden'); $('emptyTitle').textContent = 'Shared forecast unavailable';
+      const latest = document.createElement('a'), url = new URL(location.href);
+      url.searchParams.delete('run'); latest.href = url.href; latest.textContent = 'Open latest forecast';
+      $('emptyText').replaceChildren(document.createTextNode(wantRun + ' · '), latest);
+      return;
+    }
+  }
   let first = true;
   unsub = onSnapshot(query(collection(db, 'hoco_requests'), orderBy('createdAt', 'desc'), limit(300)), (snap) => {
-    S.runs = []; snap.forEach(d => S.runs.push({ id: d.id, ...d.data() }));
+    S.runs = []; snap.forEach(d => S.runs.push({ ...d.data(), id: d.id }));
+    if (S.archive?.sharedId) {
+      const update = S.runs.find(r => r.id === S.archive.sharedId);
+      const pinned = S.archive.runs.find(r => r.id === S.archive.sharedId);
+      if (update && pinned) {
+        Object.assign(pinned, update);
+        if (S.current?.id === pinned.id && S.geo) renderAiCmp(pinned, S.geo);
+      }
+    }
     buildDays();
     if (first) { first = false; $('skel').classList.add('hidden'); $('dock').classList.remove('hidden'); measureDock(); if (S.region !== 'England') fitRegion();
       if (firstLoad && !EMBED) { firstLoad = false; Stage4.startTutorial(); Stage4.installBanner?.(); } }
