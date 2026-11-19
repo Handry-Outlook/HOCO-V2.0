@@ -1225,9 +1225,14 @@ map.on('dragstart', () => probe.classList.add('hidden')); map.on('zoomstart', ()
 map.on('click', (e) => { if (innerWidth <= 640 && $('summary').classList.contains('open')) { $('summary').classList.remove('open'); $('sumHead').setAttribute('aria-expanded', 'false'); } showProbe(probeAt(e.point), e.point); });
 
 // ---------- data ----------
-// The forecast day runs 06:00 to 05:59 (the runs' own start time), so just after midnight "today" is still yesterday's outlook.
-const dayStartHour = () => { const r = S.runs.find(x => x.type === 'automated' && startOf(x)); const st = r && startOf(r); return st ? st.getHours() + st.getMinutes() / 60 : 6; };
-const baseDay = () => { if (S.archive) return new Date(S.archive.date + 'T00:00:00'); const t = new Date(Date.now() - dayStartHour() * 3600000); t.setHours(0, 0, 0, 0); return t; };
+// "Today" is the date of the outlook in force right now (the newest run whose period covers now), so just after
+// midnight Day 0 is still the outlook that runs to 05:59, instead of a day that has not started yet.
+const baseDay = () => { if (S.archive) return new Date(S.archive.date + 'T00:00:00');
+  const now = Date.now(), ms = (r) => created(r)?.getTime() || 0, want = S.product === 'ai' ? ['ai', 'automated'] : ['automated'];
+  let cur = null;
+  for (const type of want) { cur = S.runs.filter(r => r.type === type && r.status !== 'pending' && regionMatches(S.region, r) && startOf(r) && endOf(r) &&
+    startOf(r).getTime() <= now && endOf(r).getTime() > now).sort((a, b) => ms(b) - ms(a))[0]; if (cur) break; }
+  const t = cur ? new Date(startOf(cur)) : new Date(); t.setHours(0, 0, 0, 0); return t; };
 const srcRuns = () => S.archive ? S.archive.runs : S.runs;
 const hidden = (r) => r.cancelled === true;
 function buildDays() {
