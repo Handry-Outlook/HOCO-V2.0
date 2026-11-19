@@ -61,7 +61,7 @@ export function openSettings() {
 const C = { panes: [], days: [], maps: [], marks: [], link: true, syncing: false, day: 0, mode: 'side', split: 0.5 };
 const typeLabel = (r) => ({ automated: 'Traditional', ai: 'AI HOCO', 'human-mimic': 'Ensemble', manual: 'Manual' }[r?.type] || 'Run');
 const typeCls = (r) => ({ automated: 'trad', ai: 'ai', 'human-mimic': 'ens', manual: 'man' }[r?.type] || 'man');
-const runDay = (r) => { const s = r && X.startOf(r); if (!s) return null; const t = new Date(); t.setHours(0, 0, 0, 0); const d = Math.round((new Date(s).setHours(0, 0, 0, 0) - t) / 864e5); return d >= 0 && d <= 2 ? d : null; };
+const runDay = (r) => { const s = r && X.startOf(r); if (!s) return null; const t = X.baseDay(); const d = Math.round((new Date(s).setHours(0, 0, 0, 0) - t) / 864e5); return d >= 0 && d <= 2 ? d : null; };
 function ensembles() { const me = X.auth?.currentUser?.uid; return X.S.runs.filter(r => r.type === 'human-mimic' && (r.userId === me || r.public) && r.cancelled !== true).slice(0, 12); }
 const extra = new Map();   // runs loaded from Tools › Runs that are not in the normal lists (archive, manual)
 const findRun = (id) => { if (!id) return null; for (const t of ['automated', 'ai']) for (let d = 0; d < 3; d++) { const r = X.runsFor(d, t).find(x => x.id === id); if (r) return r; } return extra.get(id) || X.S.runs.find(r => r.id === id) || null; };
@@ -204,7 +204,7 @@ function drawCompare() {
   const n = C.panes.length; if (n !== 2 && C.mode === 'swipe') C.mode = 'side';
   document.body.classList.add('comparing');
   const el = $('compare'); el.classList.remove('hidden'); el.classList.add('cx');
-  const reg = X.REGIONS.find(r => r.id === X.S.region), dt = new Date(); dt.setHours(0, 0, 0, 0); dt.setDate(dt.getDate() + C.day);
+  const reg = X.REGIONS.find(r => r.id === X.S.region), dt = X.baseDay(); dt.setDate(dt.getDate() + C.day);
   el.innerHTML = `<header class="cx-top">
       <button class="btn icon" id="cmpBack" aria-label="Back to the forecast map" title="Back (Esc)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
       <div class="cx-title"><b>Compare maps</b><small>${esc(reg?.name || X.S.region)} · ${n} map${n > 1 ? 's' : ''}</small></div>

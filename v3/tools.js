@@ -243,7 +243,7 @@ function renderEnsemble(body) {
   const E = T.ens, groups = ensembleGroups();
   if (role() === 'guest') { body.innerHTML = `<div class="note">Guests can't build ensembles. Ask for a Normal account to blend runs.</div>`; return; }
   if (!groups.length) { body.innerHTML = `<div class="note">No finished runs to blend for ${esc(X.S.region)} yet.</div>`; return; }
-  const want = dateKey(X.addDays(new Date(new Date().setHours(0, 0, 0, 0)), X.S.day));
+  const want = dateKey(X.addDays(X.baseDay(), X.S.day));
   let grp = groups.find(x => x.key === E.key) || groups.find(x => x.key === want) || groups[groups.length - 1];
   if (grp.key !== E.key) { E.key = grp.key; E.sel = new Set(); E.w = {}; }
   const hasAi = grp.runs.some(r => r.type === 'ai'), hasTrad = grp.runs.some(r => r.type === 'automated');

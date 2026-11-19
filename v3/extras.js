@@ -219,7 +219,13 @@ function strikeClick(e) {
 }
 
 // ------------------------------------------------------------------ observed time bar: whole forecast period, future part greyed
+// 'last24': the slider always covers the past 24 hours and the forecast underneath follows the time.
+// 'run': only the chosen forecast's own period, with that forecast fixed underneath.
+const loadMode = () => { try { return localStorage.getItem('hocoObsMode') === 'run' ? 'run' : 'last24'; } catch (e) { return 'last24'; } };
+O.mode = loadMode(); O.tempRun = false;
+const effMode = () => (O.mode === 'run' || O.tempRun || O.archive || X.S.archive || X.S.custom) ? 'run' : 'last24';
 function obsRange(run) {
+  if (effMode() === 'last24') { const now = frameOf(Date.now() - 5 * 60000); return { s: now - 24 * 3600000, e: now, now }; }
   const s = X.startOf(run), e = X.endOf(run); if (!s || !e) return null;
   const now = Date.now(); if (s.getTime() > now) return { future: true, s: s.getTime(), e: e.getTime() };
   return { s: frameOf(s.getTime()), e: frameOf(e.getTime()), now: frameOf(Math.min(e.getTime(), now - 5 * 60000)) };
@@ -231,12 +237,12 @@ function buildObsBar() {
     <div class="obs-row">
       <button class="btn icon" id="obsPlay" aria-label="Play">${PLAY}</button>
       <div class="obs-mid">
-        <div class="obs-head"><b id="obsTitle">–</b><span class="tag live hidden" id="obsLive">Live</span><small id="obsInfo"></small></div>
+        <div class="obs-head"><b id="obsTitle">–</b><span class="tag live hidden" id="obsLive">Live</span><small id="obsHoco"></small><small id="obsInfo"></small></div>
         <label class="sr" for="obsSlider">Observed time</label>
         <div class="obs-track"><input type="range" id="obsSlider" min="0" max="0" value="0" step="1"><span class="obs-future" id="obsFuture"><em>not happened yet</em></span></div>
         <div class="obs-ticks" id="obsTicks"></div>
       </div>
-      <div class="obs-btns"><button class="btn sm" id="obsNow">Now</button><button class="btn sm" id="obsKeyBtn" aria-expanded="false">Key</button><button class="btn icon sm" id="obsClose" aria-label="Turn off radar and strikes">✕</button></div>
+      <div class="obs-btns"><button class="btn sm" id="obsMode" aria-pressed="false" title="Only this forecast's period, with this forecast shown underneath">This run</button><button class="btn sm" id="obsNow">Now</button><button class="btn sm" id="obsKeyBtn" aria-expanded="false">Key</button><button class="btn icon sm" id="obsClose" aria-label="Turn off radar and strikes">✕</button></div>
     </div>
     <div class="obs-keys hidden" id="obsKeys"></div>`;
   $('obsKeyBtn').onclick = () => { O.keyOpen = !O.keyOpen; $('obsKeys').classList.toggle('hidden', !O.keyOpen); $('obsKeyBtn').setAttribute('aria-expanded', O.keyOpen); X.measureDock(); };
@@ -259,15 +265,16 @@ function renderObsKeys() {
 function syncObs() {
   const on = O.radar || O.strikes, bar = $('obsBar');
   document.body.classList.toggle('obs-on', on);
-  if (!on || !O.run) { bar.classList.add('hidden'); stop(); X.measureDock(); return; }
+  if (!on || !O.run) { bar.classList.add('hidden'); stop(); followHoco(); X.measureDock(); return; }
   bar.classList.remove('hidden'); renderObsKeys();
   const r = obsRange(O.run);
   if (!r || r.future) { $('obsSlider').disabled = true; $('obsPlay').disabled = true; $('obsNow').disabled = true;
     $('obsTitle').textContent = 'Not started yet'; $('obsLive').classList.add('hidden'); $('obsTicks').innerHTML = ''; $('obsFuture').style.width = '100%';
     setObsInfo(`Radar and strikes appear once this forecast starts (${r ? fmtObs(r.s) : '–'})`); removeRadar(); removeStrikes(); X.measureDock(); return; }
   [$('obsSlider'), $('obsPlay'), $('obsNow')].forEach(e => e.disabled = false);
-  const fresh = O.runId !== O.run.id, atEnd = O.t == null || O.t >= O.tNow;
-  O.runId = O.run.id; O.t0 = r.s; O.t1 = Math.max(r.e, r.s); O.tNow = Math.max(r.s, r.now);
+  const mode = effMode(), mk = mode + '|' + (mode === 'run' ? O.run.id : ''), fresh = O.runId !== mk, atEnd = O.t == null || O.t >= O.tNow;
+  O.runId = mk;
+  const mb = $('obsMode'); if (mb) { mb.setAttribute('aria-pressed', mode === 'run'); mb.disabled = !!(O.archive || X.S.archive || X.S.custom); } O.t0 = r.s; O.t1 = Math.max(r.e, r.s); O.tNow = Math.max(r.s, r.now);
   if (fresh || atEnd || O.t < O.t0 || O.t > O.tNow) O.t = O.tNow;
   const sl = $('obsSlider'); sl.min = 0; sl.max = Math.max(1, Math.round((O.t1 - O.t0) / RADAR_STEP));
   const nowPct = Math.min(100, (O.tNow - O.t0) / Math.max(1, O.t1 - O.t0) * 100);
@@ -284,11 +291,23 @@ async function setTime(ms, force) {
   if (O.strikes) {
     if (!O.strikeData || force) { if (!O.loadingStrikes) { O.loadingStrikes = true; setObsInfo('Loading strikes…');
       const run = O.run, r = obsRange(run);
-      try { await loadStrikes(r.s, Math.min(X.endOf(run).getTime(), Date.now()), X.S.region); } catch (e) { O.strikeData = []; }
+      try { await loadStrikes(r.s, effMode() === 'last24' ? Date.now() : Math.min(X.endOf(run).getTime(), Date.now()), X.S.region); } catch (e) { O.strikeData = []; }
       O.loadingStrikes = false; setObsInfo(''); } }
     drawStrikes();
   }
+  followHoco();
   if (O.radar) await drawRadar();
+}
+// In 'last24' the map shows the newest forecast that had been issued by the time on the slider.
+let hocoTok = 0;
+async function followHoco() {
+  const lbl = $('obsHoco');
+  if (effMode() !== 'last24' || !(O.radar || O.strikes) || O.t == null) { if (O.hocoId !== undefined) { O.hocoId = undefined; X.showObsGeo(null); } if (lbl) lbl.textContent = ''; return; }
+  const run = X.runAt(O.t), id = run ? run.id : null;
+  if (lbl) lbl.textContent = run ? `Forecast issued ${fmtObs(X.created(run).getTime())}` : 'No forecast for this time';
+  if (id === O.hocoId) return; O.hocoId = id; const tok = ++hocoTok;
+  if (!run) { X.showObsGeo({ type: 'FeatureCollection', features: [] }); return; }
+  try { const g = await X.fetchGeo(run); if (tok === hocoTok) X.showObsGeo(g, run); } catch (e) { /* keep what is shown */ }
 }
 let playTimer = null;
 function stop() { O.playing = false; clearTimeout(playTimer); const b = $('obsPlay'); if (b) { b.innerHTML = PLAY; b.setAttribute('aria-label', 'Play'); } }
@@ -479,7 +498,7 @@ async function renderPlace() {
       <button class="btn icon sm" data-pl-save aria-label="${saved ? 'Remove from saved places' : 'Save place'}" title="${saved ? 'Saved' : 'Save place'}">${saved ? '★' : '☆'}</button>
       <button class="btn icon sm${saved?.alertAt ? ' on' : ''}" data-pl-alert aria-label="Storm alert" title="${saved?.alertAt ? `Alert at ${saved.alertAt}%+` : 'Set an alert'}">🔔</button>
       <button class="btn icon sm" data-pl-x aria-label="Close place">✕</button></div>
-    <div class="pl-days">${[0, 1, 2].map(d => { const dt = X.addDays(new Date(new Date().setHours(0, 0, 0, 0)), d), r = days?.[d], bb = r != null ? X.bandFor(r) : null;
+    <div class="pl-days">${[0, 1, 2].map(d => { const dt = X.addDays(X.baseDay(), d), r = days?.[d], bb = r != null ? X.bandFor(r) : null;
       return `<div><small>${d === 0 ? 'Today' : X.dayName(dt)}</small><b><i style="background:${bb ? bb.fill : 'var(--track)'}"></i>${days ? pctTxt(r) : '…'}</b></div>`; }).join('')}</div>`;
   const wire = () => els.forEach(el => { el.classList.remove('hidden');
     el.querySelector('[data-pl-x]').onclick = () => setPlace(null);
@@ -649,6 +668,7 @@ export function initExtras(ctx) {
   $('obsSlider').oninput = (e) => { stop(); const t = O.t0 + +e.target.value * RADAR_STEP; if (t > O.tNow) { e.target.value = Math.round((O.tNow - O.t0) / RADAR_STEP); } setTime(Math.min(t, O.tNow)); };
   $('obsPlay').onclick = () => { if (O.playing) return stop(); O.playing = true; $('obsPlay').innerHTML = PAUSE; $('obsPlay').setAttribute('aria-label', 'Pause'); if (O.t >= O.tNow) O.t = O.t0 - RADAR_STEP; step(); };
   $('obsNow').onclick = () => { stop(); O.strikeData = null; syncObs(); };
+  $('obsMode').onclick = () => { stop(); const toRun = effMode() !== 'run'; O.mode = toRun ? 'run' : 'last24'; O.tempRun = false; try { localStorage.setItem('hocoObsMode', O.mode); } catch (e) {} O.strikeData = null; O.t = null; syncObs(); };
   $('obsClose').onclick = () => { setLayer('radar', false); setLayer('strikes', false); };
   X.map.on('moveend', () => { if (O.radar) drawRadar(); });
   X.map.on('click', 'strikes', strikeClick);
@@ -677,6 +697,9 @@ export function initExtras(ctx) {
 }
 // a run is on the map (live view or a chosen run)
 export function onShown(run, geo, prev) {
+  // picking another day or an older run shows that run's own period until you go back to the latest Day 0
+  O.tempRun = !!run && X.S.day !== 0 || (X.S.byDay?.[0]?.length && run && X.S.byDay[0].at(-1)?.id !== run.id && X.S.day === 0);
+  if (O.hocoId !== undefined) O.hocoId = null;
   O.run = run;
   if (place && !placeMarker) setPlace(place, false); else renderPlace();
   renderChange(run, geo, prev);

@@ -835,6 +835,10 @@ body.comparing .tools{z-index:40}
 .cx-obs .cx-tog.sm{height:32px}
 
 @media (max-width:640px){ .cx-obs{flex-wrap:nowrap} .cx-obs .btn.sm{padding:0 8px} .cx-ohead b{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .cx-obs{position:relative} .cx-okeys{position:absolute;left:0;right:0;bottom:100%;padding:8px 10px;background:var(--surface);border-top:1px solid var(--border);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)} }
+
+#obsHoco{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#obsMode[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+@media (max-width:640px){ .obs-head #obsHoco{display:inline;font-size:11px;min-width:0} .obsbar .obs-btns .btn{padding:0 7px} }
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -1169,8 +1173,9 @@ const probe = $('probe');
 // Same answer on every device: the nearest forecast grid point (with its model agreement) wherever you hover or tap.
 let PTS = null, PTS_SRC = null;
 function pointIndex() {
-  if (PTS_SRC === S.geo) return PTS; PTS_SRC = S.geo; PTS = new Map();
-  (S.geo?.features || []).forEach(f => { if (f.properties?.feature_type !== 'point' || f.geometry?.type !== 'Point') return;
+  const G = S.obsGeo || S.geo;
+  if (PTS_SRC === G) return PTS; PTS_SRC = G; PTS = new Map();
+  (G?.features || []).forEach(f => { if (f.properties?.feature_type !== 'point' || f.geometry?.type !== 'Point') return;
     const [lon, lat] = f.geometry.coordinates, k = Math.floor(lon * 2) + ':' + Math.floor(lat * 2); (PTS.get(k) || PTS.set(k, []).get(k)).push(f); });
   return PTS;
 }
@@ -1189,7 +1194,7 @@ function probeAt(point) {
   return polys.length ? polys.reduce((a, f) => riskOf(f.properties) > riskOf(a.properties) ? f : a).properties : null;
 }
 let lastProbe = null, SRC_GEO = null, SRC_HAS = false;
-const geoHasSrc = () => { if (SRC_GEO !== S.geo) { SRC_GEO = S.geo; SRC_HAS = (S.geo?.features || []).some(f => f.properties?.src); } return SRC_HAS; };
+const geoHasSrc = () => { const G = S.obsGeo || S.geo; if (SRC_GEO !== G) { SRC_GEO = G; SRC_HAS = (G?.features || []).some(f => f.properties?.src); } return SRC_HAS; };
 function showProbe(props, point) {
   if (!props) { probe.classList.add('hidden'); return; }
   lastProbe = { props, point };
@@ -1220,7 +1225,9 @@ map.on('dragstart', () => probe.classList.add('hidden')); map.on('zoomstart', ()
 map.on('click', (e) => { if (innerWidth <= 640 && $('summary').classList.contains('open')) { $('summary').classList.remove('open'); $('sumHead').setAttribute('aria-expanded', 'false'); } showProbe(probeAt(e.point), e.point); });
 
 // ---------- data ----------
-const baseDay = () => { if (S.archive) return new Date(S.archive.date + 'T00:00:00'); const t = new Date(); t.setHours(0, 0, 0, 0); return t; };
+// The forecast day runs 06:00 to 05:59 (the runs' own start time), so just after midnight "today" is still yesterday's outlook.
+const dayStartHour = () => { const r = S.runs.find(x => x.type === 'automated' && startOf(x)); const st = r && startOf(r); return st ? st.getHours() + st.getMinutes() / 60 : 6; };
+const baseDay = () => { if (S.archive) return new Date(S.archive.date + 'T00:00:00'); const t = new Date(Date.now() - dayStartHour() * 3600000); t.setHours(0, 0, 0, 0); return t; };
 const srcRuns = () => S.archive ? S.archive.runs : S.runs;
 const hidden = (r) => r.cancelled === true;
 function buildDays() {
@@ -1354,8 +1361,20 @@ async function renderAiCmp(run, g) {
     ${trad ? '<button class="btn sm" data-cmp-ai>Compare side by side</button>' : ''}`; e.classList.remove('hidden');
     const b = e.querySelector('[data-cmp-ai]'); if (b) b.onclick = () => Stage4.openCompare?.(2, [trad.id, run.id]); });
 }
+// the newest forecast issued by time t that covers t (used by the radar timeline)
+function runAt(t) {
+  const type = S.product === 'ai' ? 'ai' : 'automated', ms = (r) => created(r)?.getTime() || 0;
+  const c = S.runs.filter(r => r.type === type && r.status !== 'pending' && !hidden(r) && regionMatches(S.region, r) && startOf(r) && endOf(r) &&
+    startOf(r).getTime() <= t && endOf(r).getTime() > t && (r.geojsonUrl || r.inlineGeojson || r.inlineGeojsonText || r.geojson)).sort((a, b) => ms(a) - ms(b));
+  return c.filter(r => ms(r) <= t).at(-1) || c[0] || null;
+}
+// draw another forecast underneath the radar timeline without changing the selected run (null puts the selected run back)
+function showObsGeo(g) {
+  S.obsGeo = g || null; const use = g || S.geo, src = map.getSource('hoco'); if (!use) return;
+  if (src) src.setData(use); if (map.getLayer('hoco-fill')) map.setPaintProperty('hoco-fill', 'fill-opacity', fillOp(use));
+}
 function setGeo(g) {
-  S.geo = g; const src = map.getSource('hoco');
+  S.geo = g; S.obsGeo = null; const src = map.getSource('hoco');
   if (src) src.setData(g); else if (map.isStyleLoaded()) addLayers();
   if (map.getLayer('hoco-fill')) map.setPaintProperty('hoco-fill', 'fill-opacity', fillOp(g));
 }
@@ -1571,8 +1590,8 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ---------- extras (radar, strikes, export, search, change, cookies) ----------
-import('./extras.js?v=16').then((m) => {
-  m.initExtras({ openSummary: () => { $('summary').classList.add('open'); $('sumHead').setAttribute('aria-expanded', 'true'); }, map, S, BANDS, REGIONS, TYPE_LABEL: LABELS, toast, openPop, measureDock, fetchGeo, peakOf, riskOf, bandFor, bandLabel, created, startOf, endOf, hhmm, dayName, dayDate,
+import('./extras.js?v=17').then((m) => {
+  m.initExtras({ baseDay, runAt, showObsGeo, openSummary: () => { $('summary').classList.add('open'); $('sumHead').setAttribute('aria-expanded', 'true'); }, map, S, BANDS, REGIONS, TYPE_LABEL: LABELS, toast, openPop, measureDock, fetchGeo, peakOf, riskOf, bandFor, bandLabel, created, startOf, endOf, hhmm, dayName, dayDate,
     embed: EMBED, embedLayers: EMBED ? (params.get('layers') || '') : null, radarOpacity: () => SETTINGS.radarOpacity, showChanged: () => SETTINGS.changed !== false, openEmbed: EMBED ? null : () => Stage4.openEmbed(),
     riskAtGeo, runsFor, addDays, nearestPlace, colorExpr, mapStyle: () => SETTINGS.mapStyle, setMapStyle: (k) => { const s = { ...SETTINGS, mapStyle: k, styleV2: true }; try { localStorage.setItem('hocoSettings', JSON.stringify(s)); } catch (e) { } applySettings(s, { mapStyle: k }); },
     goDay: (d) => { S.day = d; clearCustom(); renderAll(); }, strikesDefault: () => SETTINGS.strikesDefault, onConsent: () => Stage4.renderAds(),
@@ -1582,8 +1601,8 @@ import('./extras.js?v=16').then((m) => {
 }).catch((e) => console.error(e));
 
 // ---------- stage 4 (settings, compare, accuracy, alerts, install, tutorial, embed, ads) ----------
-import('./stage4.js?v=14').then((m) => {
-  m.initStage4({ extras: () => Extras, map, S, BANDS, REGIONS, db, auth, storage, doc, getDoc, getDocs, query, collection, where, orderBy, limit, addDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, dateKey, nearestPlace, regionMatches,
+import('./stage4.js?v=15').then((m) => {
+  m.initStage4({ baseDay, extras: () => Extras, map, S, BANDS, REGIONS, db, auth, storage, doc, getDoc, getDocs, query, collection, where, orderBy, limit, addDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, dateKey, nearestPlace, regionMatches,
     colorExpr, fillColor, styleUrl, applySettings, setTheme, setProduct, setRegion, runsFor, riskAt: riskAtGeo, embed: EMBED, goDay: (d) => { S.day = d; clearCustom(); renderAll(); },
     callable: (name) => async (data) => { const f = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js'); return f.httpsCallable(f.getFunctions(app, 'us-central1'), name)(data); },
     openTools: (t) => Tools.openTab(t), closeTools: () => Tools.toggle?.(false), openAlerts: (p) => Extras.openAlerts(p), openShortcuts: () => Extras.openShortcuts(), setNotifyRuns: (v) => Tools.setNotify?.(v) });
@@ -1592,8 +1611,8 @@ import('./stage4.js?v=14').then((m) => {
 }).catch((e) => console.error(e));
 
 // ---------- tools (runs, ensemble, manual run, developer) ----------
-import('./tools.js?v=6').then((m) => {
-  m.initTools({ app, auth, db, S, BANDS, REGIONS, fetchGeo, cachePut: (id, g) => cache.set(id, g), showCustom, clearCustom, toast,
+import('./tools.js?v=7').then((m) => {
+  m.initTools({ baseDay, app, auth, db, S, BANDS, REGIONS, fetchGeo, cachePut: (id, g) => cache.set(id, g), showCustom, clearCustom, toast,
     created, startOf, endOf, hhmm, dayName, dayDate, addDays, parseHocoTime, regionMatches, notifyDefault: SETTINGS.notifyRuns !== false,
     renderSettings: (b) => Stage4.renderSettings(b), comparing: () => Stage4.comparing(), loadTo: (r) => Stage4.loadTo(r), renderAds: () => Stage4.renderAds() });
   Tools = m;
