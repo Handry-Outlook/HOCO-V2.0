@@ -1,4 +1,4 @@
-import { doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const MAPBOX_VERSION = "3.2.0";
 const MAPBOX_TOKEN = "pk.eyJ1IjoiaGFuZHJ5MjAxOTEwMjYiLCJhIjoiY21jYWg2eG1lMDNkYTJxczVyOWM5bW9mciJ9.bA-qxiByTB_RseY1fgU4rg";
@@ -12,6 +12,16 @@ const localTime = new Intl.DateTimeFormat("en-GB", {
 const percentage = (value) => value === null ? "—" : `${(100 * value).toFixed(1)}%`;
 const ratio = (value, total) => total > 0 ? value / total : null;
 const EMPTY_MAP = { type: "FeatureCollection", features: [] };
+
+function forecastDocument(db, region, day) {
+    const id = day === "day0" ? `first_hour_shadow_${region}` : `timing_shadow_${region}_${day}`;
+    return doc(db, "developer_access", id);
+}
+
+function availableForecast(runs, day, now) {
+    return runs.find((run) => now < run.validTo.toMillis() &&
+        (day !== "day0" || run.validFrom.toMillis() <= now));
+}
 
 let mapboxReady;
 function loadMapbox() {
@@ -134,6 +144,7 @@ export function startFirstHourLab(db) {
     const legend = document.getElementById("shadowLegend");
     const scores = document.getElementById("shadowScores");
     let stop, timer, map, aiMap, selected, abort, revision = 0, runs = [], windowRun = null;
+    let subscription = 0;
     let split = 50;
 
     function setSplit(value) {
@@ -246,12 +257,13 @@ export function startFirstHourLab(db) {
         renderScores(scores, runs, horizon.value);
         const now = Date.now();
         const firstHour = horizon.value === "day0";
-        const current = runs.find((run) => now < run.validTo.toMillis() &&
-            (!firstHour || run.validFrom.toMillis() <= now));
+        const current = availableForecast(runs, horizon.value, now);
         if (!current) {
             clearMap();
             windowLabel.hidden = validWindow.hidden = true;
-            status.textContent = runs.length ? "The latest timing forecast has expired." : "Waiting for the next eligible automated run.";
+            status.textContent = firstHour
+                ? "No active Day 0 first-hour map. Select Day 1 or Day 2 to compare an upcoming forecast."
+                : runs.length ? "The latest timing forecast has expired." : "Waiting for the next eligible automated run.";
             return;
         }
         timer = setTimeout(refresh, current.validTo.toMillis() - now + 30);
@@ -307,8 +319,28 @@ export function startFirstHourLab(db) {
         }
     }
 
-    function watchRegion() {
+    async function chooseAvailableDay(watch, watchedRegion) {
+        for (const day of ["day1", "day2"]) {
+            try {
+                const snap = await getDoc(forecastDocument(db, watchedRegion, day));
+                if (watch !== subscription || availableForecast(runs, horizon.value, Date.now())) return;
+                if (availableForecast(snap.data()?.runs || [], day, Date.now())) {
+                    horizon.value = day;
+                    watchRegion();
+                    return;
+                }
+            } catch {
+                if (watch !== subscription) return;
+            }
+        }
+    }
+
+    function watchRegion(chooseOnOpen = false) {
         stop?.();
+        const watch = ++subscription;
+        const watchedDay = horizon.value;
+        const watchedRegion = region.value;
+        let choose = chooseOnOpen && watchedDay === "day0";
         clearTimeout(timer);
         clearMap();
         runs = [];
@@ -316,26 +348,37 @@ export function startFirstHourLab(db) {
         windowLabel.hidden = validWindow.hidden = true;
         status.textContent = "Loading timing forecasts…";
         scores.replaceChildren();
-        const id = horizon.value === "day0" ? `first_hour_shadow_${region.value}`
-            : `timing_shadow_${region.value}_${horizon.value}`;
-        stop = onSnapshot(doc(db, "developer_access", id),
+        stop = onSnapshot(forecastDocument(db, watchedRegion, watchedDay),
             (snapshot) => {
+                if (watch !== subscription) return;
                 runs = snapshot.exists() ? snapshot.data().runs || [] : [];
                 refresh();
+                if (choose && !snapshot.metadata?.fromCache) {
+                    choose = false;
+                    if (!availableForecast(runs, watchedDay, Date.now())) chooseAvailableDay(watch, watchedRegion);
+                }
             },
-            () => { status.textContent = "The shadow forecast records are unavailable."; });
+            () => {
+                if (watch !== subscription) return;
+                status.textContent = "The shadow forecast records are unavailable.";
+                if (choose) {
+                    choose = false;
+                    chooseAvailableDay(watch, watchedRegion);
+                }
+            });
     }
-    horizon.onchange = watchRegion;
-    region.onchange = watchRegion;
+    horizon.onchange = () => watchRegion();
+    region.onchange = () => watchRegion();
     layer.onchange = showComparison;
     validWindow.onchange = refresh;
 
     return { setDeveloper(allowed) {
         section.hidden = !allowed;
         if (allowed) {
-            watchRegion();
+            watchRegion(true);
         } else {
             stop?.();
+            ++subscription;
             clearTimeout(timer);
             clearMap();
             runs = [];
