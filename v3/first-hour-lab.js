@@ -30,19 +30,19 @@ function loadMapbox() {
     return mapboxReady;
 }
 
-function renderScores(target, runs) {
+function renderScores(target, runs, day) {
     const verified = runs.filter((run) => run.verificationStatus === "verified" && run.verification);
     const note = document.createElement("p");
     note.className = "note";
     if (!verified.length) {
-        note.textContent = "Scores appear after a completed hour has verified against the lightning feed.";
+        note.textContent = "Scores appear after the valid windows have verified against observed lightning.";
         target.replaceChildren(note);
         return;
     }
-    const results = verified.map((run) => run.verification);
+    const results = verified.flatMap((run) => run.verification);
     const total = (key) => results.reduce((n, score) => n + score[key], 0);
     const sum = (kind, key) => results.reduce((n, score) => n + score[kind][key], 0);
-    const uniqueDays = new Set(verified.map((run) => run.validFrom.toDate().toISOString().slice(0, 10)));
+    const uniqueDays = new Set(verified.map((run) => (run.publishedAt || run.validFrom).toDate().toISOString().slice(0, 10)));
     note.textContent = `${verified.length} recent verified runs across ${uniqueDays.size} UTC issue dates, including quiet runs.`;
     const table = document.createElement("table");
     table.className = "tbl";
@@ -58,8 +58,8 @@ function renderScores(target, runs) {
         }
     }
     row(["Forecast", "Brier", "Detection at 15%", "False alarms at 15%"], true);
-    for (const [kind, label] of [["traditional", "Traditional Day 0"],
-        ["baseline", "First-hour baseline"], ["shadow", "AI first hour"]]) {
+    for (const [kind, label] of [["traditional", "Traditional full-day outlook"],
+        ["baseline", "Same-window baseline"], ["shadow", "AI shadow forecast"]]) {
         const brier = kind === "traditional" ? "—" :
             (results.reduce((n, score) => n + score[kind].brier * score.cells, 0) / total("cells")).toFixed(4);
         const hits = sum(kind, "hits");
@@ -74,18 +74,35 @@ function renderScores(target, runs) {
     const scroll = document.createElement("div");
     scroll.className = "scroll";
     scroll.append(table);
-    target.replaceChildren(note, scroll, detail);
+    const adjacent = document.createElement("div");
+    if (day !== "day0") {
+        for (const [field, label] of [["quietBeforeLightning", "Quiet windows before lightning"],
+            ["quietAfterLightning", "Quiet windows after lightning"]]) {
+            const values = results.map((score) => score[field]).filter(Boolean);
+            const count = (key) => values.reduce((n, score) => n + score[key], 0);
+            const text = document.createElement("p");
+            text.className = "note";
+            const cells = count("cells");
+            text.textContent = cells ? `${label} within the forecast day · Share of cells flagged at 15% · Baseline ${percentage(ratio(count("baseline"), cells))} · AI ${percentage(ratio(count("shadow"), cells))} · ${format(cells)} cells`
+                : `${label} · No qualifying cells`;
+            adjacent.append(text);
+        }
+    }
+    target.replaceChildren(note, scroll, detail, adjacent);
 }
 
 export function startFirstHourLab(db) {
     const section = document.getElementById("firstHourLab");
+    const horizon = document.getElementById("shadowHorizon");
     const region = document.getElementById("shadowRegion");
+    const validWindow = document.getElementById("shadowWindow");
+    const windowLabel = document.getElementById("shadowWindowLabel");
     const layer = document.getElementById("shadowLayer");
     const status = document.getElementById("shadowStatus");
     const target = document.getElementById("shadowMap");
     const legend = document.getElementById("shadowLegend");
     const scores = document.getElementById("shadowScores");
-    let stop, timer, map, selected, abort, revision = 0, runs = [];
+    let stop, timer, map, selected, abort, revision = 0, runs = [], windowRun = null;
     new ResizeObserver(() => {
         if (map && target.clientWidth && target.clientHeight) map.resize();
     }).observe(target);
@@ -139,20 +156,41 @@ export function startFirstHourLab(db) {
 
     async function refresh() {
         clearTimeout(timer);
-        renderScores(scores, runs);
+        renderScores(scores, runs, horizon.value);
         const now = Date.now();
-        const current = runs.find((run) => run.validFrom.toMillis() <= now && now < run.validTo.toMillis());
+        const firstHour = horizon.value === "day0";
+        const current = runs.find((run) => now < run.validTo.toMillis() &&
+            (!firstHour || run.validFrom.toMillis() <= now));
         if (!current) {
             clearMap();
-            status.textContent = runs.length ? "The latest first-hour map has expired." : "Waiting for the next Day 0 run.";
+            windowLabel.hidden = validWindow.hidden = true;
+            status.textContent = runs.length ? "The latest timing forecast has expired." : "Waiting for the next eligible automated run.";
             return;
         }
         timer = setTimeout(refresh, current.validTo.toMillis() - now + 30);
-        if (selected?.runId === current.runId && selected.validFrom.toMillis() === current.validFrom.toMillis()) return;
+        const key = `${current.runId}/${current.publishedAt?.toMillis() ?? current.validFrom.toMillis()}`;
+        windowLabel.hidden = validWindow.hidden = firstHour;
+        if (!firstHour && windowRun !== key) {
+            windowRun = key;
+            const windows = current.windows || [];
+            validWindow.replaceChildren(...windows.map((period, i) => new Option(
+                `${localTime.format(period.validFrom.toDate())} – ${localTime.format(period.validTo.toDate())}`, i)));
+            const next = windows.findIndex((period) => period.validTo.toMillis() > now);
+            validWindow.value = String(Math.max(0, next));
+        }
+        const period = firstHour ? current : current.windows?.[Number(validWindow.value)];
+        if (!period) return;
+        const selectionKey = `${key}/${period.validFrom.toMillis()}`;
+        if (selected?.key === selectionKey) return;
+        status.textContent = `Valid ${localTime.format(period.validFrom.toDate())} to ${localTime.format(period.validTo.toDate())} UK time.`;
+        if (map?.getSource("shadow-risk")) {
+            selected = { ...period, key: selectionKey };
+            showLayer();
+            return;
+        }
         clearMap();
-        selected = current;
+        selected = { ...period, key: selectionKey };
         const revisionAtStart = revision;
-        status.textContent = `Valid ${localTime.format(current.validFrom.toDate())} to ${localTime.format(current.validTo.toDate())} UK time.`;
         try {
             const mapbox = await loadMapbox();
             if (revisionAtStart !== revision || current.validTo.toMillis() <= Date.now()) return;
@@ -182,17 +220,23 @@ export function startFirstHourLab(db) {
         clearTimeout(timer);
         clearMap();
         runs = [];
-        status.textContent = "Loading first-hour forecasts…";
+        windowRun = null;
+        windowLabel.hidden = validWindow.hidden = true;
+        status.textContent = "Loading timing forecasts…";
         scores.replaceChildren();
-        stop = onSnapshot(doc(db, "developer_access", `first_hour_shadow_${region.value}`),
+        const id = horizon.value === "day0" ? `first_hour_shadow_${region.value}`
+            : `timing_shadow_${region.value}_${horizon.value}`;
+        stop = onSnapshot(doc(db, "developer_access", id),
             (snapshot) => {
                 runs = snapshot.exists() ? snapshot.data().runs || [] : [];
                 refresh();
             },
-            () => { status.textContent = "The first-hour forecast records are unavailable."; });
+            () => { status.textContent = "The shadow forecast records are unavailable."; });
     }
+    horizon.onchange = watchRegion;
     region.onchange = watchRegion;
     layer.onchange = showLayer;
+    validWindow.onchange = refresh;
 
     return { setDeveloper(allowed) {
         section.hidden = !allowed;

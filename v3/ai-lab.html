@@ -66,6 +66,7 @@ a{color:var(--accent)}
 .tabs button{flex:none;height:36px;padding:0 14px;border-radius:10px;border:none;background:transparent;font-weight:600;font-size:14px;color:var(--muted);white-space:nowrap}
 .tabs button[aria-selected="true"]{background:var(--text);color:var(--bg)}
 .panel{display:none;flex-direction:column;gap:16px}.panel.on{display:flex}
+#firstHourLab [hidden]{display:none!important}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 .card h2{margin:0 0 4px;font-size:16px}
@@ -181,25 +182,33 @@ a{color:var(--accent)}
     <p class="note">How AI HOCO scores against Traditional HOCO on runs it was not trained on. Lower Brier and log loss are better; higher AUC is better.</p>
     <div class="grid3" id="dayCards"></div>
     <section class="card" id="firstHourLab" hidden>
-      <h2>Day 0 first hour</h2>
-      <p class="note">Shadow forecasts cover the hour after publication. The Traditional layer covers the whole Day 0 window.</p>
+      <h2>Shadow forecast timing</h2>
+      <p class="note">Compare the timing maps with a baseline for the same hours. The Traditional layer covers the whole outlook.</p>
       <div class="chips" style="margin:12px 0;align-items:center">
+        <label for="shadowHorizon">Forecast day</label>
+        <select class="btn" id="shadowHorizon">
+          <option value="day0">Day 0 · First hour</option>
+          <option value="day1">Day 1 · Six-hour maps</option>
+          <option value="day2">Day 2 · Twelve-hour maps</option>
+        </select>
         <label for="shadowRegion">Region</label>
         <select class="btn" id="shadowRegion">
           <option value="england">England</option>
           <option value="scotland">Scotland</option>
         </select>
+        <label for="shadowWindow" id="shadowWindowLabel" hidden>Valid window</label>
+        <select class="btn" id="shadowWindow" hidden></select>
         <label for="shadowLayer">Map</label>
         <select class="btn" id="shadowLayer" disabled>
-          <option value="shadow">AI first-hour forecast</option>
-          <option value="baseline">First-hour baseline</option>
-          <option value="traditional">Traditional Day 0</option>
+          <option value="shadow">AI shadow forecast</option>
+          <option value="baseline">Same-window baseline</option>
+          <option value="traditional">Traditional full-day outlook</option>
         </select>
       </div>
       <p class="note" id="shadowStatus" role="status"></p>
       <div id="shadowMap" style="height:clamp(300px, 48vw, 490px);border-radius:12px;overflow:hidden" hidden></div>
       <div id="shadowLegend" class="note" hidden></div>
-      <h3 style="margin-top:16px">First-hour verification</h3>
+      <h3 style="margin-top:16px">Timing verification</h3>
       <div id="shadowScores"></div>
     </section>
   </section>
