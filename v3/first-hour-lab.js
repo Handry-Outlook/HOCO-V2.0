@@ -45,7 +45,7 @@ function renderScores(target, runs) {
     const uniqueDays = new Set(verified.map((run) => run.validFrom.toDate().toISOString().slice(0, 10)));
     note.textContent = `${verified.length} recent verified runs across ${uniqueDays.size} UTC issue dates, including quiet runs.`;
     const table = document.createElement("table");
-    table.style.width = "100%";
+    table.className = "tbl";
     function row(values, header = false) {
         const line = table.insertRow();
         for (const value of values) {
@@ -71,7 +71,10 @@ function renderScores(target, runs) {
     detail.className = "note";
     const format = (count) => count.toLocaleString("en-GB");
     detail.textContent = `At 15%, ${format(sum("added", "hits"))} of ${format(sum("added", "cells"))} added cells verified with lightning. ${format(sum("removed", "hits"))} of ${format(sum("removed", "cells"))} removed cells verified.`;
-    target.replaceChildren(note, table, detail);
+    const scroll = document.createElement("div");
+    scroll.className = "scroll";
+    scroll.append(table);
+    target.replaceChildren(note, scroll, detail);
 }
 
 export function startFirstHourLab(db) {
@@ -83,6 +86,9 @@ export function startFirstHourLab(db) {
     const legend = document.getElementById("shadowLegend");
     const scores = document.getElementById("shadowScores");
     let stop, timer, map, selected, abort, revision = 0, runs = [];
+    new ResizeObserver(() => {
+        if (map && target.clientWidth && target.clientHeight) map.resize();
+    }).observe(target);
 
     function clearMap() {
         ++revision;

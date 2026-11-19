@@ -180,6 +180,28 @@ a{color:var(--accent)}
   <section class="panel" data-panel="days">
     <p class="note">How AI HOCO scores against Traditional HOCO on runs it was not trained on. Lower Brier and log loss are better; higher AUC is better.</p>
     <div class="grid3" id="dayCards"></div>
+    <section class="card" id="firstHourLab" hidden>
+      <h2>Day 0 first hour</h2>
+      <p class="note">Shadow forecasts cover the hour after publication. The Traditional layer covers the whole Day 0 window.</p>
+      <div class="chips" style="margin:12px 0;align-items:center">
+        <label for="shadowRegion">Region</label>
+        <select class="btn" id="shadowRegion">
+          <option value="england">England</option>
+          <option value="scotland">Scotland</option>
+        </select>
+        <label for="shadowLayer">Map</label>
+        <select class="btn" id="shadowLayer" disabled>
+          <option value="shadow">AI first-hour forecast</option>
+          <option value="baseline">First-hour baseline</option>
+          <option value="traditional">Traditional Day 0</option>
+        </select>
+      </div>
+      <p class="note" id="shadowStatus" role="status"></p>
+      <div id="shadowMap" style="height:clamp(300px, 48vw, 490px);border-radius:12px;overflow:hidden" hidden></div>
+      <div id="shadowLegend" class="note" hidden></div>
+      <h3 style="margin-top:16px">First-hour verification</h3>
+      <div id="shadowScores"></div>
+    </section>
   </section>
 
   <section class="panel" data-panel="context">
@@ -206,6 +228,7 @@ a{color:var(--accent)}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { startFirstHourLab } from "./first-hour-lab.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 
 const app = initializeApp({ apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ", authDomain: "hoco-3b23e.firebaseapp.com", projectId: "hoco-3b23e", storageBucket: "hoco-3b23e.firebasestorage.app", messagingSenderId: "409513272369", appId: "1:409513272369:web:a857d9b039d53710f8a110" });
@@ -439,12 +462,14 @@ if (location.hash) document.querySelector(`[data-tab="${location.hash.slice(1)}"
 // ---------- data ----------
 if (window.__HOCO_LAB_DEMO__) { Object.assign(state, window.__HOCO_LAB_DEMO__); renderAll(); }
 else {
+  const firstHourLab = startFirstHourLab(db);
   const watch = (id, key) => onSnapshot(doc(db, "system_stats", id), (snap) => { state[key] = snap.exists() ? snap.data() : null; renderAll(); }, (err) => console.warn(`Could not read ${id}:`, err.message));
   onSnapshot(doc(db, "system_stats", "hoco_ml"), (snap) => { state.ml = snap.exists() ? snap.data() : null; state.loaded = true; renderAll(); }, (err) => { state.loaded = true; console.warn('Could not read hoco_ml:', err.message); renderAll(); }); watch("ai_hoco", "ai"); watch("accuracy_v2", "accAuto"); watch("accuracy_ai", "accAi");
   onAuthStateChanged(auth, async (user) => {
     state.role = "guest"; devNames = null; $('who').textContent = user ? (user.email || "Signed in") : "Not signed in";
     if (user) { try { const u = await getDoc(doc(db, "users", user.uid)); state.role = u.exists() ? (u.data().role || "normal") : "normal";
       if (state.role === "developer") { const m = await getDoc(doc(db, "developer_access", "model_codes")); devNames = m.exists() ? (m.data().codes || null) : null; } } catch (e) { /* read-only */ } }
+    firstHourLab.setDeveloper(state.role === "developer");
     renderAll();
   });
   renderAll();

@@ -224,29 +224,6 @@
             <div id="dayCards" class="grid three"></div>
         </div>
 
-        <section class="section card" id="firstHourLab" hidden>
-            <h2>Day 0 first hour</h2>
-            <p class="note">Shadow forecasts cover the hour after publication. The Traditional layer covers the whole Day 0 window.</p>
-            <div class="controls" style="margin:12px 0">
-                <label for="shadowRegion">Region</label>
-                <select id="shadowRegion">
-                    <option value="england">England</option>
-                    <option value="scotland">Scotland</option>
-                </select>
-                <label for="shadowLayer">Map</label>
-                <select id="shadowLayer" disabled>
-                    <option value="shadow">AI first-hour forecast</option>
-                    <option value="baseline">First-hour baseline</option>
-                    <option value="traditional">Traditional Day 0</option>
-                </select>
-            </div>
-            <p class="note" id="shadowStatus" role="status"></p>
-            <div id="shadowMap" style="height:clamp(300px, 48vw, 490px);border-radius:12px;overflow:hidden" hidden></div>
-            <div id="shadowLegend" class="note" hidden></div>
-            <h3 style="margin-top:16px">First-hour verification</h3>
-            <div id="shadowScores"></div>
-        </section>
-
         <div class="section grid two">
             <div class="card">
                 <h2>Setups &amp; seasons</h2>
@@ -287,7 +264,6 @@
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
-        import { startFirstHourLab } from "./first-hour-lab.js";
 
         const app = initializeApp({
             apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ",
@@ -619,7 +595,6 @@
             Object.assign(state, window.__HOCO_LAB_DEMO__);
             renderAll();
         } else {
-            const firstHourLab = startFirstHourLab(db);
             const watch = (id, key) => onSnapshot(doc(db, "system_stats", id),
                 (snap) => { state[key] = snap.exists() ? snap.data() : null; renderAll(); },
                 (err) => console.warn(`Could not read ${id}:`, err.message));
@@ -641,7 +616,6 @@
                         }
                     } catch (e) { /* read-only */ }
                 }
-                firstHourLab.setDeveloper(state.role === "developer");
                 renderAll();
             });
             renderAll();
