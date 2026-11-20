@@ -124,10 +124,13 @@ export function addCanvasRadar(coords, map, st, before, opacity = 0.85) {
   map.addLayer({ id: st.id, type: 'raster', source: st.id, paint: { 'raster-opacity': opacity, 'raster-fade-duration': 0, 'raster-resampling': 'nearest' } }, before);
 }
 function labelLayer() { return X.map.getStyle().layers.find(l => l.type === 'symbol' && l.layout && l.layout['text-field'])?.id; }
+export function riskOutlineLayer(map) {
+  return ['hoco-line', 'hoco-hindcast-contours'].find(id => map.getLayer(id));
+}
 function addRadarLayer(coords) {
   const map = X.map; if (map.getSource('radar') || !coords) return;
   map.addSource('radar', { type: 'canvas', canvas: radarCanvas, coordinates: coords, animate: false });
-  const before = map.getLayer('hoco-coast') ? 'hoco-coast' : map.getLayer('strikes') ? 'strikes' : labelLayer();
+  const before = map.getLayer('strikes') ? 'strikes' : riskOutlineLayer(map) || labelLayer();
   map.addLayer({ id: 'radar', type: 'raster', source: 'radar', paint: { 'raster-opacity': X.radarOpacity ? X.radarOpacity() : 0.85, 'raster-fade-duration': 0, 'raster-resampling': 'nearest' } }, before);
 }
 function removeRadar() { const map = X.map; if (map.getLayer('radar')) map.removeLayer('radar'); if (map.getSource('radar')) map.removeSource('radar'); MAIN_RADAR.key = ''; O.frameKey = ''; }
@@ -190,7 +193,7 @@ function drawStrikes() {
   if (map.getSource('strikes')) map.getSource('strikes').setData(g);
   else {
     map.addSource('strikes', { type: 'geojson', data: g });
-    map.addLayer(strikeLayer('strikes'), labelLayer());
+    map.addLayer(strikeLayer('strikes'), riskOutlineLayer(map) || labelLayer());
   }
   O.strikeCount = g.features.length; renderObsHead();
 }

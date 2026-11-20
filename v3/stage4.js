@@ -169,7 +169,7 @@ async function paintPane(i) {
   if (CO.radar) {
     const st = CO.states[i] || (CO.states[i] = ex.newRadarState('cx-radar'));
     st.add = (coords, map, s) => ex.addCanvasRadar(coords, map, s,
-      ['hoco-line', 'hoco-hindcast-contours', 'cx-coast'].find(id => map.getLayer(id)), getSettings().radarOpacity ?? 0.85);
+      map.getLayer('cx-strikes') ? 'cx-strikes' : ex.riskOutlineLayer(map), getSettings().radarOpacity ?? 0.85);
     const got = await ex.paintRadar(m, st, CO.t, CO.playing);
     if (C.maps[i] !== m) return;
     if (got === 0) { CO.note = 'No radar for this time'; updateObsHead(); } else if (got) { if (CO.note) { CO.note = ''; updateObsHead(); } }
@@ -178,7 +178,10 @@ async function paintPane(i) {
     const end = C.verification && CO.t === CO.t1 ? C.verification.entry.end : CO.t;
     const g = ex.strikeFeatures(CO.list, end, CO.t0);
     if (m.getSource('cx-strikes')) m.getSource('cx-strikes').setData(g);
-    else if (m.getSource('hoco')) { m.addSource('cx-strikes', { type: 'geojson', data: g }); m.addLayer(ex.strikeLayer('cx-strikes')); }
+    else if (m.getSource('hoco')) {
+      m.addSource('cx-strikes', { type: 'geojson', data: g });
+      m.addLayer(ex.strikeLayer('cx-strikes'), ex.riskOutlineLayer(m));
+    }
   }
 }
 async function paintAll() {

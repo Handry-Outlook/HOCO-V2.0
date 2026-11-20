@@ -647,6 +647,8 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom))}
 }
 @media (max-width:820px){
   .topbar .brand>div{display:none}.topbar .brand{padding:0 4px}
+  .topbar .type .typelong,.topbar nav [data-register]{display:none}
+  .topbar .type button{padding:0 10px}
   .daytab small{display:none}
 }
 /* phone */
@@ -657,8 +659,7 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom))}
   .topbar #regionBtn{max-width:110px;padding:0 8px 0 10px}
   .topbar .type{margin:0 auto}
   .topbar .type button{padding:0 10px;font-size:13px}
-  .topbar .type .pill,.typelong{display:none}
-  .topbar nav [data-register]{display:none}
+  .topbar .type .pill{display:none}
   .summary{left:var(--gap);right:auto;width:auto;min-width:200px;max-width:calc(100vw - 2 * var(--gap) - 48px)}
   .summary.open{right:calc(var(--gap) + 48px)}
   .sum-head b{font-size:26px}
@@ -891,8 +892,8 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
   body.timing-active.obs-on #dock{grid-template-areas:"days date all" "timing timing timing"}
   #timingPeriods{grid-area:timing;min-height:34px}
   .topbar .type button{padding:0 7px}
-  .topbar #timingMode{flex-direction:column;justify-content:center;line-height:1.1}
-  .topbar #timingMode .pill{display:block;margin:2px 0 0;padding:1px 4px;font-size:9px}
+  .topbar :is(#typeAi,#timingMode){flex-direction:column;justify-content:center;line-height:1.1}
+  .topbar :is(#typeAi,#timingMode) .pill{display:block;margin:2px 0 0;padding:1px 4px;font-size:9px}
   .topbar #regionBtn{min-width:0;flex-shrink:1}
 }
 @media(max-width:370px){
@@ -930,7 +931,7 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
   <button class="btn" id="regionBtn" aria-haspopup="menu" aria-expanded="false"><span id="regionName">England</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
   <div class="seg type" role="group" aria-label="Forecast type">
     <button id="typeTrad" aria-pressed="true" aria-label="Traditional">Trad<span class="typelong">itional</span></button>
-    <button id="typeAi" aria-pressed="false" aria-label="AI HOCO (beta)">AI<span class="typelong">&nbsp;HOCO</span> <span class="pill">Beta</span></button>
+    <button id="typeAi" aria-pressed="false" aria-label="AI HOCO (beta)">AI<span class="typelong">&nbsp;HOCO</span> <span class="pill" aria-hidden="true">Beta</span></button>
     <button id="timingMode" aria-pressed="false" aria-label="Hourcast (beta)" hidden>Hourcast <span class="pill" aria-hidden="true">Beta</span></button>
     <button id="productInfo" aria-label="About forecast products" aria-haspopup="dialog" title="About forecast products"><span aria-hidden="true">i</span></button>
   </div>
@@ -1964,7 +1965,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ---------- extras (radar, strikes, export, search, change, cookies) ----------
-import('./extras.js?v=24').then((m) => {
+import('./extras.js?v=25').then((m) => {
   m.initExtras({ baseDay, runAt, showObsGeo, openSummary: () => { $('summary').classList.add('open'); $('sumHead').setAttribute('aria-expanded', 'true'); }, map, S, BANDS, REGIONS, TYPE_LABEL: LABELS, toast, openPop, measureDock, fetchGeo, peakOf, riskOf, bandFor, bandLabel, created, startOf, endOf, hhmm, dayName, dayDate,
     embed: EMBED, embedLayers: EMBED ? (params.get('layers') || '') : null, radarOpacity: () => SETTINGS.radarOpacity, showChanged: () => SETTINGS.changed !== false, openEmbed: EMBED ? null : () => Stage4.openEmbed(),
     riskAtGeo, runsFor, addDays, nearestPlace, colorExpr, mapStyle: () => SETTINGS.mapStyle, setMapStyle: (k) => { const s = { ...SETTINGS, mapStyle: k, styleV2: true }; try { localStorage.setItem('hocoSettings', JSON.stringify(s)); } catch (e) { } applySettings(s, { mapStyle: k }); },
@@ -1977,7 +1978,7 @@ import('./extras.js?v=24').then((m) => {
 }).catch((e) => console.error(e));
 
 // ---------- stage 4 (settings, compare, accuracy, alerts, install, tutorial, embed, ads) ----------
-import('./stage4.js?v=24').then((m) => {
+import('./stage4.js?v=25').then((m) => {
   m.initStage4({ hourcastRuns: timing.runs, hourcastWindows: timing.windowsFor, measureDock, baseDay, extras: () => Extras, map, S, BANDS, REGIONS, db, auth, storage, doc, getDoc, getDocs, query, collection, where, orderBy, limit, addDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, dateKey, nearestPlace, regionMatches,
     colorExpr, fillColor, styleUrl, applySettings, setTheme, setProduct, setRegion, runsFor, riskAt: riskAtGeo, embed: EMBED, goDay: (d) => { S.day = d; clearCustom(); renderAll(); },
     callable: (name) => async (data) => { const f = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js'); return f.httpsCallable(f.getFunctions(app, 'us-central1'), name)(data); },
