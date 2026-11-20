@@ -1,5 +1,7 @@
 // HOCO v3 account side: settings, compare maps (+ load a run into a map), accuracy, AI HOCO status,
 // upgrade requests, API access, install, tutorial, embed code, Europe map, ad spaces.
+import { PRODUCTS, hasHourcast, productButtons } from './products.js?v=1';
+
 let X;
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -16,6 +18,15 @@ function dialog(html, label, wide) {
   d.querySelectorAll('[data-x]').forEach(b => b.onclick = () => d.classList.add('hidden'));
   return d;
 }
+export function openProductInfo() {
+  const d = dialog(`<div class="rowbetween"><h2>Forecast products</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
+    <dl class="forecast-defs">${['automated','ai','timing'].map(key => `<dt><b>${PRODUCTS[key].label}</b></dt><dd>${PRODUCTS[key].detail}</dd>`).join('')}</dl>
+    <small class="muted">The percentages apply to the displayed period. Use the Hourcast slider to change that period.</small>`, 'Forecast products');
+  const opener = document.activeElement, close = d.querySelector('[data-x]');
+  close.onclick = () => { d.classList.add('hidden'); opener?.focus(); };
+  close.focus();
+}
+
 const seg = (name, cur, opts) => `<div class="seg wide" role="group">${opts.map(([v, l]) => `<button data-${name}="${v}" aria-pressed="${String(cur) === String(v)}">${l}</button>`).join('')}</div>`;
 const STYLE_NAMES = [['default', 'Default'], ['classic', 'Classic HOCO'], ['standard', 'Standard'], ['light', 'Light'], ['dark', 'Dark'], ['outdoors', 'Outdoors'], ['satellite', 'Satellite'], ['satellite-streets', 'Satellite + streets']];
 
@@ -59,7 +70,7 @@ export function openSettings() {
 
 // ------------------------------------------------------------------ compare maps: 1-4 maps side by side, or two maps with a swipe divider
 const C = { panes: [], hourcast: new Map(), days: [], maps: [], marks: [], link: true, syncing: false, day: 0, mode: 'side', split: 0.5 };
-const typeLabel = (r) => ({ timing: 'Hourcast', automated: 'Traditional', ai: 'AI HOCO', 'human-mimic': 'Ensemble', manual: 'Manual' }[r?.type] || 'Run');
+const typeLabel = (r) => (r?.forecastProduct === 'timing' && r.type === 'human-mimic' ? 'Hourcast Ensemble' : PRODUCTS[r?.type]?.label || ({'human-mimic':'Ensemble',manual:'Manual'}[r?.type]) || 'Run');
 const typeCls = (r) => ({ timing: 'ai', automated: 'trad', ai: 'ai', 'human-mimic': 'ens', manual: 'man' }[r?.type] || 'man');
 const runDay = (r) => { const s = r && X.startOf(r); if (!s) return null; const t = X.baseDay(); const d = Math.round((new Date(s).setHours(0, 0, 0, 0) - t) / 864e5); return d >= 0 && d <= 2 ? d : null; };
 function ensembles() { const me = X.auth?.currentUser?.uid; return X.S.runs.filter(r => r.type === 'human-mimic' && (r.userId === me || r.public) && r.cancelled !== true).slice(0, 12); }
@@ -289,33 +300,67 @@ function wireSwipe() {
   div.onkeydown = (e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { C.split = Math.min(0.97, Math.max(0.03, C.split + (e.key === 'ArrowLeft' ? -0.05 : 0.05))); apply(); e.preventDefault(); } };
 }
 function openMenu(i, btn) {
-  const menu = $('cxMenu'), cur = C.panes[i], r0 = findRun(cur); let day = runDay(r0) ?? C.day;
-  const row = (r, extraTxt) => { const c = X.created(r), pk = X.S.peaks?.[r.id];
-    return `<button class="cx-row" role="menuitemradio" data-run="${esc(r.id)}" aria-checked="${r.id === cur}"><b>${c ? X.hhmm(c) : '–'}</b><span>${extraTxt || (c ? X.dayDate(c) : '')}</span><em>${pk != null ? (pk >= 5 ? Math.round(pk) + '%' : '<5%') : ''}</em></button>`; };
-  const draw = () => {
-    const grp = (t, name) => { const list = X.runsFor(day, t).slice().reverse(); return list.length ? `<div class="cx-grp"><span class="kicker">${name}</span>${list.map((r, k) => row(r, k === 0 ? 'Latest' : X.dayDate(X.created(r)))).join('')}</div>` : ''; };
-    const ens = ensembles();
-    menu.innerHTML = `<div class="cx-mhead"><b>${i < C.panes.length ? `Map ${i + 1}` : 'Add a map'}</b><div class="seg" role="group">${[0, 1, 2].map(d => `<button data-mday="${d}" aria-pressed="${d === day}">Day ${d}</button>`).join('')}</div></div>
-      <div class="cx-mbody">${C.hourcast.size ? `<div class="cx-grp"><span class="kicker">Hourcast windows</span>${[...C.hourcast.values()].map(r => row(r, esc(r.changeLabel || r.windowValidity))).join('')}</div>` : ''}
-      ${grp('automated', 'Traditional')}${grp('ai', 'AI HOCO')}
-      ${ens.length ? `<div class="cx-grp"><span class="kicker">Ensembles</span>${ens.map(r => row(r, `${X.dayName(X.created(r))} · ${esc(r.ensembleName || r.name || 'Ensemble')}`)).join('')}</div>` : ''}
-      ${extra.size ? `<div class="cx-grp"><span class="kicker">Loaded from Tools</span>${[...extra.values()].map(r => row(r, typeLabel(r))).join('')}</div>` : ''}</div>
-      <button class="cx-more" id="cxMore">Find any run in Tools › Runs…</button>`;
-    menu.querySelectorAll('[data-mday]').forEach(b => b.onclick = (e) => { e.stopPropagation(); day = +b.dataset.mday; draw(); });
-    menu.querySelectorAll('[data-run]').forEach(b => b.onclick = () => { menu.classList.add('hidden'); setPane(i, b.dataset.run); });
-    $('cxMore').onclick = () => { menu.classList.add('hidden'); C.pickInto = i; X.openTools('runs'); X.toast('Choose a run and press Load'); };
+  const menu = $('cxMenu'), cur = C.panes[i], r0 = findRun(cur);
+  let day = runDay(r0) ?? C.day;
+  let product = ['automated','ai','timing'].includes(r0?.type) ? r0.type : X.S.timing ? 'timing' : 'automated';
+  let menuRequest = 0;
+  const row = (r, label) => {
+    const c = X.created(r), pk = X.S.peaks?.[r.id];
+    return `<button class="cx-row" role="menuitemradio" data-run="${esc(r.id)}" aria-checked="${r.id === cur}"><b>${c ? X.hhmm(c) : '–'}</b><span>${esc(label || (c ? X.dayDate(c) : ''))}</span><em>${pk != null ? (pk >= 5 ? Math.round(pk) + '%' : '<5%') : ''}</em></button>`;
   };
-  draw(); menu.classList.remove('hidden');
-  (async () => { const tok = C.menuTok = (C.menuTok || 0) + 1; const todo = ['automated', 'ai'].flatMap(t => X.runsFor(day, t).slice().reverse()).filter(r => X.S.peaks?.[r.id] == null);
-    for (const r of todo) { if (C.menuTok !== tok || menu.classList.contains('hidden')) return; try { X.S.peaks[r.id] = X.peakOf(await X.fetchGeo(r)).risk; } catch (e) { X.S.peaks[r.id] = 0; }
-      const em = menu.querySelector(`[data-run="${CSS.escape(r.id)}"] em`); if (em) { const pk = X.S.peaks[r.id]; em.textContent = pk >= 5 ? Math.round(pk) + '%' : '<5%'; } } })();
-  const r = btn.getBoundingClientRect(), w = Math.min(340, innerWidth - 16), h = Math.min(menu.scrollHeight, innerHeight - 24);
-  let x = Math.min(r.left, innerWidth - w - 8), y = r.bottom + 6;
-  Object.assign(menu.style, { left: Math.max(8, x) + 'px', top: y + 'px', width: w + 'px', maxHeight: (innerHeight - y - 8) + 'px' });
-  menu.querySelector('[aria-checked="true"]')?.scrollIntoView({ block: 'nearest' });
+  const draw = () => {
+    const token = ++menuRequest;
+    const hourly = product === 'timing';
+    const source = hourly ? X.runsFor(day,'automated').filter(hasHourcast).slice().reverse() : [];
+    const candidates = hourly ? [] : X.runsFor(day,product).slice().reverse();
+    const localWindows = hourly ? [...C.hourcast.values()].filter(r => runDay(r) === day || r.id === cur) : [];
+    const saved = !hourly ? ensembles() : [];
+    menu.innerHTML = `<div class="cx-mhead"><b>${i < C.panes.length ? `Map ${i + 1}` : 'Add a map'}</b><div class="seg" role="group" aria-label="Forecast day">${[0,1,2].map(d => `<button data-mday="${d}" aria-pressed="${d === day}">Day ${d}</button>`).join('')}</div></div>
+      <div class="cx-mbody">
+        <div class="product-choices" role="group" aria-label="Forecast product">${productButtons('cx-product', product)}</div>
+        ${source.length ? `<div class="cx-window-pick"><label class="field"><span class="kicker">Hourcast run</span><select data-hourcast-run>${source.map((r,n) => `<option value="${n}" ${r.id === r0?.sourceRunId ? 'selected' : ''}>${esc(X.hhmm(X.created(r)) + ' · ' + X.dayDate(X.created(r)))}</option>`).join('')}</select></label><div data-hourcast-window role="status"></div></div>` : ''}
+        ${localWindows.length ? `<div class="cx-grp"><span class="kicker">Open Hourcast windows</span>${localWindows.map(r => row(r, r.windowValidity)).join('')}</div>` : ''}
+        ${candidates.map((r,n) => row(r,n === 0 ? 'Latest' : X.dayDate(X.created(r)))).join('')}
+        ${!source.length && !localWindows.length && !candidates.length ? '<small class="muted">No forecasts for this selection.</small>' : ''}
+        ${saved.length ? `<div class="cx-grp"><span class="kicker">Ensembles</span>${saved.map(r => row(r,r.ensembleName || r.name || 'Ensemble')).join('')}</div>` : ''}
+      </div>
+      <button class="cx-more" id="cxMore">Browse forecast archive…</button>`;
+    menu.querySelectorAll('[data-mday]').forEach(b => b.onclick = e => { e.stopPropagation(); day = +b.dataset.mday; draw(); });
+    menu.querySelectorAll('[data-cx-product]').forEach(b => b.onclick = e => { e.stopPropagation(); product = b.dataset.cxProduct; draw(); });
+    menu.querySelectorAll('[data-run]').forEach(b => b.onclick = () => { menu.classList.add('hidden'); setPane(i,b.dataset.run); });
+    $('cxMore').onclick = () => { menu.classList.add('hidden'); C.pickInto = i; X.openTools('runs','all',product); };
+    const select = menu.querySelector('[data-hourcast-run]'), panel = menu.querySelector('[data-hourcast-window]');
+    if (select) {
+      let request = 0;
+      const update = async () => {
+        const current = ++request;
+        panel.textContent = 'Loading windows…';
+        try {
+          const windows = await X.hourcastWindows(source[+select.value]);
+          if (token !== menuRequest || current !== request || !panel.isConnected) return;
+          if (!windows.length) { panel.textContent = 'No saved windows.'; return; }
+          panel.innerHTML = `<label class="field"><span class="kicker">Valid window</span><select>${windows.map((r,n) => `<option value="${n}" ${r.id === cur ? 'selected' : ''}>${esc(r.windowValidity)}</option>`).join('')}</select></label><button class="btn sm primary">Use window</button>`;
+          panel.querySelector('button').onclick = () => {
+            const run = windows[+panel.querySelector('select').value];
+            C.hourcast.set(run.id, run);
+            menu.classList.add('hidden');
+            setPane(i,run.id);
+          };
+        } catch {
+          if (token === menuRequest && current === request) panel.textContent = 'Could not load the windows.';
+        }
+      };
+      select.onchange = update;
+      update();
+    }
+  };
+  draw();
+  const r = btn.getBoundingClientRect(), w = Math.min(360,innerWidth-16), y = r.bottom + 6;
+  Object.assign(menu.style, { left: Math.max(8,Math.min(r.left,innerWidth-w-8))+'px', top:y+'px', width:w+'px', maxHeight:(innerHeight-y-8)+'px' });
+  menu.classList.remove('hidden');
 }
 function setPane(i, id) { if (i >= C.panes.length) C.panes.push(id); else C.panes[i] = id; drawCompare(); }
-export function closeCompare() { stopObs(); CO.states = []; C.maps.forEach(m => m && m.remove()); C.maps = []; const el = $('compare'); el.classList.add('hidden'); el.innerHTML = ''; document.body.classList.remove('comparing'); X.map.resize(); }
+export function closeCompare() { C.pickInto = null; stopObs(); CO.states = []; C.maps.forEach(m => m && m.remove()); C.maps = []; const el = $('compare'); el.classList.add('hidden'); el.innerHTML = ''; document.body.classList.remove('comparing'); X.map.resize(); }
 export function loadTo(run) {
   extra.set(run.id, run);
   if (C.pickInto != null) { const i = C.pickInto; C.pickInto = null; X.closeTools(); setPane(Math.min(i, C.panes.length), run.id); return; }

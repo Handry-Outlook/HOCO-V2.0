@@ -127,13 +127,16 @@ function componentRings(comp, lonE, latE, simp, passes) {
  * entries: [{ geojson, weight, createdMs }] — weight 0 drops the run.
  * bands: [{min, fill}] (HOCO bands). Returns a FeatureCollection of nested band polygons.
  */
-export function blendRuns(entries, bands) {
+export function blendRuns(entries, bands, { allowQuiet = false } = {}) {
   const list = entries.filter(e => e.weight > 0).sort((a, b) => a.createdMs - b.createdMs);
   if (!list.length) throw new Error('Pick at least one run with a weight above 0.');
   const weights = list.map(e => e.weight), coords = new Map();
   const maps = list.map(({ geojson }) => { const m = new Map();
     riskPoints(geojson).forEach(p => { const k = `${p.lon},${p.lat}`; coords.set(k, p); if (p.risk > (m.get(k) || 0)) m.set(k, p.risk); }); return m; });
-  if (!coords.size) throw new Error('The chosen runs have no usable risk data.');
+  if (!coords.size) {
+    if (allowQuiet) return { type: 'FeatureCollection', properties: { hoco_layout: 'ensemble_v3' }, features: [] };
+    throw new Error('The chosen runs have no usable risk data.');
+  }
   const all = [...coords.values()];
   const lons = [...new Set(all.map(c => c.lon))].sort((a, b) => a - b), lats = [...new Set(all.map(c => c.lat))].sort((a, b) => b - a);
   const li = new Map(lons.map((v, i) => [v, i])), ai = new Map(lats.map((v, i) => [v, i])), m = matrix(lats.length, lons.length, 0);
@@ -149,6 +152,6 @@ export function blendRuns(entries, bands) {
         properties: { feature_type: 'polygon', risk: bs.min, peak_risk: +peak.toFixed(1), fill, 'fill-opacity': 0.46, stroke: fill, 'stroke-width': 1.3 } }));
     });
   });
-  if (!features.length) throw new Error('The blend has no area above 5%, so there is nothing to draw.');
+  if (!features.length && !allowQuiet) throw new Error('The blend has no area above 5%, so there is nothing to draw.');
   return { type: 'FeatureCollection', properties: { hoco_layout: 'ensemble_v3' }, features };
 }

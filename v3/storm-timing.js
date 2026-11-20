@@ -24,13 +24,13 @@ function windowRun(record, item) {
     return {
         id: record.sourceRunId + "/" + start.toISOString(), type: "timing",
         sourceRunId: record.sourceRunId, region: record.region, geojsonUrl: item.geojsonUrl,
-        createdAt: record.issuedAt, validFrom: item.validFrom, validTo: item.validTo,
+        createdAt: record.issuedAt, ownerId: record.ownerId, validFrom: item.validFrom, validTo: item.validTo,
         windowLabel: windowHours(start, end),
         windowValidity: stamp.format(start) + " – " + stamp.format(end)
     };
 }
 
-export function createStormTiming({ db, display }) {
+export function createStormTiming({ db, display, userId }) {
     const periods = $("timingPeriods");
     const slider = $("timingSlider"), preview = $("timingPreview");
     const cached = new Map(), manifests = new Map();
@@ -70,6 +70,7 @@ export function createStormTiming({ db, display }) {
     }
 
     async function fetchGeo(run, signal) {
+        if (run.ownerId && run.ownerId !== userId()) throw Error("Private forecast");
         const url = new URL(run.geojsonUrl);
         if (url.protocol !== "https:" || !["storage.googleapis.com", "firebasestorage.googleapis.com"].includes(url.hostname)) throw Error();
         if (cached.has(url.href)) return cached.get(url.href);
@@ -92,6 +93,21 @@ export function createStormTiming({ db, display }) {
             if (manifests.size > 12) manifests.delete(manifests.keys().next().value);
         }
         return manifests.get(runId);
+    }
+
+    async function readPrivate(source) {
+        const owner = userId();
+        if (!owner || owner !== source.userId) return null;
+        const snapshot = await getDoc(doc(db, "users", owner, "hourcast_runs", source.id));
+        const data = snapshot.data();
+        return data && owner === userId() ? { ...data, ownerId: owner } : null;
+    }
+
+    async function windowsFor(source) {
+        if (!source?.stormHour) return [];
+        const data = source.type === "manual" ? await readPrivate(source) : await manifest(source.id);
+        if (!data || data.sourceRunId !== source.id || data.region !== source.region) return [];
+        return savedWindows(data).map(item => windowRun(data, item));
     }
 
     function runs() {
@@ -164,7 +180,7 @@ export function createStormTiming({ db, display }) {
         select(current || next || windows[0], region, day);
     }
 
-    function watch(nextRegion, nextDay, runId, initialWindow) {
+    function watch(nextRegion, nextDay, runId, initialWindow, privateSource) {
         const next = JSON.stringify([nextRegion, nextDay, runId]);
         if (key === next) return;
         reset();
@@ -173,6 +189,16 @@ export function createStormTiming({ db, display }) {
         if (!runId) { render(region, day); return; }
         display(empty, null, "Loading forecast windows…");
         address(region, day);
+        if (privateSource) {
+            readPrivate(privateSource).then(data => {
+                if (key !== next) return;
+                record = data?.sourceRunId === runId && data.region === region ? data : null;
+                render(region, day);
+            }).catch(() => {
+                if (key === next) display(empty, null, "Sign in with the account that created this Hourcast run.");
+            });
+            return;
+        }
         stop = onSnapshot(doc(db, "system_stats", "storm_timing_run_" + runId), snapshot => {
             if (key !== next || (snapshot.metadata.fromCache && !snapshot.exists())) return;
             const data = snapshot.data();
@@ -185,5 +211,5 @@ export function createStormTiming({ db, display }) {
             display(empty, null, "This Hourcast run could not be loaded.");
         });
     }
-    return { watch, reset, runs, adjacent, comparison, fetchGeo };
+    return { watch, reset, runs, windowsFor, adjacent, comparison, fetchGeo };
 }

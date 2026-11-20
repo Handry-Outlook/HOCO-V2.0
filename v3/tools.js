@@ -1,8 +1,9 @@
 // HOCO v3 tools: runs browser, ensemble builder, manual runs, developer console.
 // Writes the same Firestore documents as the classic site so both sites and the backend keep working.
-import { collection, query, where, orderBy, limit, getDocs, addDoc, updateDoc, doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { collection, query, where, orderBy, limit, getDocs, addDoc, updateDoc, doc, getDoc, onSnapshot, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
-import { blendRuns } from './ensemble.js?v=3';
+import { blendRuns } from './ensemble.js?v=4';
+import { PRODUCTS, hasHourcast, hourcastRegion, productButtons } from './products.js?v=1';
 
 // Real model names and run frequency (hours), as in the classic manual builder.
 const MODELS = { swisseu: { name: 'SWISS-EU', freq: 3 }, hardmi: { name: 'HARMONIE', freq: 3 }, swissnow: { name: 'SWISS-NOW', freq: 1 },
@@ -13,7 +14,7 @@ const CAPS = { normal: 7, external_developer: 7, exclusive: 15, developer: Infin
 const ROLES = [['guest', 'Guest'], ['normal', 'Normal'], ['exclusive', 'Exclusive'], ['external_developer', 'External developer'], ['developer', 'Developer']];
 
 let X;               // context from the main page
-let T = { open: false, tab: 'runs', filter: 'all', date: null, archive: null, archiveKey: '', showMore: false,
+let T = { open: false, tab: 'runs', filter: 'all', product: 'all', date: null, archive: null, archiveKey: '', showMore: false,
   ens: { key: '', src: 'automated', mix: 50, sel: new Set(), w: {}, busy: false },
   man: { scen: [], picked: new Set(), model: 'swisseu', busy: false, notify: true },
   known: new Map(), devUnsubs: [], runner: null, myToday: 0 };
@@ -21,16 +22,20 @@ let T = { open: false, tab: 'runs', filter: 'all', date: null, archive: null, ar
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad = (n) => String(n).padStart(2, '0');
 const dateKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const fmtHoco = (d) => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const fmtHoco = (d) => `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 const localInput = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const $ = (id) => document.getElementById(id);
-const hasGeo = (r) => !!(r.geojsonUrl || r.inlineGeojson || r.inlineGeojsonText || r.geojson || r.ensembleGeojson);
-const isPending = (r) => r.cancelled !== true && (r.status === 'pending' || (!hasGeo(r) && r.status !== 'failed' && r.status !== 'error'));
+const isManualHourcast = r => r.type === 'manual' && r.forecastProduct === 'timing';
+const hasGeo = (r) => !!(hasHourcast(r) || r.privateHourcastEnsemble || r.geojsonUrl || r.inlineGeojson || r.inlineGeojsonText || r.geojson || r.ensembleGeojson);
+const isPending = (r) => r.cancelled !== true && (r.status === 'pending' || (isManualHourcast(r) && !hasHourcast(r) && !['error','failed'].includes(r.status)) || (!hasGeo(r) && r.status !== 'failed' && r.status !== 'error'));
 const isFailed = (r) => r.status === 'failed' || r.status === 'error';
 const role = () => X.S.role;
 const uid = () => X.auth.currentUser?.uid;
 
 export function typeInfo(r) {
+  if (r.type === 'timing' || isManualHourcast(r)) return { label: 'Hourcast', chip: 'HOURCAST', cls: 'beta' };
+  if (r.forecastProduct === 'timing' && r.type === 'human-mimic') return { label: 'Hourcast Ensemble', chip: 'ENSEMBLE', cls: 'ens' };
+  if (r.forecastProduct === 'ai' && r.type === 'manual') return { label: 'Manual AI HOCO', chip: 'AI', cls: 'beta' };
   if (r.type === 'ai') return { label: 'AI HOCO', chip: 'AI', cls: 'beta' };
   if (r.type === 'automated') return { label: 'AUTO-HOCO', chip: 'AUTO', cls: 'live' };
   if (r.type === 'human-mimic') return { label: 'HOCO Ensemble', chip: 'ENSEMBLE', cls: 'ens' };
@@ -63,7 +68,12 @@ export function initTools(ctx) {
 }
 
 export function setNotify(v) { T.man.notify = !!v; }
-export function openTab(tab, filter) { T.tab = tab; if (filter) T.filter = filter; toggle(true); }
+export function openTab(tab, filter, product) {
+  T.tab = tab;
+  if (filter) T.filter = filter;
+  if (product) T.product = product;
+  toggle(true);
+}
 export function toggle(force) {
   T.open = force ?? !T.open;
   $('tools').classList.toggle('hidden', !T.open);
@@ -122,10 +132,11 @@ function renderMyRun() {
 
 function ready(r) {
   const label = typeInfo(r).label;
-  actionToast(`Your ${label} run is ready`, 'Open', () => { X.showCustom(r); if (innerWidth <= 640) toggle(false); });
+  const open = () => isManualHourcast(r) ? X.openHourcast(r) : X.showCustom(r);
+  actionToast(`Your ${label} run is ready`, 'Open', () => { open(); if (innerWidth <= 640) toggle(false); });
   if (T.man.notify && 'Notification' in window && Notification.permission === 'granted' && document.hidden) {
     try { const n = new Notification('HOCO run ready', { body: `${label} · ${X.S.region}`, icon: 'https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png' });
-      n.onclick = () => { focus(); X.showCustom(r); }; } catch (e) { /* some browsers block page notifications */ }
+      n.onclick = () => { focus(); open(); }; } catch (e) { /* some browsers block page notifications */ }
   }
 }
 function actionToast(msg, action, fn) {
@@ -146,7 +157,7 @@ function render() {
 
 // ---------------------------------------------------------------- runs browser
 async function loadArchive(key) {
-  if (T.archiveKey === key && T.archive) return;
+  if (T.archiveKey === key) return;
   T.archiveKey = key; T.archive = null;
   // a run valid on day D is issued on D or up to two days before it
   const from = new Date(key + 'T00:00:00'), to = new Date(key + 'T23:59:59');
@@ -158,25 +169,46 @@ async function loadArchive(key) {
   } catch (e) { console.error(e); if (T.archiveKey === key) { T.archive = []; X.toast('Could not load that date'); render(); } }
 }
 
-function runsForDate() {
-  loadArchive(T.date);
-  if (!T.archive || T.archiveKey !== T.date) return null;
+function forecastsOn(date, overlapping = false) {
+  loadArchive(date);
+  if (!T.archive || T.archiveKey !== date) return null;
   const byId = new Map(T.archive.map(r => [r.id, r]));
   X.S.runs.forEach(r => byId.set(r.id, r));          // live copies win (status changes while processing)
-  return [...byId.values()].filter(r => visible(r) && X.regionMatches(X.S.region, r) && X.startOf(r) && dateKey(X.startOf(r)) === T.date)
-    .filter(r => T.filter === 'all' ? true : T.filter === 'mine' ? r.userId === uid() : T.filter === 'ens' ? r.type === 'human-mimic' : T.filter === 'manens' ? (r.type !== 'automated' && r.type !== 'ai') : T.filter === 'auto' ? (r.type === 'automated' || r.type === 'ai') : r.public === true)
+  return [...byId.values()].filter(r => visible(r) && X.regionMatches(X.S.region, r) && X.startOf(r) && (dateKey(X.startOf(r)) === date ||
+      overlapping && dateKey(X.startOf(r)) < date && X.endOf(r) && dateKey(X.endOf(r)) >= date))
     .sort((a, b) => (X.created(b)?.getTime() || 0) - (X.created(a)?.getTime() || 0));
 }
 
+function runsForDate() {
+  const list = forecastsOn(T.date);
+  if (!list) return null;
+  return list.filter(r => {
+    const product = T.product;
+    if (product === 'timing' && !(hasHourcast(r) || r.forecastProduct === 'timing')) return false;
+    if (product === 'ai' && !(r.type === 'ai' || r.forecastProduct === 'ai')) return false;
+    if (product === 'automated' && !['automated','manual','human-mimic'].includes(r.type)) return false;
+    if (product === 'automated' && ['timing','ai'].includes(r.forecastProduct)) return false;
+    const filter = T.filter;
+    return filter === 'all' || (filter === 'mine' && r.userId === uid()) ||
+      (filter === 'ens' && r.type === 'human-mimic') ||
+      (filter === 'manens' && !['automated','ai'].includes(r.type)) ||
+      (filter === 'auto' && ['automated','ai'].includes(r.type)) ||
+      (filter === 'pub' && r.public === true);
+  });
+}
+
 function runRow(r) {
-  const ti = typeInfo(r), c = X.created(r), s = X.startOf(r), e = X.endOf(r), mine = r.userId === uid();
+  const ti = T.product === "timing" && hasHourcast(r) ? typeInfo({type:"timing"}) : typeInfo(r), c = X.created(r), s = X.startOf(r), e = X.endOf(r), mine = r.userId === uid();
   let right;
   if (isPending(r)) {
     const mins = c ? Math.max(0, Math.round((Date.now() - c.getTime()) / 60000)) : 0;
     right = `<span class="proc"><span class="spin"></span><span>Processing<br><small>${mins} of about ${estMinutes(r)} min</small></span></span>`;
   } else if (isFailed(r)) right = `<span class="tag" style="color:#b42318">Failed</span>`;
-  else right = `<button class="btn" data-open="${esc(r.id)}">Load</button>`;
-  const devPub = role() === 'developer' && !isPending(r) && r.public !== true && r.type !== 'automated' && r.type !== 'ai'
+  else right = `<div class="run-actions">
+    ${(T.product !== 'timing' && !isManualHourcast(r)) || !hasHourcast(r) ? `<button class="btn" data-open="${esc(r.id)}">Load</button>` : ''}
+    ${hasHourcast(r) ? `<button class="btn" data-timed="${esc(r.id)}">${T.product === 'timing' ? 'Choose window' : 'Hourcast'}</button>` : ''}
+  </div>`;
+  const devPub = role() === 'developer' && !isPending(r) && r.public !== true && !isManualHourcast(r) && !r.privateHourcastEnsemble && r.type !== 'automated' && r.type !== 'ai'
     ? `<button class="linkbtn" data-pub="${esc(r.id)}">Make public</button>` : '';
   const scen = Array.isArray(r.scenarios) && r.scenarios.length ? ` · ${r.scenarios.length} model run${r.scenarios.length > 1 ? 's' : ''}` : '';
   const srcs = r.type === 'human-mimic' && r.sourceRunCount ? ` · ${r.sourceRunCount} runs blended` : '';
@@ -195,6 +227,7 @@ function renderRuns(body) {
     <div class="datebar"><button class="btn icon" id="dPrev" aria-label="Previous day">‹</button>
       <label class="dateinput"><span class="kicker">Forecasts valid on</span><input type="date" id="dPick" value="${T.date}" max="${dateKey(new Date(Date.now() + 2 * 864e5))}"></label>
       <button class="btn icon" id="dNext" aria-label="Next day">›</button></div>
+    <div class="product-choices" role="group" aria-label="Forecast product">${productButtons('forecast', T.product, ['all','automated','ai','timing'])}</div>
     <div class="chips">${chips}</div>
     <div class="muted" style="font-size:13px">${esc(X.S.region)} · ${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}${isToday ? ' (today)' : ''}</div>
     <div class="runlist">${list == null ? '<div class="muted center"><span class="spin"></span> Loading runs…</div>' : shown.length ? shown.map(runRow).join('') : `<div class="muted center">No runs here${T.filter !== 'all' ? ' with this filter' : ''}.</div>`}</div>
@@ -203,6 +236,8 @@ function renderRuns(body) {
   const shift = (n) => { const x = new Date(T.date + 'T00:00:00'); x.setDate(x.getDate() + n); T.date = dateKey(x); T.showMore = false; render(); };
   $('dPrev').onclick = () => shift(-1); $('dNext').onclick = () => shift(1);
   $('dPick').onchange = (e) => { if (e.target.value) { T.date = e.target.value; T.showMore = false; render(); } };
+  body.querySelectorAll('[data-forecast]').forEach(b => b.onclick = () => { T.product = b.dataset.forecast; T.showMore = false; render(); });
+  body.querySelectorAll('[data-timed]').forEach(b => b.onclick = () => pickRunWindow(b, list.find(r => r.id === b.dataset.timed)));
   body.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { T.filter = b.dataset.f; T.showMore = false; render(); });
   $('moreRuns') && ($('moreRuns').onclick = () => { T.showMore = true; render(); });
   body.querySelectorAll('[data-open]').forEach(b => b.onclick = () => {
@@ -214,6 +249,31 @@ function renderRuns(body) {
   body.querySelectorAll('[data-pub]').forEach(b => b.onclick = async () => {
     try { await updateDoc(doc(X.db, 'hoco_requests', b.dataset.pub), { public: true }); X.toast('Run is now public'); } catch (e) { X.toast('Could not make it public'); }
   });
+}
+
+async function pickRunWindow(button, source) {
+  if (!source) return;
+  const row = button.closest('.runitem');
+  const existing = row.nextElementSibling;
+  if (existing?.classList.contains('hourcast-pick')) { existing.remove(); return; }
+  const panel = document.createElement('div');
+  panel.className = 'hourcast-pick';
+  panel.textContent = 'Loading Hourcast windows…';
+  row.after(panel);
+  try {
+    const windows = await X.hourcastWindows(source);
+    if (!panel.isConnected) return;
+    if (!windows.length) { panel.textContent = 'No Hourcast windows were saved for this run.'; return; }
+    panel.innerHTML = `<label class="field"><span class="kicker">Valid window</span><select>${windows.map((w,i) => `<option value="${i}">${esc(w.windowValidity)}</option>`).join('')}</select></label><button class="btn primary sm">${X.comparing() ? 'Add to compare' : 'Open Hourcast'}</button>`;
+    panel.querySelector('button').onclick = () => {
+      const window = windows[Number(panel.querySelector('select').value)];
+      if (X.comparing()) X.loadTo(window);
+      else X.openHourcast(source, window);
+    };
+    panel.querySelector('select').focus();
+  } catch {
+    if (panel.isConnected) panel.textContent = 'Could not load the Hourcast windows.';
+  }
 }
 
 // ---------------------------------------------------------------- ensemble
@@ -240,16 +300,63 @@ function defaultWeights(runs) {   // newer runs count a little more: 1.0 → 1.4
 }
 
 function renderEnsemble(body) {
-  const E = T.ens, groups = ensembleGroups();
-  if (role() === 'guest') { body.innerHTML = `<div class="note">Guests can't build ensembles. Ask for a Normal account to blend runs.</div>`; return; }
-  if (!groups.length) { body.innerHTML = `<div class="note">No finished runs to blend for ${esc(X.S.region)} yet.</div>`; return; }
+  if (role() === 'guest') { body.innerHTML = '<div class="note">Sign in to build ensembles.</div>'; return; }
+  const E = T.ens, timed = E.src === 'timing';
+  const nav = `<div class="product-choices" role="group" aria-label="Forecast product">
+    ${productButtons('ens-product', E.src)}
+    <button class="chipbtn" data-ens-product="both" aria-pressed="${E.src === 'both'}">Traditional + AI</button>
+  </div>`;
+  if (timed) renderHourcastEnsemble(body, nav);
+  else renderEnsembleControls(body, ensembleGroups(), nav);
+  body.querySelectorAll('[data-ens-product]').forEach(button => button.onclick = () => {
+    if (E.busy) return;
+    E.sel = new Set(); E.w = {};
+    E.src = button.dataset.ensProduct; E.key = ''; E.seed = null;
+    render();
+  });
+}
+
+function renderHourcastEnsemble(body, nav) {
+  const E = T.ens;
+  E.date ||= dateKey(X.addDays(X.baseDay(), X.S.day));
+  const list = forecastsOn(E.date, true);
+  const runs = list?.filter(r => hasHourcast(r) && !isPending(r) && !isFailed(r));
+  const key = runs && JSON.stringify([E.date, X.S.region, runs.map(r => r.id)]);
+  if (key && E.windowsKey !== key) {
+    E.windowsKey = key; E.groups = null; E.windowError = false;
+    const date = E.date;
+    Promise.all(runs.map(r => X.hourcastWindows(r))).then(lists => {
+      if (E.windowsKey !== key) return;
+      const groups = new Map();
+      for (const run of lists.flat()) {
+        const start = X.startOf(run), end = X.endOf(run);
+        if (dateKey(start) !== date) continue;
+        const key = start.toISOString() + '/' + end.toISOString();
+        if (!groups.has(key)) groups.set(key, { key, start, end, label: run.windowValidity, runs: [] });
+        groups.get(key).runs.push(run);
+      }
+      E.groups = [...groups.values()].sort((a,b) => a.start - b.start || a.end - b.end);
+      if (T.tab === 'ensemble' && E.src === 'timing') render();
+    }).catch(() => {
+      if (E.windowsKey !== key) return;
+      E.groups = []; E.windowError = true;
+      if (T.tab === 'ensemble' && E.src === 'timing') render();
+    });
+  }
+  const header = `${nav}<label class="field"><span class="kicker">Forecast date</span><input type="date" id="ensDate" value="${E.date}"></label>`;
+  const groups = key && E.windowsKey === key ? E.groups : null;
+  if (groups?.length) renderEnsembleControls(body, groups, header, true);
+  else body.innerHTML = `${header}<div class="note" role="status">${E.windowError && groups ? 'Could not load the saved windows.' : groups ? 'No Hourcast windows for this date.' : 'Loading Hourcast windows…'}</div>`;
+  $('ensDate').onchange = e => { if (e.target.value && !E.busy) { E.date = e.target.value; E.key = ''; E.seed = null; render(); } };
+}
+
+function renderEnsembleControls(body, groups, header, timed = false) {
+  const E = T.ens;
+  if (!groups.length) { body.innerHTML = `${header}<div class="note">No finished runs to blend for ${esc(X.S.region)} yet.</div>`; return; }
   const want = dateKey(X.addDays(X.baseDay(), X.S.day));
-  let grp = groups.find(x => x.key === E.key) || groups.find(x => x.key === want) || groups[groups.length - 1];
+  let grp = groups.find(x => x.key === E.key) || (timed ? groups.find(x => x.runs.length >= 2) : groups.find(x => x.key === want)) || groups.at(-1);
   if (grp.key !== E.key) { E.key = grp.key; E.sel = new Set(); E.w = {}; }
-  const hasAi = grp.runs.some(r => r.type === 'ai'), hasTrad = grp.runs.some(r => r.type === 'automated');
-  if (!hasAi && E.src !== 'automated') E.src = 'automated';
-  if (!hasTrad && hasAi && E.src === 'automated') E.src = 'ai';
-  const pool = grp.runs.filter(r => E.src === 'both' ? true : r.type === E.src);
+  const pool = grp.runs.filter(r => timed || E.src === 'both' || r.type === E.src);
   const dw = defaultWeights(pool);
   pool.forEach(r => { if (E.w[r.id] == null) E.w[r.id] = dw[r.id]; });
   if (E.seed !== `${grp.key}|${E.src}`) { E.seed = `${grp.key}|${E.src}`; E.sel = new Set(pool.slice(-6).map(r => r.id)); }
@@ -259,12 +366,12 @@ function renderEnsemble(body) {
   const tot = chosen.reduce((a, r) => a + E.w[r.id] * share(r), 0) || 1, pctOf = (r) => E.sel.has(r.id) ? Math.round(E.w[r.id] * share(r) / tot * 100) : 0;
   body.innerHTML = `
     <p class="lead">Blend several runs into one forecast. Newer runs count a little more by default; drag a weight to change that.</p>
-    <div class="field"><span class="kicker">Day</span><div class="chips">${groups.map(x => `<button class="chipbtn" aria-pressed="${x.key === grp.key}" data-g="${x.key}">${X.dayDate(x.start)}<small>${x.runs.length} runs</small></button>`).join('')}</div></div>
-    <div class="field"><span class="kicker">Blend</span><div class="seg wide" role="group" aria-label="Which forecasts to blend">
-      <button data-src="automated" aria-pressed="${E.src === 'automated'}" ${hasTrad ? '' : 'disabled'}>Traditional</button>
-      <button data-src="ai" aria-pressed="${E.src === 'ai'}" ${hasAi ? '' : 'disabled'}>AI HOCO</button>
-      <button data-src="both" aria-pressed="${E.src === 'both'}" ${hasAi && hasTrad ? '' : 'disabled'}>Both</button></div>
-      ${hasAi ? '' : '<small class="muted">No AI HOCO runs for this day yet, so only Traditional runs can be blended.</small>'}</div>
+    ${header}
+    ${timed ? `<label class="field"><span class="kicker">Valid window</span><select id="enWindow">
+      ${groups.map(x => `<option value="${x.key}" ${x.key === grp.key ? 'selected' : ''}>${esc(x.label)} · ${x.runs.length} run${x.runs.length===1?'':'s'}</option>`).join('')}
+    </select><small class="muted">Select at least two runs with the same start and end time.</small></label>`
+      : `<div class="field"><span class="kicker">Day</span><div class="chips">${groups.map(x => `<button class="chipbtn" aria-pressed="${x.key === grp.key}" data-g="${x.key}">${X.dayDate(x.start)}<small>${x.runs.length} runs</small></button>`).join('')}</div></div>`}
+    ${!pool.length ? '<small class="muted">No runs for this product on the selected day.</small>' : ''}
     ${mixOn ? `<div class="field"><span class="kicker">Traditional vs AI HOCO</span><input type="range" id="mix" min="0" max="100" step="5" value="${E.mix}" style="--pct:${E.mix}%">
       <div class="ticks2"><span>Traditional ${E.mix}%</span><span>AI HOCO ${100 - E.mix}%</span></div></div>` : ''}
     <div class="field"><div class="rowbetween"><span class="kicker">Run weights</span><span><button class="linkbtn" id="selLatest">Latest 6</button> · <button class="linkbtn" id="selAll">All</button></span></div>
@@ -275,10 +382,10 @@ function renderEnsemble(body) {
           <input type="range" min="0.1" max="2" step="0.1" value="${w}" data-w="${esc(r.id)}" aria-label="Weight for run issued ${X.hhmm(c)}" style="--pct:${(w - 0.1) / 1.9 * 100}%" ${on && E.wmode === 'custom' ? '' : 'disabled'}>
           <output>${on ? pctOf(r) + '%' : '–'}</output></div>`; }).join('')}</div>
       <small class="muted">Weights always add up to 100%. Untick a run to leave it out.</small></div>
-    <div class="runfoot"><button class="btn" id="resetW">Reset</button><button class="btn primary big" id="buildEns" ${E.busy || !chosen.length ? 'disabled' : ''}>${E.busy ? '<span class="spin light"></span> Building…' : `Build ensemble (${chosen.length} run${chosen.length === 1 ? '' : 's'})`}</button></div>
-    <small class="muted" id="ensStatus">Saved to your runs. Only you can see it unless a developer makes it public.</small>`;
+    <div class="runfoot"><button class="btn" id="resetW">Reset</button><button class="btn primary big" id="buildEns" ${E.busy || chosen.length < (timed ? 2 : 1) ? 'disabled' : ''}>${E.busy ? '<span class="spin light"></span> Building…' : `Build ensemble (${chosen.length} run${chosen.length === 1 ? '' : 's'})`}</button></div>
+    <small class="muted" id="ensStatus">${timed ? 'Saved to My runs. The ensemble map is visible only to your account.' : 'Saved to your runs. Only you can see it unless a developer makes it public.'}</small>`;
   body.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { E.key = b.dataset.g; E.sel = new Set(); E.w = {}; render(); });
-  body.querySelectorAll('[data-src]').forEach(b => b.onclick = () => { E.src = b.dataset.src; E.sel = new Set(); render(); });
+  if ($('enWindow')) $('enWindow').onchange = e => { if (!E.busy) { E.key = e.target.value; E.sel = new Set(); E.w = {}; render(); } };
   $('mix') && ($('mix').oninput = (e) => { E.mix = +e.target.value; e.target.style.setProperty('--pct', E.mix + '%'); const t = e.target.nextElementSibling.children; t[0].textContent = `Traditional ${E.mix}%`; t[1].textContent = `AI HOCO ${100 - E.mix}%`; });
   body.querySelectorAll('[data-sel]').forEach(c => c.onchange = () => { c.checked ? E.sel.add(c.dataset.sel) : E.sel.delete(c.dataset.sel); render(); });
   body.querySelectorAll('[data-w]').forEach(x => { x.oninput = () => { E.w[x.dataset.w] = +x.value; x.style.setProperty('--pct', (x.value - 0.1) / 1.9 * 100 + '%');
@@ -287,37 +394,52 @@ function renderEnsemble(body) {
   $('selLatest').onclick = () => { E.sel = new Set(pool.slice(-6).map(r => r.id)); render(); };
   $('selAll').onclick = () => { E.sel = new Set(pool.map(r => r.id)); render(); };
   $('resetW').onclick = () => { E.w = { ...E.w, ...dw }; E.wmode = 'auto'; E.sel = new Set(pool.slice(-6).map(r => r.id)); E.mix = 50; render(); };
-  $('buildEns').onclick = () => buildEnsemble(grp, chosen, mixOn);
+  $('buildEns').onclick = () => buildEnsemble(grp, chosen, mixOn, timed);
 }
 
-async function buildEnsemble(grp, chosen, mixOn) {
-  const E = T.ens; if (E.busy) return; E.busy = true; render();
+async function buildEnsemble(grp, chosen, mixOn, timed) {
+  const E = T.ens; if (E.busy) return;
+  const weights = { ...E.w }, mix = E.mix, region = X.S.region, user = uid();
+  E.busy = true; render();
   const status = (t) => { const s = $('ensStatus'); if (s) s.textContent = t; };
   try {
-    const share = (r) => !mixOn ? 1 : (r.type === 'ai' ? (100 - E.mix) / 50 : E.mix / 50);
+    const share = (r) => !mixOn ? 1 : (r.type === 'ai' ? (100 - mix) / 50 : mix / 50);
     status(`Loading ${chosen.length} runs…`);
     const loaded = (await Promise.allSettled(chosen.map(async r => ({ r, geojson: await X.fetchGeo(r) })))).filter(x => x.status === 'fulfilled').map(x => x.value);
-    if (!loaded.length) throw new Error('None of the chosen runs could be loaded.');
+    if (loaded.length < (timed ? 2 : 1)) throw new Error(timed ? 'At least two matching Hourcast runs must load.' : 'None of the chosen runs could be loaded.');
     if (loaded.length < chosen.length) X.toast(`${chosen.length - loaded.length} run(s) could not be loaded and were skipped`);
     status('Blending…');
     await new Promise(r => setTimeout(r, 30));
-    const entries = loaded.map(({ r, geojson }) => ({ geojson, weight: +(E.w[r.id] * share(r)).toFixed(3), createdMs: X.created(r)?.getTime() || 0, r }));
-    const geo = blendRuns(entries, X.BANDS);
+    const entries = loaded.map(({ r, geojson }) => ({ geojson, weight: +(weights[r.id] * share(r)).toFixed(3), createdMs: X.created(r)?.getTime() || 0, r }));
+    const geo = blendRuns(entries, X.BANDS, { allowQuiet: timed });
     const used = entries.filter(e => e.weight > 0);
     status('Saving…');
     const payload = {
-      region: X.S.region, startTime: fmtHoco(grp.start), endTime: fmtHoco(grp.end), weather: 'lightning',
-      userId: uid(), createdAt: new Date(), status: 'complete', public: false, type: 'human-mimic', tag: 'ENSEMBLE',
-      sourceRunIds: used.map(e => e.r.id), sourceRunCount: used.length, sourceTypes: [...new Set(used.map(e => e.r.type))],
+      region, startTime: fmtHoco(grp.start), endTime: fmtHoco(grp.end), weather: 'lightning',
+      userId: user, validFrom: grp.start, validTo: grp.end, ...(timed ? { forecastProduct: 'timing' } : {}), createdAt: new Date(), status: 'complete', public: false, type: 'human-mimic', tag: 'ENSEMBLE',
+      sourceRunIds: used.map(e => e.r.sourceRunId || e.r.id), sourceRunCount: used.length, sourceTypes: [...new Set(used.map(e => e.r.type))],
       inlineGeojsonText: JSON.stringify(geo),
-      humanMimic: { anomalyAware: true, noiseFilter: true, validPeriodKey: `${X.S.region}|${grp.key}`, weights: Object.fromEntries(used.map(e => [e.r.id, e.weight])),
-        traditionalShare: mixOn ? E.mix / 100 : null, builtWith: 'v3',
+      humanMimic: { anomalyAware: true, noiseFilter: true, validPeriodKey: `${region}|${grp.key}`, weights: Object.fromEntries(used.map(e => [e.r.id, e.weight])),
+        traditionalShare: mixOn ? mix / 100 : null, builtWith: 'v3',
         latestIssuedAt: X.created(used[used.length - 1].r)?.toISOString() || null, earliestIssuedAt: X.created(used[0].r)?.toISOString() || null }
     };
     if (payload.inlineGeojsonText.length > 900000) throw new Error('This blend is too detailed to save. Pick fewer runs.');
-    const ref = await addDoc(collection(X.db, 'hoco_requests'), payload);
+    let ref;
+    if (timed) {
+      if (uid() !== user) throw Error('Sign in again to save the ensemble.');
+      ref = doc(collection(X.db, 'hoco_requests'));
+      const inlineGeojsonText = payload.inlineGeojsonText;
+      delete payload.inlineGeojsonText;
+      payload.privateHourcastEnsemble = true;
+      const batch = writeBatch(X.db);
+      batch.set(ref, payload);
+      batch.set(doc(X.db, 'users', user, 'hourcast_runs', ref.id), { inlineGeojsonText });
+      await batch.commit();
+    } else {
+      ref = await addDoc(collection(X.db, 'hoco_requests'), payload);
+    }
     X.cachePut(ref.id, geo);
-    X.toast('Ensemble saved');
+    X.toast(timed ? 'Hourcast ensemble saved' : 'Ensemble saved');
     X.showCustom({ id: ref.id, ...payload });
     if (innerWidth <= 640) toggle(false);
   } catch (e) { console.error(e); X.toast(e.message || 'Could not build the ensemble'); }
@@ -340,16 +462,19 @@ function renderManual(body) {
   if (!M.len) M.len = 12;
   const st = new Date(M.start), en = M.customEnd && M.end ? new Date(M.end) : new Date(st.getTime() + M.len * 3.6e6), hours = Math.max(1, (en - st) / 3.6e6);
   const left = cap === Infinity ? Infinity : Math.max(0, cap - T.myToday), opts = runOptions(M.model, M.start);
-  const nModels = new Set(M.scen.map(x => x.model)).size, mode = M.mode || 'custom';
+  const product = M.product || 'automated', chosenRegion = M.region || X.S.region;
+  const nModels = new Set(M.scen.map(x => x.model)).size, mode = product === 'ai' ? 'learned' : M.mode || 'custom';
   body.innerHTML = `
-    <div class="field"><span class="kicker">Region</span><div class="chips">${X.REGIONS.filter(x => x.west !== undefined).map(x => `<button class="chipbtn" data-reg="${x.id}" aria-pressed="${x.id === (M.region || X.S.region)}">${x.name}</button>`).join('')}</div></div>
+    <div class="field"><span class="kicker">Forecast product</span><div class="product-choices" role="group" aria-label="Forecast product">${productButtons('manual-product', product)}</div>
+      <small class="muted">${PRODUCTS[product].detail}${product === 'timing' ? ' Manual Hourcast uses hourly windows up to 24 hours in England and Scotland.' : ''}</small></div>
+    <div class="field"><span class="kicker">Region</span><div class="chips">${X.REGIONS.filter(x => x.west !== undefined && (product !== 'timing' || hourcastRegion(x.id))).map(x => `<button class="chipbtn" data-reg="${x.id}" aria-pressed="${x.id === (M.region || X.S.region)}">${x.name}</button>`).join('')}</div></div>
     <div class="grid2"><label class="field"><span class="kicker">Starts</span><input type="datetime-local" id="mStart" value="${M.start}"></label>
       <div class="field"><span class="kicker">Length</span><div class="chips">${[3, 6, 12, 24].map(h => `<button class="chipbtn" data-h="${h}" aria-pressed="${!M.customEnd && M.len === h}">${h} h</button>`).join('')}</div></div></div>
     <div class="rowbetween"><small class="muted">→ ends <b>${X.dayName(en)} ${X.hhmm(en)}</b> · ${Math.round(hours)} h</small><button class="linkbtn" id="mCustomEnd">${M.customEnd ? 'Use a length' : 'Pick an end time'}</button></div>
     ${M.customEnd ? `<label class="field"><span class="kicker">Ends</span><input type="datetime-local" id="mEnd" value="${M.end || localInput(en)}"></label>` : ''}
     ${canScen ? `
       <div class="field"><div class="rowbetween"><span class="kicker">Models and runs</span><small class="muted">${M.scen.length ? `${M.scen.length} run${M.scen.length > 1 ? 's' : ''} · ${nModels} model${nModels > 1 ? 's' : ''}` : 'standard set'}</small></div>
-        <div class="seg wide" role="group" aria-label="Weighting"><button data-mode="learned" aria-pressed="${mode === 'learned'}">Learned</button><button data-mode="custom" aria-pressed="${mode === 'custom'}">Custom</button></div>
+        <div class="seg wide" role="group" aria-label="Weighting"><button data-mode="learned" aria-pressed="${mode === 'learned'}">Learned</button><button data-mode="custom" aria-pressed="${mode === 'custom'}" ${product === 'ai' ? 'disabled' : ''}>Custom</button></div>
         ${mode === 'learned' ? '<small class="muted">AI HOCO\'s learned weights decide how much each model counts. Falls back to the standard weights if none is live.</small>' : ''}
         <div class="chips modelchips">${Object.entries(MODELS).map(([k, m]) => `<button class="chipbtn" data-model="${k}" aria-pressed="${k === M.model}">${m.name}</button>`).join('')}</div>
         <div class="chips runchips">${opts.map(o => { const added = M.scen.some(x => x.model === M.model && x.run === o.iso);
@@ -365,7 +490,12 @@ function renderManual(body) {
       <div class="grid3">${Object.entries(MODELS).map(([k, m]) => `<label><small>${m.name}</small><input type="number" step="0.1" min="0" id="mw-${k}" placeholder="default" value="${M.w?.[k] ?? ''}"></label>`).join('')}</div></details>` : ''}
     <label class="chk"><input type="checkbox" id="mNotify" ${M.notify ? 'checked' : ''}><span>Notify me when it's ready</span></label>
     <div class="runfoot"><span><b>${cap === Infinity ? 'Unlimited runs' : `${left} of ${cap} runs left today`}</b><small>Takes about ${manualEst(M.scen.length, hours)} min</small></span>
-      <button class="btn primary big" id="mGo" ${M.busy || (cap !== Infinity && !left) ? 'disabled' : ''}>${M.busy ? '<span class="spin light"></span> Starting…' : 'Run HOCO'}</button></div>`;
+      <button class="btn primary big" id="mGo" ${M.busy || (cap !== Infinity && !left) ? 'disabled' : ''}>${M.busy ? '<span class="spin light"></span> Starting…' : `Run ${PRODUCTS[product].label}`}</button></div>`;
+  body.querySelectorAll('[data-manual-product]').forEach(b => b.onclick = () => {
+    M.product = b.dataset.manualProduct;
+    if (M.product === 'timing' && !hourcastRegion(chosenRegion)) M.region = 'England';
+    render();
+  });
   body.querySelectorAll('[data-reg]').forEach(b => b.onclick = () => { M.region = b.dataset.reg; render(); });
   $('mStart').onchange = (e) => { M.start = e.target.value || M.start; render(); };
   body.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { M.len = +b.dataset.h; M.customEnd = false; render(); });
@@ -390,27 +520,38 @@ async function startManual() {
   const sIn = M.start, s = new Date(sIn), e = M.customEnd && M.end ? new Date(M.end) : new Date(s.getTime() + (M.len || 12) * 3.6e6);
   if (!sIn || isNaN(s) || isNaN(e)) return X.toast('Choose when the run starts');
   if (s >= e) return X.toast('The start must be before the end');
+  const product = M.product || 'automated';
+  if (product === 'timing' && (!hourcastRegion(M.region || X.S.region) || e - s > 864e5 || e <= new Date())) {
+    return X.toast('Choose an active period up to 24 hours in England or Scotland.');
+  }
   if (r !== 'developer' && (e - s) / 3.6e6 > 72) return X.toast('A run can cover up to 72 hours');
   if (cap !== Infinity && T.myToday >= cap) return X.toast(`You've used all ${cap} runs for today`);
   M.busy = true; M.region = M.region || X.S.region; render();
   if (M.notify && 'Notification' in window && Notification.permission === 'default') { try { await Notification.requestPermission(); } catch (err) { /* ignore */ } }
   // Normal users always get the standard blend, as on the classic site. Weights left blank use the backend defaults.
   const canScen = r === 'exclusive' || r === 'developer';
-  const learned = canScen && M.mode === 'learned';
+  const learned = product === 'ai' || (canScen && M.mode === 'learned');
   const scenarios = canScen ? M.scen.map(x => ({ model: x.model, run: x.run, label: `${MODELS[x.model].name} (${x.runLabel})`, ...(learned ? {} : { weight: x.weight }) })) : [];
   const weights = {};
   if (r === 'developer') Object.entries(M.w || {}).forEach(([k, v]) => { if (v !== '' && Number.isFinite(+v)) weights[k] = +v; });
-  if (learned) weights._mode = 'learned';
-  const payload = { region: M.region, scenarios, startTime: fmtHoco(s), endTime: fmtHoco(e), weather: 'lightning', weights: JSON.stringify(weights),
+  if (product === 'timing') weights._mode = 'hourcast';
+  else if (learned) weights._mode = 'learned';
+  const payload = { forecastProduct: product, region: M.region, scenarios, startTime: fmtHoco(s), endTime: fmtHoco(e), weather: 'lightning', weights: JSON.stringify(weights),
     userId: uid(), createdAt: new Date(), status: 'pending', public: false, type: 'manual' };
   try {
     const ref = await addDoc(collection(X.db, 'hoco_requests'), payload);
     T.known.set(ref.id, 'pending'); T.myRunOpen = true;
-    try { await httpsCallable(getFunctions(X.app, 'us-central1'), 'triggerHocoRun')({ id: ref.id, ...payload }); }
-    catch (err) { console.error(err); X.toast('The run was saved but the backend did not start it. Try again in a minute.'); }
+    try {
+      const result = await httpsCallable(getFunctions(X.app, 'us-central1'), 'triggerHocoRun')({ id: ref.id, ...payload });
+      if (result.data?.success === false) throw Error('The backend declined the dispatch');
+    } catch (err) {
+      console.error(err);
+      X.toast('The run was saved but the backend did not start it.');
+      return;
+    }
     M.scen = []; M.picked = new Set();
     X.toast('Run started. We\'ll tell you when it\'s ready.');
-    T.tab = 'runs'; T.filter = 'mine'; T.date = dateKey(s);
+    T.tab = 'runs'; T.filter = 'mine'; T.product = product; T.date = dateKey(s);
   } catch (err) { console.error(err); X.toast('Could not start the run'); }
   finally { M.busy = false; render(); }
 }
