@@ -4,8 +4,16 @@ const SIX_HOURS = DAY / 4;
 const FEED = 'https://ukwx.duckdns.org/lightning';
 const RAD = Math.PI / 180;
 const SAMPLE_KM = 15;
-const MAP_CELL_KM = 5;
+const MAP_CELL_KM = 2.5;
 const EVENT_KM = 20;
+const EARTH_RADIUS_KM = 6371;
+const DISPLAY_LIMIT_KM = EVENT_KM + 4;
+const PROXIMITY_BANDS = [
+  { max: 5, paletteMin: 90 },
+  { max: 10, paletteMin: 50 },
+  { max: 15, paletteMin: 30 },
+  { max: EVENT_KM, paletteMin: 20 }
+];
 const BUCKET_DEGREES = 0.5;
 const COVERAGE = { west: -17.8, east: 7.8, south: 48.7, north: 63, slope: 0.3491, intercept: 49.3739 };
 export const OBSERVATION_DELAY = 15 * MINUTE;
@@ -79,15 +87,24 @@ function distanceKey(lon, lat, point) {
   return hav((point[1] - lat) * RAD) + Math.cos(lat * RAD) * Math.cos(point[1] * RAD) * hav((point[0] - lon) * RAD);
 }
 
-function observationLookup(region, observations) {
+function indexObservations(region, observations) {
   const { west, east, south, north } = region;
   const padding = 0.5;
-  const strikes = spatialIndex(observations.filter(([lon, lat]) =>
+  return spatialIndex(observations.filter(([lon, lat]) =>
     lon >= west - padding && lon <= east + padding && lat >= south - padding && lat <= north + padding
   ));
-  const radius = hav(EVENT_KM / 6371);
+}
+
+function coveredLocation(region, lon, lat) {
+  return lon >= region.west && lon <= region.east && lat >= region.south && lat <= region.north &&
+    withinCoverage(lon, lat);
+}
+
+function observationLookup(region, observations) {
+  const strikes = indexObservations(region, observations);
+  const radius = hav(EVENT_KM / EARTH_RADIUS_KM);
   return (lon, lat) => {
-    if (lon < west || lon > east || lat < south || lat > north || !withinCoverage(lon, lat)) return null;
+    if (!coveredLocation(region, lon, lat)) return null;
     for (const strike of neighbours(strikes, lon, lat)) {
       if (distanceKey(lon, lat, strike) <= radius) return 100;
     }
@@ -107,37 +124,100 @@ function coveredRing(west, east, south, north) {
   return [[west, north], ...lower, [east, Math.max(south, coverageEdge(east))], [east, north], [west, north]];
 }
 
+function nearestDistance(strikes, lon, lat) {
+  let closest = hav(DISPLAY_LIMIT_KM / EARTH_RADIUS_KM);
+  const latitudeScale = Math.cos(lat * RAD);
+  for (const [strikeLon, strikeLat] of neighbours(strikes, lon, lat)) {
+    const northSouth = hav((strikeLat - lat) * RAD);
+    if (northSouth >= closest) continue;
+    closest = Math.min(closest, northSouth + latitudeScale * Math.cos(strikeLat * RAD) * hav((strikeLon - lon) * RAD));
+  }
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(closest));
+}
+
+// Clip an interpolated triangle to a distance contour or the edge of observation coverage.
+function clipBand(vertices, inside) {
+  const clipped = [];
+  for (let i = 0; i < vertices.length; i++) {
+    const a = vertices[(i + vertices.length - 1) % vertices.length], b = vertices[i];
+    const p = inside(a), q = inside(b);
+    if ((p < 0 && q > 0) || (p > 0 && q < 0)) {
+      const fraction = p / (p - q);
+      clipped.push(a.map((value, axis) => value + fraction * (b[axis] - value)));
+    }
+    if (q >= 0) clipped.push(b);
+  }
+  return clipped;
+}
+
+function addProximityBands(features, region, strikes) {
+  const west = Math.max(region.west, COVERAGE.west), east = Math.min(region.east, COVERAGE.east);
+  const south = Math.max(region.south, COVERAGE.south), north = Math.min(region.north, COVERAGE.north);
+  const step = MAP_CELL_KM / 111.195, lonStep = step / Math.cos((south + north) / 2 * RAD);
+  const columns = Math.ceil((east - west) / lonStep), rows = Math.ceil((north - south) / step);
+  const sampleRow = row => {
+    const lat = Math.min(north, south + row * step);
+    return Array.from({ length: columns + 1 }, (_, column) => {
+      const lon = Math.min(east, west + column * lonStep);
+      return [lon, lat, nearestDistance(strikes, lon, lat)];
+    });
+  };
+  const bandAt = distance => PROXIMITY_BANDS.findIndex(band => distance <= band.max);
+  const addRing = (ring, index) => {
+    if (!ring || ring.length < 4) return;
+    features.push({ type: 'Feature', properties: { feature_type: 'polygon', proximityKm: PROXIMITY_BANDS[index].max },
+      geometry: { type: 'Polygon', coordinates: [ring] } });
+  };
+  let bottom = sampleRow(0);
+  for (let row = 0; row < rows; row++) {
+    const top = sampleRow(row + 1);
+    let span = 0, spanBand = -1;
+    const flush = column => {
+      if (spanBand >= 0) addRing(coveredRing(bottom[span][0], bottom[column][0], bottom[0][1], top[0][1]), spanBand);
+    };
+    for (let column = 0; column < columns; column++) {
+      const cell = [bottom[column], bottom[column + 1], top[column + 1], top[column]];
+      const distances = cell.map(vertex => vertex[2]), low = Math.min(...distances), high = Math.max(...distances);
+      const index = bandAt(low), whole = index === bandAt(high);
+      const nextBand = whole ? index : -1;
+      if (spanBand !== nextBand) {
+        flush(column);
+        span = column; spanBand = nextBand;
+      }
+      if (whole || index < 0) continue;
+      // Interpolate the band boundary within mixed cells. Adjacent cells share edge samples.
+      for (let k = index; k < PROXIMITY_BANDS.length; k++) {
+        const min = PROXIMITY_BANDS[k - 1]?.max ?? 0, max = PROXIMITY_BANDS[k].max;
+        if (min >= high) break;
+        for (const triangle of [[cell[0], cell[1], cell[2]], [cell[0], cell[2], cell[3]]]) {
+          let polygon = clipBand(triangle, v => max - v[2]);
+          if (k > 0) polygon = clipBand(polygon, v => v[2] - min);
+          polygon = clipBand(polygon, ([lon, lat]) => lat - coverageEdge(lon));
+          if (polygon.length < 3) continue;
+          const ring = polygon.map(([lon, lat]) => [lon, lat]);
+          addRing([...ring, ring[0]], k);
+        }
+      }
+    }
+    flush(columns);
+    bottom = top;
+  }
+}
+
 export function observedReference(region, observations) {
-  const riskAt = observationLookup(region, observations);
   const { west, east, south, north } = region;
   const geometry = coveredRing(west, east, south, north);
   if (!geometry) throw Error('No supported lightning observations for this map area.');
   const features = [{
     type: 'Feature', properties: { feature_type: 'coverage' }, geometry: { type: 'Polygon', coordinates: [geometry] }
   }];
-  const step = MAP_CELL_KM / 111.195;
-  // Merge adjacent cells by row to avoid drawing a polygon for every strike or sample.
-  const mapNorth = Math.min(north, COVERAGE.north), mapEast = Math.min(east, COVERAGE.east);
-  for (let bottom = Math.max(south, COVERAGE.south); bottom < mapNorth; bottom += step) {
-    const top = Math.min(mapNorth, bottom + step), lat = (bottom + top) / 2;
-    const lonStep = step / Math.cos(lat * RAD);
-    let span = null;
-    const addSpan = right => {
-      const ring = coveredRing(span, right, bottom, top);
-      if (ring) features.push({
-        type: 'Feature', properties: { feature_type: 'polygon', risk: 100 },
-        geometry: { type: 'Polygon', coordinates: [ring] }
-      });
-      span = null;
-    };
-    for (let left = Math.max(west, COVERAGE.west); left < mapEast; left += lonStep) {
-      const right = Math.min(mapEast, left + lonStep);
-      if (riskAt((left + right) / 2, lat) === 100) span ??= left;
-      else if (span !== null) addSpan(left);
-    }
-    if (span !== null) addSpan(mapEast);
-  }
-  return { riskAt, geo: { type: 'FeatureCollection', features } };
+  const strikes = indexObservations(region, observations);
+  if (strikes.size) addProximityBands(features, region, strikes);
+  return {
+    bands: PROXIMITY_BANDS,
+    distanceAt: (lon, lat) => coveredLocation(region, lon, lat) ? nearestDistance(strikes, lon, lat) : null,
+    geo: { type: 'FeatureCollection', features }
+  };
 }
 
 function insideRing(lon, lat, ring) {

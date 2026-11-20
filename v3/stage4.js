@@ -70,7 +70,8 @@ export function openSettings() {
 
 // ------------------------------------------------------------------ compare maps: 1-4 maps side by side, or two maps with a swipe divider
 const C = { panes: [], hourcast: new Map(), days: [], maps: [], marks: [], link: true, syncing: false, day: 0, mode: 'side', split: 0.5 };
-const REFERENCE_COLOURS = { lightning: '#7048c7', quiet: '#8da9bd' };
+const QUIET_COLOUR = '#8da9bd';
+const proximityColour = band => X.BANDS.find(colour => colour.min === band.paletteMin)?.fill || '#7048c7';
 const typeLabel = (r) => (r?.forecastProduct === 'timing' && r.type === 'human-mimic' ? 'Hourcast Ensemble' : PRODUCTS[r?.type]?.label || ({'human-mimic':'Ensemble',manual:'Manual'}[r?.type]) || 'Run');
 const typeCls = (r) => ({ timing: 'ai', automated: 'trad', ai: 'ai', 'human-mimic': 'ens', manual: 'man' }[r?.type] || 'man');
 const runDay = (r) => { const s = r && X.startOf(r); if (!s) return null; const t = X.baseDay(); const d = Math.round((new Date(s).setHours(0, 0, 0, 0) - t) / 864e5); return d >= 0 && d <= 2 ? d : null; };
@@ -267,7 +268,7 @@ function setVerificationWindow(index) {
 const CHEV = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
 function paneHead(i) {
   if (C.verification) {
-    const label = i === 0 ? typeLabel(C.verification.entry.run) : 'Observed lightning';
+    const label = i === 0 ? typeLabel(C.verification.entry.run) : 'Lightning hindcast';
     return `<div class="cx-chip cx-ver-label"><b>${esc(label)}</b></div>
       <div class="cx-stat" id="cxStat${i}" aria-live="polite"></div>`;
   }
@@ -308,8 +309,9 @@ function drawCompare() {
     </div>
     <div id="cxObsHost"></div>
     ${verification ? `<div class="cx-reference-key" aria-label="Observed lightning map key">
-      <span><i style="background:${REFERENCE_COLOURS.lightning}"></i><b>100%</b> Lightning within 20 km</span>
-      <span><i style="background:${REFERENCE_COLOURS.quiet}"></i><b>0%</b> No lightning within 20 km</span>
+      <b>Distance to nearest observed strike</b>
+      ${verification.reference.bands.map((band, i, bands) => `<span><i style="background:${proximityColour(band)}"></i>${bands[i - 1]?.max || 0}–${band.max} km</span>`).join('')}
+      <span><i style="background:${QUIET_COLOUR}"></i>No lightning within 20 km</span>
       <span>Unshaded areas are unverified${verification.entry.coverage < 1 ? ` · ${(verification.entry.coverage * 100).toFixed(2)}% time coverage` : ''}</span>
     </div>` : ''}
     <div class="cx-menu hidden" id="cxMenu" role="menu"></div>`;
@@ -334,7 +336,7 @@ function drawCompare() {
       m.once('remove', () => resize.disconnect());
     }
     if (i === C.panes.length - 1) m.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right');
-    m.on('style.load', () => { addPaneLayers(m, !!verification && i === 1); loadPane(i).then(() => { if (C.maps[i] === m) applyObs(i); }); });
+    m.on('style.load', () => { addPaneLayers(m, i === 1 ? verification?.reference : null); loadPane(i).then(() => { if (C.maps[i] === m) applyObs(i); }); });
     m.on('moveend', () => { if (CO.radar) paintPane(i); });
     m.on('move', () => { if (C.syncing) return; if (i === 0 || verification || C.link || C.mode === 'swipe') C.view = m.getBounds(); if (!verification && !C.link && C.mode !== 'swipe') return; C.syncing = true; C.maps.forEach(o => { if (o !== m) o.jumpTo({ center: m.getCenter(), zoom: m.getZoom() }); }); C.syncing = false; });
     m.on('mousemove', (e) => paneProbe(i, e.lngLat));
@@ -465,13 +467,16 @@ export function loadTo(run) {
   d.querySelectorAll('[data-slot]').forEach(b => b.onclick = () => { pick = +b.dataset.slot; d.querySelectorAll('[data-slot]').forEach(x => x.setAttribute('aria-pressed', x === b)); lbl(); });
   $('ltGo').onclick = () => { d.classList.add('hidden'); X.closeTools(); setPane(Math.min(pick, C.panes.length), run.id); };
 }
-function addPaneLayers(m, observed = false) {
+function addPaneLayers(m, reference) {
   if (m.getSource('hoco')) return;
   const label = m.getStyle().layers.find(l => l.type === 'symbol' && l.layout && l.layout['text-field'])?.id;
-  m.addSource('hoco', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-  if (observed) m.addLayer({ id: 'hoco-observed-coverage', type: 'fill', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'coverage'], paint: { 'fill-color': REFERENCE_COLOURS.quiet, 'fill-opacity': 0.28 } }, label);
-  m.addLayer({ id: 'hoco-fill', type: 'fill', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'polygon'], paint: { 'fill-color': observed ? REFERENCE_COLOURS.lightning : X.fillColor(), 'fill-opacity': 0.7, 'fill-antialias': !observed } }, label);
-  if (!observed) m.addLayer({ id: 'hoco-line', type: 'line', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'polygon'], paint: { 'line-color': 'rgba(16,34,56,0.45)', 'line-width': 0.6 } }, label);
+  m.addSource('hoco', { type: 'geojson', data: { type: 'FeatureCollection', features: [] },
+    ...(reference ? { tolerance: 0 } : {}) });
+  if (reference) m.addLayer({ id: 'hoco-observed-coverage', type: 'fill', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'coverage'], paint: { 'fill-color': QUIET_COLOUR, 'fill-opacity': 0.28 } }, label);
+  const fill = reference ? ['match', ['get', 'proximityKm'],
+    ...reference.bands.flatMap(band => [band.max, proximityColour(band)]), 'transparent'] : X.fillColor();
+  m.addLayer({ id: 'hoco-fill', type: 'fill', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'polygon'], paint: { 'fill-color': fill, 'fill-opacity': 0.7, 'fill-antialias': !reference } }, label);
+  if (!reference) m.addLayer({ id: 'hoco-line', type: 'line', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'polygon'], paint: { 'line-color': 'rgba(16,34,56,0.45)', 'line-width': 0.6 } }, label);
   try { m.addSource('cx-ref', { type: 'vector', url: 'mapbox://mapbox.mapbox-streets-v8' });
     m.addLayer({ id: 'cx-coast', type: 'line', source: 'cx-ref', 'source-layer': 'water', paint: { 'line-color': 'rgba(15,27,45,0.55)', 'line-width': 0.7 } }, label);
     m.addLayer({ id: 'cx-borders', type: 'line', source: 'cx-ref', 'source-layer': 'admin', filter: ['all', ['<=', ['get', 'admin_level'], 1], ['==', ['get', 'maritime'], 'false']], paint: { 'line-color': 'rgba(15,27,45,0.5)', 'line-width': 0.8, 'line-dasharray': [2, 1] } }, label); } catch (e) { /* outlines are optional */ }
@@ -485,7 +490,7 @@ async function loadPane(i) {
     const g = verification ? (observed ? verification.reference.geo : verification.entry.geo) : await X.fetchGeo(run);
     if (C.maps[i] !== m) return;
     paneGeo[i] = g;
-    if (!m.getSource('hoco')) addPaneLayers(m, observed);
+    if (!m.getSource('hoco')) addPaneLayers(m, observed ? verification.reference : null);
     m.getSource('hoco').setData(g);
     if (!observed) {
       m.setPaintProperty('hoco-fill', 'fill-opacity', Math.min(1, (g?.properties?.hoco_layout === 'bands_v2' ? 0.7 : 0.32) * getSettings().opacity));
@@ -502,7 +507,11 @@ function renderStat(i, here) {
   if (verification) {
     el.classList.toggle('here', !!here);
     if (i === 1) {
-      el.innerHTML = here ? here.v[i] === null ? '<b>Unverified</b>' : `<b>${here.v[i]}%</b><span>here</span>` : `<small>${esc(verification.entry.label)}</small>`;
+      const distance = here?.v[i], limit = verification.reference.bands.at(-1).max;
+      if (!here) el.innerHTML = `<small>${esc(verification.entry.label)}</small>`;
+      else if (distance === null) el.innerHTML = '<b>Unverified</b>';
+      else if (distance > limit) el.innerHTML = `<b>No lightning within ${limit} km</b>`;
+      else el.innerHTML = `<b>${distance.toFixed(1)} km</b><span>to nearest recorded strike</span>`;
     } else if (here && here.v[i] !== null) {
       el.innerHTML = `<b>${pctTxt(here.v[i])}</b><span>here</span>`;
     } else if (pk) {
@@ -518,7 +527,7 @@ function renderStat(i, here) {
   el.innerHTML = `<b>${pctTxt(pk.risk)}</b><span>peak${pk.lat != null && pk.risk >= 5 ? ` near ${esc(X.nearestPlace(pk.lat, pk.lon))}` : ''}</span>${i > 0 ? delta(pk.risk, paneStat[0]?.risk) : ''}<small>${run?.windowValidity ? esc(run.windowValidity) : s ? `${X.dayName(s)} ${X.hhmm(s)} – ${X.dayName(e)} ${X.hhmm(e)}` : ''}</small>`;
 }
 function paneProbe(i, ll) {
-  const v = C.panes.map((_, j) => C.verification && j === 1 ? C.verification.reference.riskAt(ll.lng, ll.lat) :
+  const v = C.panes.map((_, j) => C.verification && j === 1 ? C.verification.reference.distanceAt(ll.lng, ll.lat) :
     paneGeo[j] ? X.riskAt(paneGeo[j], ll.lng, ll.lat) : null);
   C.marks.forEach((mk, j) => { if (j === i || !C.maps[j]) mk.remove(); else mk.setLngLat(ll).addTo(C.maps[j]); });
   C.panes.forEach((_, j) => renderStat(j, { v }));
@@ -598,7 +607,7 @@ async function openRunVerification() {
     }
     let timeout;
     try {
-      const { OBSERVATION_DELAY, loadObservations, verifyMap, combinedVerification, observedReference } = await import('./run-verification.js?v=2');
+      const { OBSERVATION_DELAY, loadObservations, verifyMap, combinedVerification, observedReference } = await import('./run-verification.js?v=3');
       if (Date.now() < end + OBSERVATION_DELAY) {
         status('Verification is available after the forecast period ends and lightning observations have arrived.');
         return;
