@@ -1,214 +1,159 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { doc, getDoc, getFirestore, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-const app = initializeApp({ apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ", projectId: "hoco-3b23e" });
-const db = getFirestore(app);
-const $ = (id) => document.getElementById(id);
-const region = $("region"), day = $("day"), period = $("period"), status = $("status");
-const validTime = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short",
-    hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Europe/London", timeZoneName: "short" });
+const $ = id => document.getElementById(id);
+const format = options => new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", ...options });
+const clock = format({ hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+const date = format({ weekday: "short", day: "numeric", month: "short" });
+const zonedClock = format({ hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZoneName: "short" });
+const stamp = format({ day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+    hourCycle: "h23", timeZoneName: "short" });
 const empty = { type: "FeatureCollection", features: [] };
-const defaultBounds = { England: [-10.234, 48.788, 5.471, 56.578], Scotland: [-9.4482, 55.9161, 0, 60] };
-const url = new URL(location.href);
-region.value = url.searchParams.get("region") === "Scotland" ? "Scotland" : "England";
-day.value = ["0", "1", "2"].includes(url.searchParams.get("day")) ? url.searchParams.get("day") : "0";
-let chosen = url.searchParams.get("window");
-let stop, map, mapRegion, record, expiry, abort, request = 0, subscription = 0;
-let risk = empty, boundary = empty;
-let windows = [];
 
-function forecastRef(r, d) {
-    return doc(db, "system_stats", `storm_timing_${r.toLowerCase()}_day${d}`);
-}
+export function createStormTiming({ db, map, display, firstAvailable, selectDay }) {
+    const periods = $("timingPeriods");
+    let key, stop, timer, pending, boundary = empty, windows = [], selected, record;
 
-function liveWindows(data, now = Date.now()) {
-    return data?.schema === 1 && Array.isArray(data.windows)
-        ? data.windows.filter((item) => item.validFrom?.toMillis?.() < item.validTo?.toMillis?.() &&
-            item.validTo.toMillis() > now) : [];
-}
-
-function range(window) {
-    return `${validTime.format(window.validFrom.toDate())} – ${validTime.format(window.validTo.toDate())}`;
-}
-
-function updateAddress() {
-    url.searchParams.set("region", region.value);
-    url.searchParams.set("day", day.value);
-    if (chosen) url.searchParams.set("window", chosen);
-    else url.searchParams.delete("window");
-    history.replaceState(null, "", url);
-    $("back").href = "./?" + new URLSearchParams({ region: region.value, day: day.value });
-}
-
-function setSources() {
-    map?.getSource("timed-risk")?.setData(risk);
-    map?.getSource("timed-coverage")?.setData(boundary);
-}
-
-function startMap() {
-    const box = window.mapboxgl;
-    if (!box) return;
-    box.accessToken = "pk.eyJ1IjoiaGFuZHJ5MjAxOTEwMjYiLCJhIjoiY21jYWg2eG1lMDNkYTJxczVyOWM5bW9mciJ9.bA-qxiByTB_RseY1fgU4rg";
-    try {
-        map = new box.Map({ container: "map", style: "mapbox://styles/mapbox/light-v11",
-            bounds: defaultBounds[region.value], fitBoundsOptions: { padding: 20 }, maxZoom: 11 });
-        map.addControl(new box.NavigationControl({ showCompass: false }), "top-right");
-        map.on("load", () => {
-            map.addSource("timed-risk", { type: "geojson", data: risk });
-            const label = map.getStyle().layers.find((layer) => layer.type === "symbol" &&
-                layer.layout?.["text-field"])?.id;
-            map.addLayer({ id: "timed-fill", type: "fill", source: "timed-risk",
-                filter: ["==", ["get", "feature_type"], "polygon"],
-                paint: { "fill-color": ["get", "fill"], "fill-opacity": .66 } }, label);
-            map.addSource("timed-coverage", { type: "geojson", data: boundary });
-            map.addLayer({ id: "timed-coverage-halo", type: "line", source: "timed-coverage",
-                paint: { "line-color": "#fff", "line-width": 3.5, "line-opacity": .8 } });
-            map.addLayer({ id: "timed-coverage-line", type: "line", source: "timed-coverage",
-                paint: { "line-color": "#284e74", "line-dasharray": [2, 2], "line-width": 1.8 } });
-            fitRegion();
-        });
-    } catch {
-        map = null;
-        status.textContent = "The map could not start in this browser.";
+    function drawBoundary() {
+        const source = map.getSource("timing-boundary");
+        if (source) { source.setData(boundary); return; }
+        if (!boundary.features.length || !map.getLayer("hoco-fill")) return;
+        map.addSource("timing-boundary", { type: "geojson", data: boundary });
+        map.addLayer({ id: "timing-halo", type: "line", source: "timing-boundary",
+            paint: { "line-color": "#fff", "line-width": 4, "line-opacity": .85 } });
+        map.addLayer({ id: "timing-line", type: "line", source: "timing-boundary",
+            paint: { "line-color": "#284e74", "line-width": 2, "line-dasharray": [2, 2] } });
     }
-}
 
-function fitRegion() {
-    const bounds = record?.bounds || defaultBounds[region.value];
-    if (map && mapRegion !== region.value && bounds?.length === 4 && bounds.every(Number.isFinite)) {
-        mapRegion = region.value;
-        map.fitBounds(bounds, { padding: 18, duration: 0 });
+    function address(region, day) {
+        const url = new URL(location.href);
+        for (const name of ["run", "open"]) url.searchParams.delete(name);
+        url.searchParams.set("region", region);
+        url.searchParams.set("day", day);
+        url.searchParams.set("view", "timing");
+        if (selected) url.searchParams.set("window", selected);
+        else url.searchParams.delete("window");
+        history.replaceState(null, "", url);
     }
-}
 
-function updateBands(data) {
-    const colors = $("bands");
-    colors.replaceChildren();
-    for (const band of data.properties?.bands || []) {
-        if (!/^#[0-9a-f]{6}$/i.test(band.fill)) continue;
-        const key = document.createElement("span"), square = document.createElement("span");
-        key.className = "key";
-        square.className = "swatch";
-        square.style.backgroundColor = band.fill;
-        key.append(square, document.createTextNode(band.label));
-        colors.append(key);
+    function reset() {
+        stop?.(); stop = null;
+        clearTimeout(timer);
+        pending?.abort();
+        key = null; windows = []; record = null; selected = null; boundary = empty;
+        drawBoundary();
+        periods.replaceChildren();
+        $("timingCoverage").hidden = $("timingSource").hidden = true;
+        $("timingIssued").textContent = "";
     }
-}
 
-async function showWindow(item) {
-    const token = ++request;
-    abort?.abort();
-    abort = new AbortController();
-    risk = empty;
-    setSources();
-    updateBands(empty);
-    const issued = record.issuedAt?.toDate?.();
-    const description = `Valid ${range(item)}${issued ? ` · Issued ${validTime.format(issued)}` : ""}`;
-    status.textContent = `Loading · ${description}`;
-    try {
-        const endpoint = new URL(item.geojsonUrl);
-        if (endpoint.protocol !== "https:" ||
-            !["storage.googleapis.com", "firebasestorage.googleapis.com"].includes(endpoint.hostname)) throw Error();
-        const response = await fetch(endpoint, { signal: abort.signal });
-        if (!response.ok) throw Error();
-        const data = await response.json();
-        if (data.type !== "FeatureCollection" || !Array.isArray(data.features)) throw Error();
-        if (token !== request || item.validTo.toMillis() <= Date.now()) return;
-        risk = data;
-        updateBands(data);
-        setSources();
-        status.textContent = description;
-    } catch (error) {
-        if (token === request && error.name !== "AbortError") status.textContent = "This forecast map could not be loaded.";
-    }
-}
-
-function render(preserveChoice = false) {
-    clearTimeout(expiry);
-    ++request;
-    abort?.abort();
-    risk = boundary = empty;
-    updateBands(empty);
-    windows = liveWindows(record);
-    const source = $("source");
-    source.hidden = !windows.length;
-    period.disabled = !windows.length;
-    period.replaceChildren();
-    if (!windows.length) {
-        status.textContent = day.value === "0" ? "No first-hour forecast is active. Try Day 1 or Day 2."
-            : "No storm timing forecast is available for this region and day.";
-        if (!preserveChoice) chosen = null;
-        updateAddress();
-        fitRegion();
-        setSources();
-        return;
-    }
-    const now = Date.now();
-    const coordinates = record.verificationBoundary?.map(({ lon, lat }) => [lon, lat]);
-    if (coordinates?.length >= 2 && coordinates.every((pair) => pair.every(Number.isFinite))) {
-        boundary = { type: "FeatureCollection", features: [{ type: "Feature", properties: {},
-            geometry: { type: "LineString", coordinates } }] };
-    }
-    windows.forEach((item, index) => period.add(new Option(range(item), index)));
-    const match = windows.findIndex((w) => w.validFrom.toDate().toISOString() === chosen);
-    period.value = String(Math.max(0, match));
-    const item = windows[Number(period.value)];
-    chosen = item.validFrom.toDate().toISOString();
-    source.href = "./?" + new URLSearchParams({ region: region.value, day: day.value, run: record.sourceRunId });
-    updateAddress();
-    fitRegion();
-    setSources();
-    expiry = setTimeout(render, windows[0].validTo.toMillis() - now + 30);
-    showWindow(item);
-}
-
-async function chooseAvailable(watch, watchedRegion) {
-    for (const candidate of ["1", "2"]) {
+    async function select(item, region, day) {
+        pending?.abort();
+        const controller = new AbortController();
+        pending = controller;
+        const start = item.validFrom.toDate(), end = item.validTo.toDate();
+        selected = start.toISOString();
+        address(region, day);
+        for (const button of periods.children) button.setAttribute("aria-pressed", button.value === selected);
+        $("timingTitle").textContent = date.format(start);
+        $("timingStatus").textContent = "Loading window…";
+        const zone = value => zonedClock.formatToParts(value).find(part => part.type === "timeZoneName")?.value;
+        const hours = (zone(start) === zone(end) ? clock.format(start) : zonedClock.format(start)) + "–" + zonedClock.format(end);
+        const dates = date.format(start) === date.format(end) ? date.format(start) : date.format(start) + " → " + date.format(end);
+        const validity = stamp.format(start) + " – " + stamp.format(end);
+        display(empty);
         try {
-            const snapshot = await getDoc(forecastRef(watchedRegion, candidate));
-            if (watch !== subscription || liveWindows(record).length) return;
-            if (liveWindows(snapshot.data()).length) {
-                day.value = candidate;
-                watchForecast();
-                return;
-            }
+            const url = new URL(item.geojsonUrl);
+            if (url.protocol !== "https:" || !["storage.googleapis.com", "firebasestorage.googleapis.com"].includes(url.hostname)) throw Error();
+            const response = await fetch(url, { signal: controller.signal });
+            if (!response.ok) throw Error();
+            const data = await response.json();
+            if (data.type !== "FeatureCollection" || !Array.isArray(data.features)) throw Error();
+            if (controller.signal.aborted || end <= Date.now()) return;
+            display(data, { id: record.sourceRunId + "/" + selected, region, type: "ai",
+                validFrom: item.validFrom, validTo: item.validTo, createdAt: record.issuedAt });
+            $("timingTitle").textContent = hours;
+            $("timingStatus").textContent = dates;
         } catch {
-            if (watch !== subscription) return;
+            if (!controller.signal.aborted) $("timingStatus").textContent = "Map unavailable · " + validity;
         }
     }
-}
 
-function watchForecast(preferAvailable = false) {
-    stop?.();
-    const watch = ++subscription, watchedRegion = region.value, watchedDay = day.value;
-    let choose = preferAvailable && watchedDay === "0";
-    record = null;
-    render(true);
-    status.textContent = "Loading storm timing forecasts…";
-    stop = onSnapshot(forecastRef(watchedRegion, watchedDay), (snapshot) => {
-        if (watch !== subscription) return;
-        record = snapshot.data();
-        render(snapshot.metadata?.fromCache);
-        if (choose && !snapshot.metadata?.fromCache) {
-            choose = false;
-            if (!liveWindows(record).length) chooseAvailable(watch, watchedRegion);
+    function render(region, day) {
+        clearTimeout(timer);
+        pending?.abort();
+        const now = Date.now();
+        windows = (record?.schema === 1 && Array.isArray(record.windows) ? record.windows : [])
+            .filter(w => w.validFrom?.toMillis?.() < w.validTo?.toMillis?.() && w.validTo.toMillis() > now)
+            .sort((a, b) => a.validFrom.toMillis() - b.validFrom.toMillis());
+        periods.replaceChildren();
+        const points = record?.verificationBoundary?.map(p => [p.lon, p.lat]);
+        boundary = windows.length && points?.length > 1 && points.every(p => p.every(Number.isFinite))
+            ? { type: "FeatureCollection", features: [{ type: "Feature", properties: {},
+                geometry: { type: "LineString", coordinates: points } }] } : empty;
+        drawBoundary();
+        $("timingCoverage").hidden = !boundary.features.length;
+        $("timingSource").hidden = !windows.length || !record?.sourceRunId;
+        if (!windows.length) {
+            selected = null;
+            address(region, day);
+            display(empty);
+            $("timingIssued").textContent = "";
+            $("timingTitle").textContent = "No active window";
+            $("timingStatus").textContent = day === 0 ? "The first-hour forecast has expired or has yet to publish. Try Day 1 or Day 2."
+                : "There are no published windows for this day.";
+            return;
         }
-    }, () => {
-        if (watch !== subscription) return;
-        status.textContent = "Storm timing forecasts are temporarily unavailable.";
-    });
-}
+        $("timingSource").href = "./?" + new URLSearchParams({ region, day, run: record.sourceRunId });
+        $("timingIssued").textContent = record.issuedAt ? "Issued " + stamp.format(record.issuedAt.toDate()) : "";
+        for (const w of windows) {
+            const start = w.validFrom.toDate(), end = w.validTo.toDate();
+            const button = document.createElement("button");
+            button.value = start.toISOString();
+            button.className = "timing-window";
+            button.textContent = clock.format(start) + "–" + clock.format(end);
+            button.title = button.ariaLabel = stamp.format(start) + " to " + stamp.format(end);
+            button.onclick = () => select(w, region, day);
+            periods.append(button);
+        }
+        timer = setTimeout(() => render(region, day), windows[0].validTo.toMillis() - now + 30);
+        select(windows.find(w => w.validFrom.toDate().toISOString() === selected) || windows[0], region, day);
+    }
 
-function chooseWindow() {
-    const item = windows[Number(period.value)];
-    if (!item) return;
-    chosen = item.validFrom.toDate().toISOString();
-    updateAddress();
-    showWindow(item);
-}
+    async function chooseAvailable(region, watchedKey) {
+        for (const day of [1, 2]) {
+            try {
+                const snapshot = await getDoc(doc(db, "system_stats", "storm_timing_" + region.toLowerCase() + "_day" + day));
+                if (key !== watchedKey || windows.length) return;
+                if (snapshot.data()?.windows?.some(w => w.validTo?.toMillis?.() > Date.now())) {
+                    selectDay(day);
+                    return;
+                }
+            } catch { if (key !== watchedKey) return; }
+        }
+    }
 
-region.onchange = day.onchange = () => { chosen = null; watchForecast(); };
-period.onchange = chooseWindow;
-if (window.mapboxgl) startMap();
-else window.addEventListener("load", startMap, { once: true });
-watchForecast(!url.searchParams.has("window"));
+    function watch(region, day, initialWindow) {
+        const next = region + day;
+        if (key === next) return;
+        reset();
+        const preferAvailable = firstAvailable && day === 0;
+        firstAvailable = false;
+        key = next; selected = initialWindow;
+        display(empty);
+        address(region, day);
+        $("timingTitle").textContent = "Storm timing";
+        $("timingStatus").textContent = "Loading forecast windows…";
+        stop = onSnapshot(doc(db, "system_stats", "storm_timing_" + region.toLowerCase() + "_day" + day), { includeMetadataChanges: true }, snapshot => {
+            if (key !== next || snapshot.metadata.fromCache) return;
+            record = snapshot.data();
+            render(region, day);
+            if (preferAvailable && !windows.length) chooseAvailable(region, next);
+        }, () => {
+            if (key !== next) return;
+            record = null;
+            render(region, day);
+            $("timingStatus").textContent = "Storm timing is temporarily unavailable.";
+        });
+    }
+    return { watch, reset, drawBoundary };
+}

@@ -223,7 +223,7 @@ function strikeClick(e) {
 // 'run': only the chosen forecast's own period, with that forecast fixed underneath.
 const loadMode = () => { try { return localStorage.getItem('hocoObsMode') === 'run' ? 'run' : 'last24'; } catch (e) { return 'last24'; } };
 O.mode = loadMode(); O.tempRun = false;
-const effMode = () => (O.mode === 'run' || O.tempRun || X.S.custom) ? 'run' : 'last24';
+const effMode = () => (O.mode === 'run' || O.tempRun || X.S.custom || X.S.timing) ? 'run' : 'last24';
 function obsRange(run) {
   if (effMode() === 'last24') {
     // archive day: that day's outlook, 06:00 to 06:00 the next morning; live: the past 24 hours
@@ -277,7 +277,7 @@ function syncObs() {
   [$('obsSlider'), $('obsPlay'), $('obsNow')].forEach(e => e.disabled = false);
   const mode = effMode(), mk = mode + '|' + (mode === 'run' ? O.run.id : (X.S.archive?.date || 'live')), fresh = O.runId !== mk, atEnd = O.t == null || O.t >= O.tNow;
   O.runId = mk;
-  const mb = $('obsMode'); if (mb) { mb.setAttribute('aria-pressed', mode === 'run'); mb.disabled = !!X.S.custom; } O.t0 = r.s; O.t1 = Math.max(r.e, r.s); O.tNow = Math.max(r.s, r.now);
+  const mb = $('obsMode'); if (mb) { mb.setAttribute('aria-pressed', mode === 'run'); mb.disabled = !!X.S.custom || X.S.timing; } O.t0 = r.s; O.t1 = Math.max(r.e, r.s); O.tNow = Math.max(r.s, r.now);
   if (fresh || atEnd || O.t < O.t0 || O.t > O.tNow) O.t = O.tNow;
   const sl = $('obsSlider'); sl.min = 0; sl.max = Math.max(1, Math.round((O.t1 - O.t0) / RADAR_STEP));
   const nowPct = Math.min(100, (O.tNow - O.t0) / Math.max(1, O.t1 - O.t0) * 100);

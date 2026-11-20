@@ -589,9 +589,6 @@ body.tools-open .installbar,body.comparing .myrun{display:none}
 /* map buttons */
 .ctrls{top:var(--topy);right:var(--gap);gap:6px}
 .ctrls .btn{width:40px;height:40px;border-radius:12px}
-.ctrls:has(#stormTimingLink){align-items:flex-end}
-.ctrls #stormTimingLink{width:auto;padding:0 11px;white-space:nowrap;text-decoration:none;font-size:12px}
-body.embed #stormTimingLink{display:none}
 @media (hover:none){ .ctrls #zoomIn,.ctrls #zoomOut{display:none} }
 
 /* bottom: one compact bar */
@@ -851,6 +848,49 @@ body.comparing .tools{z-index:40}
 .obsbar{bottom:calc(var(--dockh,52px) + var(--gap) + 6px + env(safe-area-inset-bottom) + var(--adb,0px))}
 body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(--adb,0px))}
 .cx-obs{margin-bottom:var(--adb,0px)}.compare.cx{top:var(--adt,0px)}
+
+/* Forecast period and day share the dock across map modes. */
+.forecast-nav{display:contents}
+#forecastModes,#timingPeriods,#timingInfo{display:none}
+.dock.has-timing{flex-wrap:wrap;padding:8px 10px;gap:6px}
+.has-timing .forecast-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:1 0 100%;min-width:0;border-bottom:1px solid var(--border);padding-bottom:6px}
+.has-timing #forecastModes{display:flex;flex:none}
+#forecastModes button{font-size:13px;height:32px;padding:0 10px}
+.timing-active #dateBtn,.timing-active #allRunsBtn,.timing-active #dock .runrow,.timing-active #runLabel,
+.timing-active #procChip,.timing-active #sumHead,.timing-active #sumMore,.timing-active #summary .viewbar,
+.timing-active #empty,.timing-active #ctrlsBox [data-compare]{display:none!important}
+@media(min-width:641px){.timing-active #dock{max-width:680px}}
+.timing-active #timingPeriods{display:flex;gap:4px;width:100%}
+.timing-active #timingPeriods:empty{display:none}
+.timing-window{flex:1;min-width:0;border:1px solid var(--border);border-radius:8px;background:var(--chip);font-size:13px;font-weight:650;min-height:36px;padding:4px}
+.timing-window[aria-pressed=true]{color:var(--accent-text);background:var(--accent);border-color:var(--accent)}
+.timing-window:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.timing-active #timingInfo{display:grid;gap:5px;padding:3px 2px}
+#timingInfo h2{font-size:20px;letter-spacing:-.03em;line-height:1.15;margin:0}
+#timingStatus,#timingInfo details{font-size:12px;line-height:1.45}
+#timingInfo details{border-top:1px solid var(--border);padding-top:5px;color:var(--muted)}
+#timingInfo summary{cursor:pointer;color:var(--text);font-weight:600}
+#timingInfo details p{margin:5px 0}
+#timingCoverage{font-size:11px;color:var(--muted)}
+#timingInfo:has(#timingCoverage[hidden]) #timingBoundaryNote{display:none}
+#timingCoverage::before{content:"";display:inline-block;width:18px;border-top:2px dashed currentColor;margin-right:5px;vertical-align:middle}
+.timing-active #summary:not(.has-timed-map) .legend{display:none}
+@media(max-width:640px){
+  #dock.has-timing{grid-template-areas:"nav nav nav" "date run all" "lbl lbl lbl";grid-template-columns:auto 1fr auto;gap:4px}
+  #dock.has-timing .forecast-nav{grid-area:nav;gap:4px}
+  #dock.has-timing .runlabel{grid-area:run;justify-self:end;min-width:38px;pointer-events:none}
+  #dock.has-timing .runrow{margin-right:46px}
+  #dock.has-timing .daytabs{gap:2px}
+  #dock.has-timing .daytab{padding:0 6px}
+  #dock.has-timing .daytab small{display:none}
+  @media(max-width:420px){#dock.has-timing .daytab em{display:none}}
+  #forecastModes{padding:2px}
+  #forecastModes button,.timing-window{font-size:12px}
+  #forecastModes button{padding:0 7px}
+  .timing-active #dock.has-timing{grid-template-areas:"nav" "windows";grid-template-columns:minmax(0,1fr)}
+  #timingPeriods{grid-area:windows}
+  .timing-active #summary{width:min(285px,calc(100vw - 2 * var(--gap) - 48px));max-width:none}
+}
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -886,6 +926,17 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
     <span class="sum-txt"><span class="kicker" id="sumKicker">AUTO-HOCO · Day 0</span><span class="sum-where"><span class="sum-lbl">peak chance </span><span id="sumWhere">–</span></span></span>
     <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
   </button>
+  <div id="timingInfo">
+    <span class="kicker" id="timingKicker">AI HOCO · Storm timing</span>
+    <h2 id="timingTitle">Storm timing</h2>
+    <div id="timingStatus" role="status"></div>
+    <span id="timingCoverage" hidden>Lightning verification boundary</span>
+    <details><summary>Map key and forecast details</summary>
+      <p>Colours show the chance of lightning within 20 km during this window.</p>
+      <p id="timingBoundaryNote">Beyond the dashed line, risk comes from the model baseline for this window.</p>
+      <p id="timingIssued"></p><a id="timingSource" hidden>Source full-day run</a>
+    </details>
+  </div>
   <div class="legend mini" aria-label="Colour key: chance of lightning within 20 km"><div class="bar" id="legendBar"></div><div class="ticks"><span>5</span><span>15</span><span>30</span><span>50</span><span>70</span><span>90%</span></div></div>
   <div class="sum-more" id="sumMore">
     <div class="sum-title" id="sumTitle">Thunderstorm risk</div>
@@ -902,7 +953,6 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
 </aside>
 
 <div class="ctrls" id="ctrlsBox">
-  <a class="btn" id="stormTimingLink" href="storm-timing.html">Storm timing</a>
   <button class="btn" id="zoomIn" aria-label="Zoom in"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
   <button class="btn" id="zoomOut" aria-label="Zoom out"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></button>
   <button class="btn" data-compare aria-label="Compare maps side by side" title="Compare maps (C)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="8" height="16" rx="2"/><rect x="13" y="4" width="8" height="16" rx="2"/></svg></button>
@@ -912,7 +962,14 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
 
 
 <section class="dock card hidden" id="dock" aria-label="Choose a day and a run">
-  <div class="daytabs" role="tablist" aria-label="Forecast day" id="dayTabs"></div>
+  <div class="forecast-nav">
+    <div class="seg" id="forecastModes" role="group" aria-label="Forecast period">
+      <button id="fullDayMode" aria-pressed="true">Full day</button>
+      <button id="timingMode" aria-pressed="false">Storm timing</button>
+    </div>
+    <div class="daytabs" role="tablist" aria-label="Forecast day" id="dayTabs"></div>
+  </div>
+  <div id="timingPeriods" role="group" aria-label="Forecast windows in UK time"></div>
   <button class="btn datebtn" id="dateBtn" aria-haspopup="dialog" aria-expanded="false" title="View a past date"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span id="dateLabel">Today</span></button>
   <div class="runrow">
     <button class="btn icon" id="prevRun" aria-label="Previous run (earlier)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></button>
@@ -988,6 +1045,7 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
 <div class="toast hidden" id="toast" role="status"></div>
 
 <script type="module">
+import { createStormTiming } from "./storm-timing.js?v=2";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore, collection, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs, where, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -1038,7 +1096,12 @@ if (EMBED && ['light', 'dark'].includes(params.get('theme'))) S.theme = params.g
 if (params.get('region') && REGIONS.some(r => r.id === params.get('region') && r.west !== undefined)) S.region = params.get('region');
 if (['0','1','2'].includes(params.get('day'))) S.day = +params.get('day');
 if (params.get('view') === 'ai') S.product = 'ai';
-const wantRun = params.get('run');
+const supportsTiming = () => !EMBED && (!S.archive || !!S.archive.sharedId) && !S.custom && ['England','Scotland'].includes(S.region);
+S.timing = params.get('view') === 'timing' && supportsTiming();
+let fullDayProduct = S.timing ? 'ai' : S.product;
+let initialWindow = S.timing ? params.get('window') : null;
+if (S.timing) S.product = 'ai';
+const wantRun = !S.timing && params.get('run');
 let resolvingSharedRun = !!wantRun;
 const cache = new Map();
 const $ = (id) => document.getElementById(id);
@@ -1132,8 +1195,9 @@ applyTheme(true);
 ['legendBar'].forEach(id => $(id).innerHTML = BANDS.map(b => `<i style="background:${b.fill}" title="${bandLabel(b)}"></i>`).join(''));
 
 // ---------- map ----------
+const initialRegion = REGIONS.find(region => region.id === S.region);
 const map = new mapboxgl.Map({ container: 'map', style: styleUrl(),
-  bounds: [[-10.234, 48.788], [5.471, 56.578]], fitBoundsOptions: { padding: innerWidth <= 640 ? { top: 110, bottom: 130, left: 10, right: 10 } : { top: 80, bottom: 100, left: innerWidth > 1100 ? 120 : 20, right: 20 } }, attributionControl: false, logoPosition: 'bottom-left', projection: 'mercator', preserveDrawingBuffer: true });
+  bounds: [[initialRegion.west, initialRegion.south], [initialRegion.east, initialRegion.north]], fitBoundsOptions: { padding: innerWidth <= 640 ? { top: 110, bottom: 130, left: 10, right: 10 } : { top: 80, bottom: 100, left: innerWidth > 1100 ? 120 : 20, right: 20 } }, attributionControl: false, logoPosition: 'bottom-left', projection: 'mercator', preserveDrawingBuffer: true });
 map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-left');
 map.dragRotate.disable(); map.touchZoomRotate.disableRotation(); map.keyboard.disableRotation?.();
 // Keep the Mapbox logo and credits visible: lift them above the dock / phone sheet when those cover the corner.
@@ -1175,7 +1239,7 @@ function addOutlines(label) {
       'line-dasharray': ['match', ['get', 'admin_level'], 0, ['literal', [1, 0]], ['literal', [3, 2]]] } }, label);
 }
 function setOutlines(on) { ['hoco-coast', 'hoco-borders'].forEach(id => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none')); }
-map.on('style.load', () => { addLayers(); Extras.onStyle(); });
+map.on('style.load', () => { addLayers(); timing.drawBoundary(); Extras.onStyle(); });
 map.on('load', () => { const src = map.getSource('hoco'); if (src && S.geo) src.setData(S.geo); });
 map.on('error', (e) => console.warn('[map]', e?.error?.message || e));
 window.__hocoMap = map;
@@ -1224,8 +1288,8 @@ function showProbe(props, point) {
     const parts = String(props.src).split(',').map(x => x.split(':')).filter(x => x.length === 2).map(([c, v]) => [(MODEL_NAMES && MODEL_NAMES[c]) || c, +v]).sort((a, b) => b[1] - a[1]).slice(0, 4);
     if (parts.length) contrib = `<div class="contrib"><span class="kicker">Main contributors · developers only</span>${parts.map(([n, v]) => `<div><span>${n}</span><span class="bar"><i style="width:${Math.min(100, v)}%"></i></span><b>${v}%</b></div>`).join('')}</div>`;
   }
-  if (S.role === 'developer' && !props.src && !geoHasSrc()) contrib = `<div class="contrib"><span class="kicker">Main contributors · developers only</span><small>This run has no model details saved. They are only in runs made from Tue 17 Nov, 16:05 onwards.</small></div>`;
-  probe.innerHTML = `<div class="top"><span class="sw" style="background:${b ? b.fill : 'transparent'};border:1px solid var(--border)"></span><b>${risk < 1 ? '<1' : Math.round(risk)}%</b><small>chance of lightning<br>within 20 km · ${bandLabel(b)}</small></div>${pips}<small>Near ${near} · whole period</small>${contrib}`;
+  if (!S.timing && S.role === 'developer' && !props.src && !geoHasSrc()) contrib = `<div class="contrib"><span class="kicker">Main contributors · developers only</span><small>This run has no model details saved. They are only in runs made from Tue 17 Nov, 16:05 onwards.</small></div>`;
+  probe.innerHTML = `<div class="top"><span class="sw" style="background:${b ? b.fill : 'transparent'};border:1px solid var(--border)"></span><b>${risk < 1 ? '<1' : Math.round(risk)}%</b><small>chance of lightning<br>within 20 km · ${bandLabel(b)}</small></div>${pips}<small>Near ${near} · ${S.timing ? 'selected window' : 'whole period'}</small>${contrib}`;
   probe.classList.remove('hidden');
   if (innerWidth > 640) { const w = probe.offsetWidth || 250, h = probe.offsetHeight || 160; let x = point.x + 18, y = point.y + 18; if (x + w > innerWidth - 10) x = point.x - w - 18; if (y + h > innerHeight - 10) y = point.y - h - 18; probe.style.left = Math.max(10, x) + 'px'; probe.style.top = Math.max(10, y) + 'px'; }
 }
@@ -1263,12 +1327,12 @@ function buildDays() {
   }
 }
 function renderDays() {
-  const timingParams = new URLSearchParams({region: S.region === 'Scotland' ? 'Scotland' : 'England', day: S.day});
-  $('stormTimingLink').href = 'storm-timing.html?' + timingParams;
+  $('dock').classList.toggle('has-timing', supportsTiming());
   const today = baseDay();
   $('dateLabel').textContent = S.archive ? today.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Today';
   $('dateBtn').classList.toggle('arch', !!S.archive);
   $('dayTabs').innerHTML = [0, 1, 2].map(d => { const dt = addDays(today, d), last = S.byDay[d].at(-1), pk = last && S.peaks[last.id];
+    if (S.timing) return `<button class="daytab" role="tab" aria-selected="${d === S.day}" data-day="${d}">Day ${d}</button>`;
     const b = pk != null ? bandFor(pk) : null;
     return `<button class="daytab" role="tab" aria-selected="${d === S.day}" data-day="${d}"><span>Day ${d}<small>${dayName(dt)} ${dt.getDate()}</small></span>${pk != null ? `<em style="background:${b ? b.fill : 'var(--track)'}">${Math.round(pk)}%</em>` : ''}</button>`; }).join('');
   $('dayTabs').querySelectorAll('.daytab').forEach(b => b.onclick = () => { S.day = +b.dataset.day; clearCustom(); renderAll(); });
@@ -1279,6 +1343,54 @@ async function loadPeaks() {
   renderDays();
 }
 let loadToken = 0;
+const timing = createStormTiming({ db, map, firstAvailable: S.timing && !params.has('day') && !params.has('window'),
+  selectDay(day) { S.day = day; renderAll(); },
+  display(geo, run) {
+  $('probe').classList.add('hidden');
+  S.current = run || null;
+  setGeo(geo);
+  $('summary').classList.toggle('has-timed-map', !!run);
+  if (run) Extras.onShown(run, geo, null); else Extras.onEmpty();
+  measureDock();
+} });
+function syncPeriodControls() {
+  document.body.classList.toggle('timing-active', S.timing);
+  $('timingMode').setAttribute('aria-pressed', S.timing);
+  $('fullDayMode').setAttribute('aria-pressed', !S.timing);
+}
+function setTiming(on) {
+  if (on === S.timing || (on && !supportsTiming())) return;
+  ++loadToken;
+  S.timing = on;
+  syncPeriodControls();
+  if (on) {
+    fullDayProduct = S.product;
+    if (S.product !== 'ai') {
+      S.product = 'ai';
+      $('typeTrad').setAttribute('aria-pressed', false);
+      $('typeAi').setAttribute('aria-pressed', true);
+      buildDays();
+    }
+  } else {
+    timing.reset();
+    S.product = fullDayProduct;
+    $('typeTrad').setAttribute('aria-pressed', S.product !== 'ai');
+    $('typeAi').setAttribute('aria-pressed', S.product === 'ai');
+    buildDays();
+    S.current = null;
+    setGeo({type:'FeatureCollection', features:[]});
+    Extras.onEmpty();
+    const url = new URL(location.href);
+    url.searchParams.delete('window');
+    if (S.product === 'ai') url.searchParams.set('view', 'ai'); else url.searchParams.delete('view');
+    history.replaceState(null, '', url);
+  }
+  renderAll();
+  measureDock();
+}
+syncPeriodControls();
+$('timingMode').onclick = () => setTiming(true);
+$('fullDayMode').onclick = () => setTiming(false);
 function setNotice(text, back, kind) {
   document.querySelectorAll('[data-view]').forEach(v => { v.classList.toggle('hidden', !text); v.classList.toggle('arch', kind === 'arch'); if (text) { v.querySelector('[data-view-text]').textContent = text; v.querySelector('[data-view-back]').textContent = back; } });
   measureDock();
@@ -1414,6 +1526,7 @@ function runAt(t) {
 }
 // draw another forecast underneath the radar timeline without changing the selected run (null puts the selected run back)
 function showObsGeo(g) {
+  if (S.timing) return;
   S.obsGeo = g || null; const use = g || S.geo, src = map.getSource('hoco'); if (!use) return;
   if (src) src.setData(use); if (map.getLayer('hoco-fill')) map.setPaintProperty('hoco-fill', 'fill-opacity', fillOp(use));
 }
@@ -1425,6 +1538,7 @@ function setGeo(g) {
 const LABELS = { ai: 'AI HOCO', automated: 'AUTO-HOCO', 'human-mimic': 'HOCO ENSEMBLE', manual: 'MANUAL HOCO' };
 // Show one chosen run (an ensemble, a manual run, an archived forecast) instead of the live day view.
 async function showCustom(run) {
+  if (S.timing) setTiming(false);
   S.custom = run; document.body.classList.add('custom');
   const tok = ++loadToken;
   $('empty').classList.add('hidden');
@@ -1454,6 +1568,15 @@ function clearCustom() { if (!S.custom) return; S.custom = null; document.body.c
 async function renderAll() {
   if (S.custom || resolvingSharedRun) return;
   renderDays();
+  if (S.timing) {
+    $('skel').classList.add('hidden');
+    $('dock').classList.remove('hidden');
+    $('summary').classList.remove('hidden');
+    $('timingKicker').textContent = `AI HOCO · Day ${S.day} · Storm timing`;
+    timing.watch(S.region, S.day, initialWindow);
+    initialWindow = null;
+    return;
+  }
   const runs = S.byDay[S.day], n = runs.length;
   const label = S.product === 'ai' ? 'AI HOCO' : 'AUTO-HOCO';
   $('sumKicker').textContent = `${label} · Day ${S.day}`;
@@ -1508,11 +1631,17 @@ $('runSlider').oninput = (e) => setRun(+e.target.value);
 $('prevRun').onclick = () => setRun(S.idx[S.day] - 1);
 $('nextRun').onclick = () => setRun(S.idx[S.day] + 1);
 addEventListener('keydown', (e) => { if (e.target.closest('input,textarea,select')) return;
+  if (S.timing && ['ArrowLeft', 'ArrowRight'].includes(e.key)) {
+    const active = $('timingPeriods').querySelector('[aria-pressed="true"]');
+    const next = e.key === 'ArrowLeft' ? active?.previousElementSibling : active?.nextElementSibling;
+    if (next) { e.preventDefault(); next.click(); next.focus(); }
+    return;
+  }
   if (e.key === 'ArrowLeft') setRun(S.idx[S.day] - 1); else if (e.key === 'ArrowRight') setRun(S.idx[S.day] + 1);
   else if (['1', '2', '3'].includes(e.key)) { S.day = +e.key - 1; renderAll(); } else if (e.key.toLowerCase() === 't') setProduct(S.product === 'ai' ? 'traditional' : 'ai'); });
 
 // ---------- product, region, account ----------
-function setProduct(p) { S.custom && clearCustom(); S.product = p; localStorage.setItem('hocoAutoProduct', p); $('typeTrad').setAttribute('aria-pressed', p !== 'ai'); $('typeAi').setAttribute('aria-pressed', p === 'ai'); S.idx = [null, null, null]; S.follow = [true, true, true]; buildDays(); loadPeaks(); renderAll(); }
+function setProduct(p) { if (S.timing) setTiming(false); S.custom && clearCustom(); S.product = p; localStorage.setItem('hocoAutoProduct', p); $('typeTrad').setAttribute('aria-pressed', p !== 'ai'); $('typeAi').setAttribute('aria-pressed', p === 'ai'); S.idx = [null, null, null]; S.follow = [true, true, true]; buildDays(); loadPeaks(); renderAll(); }
 $('typeTrad').onclick = () => setProduct('traditional'); $('typeAi').onclick = () => setProduct('ai');
 $('typeTrad').setAttribute('aria-pressed', S.product !== 'ai'); $('typeAi').setAttribute('aria-pressed', S.product === 'ai');
 function openPop(pop, btn) {
@@ -1530,7 +1659,7 @@ function renderRegionPop() {
   $('euBtn').onclick = () => { $('regionPop').classList.add('hidden'); Stage4.openEurope(); };
   $('regionPop').querySelectorAll('button[data-r]:not([disabled])').forEach(b => b.onclick = () => { $('regionPop').classList.add('hidden'); setRegion(b.dataset.r); });
 }
-function setRegion(id) { clearCustom(); if (S.archive) S.archive = null; S.region = id; $('regionName').textContent = S.region; S.idx = [null, null, null]; S.follow = [true, true, true]; buildDays(); loadPeaks(); renderAll(); fitRegion(); }
+function setRegion(id) { if (S.timing && !['England','Scotland'].includes(id)) setTiming(false); clearCustom(); if (S.archive) S.archive = null; S.region = id; $('regionName').textContent = S.region; S.idx = [null, null, null]; S.follow = [true, true, true]; buildDays(); loadPeaks(); renderAll(); fitRegion(); }
 $('regionBtn').onclick = (e) => { e.stopPropagation(); renderRegionPop(); openPop($('regionPop'), $('regionBtn')); };
 $('regionName').textContent = S.region;
 $('accountBtn').onclick = (e) => { e.stopPropagation();
@@ -1599,6 +1728,7 @@ function riskAtGeo(g, lon, lat) {
 let firstLoad = true;
 async function startData() {
   if (unsub) return;
+  if (S.timing) renderAll();
   if (resolvingSharedRun) {
     let cancelled = false;
     unsub = () => { cancelled = true; };
@@ -1651,8 +1781,8 @@ async function startData() {
       }
     }
     buildDays();
-    if (first) { first = false; $('skel').classList.add('hidden'); $('dock').classList.remove('hidden'); measureDock(); if (S.region !== 'England') fitRegion();
-      if (firstLoad && !EMBED) { firstLoad = false; Stage4.startTutorial(); Stage4.installBanner?.(); } }
+    if (first) { first = false; $('skel').classList.add('hidden'); $('dock').classList.remove('hidden'); measureDock();
+      if (firstLoad && !EMBED && !S.timing) { firstLoad = false; Stage4.startTutorial(); Stage4.installBanner?.(); } }
     // keep the viewer on the latest run when a new one arrives, unless they chose an older one
     if (!S.archive) { for (let d = 0; d < 3; d++) if (S.follow[d]) S.idx[d] = null; loadPeaks(); renderAll(); } else renderProc();
     Tools.onRuns();
@@ -1675,7 +1805,7 @@ onAuthStateChanged(auth, async (user) => {
   if (unsub) { unsub(); unsub = null; }
   if (!user) { Tools.signedOut(); S.role = 'guest'; $('accountBtn').textContent = '?';
     let g = false; try { g = sessionStorage.getItem('hocoGuest') === '1'; } catch (e) { }
-    if (g || S.guest) { enterGuest(); return; }
+    if (g || S.guest || S.timing) { enterGuest(); return; }
     $('welcome').classList.remove('hidden'); $('skel').classList.add('hidden'); $('dock').classList.add('hidden'); $('summary').classList.add('hidden'); return; }
   S.guest = false; try { sessionStorage.removeItem('hocoGuest'); } catch (e) { } document.body.classList.remove('guest'); document.querySelectorAll('[data-guest]').forEach(e => e.classList.add('hidden'));
   $('welcome').classList.add('hidden'); $('skel').classList.remove('hidden');
@@ -1686,7 +1816,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ---------- extras (radar, strikes, export, search, change, cookies) ----------
-import('./extras.js?v=21').then((m) => {
+import('./extras.js?v=22').then((m) => {
   m.initExtras({ baseDay, runAt, showObsGeo, openSummary: () => { $('summary').classList.add('open'); $('sumHead').setAttribute('aria-expanded', 'true'); }, map, S, BANDS, REGIONS, TYPE_LABEL: LABELS, toast, openPop, measureDock, fetchGeo, peakOf, riskOf, bandFor, bandLabel, created, startOf, endOf, hhmm, dayName, dayDate,
     embed: EMBED, embedLayers: EMBED ? (params.get('layers') || '') : null, radarOpacity: () => SETTINGS.radarOpacity, showChanged: () => SETTINGS.changed !== false, openEmbed: EMBED ? null : () => Stage4.openEmbed(),
     riskAtGeo, runsFor, addDays, nearestPlace, colorExpr, mapStyle: () => SETTINGS.mapStyle, setMapStyle: (k) => { const s = { ...SETTINGS, mapStyle: k, styleV2: true }; try { localStorage.setItem('hocoSettings', JSON.stringify(s)); } catch (e) { } applySettings(s, { mapStyle: k }); },
