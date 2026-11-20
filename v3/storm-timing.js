@@ -9,19 +9,27 @@ const stamp = format({ day: "numeric", month: "short", hour: "2-digit", minute: 
     hourCycle: "h23", timeZoneName: "short" });
 const empty = { type: "FeatureCollection", features: [] };
 
-export function createStormTiming({ db, map, display, firstAvailable, selectDay }) {
+export function createStormTiming({ db, display, firstAvailable, selectDay }) {
     const periods = $("timingPeriods");
-    let key, stop, timer, pending, boundary = empty, windows = [], selected, record;
+    const slider = $("timingSlider"), preview = $("timingPreview");
+    const cached = new Map();
+    let key, stop, timer, pending, windows = [], selected, record, region, day;
 
-    function drawBoundary() {
-        const source = map.getSource("timing-boundary");
-        if (source) { source.setData(boundary); return; }
-        if (!boundary.features.length || !map.getLayer("hoco-fill")) return;
-        map.addSource("timing-boundary", { type: "geojson", data: boundary });
-        map.addLayer({ id: "timing-halo", type: "line", source: "timing-boundary",
-            paint: { "line-color": "#fff", "line-width": 4, "line-opacity": .85 } });
-        map.addLayer({ id: "timing-line", type: "line", source: "timing-boundary",
-            paint: { "line-color": "#284e74", "line-width": 2, "line-dasharray": [2, 2] } });
+    function previewWindow(index) {
+        const item = windows[index];
+        if (!item) return;
+        const start = item.validFrom.toDate(), end = item.validTo.toDate();
+        preview.textContent = clock.format(start) + "–" + zonedClock.format(end);
+        slider.setAttribute("aria-valuetext", stamp.format(start) + " to " + stamp.format(end));
+        slider.style.setProperty("--pct", windows.length > 1 ? index / (windows.length - 1) * 100 + "%" : "100%");
+    }
+    slider.oninput = () => previewWindow(Number(slider.value));
+    slider.onchange = () => { if (windows.length) select(windows[Number(slider.value)], region, day); };
+    function step(direction) {
+        if (windows.length < 2) return;
+        slider.value = Math.max(0, Math.min(windows.length - 1, Number(slider.value) + direction));
+        previewWindow(Number(slider.value));
+        slider.onchange();
     }
 
     function address(region, day) {
@@ -39,11 +47,11 @@ export function createStormTiming({ db, map, display, firstAvailable, selectDay 
         stop?.(); stop = null;
         clearTimeout(timer);
         pending?.abort();
-        key = null; windows = []; record = null; selected = null; boundary = empty;
-        drawBoundary();
-        periods.replaceChildren();
-        $("timingCoverage").hidden = $("timingSource").hidden = true;
+        key = null; windows = []; record = null; selected = null; cached.clear();
+        periods.hidden = true;
+        $("timingSource").hidden = true;
         $("timingIssued").textContent = "";
+        $("timingMethod").hidden = true;
     }
 
     async function select(item, region, day) {
@@ -53,7 +61,8 @@ export function createStormTiming({ db, map, display, firstAvailable, selectDay 
         const start = item.validFrom.toDate(), end = item.validTo.toDate();
         selected = start.toISOString();
         address(region, day);
-        for (const button of periods.children) button.setAttribute("aria-pressed", button.value === selected);
+        slider.value = windows.indexOf(item);
+        previewWindow(Number(slider.value));
         $("timingTitle").textContent = date.format(start);
         $("timingStatus").textContent = "Loading window…";
         const zone = value => zonedClock.formatToParts(value).find(part => part.type === "timeZoneName")?.value;
@@ -64,11 +73,15 @@ export function createStormTiming({ db, map, display, firstAvailable, selectDay 
         try {
             const url = new URL(item.geojsonUrl);
             if (url.protocol !== "https:" || !["storage.googleapis.com", "firebasestorage.googleapis.com"].includes(url.hostname)) throw Error();
-            const response = await fetch(url, { signal: controller.signal });
-            if (!response.ok) throw Error();
-            const data = await response.json();
-            if (data.type !== "FeatureCollection" || !Array.isArray(data.features)) throw Error();
+            let data = cached.get(url.href);
+            if (!data) {
+                const response = await fetch(url, { signal: controller.signal });
+                if (!response.ok) throw Error();
+                data = await response.json();
+                if (data.type !== "FeatureCollection" || !Array.isArray(data.features)) throw Error();
+            }
             if (controller.signal.aborted || end <= Date.now()) return;
+            cached.set(url.href, data);
             display(data, { id: record.sourceRunId + "/" + selected, region, type: "ai",
                 validFrom: item.validFrom, validTo: item.validTo, createdAt: record.issuedAt });
             $("timingTitle").textContent = hours;
@@ -85,13 +98,16 @@ export function createStormTiming({ db, map, display, firstAvailable, selectDay 
         windows = (record?.schema === 1 && Array.isArray(record.windows) ? record.windows : [])
             .filter(w => w.validFrom?.toMillis?.() < w.validTo?.toMillis?.() && w.validTo.toMillis() > now)
             .sort((a, b) => a.validFrom.toMillis() - b.validFrom.toMillis());
-        periods.replaceChildren();
-        const points = record?.verificationBoundary?.map(p => [p.lon, p.lat]);
-        boundary = windows.length && points?.length > 1 && points.every(p => p.every(Number.isFinite))
-            ? { type: "FeatureCollection", features: [{ type: "Feature", properties: {},
-                geometry: { type: "LineString", coordinates: points } }] } : empty;
-        drawBoundary();
-        $("timingCoverage").hidden = !boundary.features.length;
+        periods.hidden = !windows.length;
+        const notes = [];
+        if (record?.timingVersion && day === 2) notes.push("Storm hour covers the first 18 hours of Day 2.");
+        if (record?.timingInputs === "historical-timing") notes.push("Window estimates use the broader outlook and historical lightning timing.");
+        $("timingMethod").hidden = !windows.length || !notes.length;
+        $("timingMethod").textContent = notes.join(" ");
+        slider.max = Math.max(0, windows.length-1);
+        slider.disabled = windows.length < 2;
+        const liveUrls = new Set(windows.map(item => item.geojsonUrl));
+        for (const url of cached.keys()) if (!liveUrls.has(url)) cached.delete(url);
         $("timingSource").hidden = !windows.length || !record?.sourceRunId;
         if (!windows.length) {
             selected = null;
@@ -99,22 +115,12 @@ export function createStormTiming({ db, map, display, firstAvailable, selectDay 
             display(empty);
             $("timingIssued").textContent = "";
             $("timingTitle").textContent = "No active window";
-            $("timingStatus").textContent = day === 0 ? "The first-hour forecast has expired or has yet to publish. Try Day 1 or Day 2."
+            $("timingStatus").textContent = day === 0 ? "No hourly forecast is active for this run. Try Day 1 or Day 2."
                 : "There are no published windows for this day.";
             return;
         }
         $("timingSource").href = "./?" + new URLSearchParams({ region, day, run: record.sourceRunId });
         $("timingIssued").textContent = record.issuedAt ? "Issued " + stamp.format(record.issuedAt.toDate()) : "";
-        for (const w of windows) {
-            const start = w.validFrom.toDate(), end = w.validTo.toDate();
-            const button = document.createElement("button");
-            button.value = start.toISOString();
-            button.className = "timing-window";
-            button.textContent = clock.format(start) + "–" + clock.format(end);
-            button.title = button.ariaLabel = stamp.format(start) + " to " + stamp.format(end);
-            button.onclick = () => select(w, region, day);
-            periods.append(button);
-        }
         timer = setTimeout(() => render(region, day), windows[0].validTo.toMillis() - now + 30);
         select(windows.find(w => w.validFrom.toDate().toISOString() === selected) || windows[0], region, day);
     }
@@ -132,7 +138,8 @@ export function createStormTiming({ db, map, display, firstAvailable, selectDay 
         }
     }
 
-    function watch(region, day, initialWindow) {
+    function watch(nextRegion, nextDay, initialWindow) {
+        region = nextRegion; day = nextDay;
         const next = region + day;
         if (key === next) return;
         reset();
@@ -155,5 +162,5 @@ export function createStormTiming({ db, map, display, firstAvailable, selectDay 
             $("timingStatus").textContent = "Storm timing is temporarily unavailable.";
         });
     }
-    return { watch, reset, drawBoundary };
+    return { watch, reset, step };
 }

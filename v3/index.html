@@ -849,48 +849,33 @@ body.comparing .tools{z-index:40}
 body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(--adb,0px))}
 .cx-obs{margin-bottom:var(--adb,0px)}.compare.cx{top:var(--adt,0px)}
 
-/* Forecast period and day share the dock across map modes. */
-.forecast-nav{display:contents}
-#forecastModes,#timingPeriods,#timingInfo{display:none}
-.dock.has-timing{flex-wrap:wrap;padding:8px 10px;gap:6px}
-.has-timing .forecast-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:1 0 100%;min-width:0;border-bottom:1px solid var(--border);padding-bottom:6px}
-.has-timing #forecastModes{display:flex;flex:none}
-#forecastModes button{font-size:13px;height:32px;padding:0 10px}
+#timingPeriods,#timingInfo,#timingMode[hidden]{display:none}
+.timing-active #timingPeriods{display:flex;align-items:center;gap:10px;min-width:0;flex:1;padding:0 8px}
+.timing-active #timingPeriods[hidden]{display:none}
+#timingPeriods input{flex:1;min-width:36px}
+#timingPreview{font-size:12px;font-weight:650;white-space:nowrap}
+.timing-active #summary:not(.has-timed-map) .legend{display:none}
+@media(max-width:640px){
+  .timing-active #dock{grid-template-columns:1fr;grid-template-areas:"days" "timing"}
+  #timingPeriods{grid-area:timing;min-height:34px}
+  .topbar .type button{padding:0 7px}
+  .topbar #regionBtn{min-width:0;flex-shrink:1}
+}
+@media(max-width:370px){
+  .topbar{gap:3px}
+  .topbar .type button{padding:0 5px}
+  .topbar nav .btn.icon{width:28px}
+  .topbar .authbtns .btn{padding:0 6px}
+}
 .timing-active #dateBtn,.timing-active #allRunsBtn,.timing-active #dock .runrow,.timing-active #runLabel,
 .timing-active #procChip,.timing-active #sumHead,.timing-active #sumMore,.timing-active #summary .viewbar,
 .timing-active #empty,.timing-active #ctrlsBox [data-compare]{display:none!important}
-@media(min-width:641px){.timing-active #dock{max-width:680px}}
-.timing-active #timingPeriods{display:flex;gap:4px;width:100%}
-.timing-active #timingPeriods:empty{display:none}
-.timing-window{flex:1;min-width:0;border:1px solid var(--border);border-radius:8px;background:var(--chip);font-size:13px;font-weight:650;min-height:36px;padding:4px}
-.timing-window[aria-pressed=true]{color:var(--accent-text);background:var(--accent);border-color:var(--accent)}
-.timing-window:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .timing-active #timingInfo{display:grid;gap:5px;padding:3px 2px}
 #timingInfo h2{font-size:20px;letter-spacing:-.03em;line-height:1.15;margin:0}
 #timingStatus,#timingInfo details{font-size:12px;line-height:1.45}
 #timingInfo details{border-top:1px solid var(--border);padding-top:5px;color:var(--muted)}
 #timingInfo summary{cursor:pointer;color:var(--text);font-weight:600}
 #timingInfo details p{margin:5px 0}
-#timingCoverage{font-size:11px;color:var(--muted)}
-#timingInfo:has(#timingCoverage[hidden]) #timingBoundaryNote{display:none}
-#timingCoverage::before{content:"";display:inline-block;width:18px;border-top:2px dashed currentColor;margin-right:5px;vertical-align:middle}
-.timing-active #summary:not(.has-timed-map) .legend{display:none}
-@media(max-width:640px){
-  #dock.has-timing{grid-template-areas:"nav nav nav" "date run all" "lbl lbl lbl";grid-template-columns:auto 1fr auto;gap:4px}
-  #dock.has-timing .forecast-nav{grid-area:nav;gap:4px}
-  #dock.has-timing .runlabel{grid-area:run;justify-self:end;min-width:38px;pointer-events:none}
-  #dock.has-timing .runrow{margin-right:46px}
-  #dock.has-timing .daytabs{gap:2px}
-  #dock.has-timing .daytab{padding:0 6px}
-  #dock.has-timing .daytab small{display:none}
-  @media(max-width:420px){#dock.has-timing .daytab em{display:none}}
-  #forecastModes{padding:2px}
-  #forecastModes button,.timing-window{font-size:12px}
-  #forecastModes button{padding:0 7px}
-  .timing-active #dock.has-timing{grid-template-areas:"nav" "windows";grid-template-columns:minmax(0,1fr)}
-  #timingPeriods{grid-area:windows}
-  .timing-active #summary{width:min(285px,calc(100vw - 2 * var(--gap) - 48px));max-width:none}
-}
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -909,6 +894,7 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
   <div class="seg type" role="group" aria-label="Forecast type">
     <button id="typeTrad" aria-pressed="true" aria-label="Traditional">Trad<span class="typelong">itional</span></button>
     <button id="typeAi" aria-pressed="false" aria-label="AI HOCO (beta)">AI<span class="typelong">&nbsp;HOCO</span> <span class="pill">Beta</span></button>
+    <button id="timingMode" aria-pressed="false" hidden>Storm hour</button>
   </div>
   <nav>
     <button class="btn navlink" id="toolsBtn" aria-expanded="false" aria-controls="tools" title="Runs, ensembles and manual runs"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span class="navtext">Tools</span></button>
@@ -927,14 +913,12 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
     <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
   </button>
   <div id="timingInfo">
-    <span class="kicker" id="timingKicker">AI HOCO · Storm timing</span>
+    <span class="kicker" id="timingKicker">AI HOCO · Storm hour</span>
     <h2 id="timingTitle">Storm timing</h2>
     <div id="timingStatus" role="status"></div>
-    <span id="timingCoverage" hidden>Lightning verification boundary</span>
     <details><summary>Map key and forecast details</summary>
       <p>Colours show the chance of lightning within 20 km during this window.</p>
-      <p id="timingBoundaryNote">Beyond the dashed line, risk comes from the model baseline for this window.</p>
-      <p id="timingIssued"></p><a id="timingSource" hidden>Source full-day run</a>
+      <p id="timingMethod" hidden></p><p id="timingIssued"></p><a id="timingSource" hidden>Source full-day run</a>
     </details>
   </div>
   <div class="legend mini" aria-label="Colour key: chance of lightning within 20 km"><div class="bar" id="legendBar"></div><div class="ticks"><span>5</span><span>15</span><span>30</span><span>50</span><span>70</span><span>90%</span></div></div>
@@ -962,14 +946,12 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
 
 
 <section class="dock card hidden" id="dock" aria-label="Choose a day and a run">
-  <div class="forecast-nav">
-    <div class="seg" id="forecastModes" role="group" aria-label="Forecast period">
-      <button id="fullDayMode" aria-pressed="true">Full day</button>
-      <button id="timingMode" aria-pressed="false">Storm timing</button>
-    </div>
-    <div class="daytabs" role="tablist" aria-label="Forecast day" id="dayTabs"></div>
+  <div class="daytabs" role="tablist" aria-label="Forecast day" id="dayTabs"></div>
+  <div id="timingPeriods" hidden>
+    <label class="sr" for="timingSlider">Forecast window in UK time</label>
+    <input type="range" id="timingSlider" min="0" max="0" step="1" value="0">
+    <output id="timingPreview" for="timingSlider"></output>
   </div>
-  <div id="timingPeriods" role="group" aria-label="Forecast windows in UK time"></div>
   <button class="btn datebtn" id="dateBtn" aria-haspopup="dialog" aria-expanded="false" title="View a past date"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span id="dateLabel">Today</span></button>
   <div class="runrow">
     <button class="btn icon" id="prevRun" aria-label="Previous run (earlier)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg></button>
@@ -1045,7 +1027,7 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
 <div class="toast hidden" id="toast" role="status"></div>
 
 <script type="module">
-import { createStormTiming } from "./storm-timing.js?v=2";
+import { createStormTiming } from "./storm-timing.js?v=3";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore, collection, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs, where, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -1239,7 +1221,7 @@ function addOutlines(label) {
       'line-dasharray': ['match', ['get', 'admin_level'], 0, ['literal', [1, 0]], ['literal', [3, 2]]] } }, label);
 }
 function setOutlines(on) { ['hoco-coast', 'hoco-borders'].forEach(id => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none')); }
-map.on('style.load', () => { addLayers(); timing.drawBoundary(); Extras.onStyle(); });
+map.on('style.load', () => { addLayers(); Extras.onStyle(); });
 map.on('load', () => { const src = map.getSource('hoco'); if (src && S.geo) src.setData(S.geo); });
 map.on('error', (e) => console.warn('[map]', e?.error?.message || e));
 window.__hocoMap = map;
@@ -1327,7 +1309,7 @@ function buildDays() {
   }
 }
 function renderDays() {
-  $('dock').classList.toggle('has-timing', supportsTiming());
+  $('timingMode').hidden = !supportsTiming();
   const today = baseDay();
   $('dateLabel').textContent = S.archive ? today.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Today';
   $('dateBtn').classList.toggle('arch', !!S.archive);
@@ -1343,7 +1325,7 @@ async function loadPeaks() {
   renderDays();
 }
 let loadToken = 0;
-const timing = createStormTiming({ db, map, firstAvailable: S.timing && !params.has('day') && !params.has('window'),
+const timing = createStormTiming({ db, firstAvailable: S.timing && !params.has('day') && !params.has('window'),
   selectDay(day) { S.day = day; renderAll(); },
   display(geo, run) {
   $('probe').classList.add('hidden');
@@ -1355,8 +1337,10 @@ const timing = createStormTiming({ db, map, firstAvailable: S.timing && !params.
 } });
 function syncPeriodControls() {
   document.body.classList.toggle('timing-active', S.timing);
+  $('timingMode').hidden = !supportsTiming();
   $('timingMode').setAttribute('aria-pressed', S.timing);
-  $('fullDayMode').setAttribute('aria-pressed', !S.timing);
+  $('typeTrad').setAttribute('aria-pressed', !S.timing && S.product !== 'ai');
+  $('typeAi').setAttribute('aria-pressed', !S.timing && S.product === 'ai');
 }
 function setTiming(on) {
   if (on === S.timing || (on && !supportsTiming())) return;
@@ -1368,7 +1352,7 @@ function setTiming(on) {
     if (S.product !== 'ai') {
       S.product = 'ai';
       $('typeTrad').setAttribute('aria-pressed', false);
-      $('typeAi').setAttribute('aria-pressed', true);
+      $('typeAi').setAttribute('aria-pressed', false);
       buildDays();
     }
   } else {
@@ -1390,7 +1374,6 @@ function setTiming(on) {
 }
 syncPeriodControls();
 $('timingMode').onclick = () => setTiming(true);
-$('fullDayMode').onclick = () => setTiming(false);
 function setNotice(text, back, kind) {
   document.querySelectorAll('[data-view]').forEach(v => { v.classList.toggle('hidden', !text); v.classList.toggle('arch', kind === 'arch'); if (text) { v.querySelector('[data-view-text]').textContent = text; v.querySelector('[data-view-back]').textContent = back; } });
   measureDock();
@@ -1572,7 +1555,7 @@ async function renderAll() {
     $('skel').classList.add('hidden');
     $('dock').classList.remove('hidden');
     $('summary').classList.remove('hidden');
-    $('timingKicker').textContent = `AI HOCO · Day ${S.day} · Storm timing`;
+    $('timingKicker').textContent = `AI HOCO · Day ${S.day} · Storm hour`;
     timing.watch(S.region, S.day, initialWindow);
     initialWindow = null;
     return;
@@ -1632,9 +1615,8 @@ $('prevRun').onclick = () => setRun(S.idx[S.day] - 1);
 $('nextRun').onclick = () => setRun(S.idx[S.day] + 1);
 addEventListener('keydown', (e) => { if (e.target.closest('input,textarea,select')) return;
   if (S.timing && ['ArrowLeft', 'ArrowRight'].includes(e.key)) {
-    const active = $('timingPeriods').querySelector('[aria-pressed="true"]');
-    const next = e.key === 'ArrowLeft' ? active?.previousElementSibling : active?.nextElementSibling;
-    if (next) { e.preventDefault(); next.click(); next.focus(); }
+    e.preventDefault();
+    timing.step(e.key === 'ArrowLeft' ? -1 : 1);
     return;
   }
   if (e.key === 'ArrowLeft') setRun(S.idx[S.day] - 1); else if (e.key === 'ArrowRight') setRun(S.idx[S.day] + 1);
@@ -1643,7 +1625,7 @@ addEventListener('keydown', (e) => { if (e.target.closest('input,textarea,select
 // ---------- product, region, account ----------
 function setProduct(p) { if (S.timing) setTiming(false); S.custom && clearCustom(); S.product = p; localStorage.setItem('hocoAutoProduct', p); $('typeTrad').setAttribute('aria-pressed', p !== 'ai'); $('typeAi').setAttribute('aria-pressed', p === 'ai'); S.idx = [null, null, null]; S.follow = [true, true, true]; buildDays(); loadPeaks(); renderAll(); }
 $('typeTrad').onclick = () => setProduct('traditional'); $('typeAi').onclick = () => setProduct('ai');
-$('typeTrad').setAttribute('aria-pressed', S.product !== 'ai'); $('typeAi').setAttribute('aria-pressed', S.product === 'ai');
+syncPeriodControls();
 function openPop(pop, btn) {
   const was = !pop.classList.contains('hidden'); document.querySelectorAll('.pop').forEach(p => p.classList.add('hidden')); document.querySelectorAll('[aria-expanded]').forEach(b => b.getAttribute('aria-haspopup') && b.setAttribute('aria-expanded', 'false'));
   if (was) return; const r = btn.getBoundingClientRect(); pop.classList.remove('hidden'); btn.setAttribute('aria-expanded', 'true');
