@@ -849,7 +849,7 @@ body.comparing .tools{z-index:40}
 body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(--adb,0px))}
 .cx-obs{margin-bottom:var(--adb,0px)}.compare.cx{top:var(--adt,0px)}
 
-#timingPeriods,#timingInfo,#timingMode[hidden]{display:none}
+#timingPeriods,#timingStatus,.timing-details,#timingMode[hidden]{display:none}
 .timing-active #dock{flex-wrap:wrap}
 .timing-active #timingPeriods{display:flex;align-items:center;gap:10px;min-width:0;flex:0 0 100%;order:1;padding:3px 8px;border-top:1px solid var(--border)}
 .timing-active #timingPeriods[hidden]{display:none}
@@ -870,14 +870,10 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
   .topbar nav .btn.icon{width:28px}
   .topbar .authbtns .btn{padding:0 6px}
 }
-.timing-active #procChip,.timing-active #sumHead,.timing-active #sumMore,
-.timing-active #empty,.timing-active #ctrlsBox [data-compare]{display:none!important}
-.timing-active #timingInfo{display:grid;gap:5px;padding:3px 2px}
-#timingInfo h2{font-size:20px;letter-spacing:-.03em;line-height:1.15;margin:0}
-#timingStatus,#timingInfo details{font-size:12px;line-height:1.45}
-#timingInfo details{border-top:1px solid var(--border);padding-top:5px;color:var(--muted)}
-#timingInfo summary{cursor:pointer;color:var(--text);font-weight:600}
-#timingInfo details p{margin:5px 0}
+.timing-active #empty{display:none!important}
+.timing-active #timingStatus:not(:empty){display:block;font-size:12px;color:var(--muted)}
+.timing-active .timing-details{display:block;font-size:12px}
+.timing-details p{margin:0 0 4px}
 </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -896,7 +892,7 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
   <div class="seg type" role="group" aria-label="Forecast type">
     <button id="typeTrad" aria-pressed="true" aria-label="Traditional">Trad<span class="typelong">itional</span></button>
     <button id="typeAi" aria-pressed="false" aria-label="AI HOCO (beta)">AI<span class="typelong">&nbsp;HOCO</span> <span class="pill">Beta</span></button>
-    <button id="timingMode" aria-pressed="false" hidden>Storm hour</button>
+    <button id="timingMode" aria-pressed="false" hidden>Hourcast</button>
   </div>
   <nav>
     <button class="btn navlink" id="toolsBtn" aria-expanded="false" aria-controls="tools" title="Runs, ensembles and manual runs"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span class="navtext">Tools</span></button>
@@ -914,15 +910,7 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
     <span class="sum-txt"><span class="kicker" id="sumKicker">AUTO-HOCO · Day 0</span><span class="sum-where"><span class="sum-lbl">peak chance </span><span id="sumWhere">–</span></span></span>
     <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
   </button>
-  <div id="timingInfo">
-    <span class="kicker" id="timingKicker">AI HOCO · Storm hour</span>
-    <h2 id="timingTitle">Storm timing</h2>
-    <div id="timingStatus" role="status"></div>
-    <details><summary>Map key and forecast details</summary>
-      <p>Colours show the chance of lightning within 20 km during this window.</p>
-      <p id="timingMethod" hidden></p><p id="timingIssued"></p><a id="timingSource" hidden>Source full-day run</a>
-    </details>
-  </div>
+  <div id="timingStatus" role="status"></div>
   <div class="legend mini" aria-label="Colour key: chance of lightning within 20 km"><div class="bar" id="legendBar"></div><div class="ticks"><span>5</span><span>15</span><span>30</span><span>50</span><span>70</span><span>90%</span></div></div>
   <div class="sum-more" id="sumMore">
     <div class="sum-title" id="sumTitle">Thunderstorm risk</div>
@@ -931,6 +919,7 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
     <div class="changed hidden" data-changed></div>
     <div class="aicmp hidden" data-aicmp></div>
     <div class="meta"><span><small>Valid</small> <strong id="sumValid">–</strong></span><span><small>Issued</small> <strong id="sumIssued">–</strong></span></div>
+    <div class="timing-details"><p id="timingMethod" hidden></p><a id="timingSource" hidden>Source full-day run</a></div>
     <div class="muted legend-cap">Colours show the chance of lightning within 20 km</div>
     <div class="actions"><button class="btn" id="shareBtn">Share</button><button class="btn" data-export aria-haspopup="menu">Export</button><button class="btn" data-compare>Compare</button></div>
     <div class="guestcard hidden" data-guest><span><b>You're viewing as a guest.</b> Sign in to run your own HOCO, build ensembles and save runs.</span><div class="chips"><button class="btn primary sm" data-signin>Sign in</button><button class="btn sm" data-register>Register</button></div></div>
@@ -1029,7 +1018,7 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
 <div class="toast hidden" id="toast" role="status"></div>
 
 <script type="module">
-import { createStormTiming } from "./storm-timing.js?v=4";
+import { createStormTiming } from "./storm-timing.js?v=5";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore, collection, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs, where, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -1080,7 +1069,7 @@ if (EMBED && ['light', 'dark'].includes(params.get('theme'))) S.theme = params.g
 if (params.get('region') && REGIONS.some(r => r.id === params.get('region') && r.west !== undefined)) S.region = params.get('region');
 if (['0','1','2'].includes(params.get('day'))) S.day = +params.get('day');
 if (params.get('view') === 'ai') S.product = 'ai';
-const supportsTiming = () => !EMBED && !S.custom && ['England','Scotland'].includes(S.region);
+const supportsTiming = () => !S.custom && ['England','Scotland'].includes(S.region);
 S.timing = params.get('view') === 'timing' && supportsTiming();
 let fullDayProduct = S.product;
 let initialWindow = S.timing ? params.get('window') : null;
@@ -1115,6 +1104,7 @@ const fillColor = () => SETTINGS.palette === 'colourblind' ? colorExpr() : ['coa
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.add('hidden'), 3000); }
 
 async function fetchGeo(run) {
+  if (run.type === "timing") return timing.fetchGeo(run);
   if (cache.has(run.id)) return cache.get(run.id);
   let g; const inline = run.inlineGeojson ?? run.inlineGeojsonText ?? run.geojson ?? run.ensembleGeojson;
   if (inline) g = typeof inline === 'string' ? JSON.parse(inline) : inline;
@@ -1328,15 +1318,38 @@ async function loadPeaks() {
   renderDays();
 }
 let loadToken = 0;
+function renderSummaryPeak(geo) {
+  const pk = peakOf(geo);
+  $('sumPeak').textContent = pk.risk >= 1 ? `${Math.round(pk.risk)}%` : '<5%';
+  $('sumWhere').textContent = pk.risk >= 5 && pk.lat != null ? `near ${nearestPlace(pk.lat, pk.lon)}` : 'No notable risk';
+  return pk.risk;
+}
 const timing = createStormTiming({ db,
-  display(geo, run) {
-  $('probe').classList.add('hidden');
-  S.current = run || null;
-  setGeo(geo);
-  $('summary').classList.toggle('has-timed-map', !!run);
-  if (run) Extras.onShown(run, geo, null); else Extras.onEmpty();
-  measureDock();
-} });
+  display(geo, run, status = '') {
+    $('probe').classList.add('hidden');
+    S.current = run || null;
+    setGeo(geo);
+    $('summary').classList.toggle('has-timed-map', !!run);
+    $('timingStatus').textContent = status;
+    $('shareBtn').disabled = !run;
+    if (run) {
+      $('sumValid').textContent = run.windowValidity;
+      $('sumIssued').textContent = `${dayDate(created(run))}, ${hhmm(created(run))}`;
+      renderSummaryPeak(geo);
+      const previousId = S.byDay[S.day][S.idx[S.day] - 1]?.id;
+      const alternate = timing.adjacent(run);
+      S.timingBaseline = timing.comparison(run, previousId).then(match => match || alternate);
+      Extras.onShown(run, geo, S.timingBaseline);
+    } else {
+      $('sumPeak').textContent = '–';
+      $('sumWhere').textContent = 'Selected window';
+      $('sumValid').textContent = $('sumIssued').textContent = '–';
+      S.timingBaseline = null;
+      Extras.onEmpty();
+    }
+    measureDock();
+  }
+});
 function syncPeriodControls() {
   document.body.classList.toggle('timing-active', S.timing);
   $('timingMode').hidden = !supportsTiming();
@@ -1363,6 +1376,8 @@ function setTiming(on) {
     fullDayProduct = S.product;
   } else {
     timing.reset();
+    $('shareBtn').disabled = false;
+    S.timingBaseline = null;
     S.product = fullDayProduct;
     S.current = null;
     setGeo({type:'FeatureCollection', features:[]});
@@ -1469,7 +1484,7 @@ $('allRunsBtn').onclick = async (e) => {
 };
 // ---------- "new run on its way" ----------
 function renderProc() {
-  const el = $('procChip'), type = S.product === 'ai' ? 'ai' : 'automated';
+  const el = $('procChip'), type = dayRunType();
   if (S.archive || S.custom) { el.classList.add('hidden'); $('dock').classList.remove('proc'); return; }
   const dayKey = dateKey(addDays(baseDay(), S.day)), newest = S.byDay[S.day].at(-1);
   const pend = S.runs.find(r => r.type === type && regionMatches(S.region, r) && (r.status === 'pending' || r.status === 'processing') && created(r) && Date.now() - created(r).getTime() < 45 * 60000
@@ -1531,7 +1546,7 @@ function setGeo(g) {
   if (src) src.setData(g); else if (map.isStyleLoaded()) addLayers();
   if (map.getLayer('hoco-fill')) map.setPaintProperty('hoco-fill', 'fill-opacity', fillOp(g));
 }
-const LABELS = { ai: 'AI HOCO', automated: 'AUTO-HOCO', 'human-mimic': 'HOCO ENSEMBLE', manual: 'MANUAL HOCO' };
+const LABELS = { timing: 'Hourcast', ai: 'AI HOCO', automated: 'AUTO-HOCO', 'human-mimic': 'HOCO ENSEMBLE', manual: 'MANUAL HOCO' };
 // Show one chosen run (an ensemble, a manual run, an archived forecast) instead of the live day view.
 async function showCustom(run) {
   if (S.timing) setTiming(false);
@@ -1571,7 +1586,10 @@ async function renderAll() {
   if (S.timing) {
     $('summary').classList.remove('hidden');
     $('empty').classList.add('hidden');
-    $('timingKicker').textContent = `AI HOCO · Day ${S.day} · Storm hour`;
+    $('sumKicker').textContent = `Hourcast · Day ${S.day}`;
+    renderProc();
+    $('sumTitle').textContent = `Thunderstorm risk, ${S.region}`;
+    document.querySelector('[data-aicmp]').classList.add('hidden');
     if (!n) {
       $('runSlider').value = $('runSlider').max = 0;
       $('runSlider').disabled = $('prevRun').disabled = $('nextRun').disabled = $('allRunsBtn').disabled = true;
@@ -1615,10 +1633,7 @@ async function renderAll() {
   try {
     const g = await fetchGeo(run); if (tok !== loadToken) return;
     S.current = run; setGeo(g); Extras.onShown(run, g, i > 0 ? runs[i - 1] : null); renderAiCmp(run, g); renderProc();
-    const pk = peakOf(g); S.peaks[run.id] = pk.risk;
-    const where = pk.lat != null ? `near ${nearestPlace(pk.lat, pk.lon)}` : '';
-    $('sumPeak').textContent = pk.risk >= 1 ? `${Math.round(pk.risk)}%` : '<5%';
-    $('sumWhere').textContent = pk.risk >= 5 ? where : 'No notable risk';
+    S.peaks[run.id] = renderSummaryPeak(g);
     const u = new URL(location.href); u.search = '';
     if (EMBED) { u.searchParams.set('embed', '1'); ['theme', 'layers'].forEach(k => params.get(k) && u.searchParams.set(k, params.get(k))); }
     u.searchParams.set('region', S.region); u.searchParams.set('day', S.day); if (!EMBED) u.searchParams.set('run', run.id); if (S.product === 'ai') u.searchParams.set('view', 'ai');
@@ -1698,7 +1713,7 @@ $('accountBtn').onclick = (e) => { e.stopPropagation();
   go('acctInstall', () => Stage4.install()); go('acctTour', () => Stage4.startTutorial(true)); go('acctKeys', () => Extras.openShortcuts()); go('acctCookies', () => Extras.openCookies());
 };
 async function share() {
-  const url = location.href, text = `HOCO thunderstorm outlook · ${S.region} · Day ${S.day}`;
+  const url = location.href, text = `${S.timing ? 'Hourcast' : 'HOCO thunderstorm outlook'} · ${S.region} · Day ${S.day}${S.current?.windowValidity ? ' · ' + S.current.windowValidity : ''}`;
   if (navigator.share && matchMedia('(pointer: coarse)').matches) { try { await navigator.share({ title: 'HOCO', text, url }); } catch (e) { } }
   else { try { await navigator.clipboard.writeText(url); toast('Link copied'); } catch (e) { toast(url); } }
 }
@@ -1804,7 +1819,7 @@ async function startData() {
 }
 // guest: see today's outlook without an account (public and AUTO runs only)
 function enterGuest() { S.guest = true; try { sessionStorage.setItem('hocoGuest', '1'); } catch (e) { } document.body.classList.add('guest'); $('welcome').classList.add('hidden');
-  document.querySelectorAll('[data-guest]').forEach(e => e.classList.remove('hidden')); $('skel').classList.remove('hidden'); startData(); }
+  document.querySelectorAll('[data-guest]').forEach(e => e.classList.remove('hidden')); Stage4.renderAds(); $('skel').classList.remove('hidden'); startData(); }
 function showWelcome(mode) { $('welcome').classList.remove('hidden'); $('welcomeClose').classList.toggle('hidden', !S.guest); if (mode === 'register') $('email').focus(); }
 $('guestBtn').onclick = enterGuest;
 $('welcomeClose').onclick = () => $('welcome').classList.add('hidden');
@@ -1829,24 +1844,24 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ---------- extras (radar, strikes, export, search, change, cookies) ----------
-import('./extras.js?v=22').then((m) => {
+import('./extras.js?v=23').then((m) => {
   m.initExtras({ baseDay, runAt, showObsGeo, openSummary: () => { $('summary').classList.add('open'); $('sumHead').setAttribute('aria-expanded', 'true'); }, map, S, BANDS, REGIONS, TYPE_LABEL: LABELS, toast, openPop, measureDock, fetchGeo, peakOf, riskOf, bandFor, bandLabel, created, startOf, endOf, hhmm, dayName, dayDate,
     embed: EMBED, embedLayers: EMBED ? (params.get('layers') || '') : null, radarOpacity: () => SETTINGS.radarOpacity, showChanged: () => SETTINGS.changed !== false, openEmbed: EMBED ? null : () => Stage4.openEmbed(),
     riskAtGeo, runsFor, addDays, nearestPlace, colorExpr, mapStyle: () => SETTINGS.mapStyle, setMapStyle: (k) => { const s = { ...SETTINGS, mapStyle: k, styleV2: true }; try { localStorage.setItem('hocoSettings', JSON.stringify(s)); } catch (e) { } applySettings(s, { mapStyle: k }); },
     goDay: (d) => { S.day = d; clearCustom(); renderAll(); }, strikesDefault: () => SETTINGS.strikesDefault, onConsent: () => Stage4.renderAds(),
     outlines: () => SETTINGS.outlines !== false, setOutlines: (on) => { const s2 = { ...SETTINGS, outlines: on, styleV2: true }; try { localStorage.setItem('hocoSettings', JSON.stringify(s2)); } catch (e) { } applySettings(s2, { outlines: on }); } });
   Extras = m;
-  if (S.custom || S.current) m.onShown(S.custom || S.current, S.geo, null);
+  if (S.custom || S.current) m.onShown(S.custom || S.current, S.geo, S.timingBaseline || null);
 }).catch((e) => console.error(e));
 
 // ---------- stage 4 (settings, compare, accuracy, alerts, install, tutorial, embed, ads) ----------
-import('./stage4.js?v=18').then((m) => {
-  m.initStage4({ measureDock, baseDay, extras: () => Extras, map, S, BANDS, REGIONS, db, auth, storage, doc, getDoc, getDocs, query, collection, where, orderBy, limit, addDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, dateKey, nearestPlace, regionMatches,
+import('./stage4.js?v=19').then((m) => {
+  m.initStage4({ hourcastRuns: timing.runs, measureDock, baseDay, extras: () => Extras, map, S, BANDS, REGIONS, db, auth, storage, doc, getDoc, getDocs, query, collection, where, orderBy, limit, addDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, dateKey, nearestPlace, regionMatches,
     colorExpr, fillColor, styleUrl, applySettings, setTheme, setProduct, setRegion, runsFor, riskAt: riskAtGeo, embed: EMBED, goDay: (d) => { S.day = d; clearCustom(); renderAll(); },
     callable: (name) => async (data) => { const f = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js'); return f.httpsCallable(f.getFunctions(app, 'us-central1'), name)(data); },
     openTools: (t) => Tools.openTab(t), closeTools: () => Tools.toggle?.(false), openAlerts: (p) => Extras.openAlerts(p), openShortcuts: () => Extras.openShortcuts(), setNotifyRuns: (v) => Tools.setNotify?.(v) });
   Stage4 = m;
-  if (S.role === 'developer') m.renderAds();
+  if (S.guest || S.role !== 'guest') m.renderAds();
 }).catch((e) => console.error(e));
 
 // ---------- tools (runs, ensemble, manual run, developer) ----------

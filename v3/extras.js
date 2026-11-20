@@ -404,9 +404,9 @@ async function renderExport(kind, withKey = true) {
   g.drawImage(src, (W - dw) / 2, (mapH - dh) / 2, dw, dh);
   const u = Math.min(W, H) / 1080, F = (s, w = 600) => `${w} ${Math.round(s * u)}px Inter, system-ui, sans-serif`;
   const pk = X.peakOf(X.S.geo || { features: [] }), st = X.startOf(run), en = X.endOf(run), cr = X.created(run);
-  const lines = [[`HOCO Thunderstorm Outlook: ${run.region || X.S.region}`, F(34, 800), '#0f1b2d'],
+  const lines = [[`${run.type === 'timing' ? 'Hourcast' : 'HOCO Thunderstorm Outlook'}: ${run.region || X.S.region}`, F(34, 800), '#0f1b2d'],
     [`Chance of lightning within 20 km${pk.risk >= 5 ? ` · peak ${Math.round(pk.risk)}%` : ''}`, F(22, 500), '#3b4a5e'],
-    [`Valid ${st ? `${X.dayName(st)} ${X.hhmm(st)}` : ''} – ${en ? `${X.dayName(en)} ${X.hhmm(en)}` : ''}  ·  Issued ${cr ? `${X.dayDate(cr)} ${X.hhmm(cr)}` : ''}`, F(20, 500), '#3b4a5e']];
+    [`Valid ${run.windowValidity || (st && en ? `${X.dayName(st)} ${X.hhmm(st)} – ${X.dayName(en)} ${X.hhmm(en)}` : '')}  ·  Issued ${cr ? `${X.dayDate(cr)} ${X.hhmm(cr)}` : ''}`, F(20, 500), '#3b4a5e']];
   const padB = 22 * u; let bw = 0; lines.forEach(l => { g.font = l[1]; bw = Math.max(bw, g.measureText(l[0]).width); });
   const bx = 28 * u, by = 28 * u, bh = padB * 2 + 34 * u + 2 * 30 * u; bw = Math.min(W - 56 * u, bw + padB * 2);
   g.fillStyle = '#ffffff'; g.strokeStyle = '#0f1b2d'; g.lineWidth = 2 * u; g.fillRect(bx, by, bw, bh); g.strokeRect(bx, by, bw, bh);
@@ -434,21 +434,21 @@ function buildKml() {
     const r = X.riskOf(f.properties), b = X.bandFor(r), i = Math.max(0, X.BANDS.indexOf(b)), polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
     return polys.map(p => `<Placemark><name>${xe(X.bandLabel(b))}</name><styleUrl>#b${i}</styleUrl><Polygon><tessellate>1</tessellate>${p.map((ring, k) => `<${k ? 'innerBoundaryIs' : 'outerBoundaryIs'}><LinearRing><coordinates>${ring.map(c => `${c[0]},${c[1]},0`).join(' ')}</coordinates></LinearRing></${k ? 'innerBoundaryIs' : 'outerBoundaryIs'}>`).join('')}</Polygon></Placemark>`).join('');
   }).join('');
-  return `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>HOCO ${xe(run.region || X.S.region)} ${st ? X.dayDate(st) : ''}</name>
-<description>Chance of lightning within 20 km. Valid ${st ? `${X.dayName(st)} ${X.hhmm(st)}` : ''} – ${en ? `${X.dayName(en)} ${X.hhmm(en)}` : ''}. Handry Outlook HOCO.</description>${styles}${marks}</Document></kml>`;
+  return `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${run.type === "timing" ? "Hourcast" : "HOCO"} ${xe(run.region || X.S.region)} ${st ? X.dayDate(st) : ''}</name>
+<description>Chance of lightning within 20 km. Valid ${run.windowValidity || (st && en ? `${X.dayName(st)} ${X.hhmm(st)} – ${X.dayName(en)} ${X.hhmm(en)}` : '')}. Handry Outlook HOCO.</description>${styles}${marks}</Document></kml>`;
 }
 async function download(blob, name) {
   const file = new File([blob], name, { type: blob.type });
   if (matchMedia('(pointer: coarse)').matches && navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file], title: 'HOCO outlook' }); return; } catch (e) { } }
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
-function fileBase() { const run = O.run, st = X.startOf(run); return `HOCO-${run.region || X.S.region}-${st ? `${st.getFullYear()}${pad(st.getMonth() + 1)}${pad(st.getDate())}` : 'run'}`; }
+function fileBase() { const run = O.run, st = X.startOf(run); if (run.type === 'timing') return `Hourcast-${run.region}-${st.toISOString().slice(0,16).replace(':','')}`; return `HOCO-${run.region || X.S.region}-${st ? `${st.getFullYear()}${pad(st.getMonth() + 1)}${pad(st.getDate())}` : 'run'}`; }
 export function openExport() {
   const run = O.run; if (!run) return X.toast('Nothing to export yet');
   const d = $('cookieDlg'), st = X.startOf(run), en = X.endOf(run);
   const draw = () => {
     d.innerHTML = `<section class="dialog" role="dialog" aria-modal="true" aria-label="Export image"><div class="rowbetween"><h2>Export image</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
-      <div class="expreview"><b>HOCO Thunderstorm Outlook: ${esc(run.region || X.S.region)}</b><span>${st ? `${X.dayName(st)} ${X.hhmm(st)}` : ''} – ${en ? `${X.dayName(en)} ${X.hhmm(en)}` : ''}</span></div>
+      <div class="expreview"><b>${run.type === 'timing' ? 'Hourcast' : 'HOCO Thunderstorm Outlook'}: ${esc(run.region || X.S.region)}</b><span>${run.windowValidity || (st && en ? `${X.dayName(st)} ${X.hhmm(st)} – ${X.dayName(en)} ${X.hhmm(en)}` : '')}</span></div>
       <label class="item layer"><span><b>Show lightning strikes</b><small>Observed strikes up to now, newest in gold</small></span><input type="checkbox" class="switch" id="exStrikes" ${O.strikes ? 'checked' : ''}></label>
       <label class="item layer"><span><b>Show colour key</b><small>The chance-of-lightning boxes</small></span><input type="checkbox" class="switch" id="exKey" ${EX.key ? 'checked' : ''}></label>
       <div class="setgrp"><span class="kicker">File</span><div class="seg wide" role="group"><button data-file="png" aria-pressed="${EX.file === 'png'}">PNG image</button><button data-file="kml" aria-pressed="${EX.file === 'kml'}">KML (Google Earth)</button></div></div>
@@ -496,8 +496,8 @@ async function search(q) {
     const d = await r.json(), feats = d.features || [];
     list.innerHTML = locRow + (feats.map((f, i) => `<button class="item" data-i="${i}"><span><b>${esc(f.text)}</b><small class="muted" style="display:block;font-weight:500">${esc(f.place_name.replace(f.text + ', ', ''))}</small></span><em class="srisk" data-sr="${i}"></em></button>`).join('') || '<div class="muted" style="padding:10px">No places found</div>');
     wireSearch(feats);
-    const day0 = X.S.byDay[0].at(-1);
-    if (day0) { const g = await X.fetchGeo(day0); feats.forEach((f, i) => { const el = list.querySelector(`[data-sr="${i}"]`); if (el) { const rr = X.riskAtGeo(g, f.center[0], f.center[1]); el.textContent = `${pctTxt(rr)} ${X.S.archive ? '' : 'today'}`; } }); }
+    const day0 = X.S.timing ? O.run : X.S.byDay[0].at(-1);
+    if (day0) { const g = await X.fetchGeo(day0); feats.forEach((f, i) => { const el = list.querySelector(`[data-sr="${i}"]`); if (el) { const rr = X.riskAtGeo(g, f.center[0], f.center[1]); el.textContent = `${pctTxt(rr)} ${X.S.timing ? 'this window' : X.S.archive ? '' : 'today'}`; } }); }
   } catch (e) { list.innerHTML = locRow + '<div class="muted" style="padding:10px">Search is unavailable right now</div>'; wireSearch([]); }
 }
 function savedRows() { const s = loadPlaces(); return s.length ? `<span class="kicker" style="padding:8px 12px 4px;display:block">Saved places</span>` + s.map((p, i) => `<button class="item" data-saved="${i}"><span><b>${esc(p.name)}</b>${p.alertAt ? `<small class="muted" style="display:block;font-weight:500">Alert at ${p.alertAt}%+</small>` : ''}</span></button>`).join('') : ''; }
@@ -529,13 +529,14 @@ async function renderPlace() {
       <button class="btn icon sm" data-pl-save aria-label="${saved ? 'Remove from saved places' : 'Save place'}" title="${saved ? 'Saved' : 'Save place'}">${saved ? '★' : '☆'}</button>
       <button class="btn icon sm${saved?.alertAt ? ' on' : ''}" data-pl-alert aria-label="Storm alert" title="${saved?.alertAt ? `Alert at ${saved.alertAt}%+` : 'Set an alert'}">🔔</button>
       <button class="btn icon sm" data-pl-x aria-label="Close place">✕</button></div>
-    <div class="pl-days">${[0, 1, 2].map(d => { const dt = X.addDays(X.baseDay(), d), r = days?.[d], bb = r != null ? X.bandFor(r) : null;
+    <div class="pl-days">${X.S.timing ? `<div><small>${esc(O.run?.windowLabel || 'Selected window')}</small><b>${pctTxt(O.run ? X.riskAtGeo(X.S.geo, place.lon, place.lat) : null)}</b></div>` : [0, 1, 2].map(d => { const dt = X.addDays(X.baseDay(), d), r = days?.[d], bb = r != null ? X.bandFor(r) : null;
       return `<div><small>${d === 0 ? 'Today' : X.dayName(dt)}</small><b><i style="background:${bb ? bb.fill : 'var(--track)'}"></i>${days ? pctTxt(r) : '…'}</b></div>`; }).join('')}</div>`;
   const wire = () => els.forEach(el => { el.classList.remove('hidden');
     el.querySelector('[data-pl-x]').onclick = () => setPlace(null);
     el.querySelector('[data-pl-save]').onclick = () => { const s = loadPlaces(); const i = s.findIndex(x => samePlace(x, place)); if (i >= 0) s.splice(i, 1); else s.push({ ...place, alertAt: null }); savePlaces(s); renderPlace(); X.toast(i >= 0 ? 'Removed from saved places' : 'Place saved'); };
     el.querySelector('[data-pl-alert]').onclick = () => openAlerts(place); });
   els.forEach(el => el.innerHTML = html(null)); wire(); X.measureDock();
+  if (X.S.timing) return;
   const days = await dayRisk(place); if (tok !== placeTok) return;
   els.forEach(el => el.innerHTML = html(days)); wire(); X.measureDock();
 }
@@ -586,8 +587,10 @@ export async function checkAlerts(latest) {
 // ------------------------------------------------------------------ change since the previous run: line, plain-English summary, change map
 const keyOf = (c) => `${(+c[0]).toFixed(3)},${(+c[1]).toFixed(3)}`;
 function pointMap(g) { const m = new Map(); for (const f of g.features) if (f.geometry?.type === 'Point') m.set(keyOf(f.geometry.coordinates), [f.geometry.coordinates, X.riskOf(f.properties)]); return m; }
-function diffOf(geo, pg) {
-  const a = pointMap(geo), b = pointMap(pg); if (!a.size || !b.size) return null;
+function diffOf(geo, pg, includeQuiet) {
+  const a = pointMap(geo), b = pointMap(pg);
+  if (includeQuiet) for (const [k, [c]] of b) { if (!a.has(k)) a.set(k, [c, 0]); }
+  else if (!a.size || !b.size) return null;
   let up = null, down = null; const feats = [];
   for (const [k, [c, r]] of a) { const o = b.get(k); const d = r - (o ? o[1] : 0); if (Math.abs(d) >= 5) feats.push({ type: 'Feature', geometry: { type: 'Point', coordinates: c }, properties: { d } });
     if (!up || d > up.d) up = { d, c }; if (!down || d < down.d) down = { d, c }; }
@@ -597,7 +600,7 @@ function likelihood(p) { return p >= 50 ? 'likely' : p >= 30 ? 'possible' : p >=
 function plainText(geo, diff, prev, peakChange) {
   const pts = []; for (const f of geo.features) if (f.geometry?.type === 'Point') pts.push([f.geometry.coordinates, X.riskOf(f.properties)]);
   const pk = X.peakOf(geo), region = O.run?.region || X.S.region;
-  if (pk.risk < 5) return `Thunderstorms are unlikely anywhere in ${region} during this forecast.`;
+  if (pk.risk < 5) return `Thunderstorms are unlikely anywhere in ${region} during this ${O.run?.type === "timing" ? "window" : "forecast"}.`;
   const p1 = X.nearestPlace(pk.lat, pk.lon), dist = (c) => Math.hypot((c[0] - pk.lon) * Math.cos(pk.lat * Math.PI / 180), c[1] - pk.lat) * 111;
   let second = null; for (const [c, r] of pts) if (dist(c) > 160 && r >= Math.max(10, pk.risk * 0.35) && (!second || r > second[1])) second = [c, r];
   let s;
@@ -609,7 +612,8 @@ function plainText(geo, diff, prev, peakChange) {
   if (prev && peakChange != null) {
     const t = X.hhmm(X.created(prev)), a = Math.abs(peakChange);
     const where = diff && (peakChange > 0 ? diff.up : diff.down) && Math.abs((peakChange > 0 ? diff.up : diff.down).d) >= 5 ? `, mostly near ${X.nearestPlace((peakChange > 0 ? diff.up : diff.down).c[1], (peakChange > 0 ? diff.up : diff.down).c[0])}` : '';
-    s += a < 3 ? ` Little has changed since the ${t} run.` : ` The risk is ${peakChange > 0 ? 'up' : 'down'} ${a >= 10 ? 'sharply' : 'a little'} since the ${t} run${where}.`;
+    const reference = prev.changeLabel ? `compared with ${prev.changeLabel}` : `since the ${t} run`;
+    s += a < 3 ? ` The peak chance is similar ${reference}.` : ` The risk is ${peakChange > 0 ? 'up' : 'down'} ${a >= 10 ? 'sharply' : 'a little'} ${reference}${where}.`;
   }
   return s;
 }
@@ -633,11 +637,13 @@ let changeState = null;
 function renderChangeBox() {
   const els = document.querySelectorAll('[data-changed]'), c = changeState;
   if (!c) { els.forEach(e => { e.innerHTML = ''; e.classList.add('hidden'); }); return; }
+  const relation = c.reference ? `vs ${esc(c.reference)}` : `since the ${c.t} run`;
   const d = lastDiff, nm = (x) => X.nearestPlace(x.c[1], x.c[0]);
   els.forEach(e => { e.classList.remove('hidden');
-    e.innerHTML = `<div class="ch-line"><span class="arr ${c.dp > 0 ? 'up' : c.dp < 0 ? 'down' : ''}">${c.dp > 0 ? '▲' : c.dp < 0 ? '▼' : '•'}</span><span>${c.dp === 0 ? 'Peak unchanged' : `Peak ${c.dp > 0 ? '+' : '−'}${Math.abs(c.dp)}`} since ${c.t}</span>
+    e.innerHTML = `<div class="ch-line"><span class="arr ${c.dp > 0 ? 'up' : c.dp < 0 ? 'down' : ''}">${c.dp > 0 ? '▲' : c.dp < 0 ? '▼' : '•'}</span><span>${c.dp === 0 ? 'Peak unchanged' : `Peak ${c.dp > 0 ? '+' : '−'}${Math.abs(c.dp)}`} ${relation}</span>
       ${d ? `<button class="linkbtn" data-diff>${diffOn ? 'Hide map' : 'Show on map'}</button>` : ''}</div>
-      ${diffOn && d ? `<div class="ch-map"><span class="kicker">Changes since the ${c.t} run</span><div class="ch-key"><span><i style="background:#c53030"></i>Risk up</span><span><i style="background:#2b59d9"></i>Risk down</span></div>
+      ${diffOn && d ? `<div class="ch-map"><span class="kicker">Changes ${relation}</span><div class="ch-key"><span><i style="background:#c53030"></i>Risk up</span><span><i style="background:#2b59d9"></i>Risk down</span></div>
+        ${!d.feats.length ? '<small>No changes of 5 percentage points or more.</small>' : ''}
         ${d.up && d.up.d >= 5 ? `<small>Biggest rise: ${nm(d.up)}, +${Math.round(d.up.d)} points</small>` : ''}${d.down && d.down.d <= -5 ? `<small>Biggest drop: ${nm(d.down)}, −${Math.round(-d.down.d)} points</small>` : ''}</div>` : ''}`;
     const b = e.querySelector('[data-diff]'); if (b) b.onclick = () => showDiff(!diffOn); });
   X.measureDock();
@@ -646,17 +652,19 @@ async function renderChange(run, geo, prev) {
   const tok = ++changeTok, plains = document.querySelectorAll('[data-plain]');
   const setPlain = (t) => plains.forEach(e => { e.textContent = t; e.classList.toggle('hidden', !t); });
   lastDiff = null; changeState = null; if (diffOn) showDiff(false);
-  if (!prev || (X.showChanged && !X.showChanged())) { renderChangeBox(); setPlain(plainText(geo, null, null, null)); return; }
+  renderChangeBox(); setPlain(plainText(geo, null, null, null));
+  if (!prev || (X.showChanged && !X.showChanged())) return;
   try {
+    prev = await prev; if (tok !== changeTok || !prev) return;
     const pg = await X.fetchGeo(prev); if (tok !== changeTok) return;
     const a = stats(geo), b = stats(pg), dp = Math.round(a.peak) - Math.round(b.peak);
     let area = '';
     if (a.any && b.any && (a.n20 || b.n20)) { const d = b.n20 ? Math.round((a.n20 - b.n20) / b.n20 * 100) : 100;
       area = Math.abs(d) < 5 ? 'the 20%+ area is about the same' : `the 20%+ area ${d > 0 ? 'grew' : 'shrank'} ${Math.min(Math.abs(d), 999)}%`; }
-    lastDiff = diffOf(geo, pg);
-    changeState = { dp, t: X.hhmm(X.created(prev)), peak: dp === 0 ? 'peak unchanged' : `peak ${dp > 0 ? 'up' : 'down'} ${Math.abs(dp)} point${Math.abs(dp) === 1 ? '' : 's'}`, area };
+    lastDiff = diffOf(geo, pg, run.type === "timing");
+    changeState = { dp, reference: prev.changeLabel, t: X.hhmm(X.created(prev)), peak: dp === 0 ? 'peak unchanged' : `peak ${dp > 0 ? 'up' : 'down'} ${Math.abs(dp)} point${Math.abs(dp) === 1 ? '' : 's'}`, area };
     renderChangeBox(); setPlain(plainText(geo, lastDiff, prev, dp));
-  } catch (e) { renderChangeBox(); setPlain(plainText(geo, null, null, null)); }
+  } catch (e) { if (tok === changeTok) renderChangeBox(); }
 }
 
 // ------------------------------------------------------------------ cookies, offline, shortcuts
@@ -736,7 +744,7 @@ export function onShown(run, geo, prev) {
   renderChange(run, geo, prev);
   O.strikeData = null; syncObs();
 }
-export function onEmpty() { O.run = null; changeState = null; renderChangeBox(); document.querySelectorAll('[data-plain]').forEach(e => e.classList.add('hidden')); syncObs(); }
+export function onEmpty() { O.run = null; changeTok++; lastDiff = null; changeState = null; if (diffOn) showDiff(false); renderChangeBox(); document.querySelectorAll('[data-plain]').forEach(e => e.classList.add('hidden')); syncObs(); }
 // the basemap style was swapped: our layers must be added again
 export function onStyle() {
   O.frameKey = ''; MAIN_RADAR.key = ''; lineSaved = null;

@@ -58,13 +58,13 @@ export function openSettings() {
 }
 
 // ------------------------------------------------------------------ compare maps: 1-4 maps side by side, or two maps with a swipe divider
-const C = { panes: [], days: [], maps: [], marks: [], link: true, syncing: false, day: 0, mode: 'side', split: 0.5 };
-const typeLabel = (r) => ({ automated: 'Traditional', ai: 'AI HOCO', 'human-mimic': 'Ensemble', manual: 'Manual' }[r?.type] || 'Run');
-const typeCls = (r) => ({ automated: 'trad', ai: 'ai', 'human-mimic': 'ens', manual: 'man' }[r?.type] || 'man');
+const C = { panes: [], hourcast: new Map(), days: [], maps: [], marks: [], link: true, syncing: false, day: 0, mode: 'side', split: 0.5 };
+const typeLabel = (r) => ({ timing: 'Hourcast', automated: 'Traditional', ai: 'AI HOCO', 'human-mimic': 'Ensemble', manual: 'Manual' }[r?.type] || 'Run');
+const typeCls = (r) => ({ timing: 'ai', automated: 'trad', ai: 'ai', 'human-mimic': 'ens', manual: 'man' }[r?.type] || 'man');
 const runDay = (r) => { const s = r && X.startOf(r); if (!s) return null; const t = X.baseDay(); const d = Math.round((new Date(s).setHours(0, 0, 0, 0) - t) / 864e5); return d >= 0 && d <= 2 ? d : null; };
 function ensembles() { const me = X.auth?.currentUser?.uid; return X.S.runs.filter(r => r.type === 'human-mimic' && (r.userId === me || r.public) && r.cancelled !== true).slice(0, 12); }
 const extra = new Map();   // runs loaded from Tools › Runs that are not in the normal lists (archive, manual)
-const findRun = (id) => { if (!id) return null; for (const t of ['automated', 'ai']) for (let d = 0; d < 3; d++) { const r = X.runsFor(d, t).find(x => x.id === id); if (r) return r; } return extra.get(id) || X.S.runs.find(r => r.id === id) || null; };
+const findRun = (id) => { if (!id) return null; for (const t of ['automated', 'ai']) for (let d = 0; d < 3; d++) { const r = X.runsFor(d, t).find(x => x.id === id); if (r) return r; } return C.hourcast.get(id) || extra.get(id) || X.S.runs.find(r => r.id === id) || null; };
 // ------------------------------------------------------------------ radar and lightning on the compare maps (one shared time)
 const RAD = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 12 19 5"/><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7a5 5 0 1 0 5 5"/></svg>';
 const BOLT = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>';
@@ -176,7 +176,20 @@ function wireObs() {
 }
 
 export const comparing = () => document.body.classList.contains('comparing');
+async function compareHourcast(n) {
+  const run = X.S.current;
+  if (run?.type !== 'timing') return X.toast('Choose a forecast window to compare');
+  const previous = await X.S.timingBaseline;
+  if (!X.S.timing || X.S.current !== run) return;
+  C.day = X.S.day;
+  C.hourcast = new Map(X.hourcastRuns().map(window => [window.id, window]));
+  if (previous) C.hourcast.set(previous.id, previous);
+  const source = X.runsFor(C.day, 'automated').find(item => item.id === run.sourceRunId);
+  openCompare(n, [run.id, previous?.id || source?.id].filter(Boolean));
+}
 export function openCompare(n = 2, sel) {
+  if (X.S.timing && !sel) return compareHourcast(n);
+  if (!X.S.timing) C.hourcast.clear();
   const latest = (d, t) => X.runsFor(d, t).at(-1)?.id, prev = (d, t) => X.runsFor(d, t).at(-2)?.id;
   if (!latest(X.S.day, 'automated') && !sel) return X.toast('No runs to compare yet');
   if (sel) C.panes = sel.slice(0, 4);
@@ -196,7 +209,7 @@ function paneHead(i) {
   const r = findRun(C.panes[i]), c = r && X.created(r), d = runDay(r), list = r && (r.type === 'automated' || r.type === 'ai') && d != null ? X.runsFor(d, r.type) : [], latest = list.at(-1)?.id === r?.id;
   return `<div class="cx-chip"><span class="cx-num">${i + 1}</span>
     <button class="cx-pick" data-pick="${i}" aria-haspopup="menu" aria-label="Change the run on map ${i + 1}"><span class="cx-tag ${typeCls(r)}">${esc(typeLabel(r))}</span>
-      <span class="cx-when"><b>${c ? X.hhmm(c) : '–'}</b><small>${d != null ? `Day ${d}` : c ? X.dayDate(c) : ''}${latest ? ' · latest' : ''}</small></span>${CHEV}</button>
+      <span class="cx-when"><b>${c ? X.hhmm(c) : '–'}</b><small>${r?.windowLabel ? esc(r.windowLabel) : d != null ? `Day ${d}` : c ? X.dayDate(c) : ''}${latest ? ' · latest' : ''}</small></span>${CHEV}</button>
     ${C.panes.length > 1 ? `<button class="cx-x" data-rm="${i}" aria-label="Remove map ${i + 1}" title="Remove this map">✕</button>` : ''}</div>
     <div class="cx-stat" id="cxStat${i}" aria-live="polite">Loading…</div>`;
 }
@@ -229,9 +242,22 @@ function drawCompare() {
     const m = new mapboxgl.Map({ container: `cmpMap${i}`, style: X.styleUrl(), bounds, fitBoundsOptions: { padding: 10 }, attributionControl: false, logoPosition: 'bottom-left', projection: 'mercator', dragRotate: false, pitchWithRotate: false });
     m.touchZoomRotate.disableRotation();
     let moved = false; m.once('dragstart', () => { moved = true; }); m.once('zoomstart', (e) => { if (e.originalEvent) moved = true; });
-    try { new ResizeObserver(() => { m.resize(); if (!moved && i === 0 && C.view) { C.syncing = true; m.fitBounds(C.view, { padding: 10, duration: 0 }); C.syncing = false; C.maps.forEach(o => { if (o !== m) o.jumpTo({ center: m.getCenter(), zoom: m.getZoom() }); }); } }).observe($(`cmpMap${i}`)); } catch (e) { /* older browsers */ }
+    if ('ResizeObserver' in window) {
+      const resize = new ResizeObserver(() => {
+        if (C.maps[i] !== m) return;
+        m.resize();
+        if (!moved && i === 0 && C.view) {
+          C.syncing = true;
+          m.fitBounds(C.view, { padding: 10, duration: 0 });
+          C.syncing = false;
+          C.maps.slice(1).forEach(o => o.jumpTo({ center: m.getCenter(), zoom: m.getZoom() }));
+        }
+      });
+      resize.observe(m.getContainer());
+      m.once('remove', () => resize.disconnect());
+    }
     if (i === C.panes.length - 1) m.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right');
-    m.on('style.load', () => { addPaneLayers(m); loadPane(i).then(() => applyObs(i)); });
+    m.on('style.load', () => { addPaneLayers(m); loadPane(i).then(() => { if (C.maps[i] === m) applyObs(i); }); });
     m.on('moveend', () => { if (CO.radar) paintPane(i); });
     m.on('move', () => { if (C.syncing) return; if (i === 0 || C.link || C.mode === 'swipe') C.view = m.getBounds(); if (!C.link && C.mode !== 'swipe') return; C.syncing = true; C.maps.forEach(o => { if (o !== m) o.jumpTo({ center: m.getCenter(), zoom: m.getZoom() }); }); C.syncing = false; });
     m.on('mousemove', (e) => paneProbe(i, e.lngLat));
@@ -270,7 +296,8 @@ function openMenu(i, btn) {
     const grp = (t, name) => { const list = X.runsFor(day, t).slice().reverse(); return list.length ? `<div class="cx-grp"><span class="kicker">${name}</span>${list.map((r, k) => row(r, k === 0 ? 'Latest' : X.dayDate(X.created(r)))).join('')}</div>` : ''; };
     const ens = ensembles();
     menu.innerHTML = `<div class="cx-mhead"><b>${i < C.panes.length ? `Map ${i + 1}` : 'Add a map'}</b><div class="seg" role="group">${[0, 1, 2].map(d => `<button data-mday="${d}" aria-pressed="${d === day}">Day ${d}</button>`).join('')}</div></div>
-      <div class="cx-mbody">${grp('automated', 'Traditional')}${grp('ai', 'AI HOCO')}
+      <div class="cx-mbody">${C.hourcast.size ? `<div class="cx-grp"><span class="kicker">Hourcast windows</span>${[...C.hourcast.values()].map(r => row(r, esc(r.changeLabel || r.windowValidity))).join('')}</div>` : ''}
+      ${grp('automated', 'Traditional')}${grp('ai', 'AI HOCO')}
       ${ens.length ? `<div class="cx-grp"><span class="kicker">Ensembles</span>${ens.map(r => row(r, `${X.dayName(X.created(r))} · ${esc(r.ensembleName || r.name || 'Ensemble')}`)).join('')}</div>` : ''}
       ${extra.size ? `<div class="cx-grp"><span class="kicker">Loaded from Tools</span>${[...extra.values()].map(r => row(r, typeLabel(r))).join('')}</div>` : ''}</div>
       <button class="cx-more" id="cxMore">Find any run in Tools › Runs…</button>`;
@@ -331,7 +358,7 @@ function renderStat(i, here) {
   const run = findRun(C.panes[i]), s = run && X.startOf(run), e = run && X.endOf(run);
   if (here) { el.innerHTML = `<b>${pctTxt(here.v[i])}</b><span>here</span>${i > 0 ? delta(here.v[i], here.v[0]) : ''}`; el.classList.add('here'); return; }
   el.classList.remove('here');
-  el.innerHTML = `<b>${pctTxt(pk.risk)}</b><span>peak${pk.lat != null && pk.risk >= 5 ? ` near ${esc(X.nearestPlace(pk.lat, pk.lon))}` : ''}</span>${i > 0 ? delta(pk.risk, paneStat[0]?.risk) : ''}<small>${s ? `${X.dayName(s)} ${X.hhmm(s)} – ${X.dayName(e)} ${X.hhmm(e)}` : ''}</small>`;
+  el.innerHTML = `<b>${pctTxt(pk.risk)}</b><span>peak${pk.lat != null && pk.risk >= 5 ? ` near ${esc(X.nearestPlace(pk.lat, pk.lon))}` : ''}</span>${i > 0 ? delta(pk.risk, paneStat[0]?.risk) : ''}<small>${run?.windowValidity ? esc(run.windowValidity) : s ? `${X.dayName(s)} ${X.hhmm(s)} – ${X.dayName(e)} ${X.hhmm(e)}` : ''}</small>`;
 }
 function paneProbe(i, ll) {
   const v = C.panes.map((_, j) => paneGeo[j] ? X.riskAt(paneGeo[j], ll.lng, ll.lat) : null);
@@ -566,24 +593,37 @@ export function startTutorial(force) {
 // ------------------------------------------------------------------ embed code
 export function openEmbed() {
   const base = location.origin + location.pathname;
-  let size = '300x250', prod = 'traditional';
+  let size = '300x250', prod = X.S.timing ? 'timing' : 'traditional';
+  const source = X.S.timing ? new URL(location.href) : null;
   const d = dialog(`<div class="rowbetween"><h2>Embed HOCO on your site</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
     <div class="embprev"><div class="embbox" id="emBox"><span class="tag live" style="margin:0">Live</span><b id="emTitle">HOCO · ${esc(X.S.region)} · Day 0</b><small>handry-outlook.github.io/HOCO-V2.0</small></div></div>
     <div class="setgrp"><span class="kicker">Size</span>${seg('emsize', size, [['300x250', '300 × 250'], ['600x300', '600 × 300'], ['full', 'Full width']])}</div>
-    <div class="setgrp"><span class="kicker">Show</span>${seg('emprod', prod, [['traditional', 'Traditional'], ['ai', 'AI HOCO']])}</div>
+    <div class="setgrp"><span class="kicker">Show</span>${seg('emprod', prod, [['traditional', 'Traditional'], ['ai', 'AI HOCO'], ['timing', 'Hourcast']])}</div>
     <div class="grid2"><label class="field"><span class="kicker">Region</span><select id="emRegion">${X.REGIONS.filter(r => r.west !== undefined).map(r => `<option value="${r.id}" ${r.id === X.S.region ? 'selected' : ''}>${r.name}</option>`).join('')}</select></label>
       <label class="field"><span class="kicker">Day</span><select id="emDay"><option value="0">Day 0 (today)</option><option value="1">Day 1</option><option value="2">Day 2</option></select></label>
       <label class="field"><span class="kicker">Theme</span><select id="emTheme"><option value="auto">Follow visitor's device</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
       <label class="field"><span class="kicker">Extras</span><select id="emLayers"><option value="">Forecast only</option><option value="strikes">+ lightning strikes</option><option value="radar,strikes">+ radar and strikes</option></select></label></div>
     <label class="sr" for="emCode">Embed code</label><textarea id="emCode" rows="4" readonly class="code"></textarea>
-    <div class="rowbetween"><small class="muted">The widget updates itself with every new run.</small><span class="chips"><a class="btn" id="emOpen" target="_blank" rel="noopener">Preview</a><button class="btn primary" id="emCopy">Copy code</button></span></div>`, 'Embed');
+    <div class="rowbetween"><small class="muted" id="emNote">The widget updates itself with every new run.</small><span class="chips"><a class="btn" id="emOpen" target="_blank" rel="noopener">Preview</a><button class="btn primary" id="emCopy">Copy code</button></span></div>`, 'Embed');
+  if (source) $('emDay').value = String(X.S.day);
   const upd = () => {
+    const region = $('emRegion');
+    for (const item of region.options) item.disabled = prod === 'timing' && !['England', 'Scotland'].includes(item.value);
+    if (region.selectedOptions[0]?.disabled) region.value = 'England';
     const u = new URL(base); u.searchParams.set('embed', '1'); u.searchParams.set('region', $('emRegion').value); u.searchParams.set('day', $('emDay').value);
-    if (prod === 'ai') u.searchParams.set('view', 'ai'); if ($('emTheme').value !== 'auto') u.searchParams.set('theme', $('emTheme').value);
+    if (prod === 'ai') u.searchParams.set('view', 'ai');
+    if (prod === 'timing') {
+      u.searchParams.set('view', 'timing');
+      if (source && ['region', 'day'].every(key => source.searchParams.get(key) === u.searchParams.get(key))) {
+        for (const key of ['run', 'window']) if (source.searchParams.has(key)) u.searchParams.set(key, source.searchParams.get(key));
+      }
+    }
+    if ($('emTheme').value !== 'auto') u.searchParams.set('theme', $('emTheme').value);
     if ($('emLayers').value) u.searchParams.set('layers', $('emLayers').value);
     const [w, h] = size === 'full' ? ['100%', '520'] : size.split('x');
     $('emCode').value = `<iframe src="${u.href}" width="${w}" height="${h}" style="border:0;border-radius:12px" loading="lazy" title="HOCO thunderstorm outlook · ${$('emRegion').value}"></iframe>`;
-    $('emOpen').href = u.href; $('emTitle').textContent = `HOCO · ${$('emRegion').value} · Day ${$('emDay').value}${prod === 'ai' ? ' · AI' : ''}`;
+    $('emNote').textContent = u.searchParams.has('window') ? 'The widget opens the selected forecast run and window.' : 'The widget updates itself with every new run.';
+    $('emOpen').href = u.href; $('emTitle').textContent = `HOCO · ${$('emRegion').value} · Day ${$('emDay').value}${prod === 'timing' ? ' · Hourcast' : prod === 'ai' ? ' · AI' : ''}`;
     const box = $('emBox'); box.style.width = size === 'full' ? '100%' : `${Math.min(+w, 460)}px`; box.style.aspectRatio = size === 'full' ? '16/7' : `${w}/${h}`;
   };
   d.querySelectorAll('[data-emsize]').forEach(b => b.onclick = () => { size = b.dataset.emsize; d.querySelectorAll('[data-emsize]').forEach(x => x.setAttribute('aria-pressed', x === b)); upd(); });
@@ -601,7 +641,7 @@ export const ADS = { enabled: true, client: 'ca-pub-6850588636991409', slots: { 
 let adScript = false;
 function loadAdScript(consent) {
   if (adScript) return; adScript = true;
-  window.adsbygoogle = window.adsbygoogle || []; if (consent && !consent.ads) window.adsbygoogle.requestNonPersonalizedAds = 1;
+  window.adsbygoogle = window.adsbygoogle || []; if (!consent?.ads) window.adsbygoogle.requestNonPersonalizedAds = 1;
   const s = document.createElement('script'); s.async = true; s.dataset.ads = '1'; s.crossOrigin = 'anonymous'; s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADS.client}`; document.head.appendChild(s);
   watchAnchor();
 }
@@ -622,7 +662,7 @@ export function renderAds() {
   let consent = null; try { consent = JSON.parse(localStorage.getItem('hocoConsent') || 'null'); } catch (e) { }
   const role = X.S.role, noAds = role === 'exclusive' || X.embed;
   document.querySelectorAll('[data-ad]').forEach(el => {
-    if (noAds) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+    if (noAds) { delete el.dataset.loaded; el.classList.add('hidden'); el.innerHTML = ''; return; }
     if (ADS.enabled && ADS.client && role !== 'developer') {
       loadAdScript(consent);
       if (!ADS.slots[el.dataset.ad]) { el.classList.add('hidden'); el.innerHTML = ''; return; }
@@ -631,7 +671,7 @@ export function renderAds() {
       // fill the ad only once its spot is on screen (the summary details and Tools start closed)
       const fill = () => { try { window.adsbygoogle.push({}); } catch (e) { } };
       if (el.offsetWidth > 0) fill(); else { const ro = new ResizeObserver(() => { if (el.offsetWidth > 0) { ro.disconnect(); fill(); } }); ro.observe(el); }
-    } else if (role === 'developer') { el.classList.remove('hidden'); el.classList.add('preview'); el.innerHTML = `<small class="adlbl">Advertisement</small><span>Ad space · ${adLabel(el.dataset.ad)}</span><small>${ADS.slots[el.dataset.ad] ? 'Live for normal users' : 'Needs an ad-unit slot ID'} · hidden for Exclusive accounts · developers see this preview</small>`; }
+    } else if (role === 'developer') { delete el.dataset.loaded; el.classList.remove('hidden'); el.classList.add('preview'); el.innerHTML = `<small class="adlbl">Advertisement</small><span>Ad space · ${adLabel(el.dataset.ad)}</span><small>${ADS.slots[el.dataset.ad] ? 'Live for normal users' : 'Needs an ad-unit slot ID'} · hidden for Exclusive accounts · developers see this preview</small>`; }
     else { el.classList.add('hidden'); el.innerHTML = ''; }
   });
 }
