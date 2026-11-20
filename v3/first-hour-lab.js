@@ -1,8 +1,8 @@
 import { doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const MAPBOX_VERSION = "3.2.0";
-const MAPBOX_TOKEN = "pk.eyJ1IjoiaGFuZHJ5MjAxOTEwMjYiLCJhIjoiY21jYWg2eG1lMDNkYTJxczVyOWM5bW9mciJ9.bA-qxiByTB_RseY1fgU4rg";
-const BOUNDS = {
+export const MAPBOX_TOKEN = "pk.eyJ1IjoiaGFuZHJ5MjAxOTEwMjYiLCJhIjoiY21jYWg2eG1lMDNkYTJxczVyOWM5bW9mciJ9.bA-qxiByTB_RseY1fgU4rg";
+export const BOUNDS = {
     england: [[-10.234, 48.788], [5.471, 56.578]],
     scotland: [[-9.4482, 55.9161], [0, 60]],
 };
@@ -24,7 +24,7 @@ function availableForecast(runs, day, now) {
 }
 
 let mapboxReady;
-function loadMapbox() {
+export function loadMapbox() {
     if (!mapboxReady) {
         mapboxReady = new Promise((resolve, reject) => {
             const css = document.createElement("link");
@@ -41,7 +41,7 @@ function loadMapbox() {
     return mapboxReady;
 }
 
-function addForecastLayers(map) {
+export function addForecastLayers(map) {
     map.addSource("shadow-risk", { type: "geojson", data: EMPTY_MAP });
     map.addLayer({ id: "shadow-risk", source: "shadow-risk", type: "fill",
         filter: ["==", ["geometry-type"], "Polygon"],

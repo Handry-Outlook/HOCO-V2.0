@@ -150,6 +150,13 @@ a{color:var(--accent)}
   .metric strong{font-size:14px}
   .w-row{grid-template-columns:minmax(0,1fr) 70px 40px}
 }
+.full-controls{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}
+.full-controls label{display:grid;gap:4px;font-size:13px;font-weight:650}
+.full-controls select,.full-controls input{font:inherit;color:inherit;background:var(--solid);border:1px solid var(--border);border-radius:8px;padding:6px 8px;min-height:36px}
+.full-grid:not([hidden]){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
+#fullLegend:not(:empty){display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 0}#fullLegend i{display:inline-block;width:9px;height:9px;margin-right:4px}
+.full-grid h3{font-size:14px;margin:0 0 5px}.full-grid .full-map{height:340px;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+@media(max-width:650px){.full-grid:not([hidden]){grid-template-columns:1fr}.full-grid .full-map{height:275px}}
 </style>
 </head>
 <body>
@@ -192,6 +199,22 @@ a{color:var(--accent)}
   <section class="panel" data-panel="days">
     <p class="note">How AI HOCO scores against Traditional HOCO on runs it was not trained on. Lower Brier and log loss are better; higher AUC is better.</p>
     <div class="grid3" id="dayCards"></div>
+    <section class="card" id="fullPeriodLab">
+      <h2>Full forecast comparison</h2>
+      <p class="note">AI HOCO and its matching Traditional HOCO run for the same validity period. The maps pan and zoom together.</p>
+      <div class="full-controls">
+        <label>Region<select id="fullRegion"><option>England</option><option>Scotland</option></select></label>
+        <label>Forecast day<select id="fullDay"><option value="day0">Day 0</option><option value="day1">Day 1</option><option value="day2">Day 2</option></select></label>
+        <label>Issue date (UK)<input type="date" id="fullIssueDate" required></label>
+        <label>AI run<select id="fullRun" disabled></select></label>
+      </div>
+      <p id="fullStatus" class="note" role="status"></p>
+      <div id="fullLegend" class="note" aria-label="Chance of lightning within 20 km"></div>
+      <div class="full-grid" id="fullMaps" hidden>
+        <section aria-labelledby="fullTradLabel"><h3 id="fullTradLabel">Traditional HOCO</h3><div class="full-map" id="fullTradMap"></div></section>
+        <section aria-labelledby="fullAiLabel"><h3 id="fullAiLabel">AI HOCO</h3><div class="full-map" id="fullAiMap"></div></section>
+      </div>
+    </section>
     <section class="card" id="firstHourLab" hidden>
       <h2>Shadow forecast timing</h2>
       <p class="note">Compare the timing maps with a baseline for the same hours. The Traditional layer covers the whole outlook.</p>
@@ -255,7 +278,9 @@ a{color:var(--accent)}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { startFirstHourLab } from "./first-hour-lab.js";
+import { startFirstHourLab } from "./first-hour-lab.js?v=2";
+import { startFullPeriodLab } from "./full-period-lab.js?v=1";
+import { getStorage } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 
 const app = initializeApp({ apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ", authDomain: "hoco-3b23e.firebaseapp.com", projectId: "hoco-3b23e", storageBucket: "hoco-3b23e.firebasestorage.app", messagingSenderId: "409513272369", appId: "1:409513272369:web:a857d9b039d53710f8a110" });
@@ -490,6 +515,7 @@ if (location.hash) document.querySelector(`[data-tab="${location.hash.slice(1)}"
 if (window.__HOCO_LAB_DEMO__) { Object.assign(state, window.__HOCO_LAB_DEMO__); renderAll(); }
 else {
   const firstHourLab = startFirstHourLab(db);
+  startFullPeriodLab(db, getStorage(app));
   const watch = (id, key) => onSnapshot(doc(db, "system_stats", id), (snap) => { state[key] = snap.exists() ? snap.data() : null; renderAll(); }, (err) => console.warn(`Could not read ${id}:`, err.message));
   onSnapshot(doc(db, "system_stats", "hoco_ml"), (snap) => { state.ml = snap.exists() ? snap.data() : null; state.loaded = true; renderAll(); }, (err) => { state.loaded = true; console.warn('Could not read hoco_ml:', err.message); renderAll(); }); watch("ai_hoco", "ai"); watch("accuracy_v2", "accAuto"); watch("accuracy_ai", "accAi");
   onAuthStateChanged(auth, async (user) => {
