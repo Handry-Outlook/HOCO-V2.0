@@ -4,16 +4,10 @@ const SIX_HOURS = DAY / 4;
 const FEED = 'https://ukwx.duckdns.org/lightning';
 const RAD = Math.PI / 180;
 const SAMPLE_KM = 15;
-const MAP_CELL_KM = 2.5;
+const MAP_CELL_KM = 5;
 const EVENT_KM = 20;
 const EARTH_RADIUS_KM = 6371;
-const DISPLAY_LIMIT_KM = EVENT_KM + 4;
-const PROXIMITY_BANDS = [
-  { max: 5, paletteMin: 90 },
-  { max: 10, paletteMin: 50 },
-  { max: 15, paletteMin: 30 },
-  { max: EVENT_KM, paletteMin: 20 }
-];
+const HINDCAST_SIGMA_KM = 30;
 const BUCKET_DEGREES = 0.5;
 const COVERAGE = { west: -17.8, east: 7.8, south: 48.7, north: 63, slope: 0.3491, intercept: 49.3739 };
 export const OBSERVATION_DELAY = 15 * MINUTE;
@@ -102,14 +96,18 @@ function coveredLocation(region, lon, lat) {
 
 function observationLookup(region, observations) {
   const strikes = indexObservations(region, observations);
-  const radius = hav(EVENT_KM / EARTH_RADIUS_KM);
   return (lon, lat) => {
     if (!coveredLocation(region, lon, lat)) return null;
-    for (const strike of neighbours(strikes, lon, lat)) {
-      if (distanceKey(lon, lat, strike) <= radius) return 100;
-    }
-    return 0;
+    return lightningNearby(strikes, lon, lat) ? 100 : 0;
   };
+}
+
+const eventRadius = hav(EVENT_KM / EARTH_RADIUS_KM);
+function lightningNearby(strikes, lon, lat) {
+  for (const strike of neighbours(strikes, lon, lat)) {
+    if (distanceKey(lon, lat, strike) <= eventRadius) return true;
+  }
+  return false;
 }
 
 function coveredRing(west, east, south, north) {
@@ -124,18 +122,80 @@ function coveredRing(west, east, south, north) {
   return [[west, north], ...lower, [east, Math.max(south, coverageEdge(east))], [east, north], [west, north]];
 }
 
-function nearestDistance(strikes, lon, lat) {
-  let closest = hav(DISPLAY_LIMIT_KM / EARTH_RADIUS_KM);
-  const latitudeScale = Math.cos(lat * RAD);
-  for (const [strikeLon, strikeLat] of neighbours(strikes, lon, lat)) {
-    const northSouth = hav((strikeLat - lat) * RAD);
-    if (northSouth >= closest) continue;
-    closest = Math.min(closest, northSouth + latitudeScale * Math.cos(strikeLat * RAD) * hav((strikeLon - lon) * RAD));
+function gaussianSmooth(values, width, height, sigmaCells) {
+  const radius = Math.ceil(3 * sigmaCells);
+  const kernel = Array.from({ length: radius + 1 }, (_, d) => Math.exp(-0.5 * (d / sigmaCells) ** 2));
+  const horizontal = new Float32Array(values.length), smoothed = new Float32Array(values.length);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const index = y * width + x;
+      for (let dx = Math.max(-radius, -x); dx <= Math.min(radius, width - 1 - x); dx++) {
+        horizontal[index] += kernel[Math.abs(dx)] * values[index + dx];
+      }
+    }
   }
-  return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(closest));
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const index = y * width + x;
+      for (let dy = Math.max(-radius, -y); dy <= Math.min(radius, height - 1 - y); dy++) {
+        smoothed[index] += kernel[Math.abs(dy)] * horizontal[index + dy * width];
+      }
+    }
+  }
+  return smoothed;
 }
 
-// Clip an interpolated triangle to a distance contour or the edge of observation coverage.
+function hindcastField(region, observations) {
+  const south = Math.max(region.south, COVERAGE.south), north = Math.min(region.north, COVERAGE.north);
+  const west = Math.max(region.west, COVERAGE.west), east = Math.min(region.east, COVERAGE.east);
+  const latStep = MAP_CELL_KM / 111.195, lonStep = latStep / Math.cos((south + north) / 2 * RAD);
+  const sigmaCells = HINDCAST_SIGMA_KM / MAP_CELL_KM, pad = Math.ceil(3 * sigmaCells);
+  const columns = Math.ceil((east - west) / lonStep), rows = Math.ceil((north - south) / latStep);
+  const originLon = west - pad * lonStep, originLat = south - pad * latStep;
+  const width = columns + 2 * pad + 1, height = rows + 2 * pad + 1;
+  const struck = new Float32Array(width * height), coverage = new Float32Array(width * height);
+  const strikes = indexObservations({
+    west: originLon, east: originLon + (width - 1) * lonStep,
+    south: originLat, north: originLat + (height - 1) * latStep
+  }, observations);
+  // Grid the same 20 km event used in verification, then smooth the binary field.
+  // The blurred coverage mask keeps missing observations out of the average.
+  for (let y = 0; y < height; y++) {
+    const lat = originLat + y * latStep;
+    for (let x = 0; x < width; x++) {
+      const lon = originLon + x * lonStep;
+      if (!withinCoverage(lon, lat)) continue;
+      const i = y * width + x;
+      coverage[i] = 1;
+      struck[i] = lightningNearby(strikes, lon, lat) ? 1 : 0;
+    }
+  }
+  const numerator = gaussianSmooth(struck, width, height, sigmaCells);
+  const denominator = gaussianSmooth(coverage, width, height, sigmaCells);
+  for (let i = 0; i < numerator.length; i++) {
+    numerator[i] = denominator[i] ? 100 * numerator[i] / denominator[i] : 0;
+  }
+  const at = (lon, lat) => {
+    const x = (lon - originLon) / lonStep, y = (lat - originLat) / latStep;
+    const col = Math.floor(x), row = Math.floor(y), fx = x - col, fy = y - row;
+    const index = row * width + col;
+    const a = numerator[index], b = numerator[index + 1], c = numerator[index + width + 1], d = numerator[index + width];
+    // Use the same diagonal interpolation as the filled contours.
+    return fy <= fx ? a + (b - a) * fx + (c - b) * fy : a + (c - d) * fx + (d - a) * fy;
+  };
+  return {
+    rows, columns, at,
+    sampleRow(row) {
+      const lat = Math.min(north, south + row * latStep);
+      return Array.from({ length: columns + 1 }, (_, col) => {
+        const lon = Math.min(east, west + col * lonStep);
+        return [lon, lat, at(lon, lat)];
+      });
+    }
+  };
+}
+
+// Clip an interpolated triangle to a hindcast contour or the edge of observation coverage.
 function clipBand(vertices, inside) {
   const clipped = [];
   for (let i = 0; i < vertices.length; i++) {
@@ -150,22 +210,31 @@ function clipBand(vertices, inside) {
   return clipped;
 }
 
-function addProximityBands(features, region, strikes) {
-  const west = Math.max(region.west, COVERAGE.west), east = Math.min(region.east, COVERAGE.east);
-  const south = Math.max(region.south, COVERAGE.south), north = Math.min(region.north, COVERAGE.north);
-  const step = MAP_CELL_KM / 111.195, lonStep = step / Math.cos((south + north) / 2 * RAD);
-  const columns = Math.ceil((east - west) / lonStep), rows = Math.ceil((north - south) / step);
-  const sampleRow = row => {
-    const lat = Math.min(north, south + row * step);
-    return Array.from({ length: columns + 1 }, (_, column) => {
-      const lon = Math.min(east, west + column * lonStep);
-      return [lon, lat, nearestDistance(strikes, lon, lat)];
-    });
-  };
-  const bandAt = distance => PROXIMITY_BANDS.findIndex(band => distance <= band.max);
+function contourSegment(triangle, level) {
+  const points = [];
+  for (let i = 0; i < triangle.length; i++) {
+    const a = triangle[i], b = triangle[(i + 1) % triangle.length];
+    if ((a[2] < level) === (b[2] < level)) continue;
+    const t = (level - a[2]) / (b[2] - a[2]);
+    points.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+  }
+  if (points.length !== 2) return null;
+  const edges = points.map(([lon, lat]) => lat - coverageEdge(lon));
+  if (edges.every(value => value < 0)) return null;
+  for (let i = 0; i < 2; i++) {
+    if (edges[i] >= 0) continue;
+    const j = 1 - i, t = edges[i] / (edges[i] - edges[j]);
+    points[i] = points[i].map((value, axis) => value + (points[j][axis] - value) * t);
+  }
+  return points;
+}
+
+function hindcastContours({ rows, columns, sampleRow }, levels) {
+  const features = [], lines = [];
+  const bandAt = value => levels.findLastIndex(level => value >= level);
   const addRing = (ring, index) => {
     if (!ring || ring.length < 4) return;
-    features.push({ type: 'Feature', properties: { feature_type: 'polygon', proximityKm: PROXIMITY_BANDS[index].max },
+    features.push({ type: 'Feature', properties: { feature_type: 'polygon', risk: levels[index] },
       geometry: { type: 'Polygon', coordinates: [ring] } });
   };
   let bottom = sampleRow(0);
@@ -177,21 +246,22 @@ function addProximityBands(features, region, strikes) {
     };
     for (let column = 0; column < columns; column++) {
       const cell = [bottom[column], bottom[column + 1], top[column + 1], top[column]];
-      const distances = cell.map(vertex => vertex[2]), low = Math.min(...distances), high = Math.max(...distances);
+      const values = cell.map(vertex => vertex[2]), low = Math.min(...values), high = Math.max(...values);
       const index = bandAt(low), whole = index === bandAt(high);
       const nextBand = whole ? index : -1;
       if (spanBand !== nextBand) {
         flush(column);
         span = column; spanBand = nextBand;
       }
-      if (whole || index < 0) continue;
+      if (whole) continue;
       // Interpolate the band boundary within mixed cells. Adjacent cells share edge samples.
-      for (let k = index; k < PROXIMITY_BANDS.length; k++) {
-        const min = PROXIMITY_BANDS[k - 1]?.max ?? 0, max = PROXIMITY_BANDS[k].max;
-        if (min >= high) break;
-        for (const triangle of [[cell[0], cell[1], cell[2]], [cell[0], cell[2], cell[3]]]) {
-          let polygon = clipBand(triangle, v => max - v[2]);
-          if (k > 0) polygon = clipBand(polygon, v => v[2] - min);
+      for (const triangle of [[cell[0], cell[1], cell[2]], [cell[0], cell[2], cell[3]]]) {
+        for (let k = Math.max(0, index); k < levels.length && levels[k] <= high; k++) {
+          const min = levels[k], max = levels[k + 1] ?? 101;
+          const segment = contourSegment(triangle, min);
+          if (segment) lines.push(segment);
+          let polygon = clipBand(triangle, v => v[2] - min);
+          polygon = clipBand(polygon, v => max - v[2]);
           polygon = clipBand(polygon, ([lon, lat]) => lat - coverageEdge(lon));
           if (polygon.length < 3) continue;
           const ring = polygon.map(([lon, lat]) => [lon, lat]);
@@ -202,21 +272,19 @@ function addProximityBands(features, region, strikes) {
     flush(columns);
     bottom = top;
   }
+  if (lines.length) features.push({ type: 'Feature', properties: { feature_type: 'contour' },
+    geometry: { type: 'MultiLineString', coordinates: lines } });
+  return features;
 }
 
-export function observedReference(region, observations) {
+export function observedReference(region, observations, levels) {
   const { west, east, south, north } = region;
   const geometry = coveredRing(west, east, south, north);
   if (!geometry) throw Error('No supported lightning observations for this map area.');
-  const features = [{
-    type: 'Feature', properties: { feature_type: 'coverage' }, geometry: { type: 'Polygon', coordinates: [geometry] }
-  }];
-  const strikes = indexObservations(region, observations);
-  if (strikes.size) addProximityBands(features, region, strikes);
+  const field = observations.length ? hindcastField(region, observations) : null;
   return {
-    bands: PROXIMITY_BANDS,
-    distanceAt: (lon, lat) => coveredLocation(region, lon, lat) ? nearestDistance(strikes, lon, lat) : null,
-    geo: { type: 'FeatureCollection', features }
+    valueAt: (lon, lat) => coveredLocation(region, lon, lat) ? field?.at(lon, lat) ?? 0 : null,
+    geo: { type: 'FeatureCollection', features: field ? hindcastContours(field, levels) : [] }
   };
 }
 
