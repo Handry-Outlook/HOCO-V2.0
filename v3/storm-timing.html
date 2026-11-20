@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="AI HOCO thunderstorm timing forecasts for England and Scotland.">
+  <title>Storm timing · HOCO</title>
+  <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css">
+  <script defer src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
+  <style>
+    :root{color-scheme:light;--bg:#edf2f7;--ink:#1b3142;--muted:#4c6172;--card:#fff;--edge:#c9d5df;--accent:#244985}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Inter,system-ui,sans-serif}
+    header{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:13px clamp(14px,4vw,48px);background:var(--card);border-bottom:1px solid var(--edge)}
+    h1{margin:0;font-size:clamp(21px,4vw,30px);letter-spacing:-.02em}
+    .beta{font-size:12px;color:#244985;background:#e5efff;padding:3px 8px;border-radius:7px;font-weight:700}
+    .back{margin-inline-start:auto;text-decoration:none;color:var(--accent);font-weight:700}
+    main{width:min(1280px,100%);margin:auto;padding:clamp(10px,2.5vw,25px)}
+    .controls{display:flex;flex-wrap:wrap;gap:10px;padding:12px;background:var(--card);border:1px solid var(--edge);border-radius:12px 12px 0 0}
+    label{display:grid;gap:3px;font-size:12px;font-weight:700;min-width:0}
+    label:last-of-type{flex:1 1 295px}
+    select{min-height:38px;max-width:100%;color:var(--ink);border:1px solid var(--edge);border-radius:8px;background:var(--card);font:600 14px system-ui,sans-serif;padding:5px 9px}
+    :focus-visible{outline:3px solid #4776bc;outline-offset:3px}
+    #status{margin:0;padding:9px 12px;background:var(--card);color:var(--muted);border-inline:1px solid var(--edge);min-height:40px}
+    #map{position:relative;min-height:390px;height:min(63vh,680px);background:#d8e6ef;border:1px solid var(--edge)}
+    .notes{background:var(--card);border:1px solid var(--edge);border-top:0;border-radius:0 0 12px 12px;padding:10px 12px;color:var(--muted);font-size:13px}
+    .notes p{margin:4px 0 0}
+    .keys{display:flex;gap:5px 12px;flex-wrap:wrap;align-items:center}
+    .key{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+    .swatch{width:11px;height:11px;border-radius:2px}
+    .boundary{width:22px;margin-right:4px;border-top:2px dashed #284e74;display:inline-block;vertical-align:middle}
+    #source{color:var(--accent)}
+    @media(max-width:530px){#map{min-height:340px;height:56vh}}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Storm timing</h1><span class="beta">AI HOCO beta</span>
+    <a class="back" id="back" href="./">← Full-day outlook</a>
+  </header>
+  <main>
+    <div class="controls">
+      <label>Region<select id="region"><option>England</option><option>Scotland</option></select></label>
+      <label>Forecast day<select id="day">
+        <option value="0">Day 0 · First hour</option>
+        <option value="1">Day 1 · Six-hour maps</option>
+        <option value="2">Day 2 · Twelve-hour maps</option>
+      </select></label>
+      <label>Valid window · UK time<select id="period" disabled></select></label>
+    </div>
+    <p id="status" role="status">Loading storm timing forecasts…</p>
+    <div id="map" aria-label="Storm timing forecast map"></div>
+    <div class="notes">
+      <div class="keys" id="bands" aria-label="Chance of lightning within 20 km"></div>
+      <p><span class="boundary" aria-hidden="true"></span><strong>Lightning verification boundary.</strong> Beyond the dashed line, risk comes from the same-window model baseline.</p>
+      <p>Colours show the chance of lightning within 20 km during the selected window. <a id="source" hidden>Source full-day run</a></p>
+    </div>
+  </main>
+  <script type="module" src="storm-timing.js"></script>
+</body>
+</html>
