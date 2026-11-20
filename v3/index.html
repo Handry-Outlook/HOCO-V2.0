@@ -519,6 +519,20 @@ body.tools-open .installbar,body.comparing .myrun{display:none}
 
 .probe .top b{font-size:26px}.probe .contrib b{font-size:12px;font-weight:700;min-width:34px;text-align:right}
 .probe .contrib span:first-child{min-width:78px}
+.spread-key{display:grid;gap:4px;font-size:11px;color:var(--muted)}
+.spread-key[hidden]{display:none}
+.spread-key b{color:var(--text)}
+.spread-swatches{display:flex;gap:6px;flex-wrap:wrap}
+.spread-swatches span{display:inline-flex;align-items:center;gap:4px}
+.spread-swatches i{width:11px;height:9px;border-radius:2px}
+.spread-probe{display:grid;gap:5px;font-size:12px}
+.spread-track{position:relative;height:16px;border-radius:4px;background:var(--track)}
+.spread-track i{position:absolute;top:3px;height:10px;border-radius:4px;background:#ae9af8}
+.spread-track i+ i{background:#7256dd}
+.spread-track em{position:absolute;top:0;bottom:0;width:2px;background:var(--text)}
+.spread-members{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 8px}
+.spread-members span{font-size:11px}
+.spread-members b{white-space:nowrap}
 
 /* iPad */
 @media (max-width:1100px){
@@ -938,6 +952,7 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
   </button>
   <div id="timingStatus" role="status"></div>
   <div class="legend mini" aria-label="Colour key: chance of lightning within 20 km"><div class="bar" id="legendBar"></div><div class="ticks"><span>5</span><span>15</span><span>30</span><span>50</span><span>70</span><span>90%</span></div></div>
+  <div class="spread-key" id="spreadLegend" hidden></div>
   <div class="sum-more" id="sumMore">
     <div class="sum-title" id="sumTitle">Thunderstorm risk</div>
     <div class="placebar hidden" data-place></div>
@@ -1045,6 +1060,7 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
 
 <script type="module">
 import { createStormTiming } from "./storm-timing.js?v=7";
+import { decodeSpread, spreadAt, spreadMap, SPREAD_BANDS } from "./model-spread.js?v=1";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore, collection, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs, where, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -1221,6 +1237,29 @@ try { new ResizeObserver(placeCtrls).observe(document.getElementById('dock')); }
 new MutationObserver(() => requestAnimationFrame(placeCtrls)).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 new MutationObserver(() => requestAnimationFrame(placeCtrls)).observe(document.getElementById('dock'), { attributes: true, attributeFilter: ['class'] });
 addEventListener('resize', placeCtrls);
+let spreadGrid = null, spreadWanted = false;
+const spreadActive = () => spreadWanted && !!spreadGrid;
+function syncSpread() {
+  const active = spreadActive(), legend = $('spreadLegend');
+  legend.hidden = !active;
+  if (!active) {
+    if (map.getLayer('hoco-spread')) map.setLayoutProperty('hoco-spread', 'visibility', 'none');
+  } else if (map.getLayer('hoco-line')) {
+    const geo = spreadGrid.map || (spreadGrid.map = spreadMap(spreadGrid));
+    const source = map.getSource('hoco-spread');
+    if (source) source.setData(geo);
+    else map.addSource('hoco-spread', { type: 'geojson', data: geo });
+    if (!map.getLayer('hoco-spread')) map.addLayer({
+      id: 'hoco-spread', type: 'fill', source: 'hoco-spread',
+      paint: { 'fill-color': ['get', 'colour'], 'fill-opacity': 0.78, 'fill-antialias': false }
+    }, 'hoco-line');
+    map.setLayoutProperty('hoco-spread', 'visibility', 'visible');
+  }
+  Extras.syncForecastLayers?.();
+}
+$('spreadLegend').innerHTML = `<b>Model spread · standard deviation in percentage points</b>
+  <span class="spread-swatches">${SPREAD_BANDS.map(([min, colour], i) => `<span><i style="background:${colour}"></i>${min}${SPREAD_BANDS[i + 1] ? '–' + SPREAD_BANDS[i + 1][0] : '+'}</span>`).join('')}</span>
+  <span>Unshaded in the forecast area means under 1 point of spread.</span>`;
 function addLayers() {
   if (!map.getSource('hoco')) map.addSource('hoco', { type: 'geojson', data: S.geo || { type: 'FeatureCollection', features: [] } });
   const banded = S.geo?.properties?.hoco_layout === 'bands_v2';
@@ -1247,7 +1286,7 @@ function addOutlines(label) {
       'line-dasharray': ['match', ['get', 'admin_level'], 0, ['literal', [1, 0]], ['literal', [3, 2]]] } }, label);
 }
 function setOutlines(on) { ['hoco-coast', 'hoco-borders'].forEach(id => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none')); }
-map.on('style.load', () => { addLayers(); Extras.onStyle(); });
+map.on('style.load', () => { addLayers(); Extras.onStyle(); syncSpread(); });
 map.on('load', () => { const src = map.getSource('hoco'); if (src && S.geo) src.setData(S.geo); });
 map.on('error', (e) => console.warn('[map]', e?.error?.message || e));
 window.__hocoMap = map;
@@ -1277,6 +1316,10 @@ function nearestPoint(lon, lat, maxDeg) {
 function probeAt(point) {
   if (!map.getLayer('hoco-fill')) return null;
   const ll = map.unproject([point.x, point.y]);
+  if (spreadActive()) {
+    const stats = spreadAt(spreadGrid, ll.lng, ll.lat);
+    return stats ? { spread: stats } : null;
+  }
   const polys = map.queryRenderedFeatures(point, { layers: ['hoco-fill'] });
   const near = nearestPoint(ll.lng, ll.lat, polys.length ? 0.45 : 0.12);
   if (near) return near.properties;
@@ -1284,6 +1327,23 @@ function probeAt(point) {
 }
 let lastProbe = null, SRC_GEO = null, SRC_HAS = false;
 const geoHasSrc = () => { const G = S.obsGeo || S.geo; if (SRC_GEO !== G) { SRC_GEO = G; SRC_HAS = (G?.features || []).some(f => f.properties?.src); } return SRC_HAS; };
+const spreadEscape = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function spreadProbe({ mean, sigma, values }, near) {
+  const range = k => [Math.max(0, mean - k * sigma), Math.min(100, mean + k * sigma)];
+  const [lo1, hi1] = range(1), [lo2, hi2] = range(2);
+  const label = (lo, hi) => `${lo.toFixed(1)}–${hi.toFixed(1)}%`;
+  const bar = (lo, hi) => `<i style="left:${lo}%;width:${hi - lo}%"></i>`;
+  const names = spreadGrid.members.map((member, i) => member.label ||
+    (S.role === 'developer' && MODEL_NAMES?.[member.id]) || `Model ${i + 1}`);
+  return `<div class="top"><b>${sigma.toFixed(1)} pp</b><small>standard deviation<br>near ${spreadEscape(near)}</small></div>
+    <div class="spread-probe">
+      <b>Member mean ${mean.toFixed(1)}%</b>
+      <div class="spread-track" aria-hidden="true">${bar(lo2, hi2)}${bar(lo1, hi1)}<em style="left:${mean}%"></em></div>
+      <span><b>±1σ</b> ${label(lo1, hi1)} · <b>±2σ</b> ${label(lo2, hi2)}</span>
+      <small>${values.length} ${spreadGrid.source === 'runs' ? 'forecast runs · map estimates' : 'model guidance fields'}</small>
+      <div class="spread-members">${Array.from(values, (value, i) => `<span>${spreadEscape(names[i])} <b>${value}%</b></span>`).join('')}</div>
+    </div>`;
+}
 function showProbe(props, point) {
   if (!props) { probe.classList.add('hidden'); return; }
   lastProbe = { props, point };
@@ -1297,7 +1357,8 @@ function showProbe(props, point) {
     if (parts.length) contrib = `<div class="contrib"><span class="kicker">Main contributors · developers only</span>${parts.map(([n, v]) => `<div><span>${n}</span><span class="bar"><i style="width:${Math.min(100, v)}%"></i></span><b>${v}%</b></div>`).join('')}</div>`;
   }
   if (!S.timing && S.role === 'developer' && !props.src && !geoHasSrc()) contrib = `<div class="contrib"><span class="kicker">Main contributors · developers only</span><small>This run has no model details saved. They are only in runs made from Tue 17 Nov, 16:05 onwards.</small></div>`;
-  probe.innerHTML = `<div class="top"><span class="sw" style="background:${b ? b.fill : 'transparent'};border:1px solid var(--border)"></span><b>${risk < 1 ? '<1' : Math.round(risk)}%</b><small>chance of lightning<br>within 20 km · ${bandLabel(b)}</small></div>${pips}<small>Near ${near} · ${S.timing ? 'selected window' : 'whole period'}</small>${contrib}`;
+  probe.innerHTML = props.spread && spreadActive() ? spreadProbe(props.spread, near) :
+    `<div class="top"><span class="sw" style="background:${b ? b.fill : 'transparent'};border:1px solid var(--border)"></span><b>${risk < 1 ? '<1' : Math.round(risk)}%</b><small>chance of lightning<br>within 20 km · ${bandLabel(b)}</small></div>${pips}<small>Near ${near} · ${S.timing ? 'selected window' : 'whole period'}</small>${contrib}`;
   probe.classList.remove('hidden');
   if (innerWidth > 640) { const w = probe.offsetWidth || 250, h = probe.offsetHeight || 160; let x = point.x + 18, y = point.y + 18; if (x + w > innerWidth - 10) x = point.x - w - 18; if (y + h > innerHeight - 10) y = point.y - h - 18; probe.style.left = Math.max(10, x) + 'px'; probe.style.top = Math.max(10, y) + 'px'; }
 }
@@ -1584,10 +1645,15 @@ function setVerificationAvailable(available) {
   button.disabled = !available || !button.onclick;
 }
 function setGeo(g) {
+  if (S.geo !== g) {
+    spreadGrid = decodeSpread(g);
+    $('probe').classList.add('hidden');
+  }
   S.geo = g; S.obsGeo = null; const src = map.getSource('hoco');
   setVerificationAvailable(!!(S.custom || S.current));
   if (src) src.setData(g); else if (map.isStyleLoaded()) addLayers();
   if (map.getLayer('hoco-fill')) map.setPaintProperty('hoco-fill', 'fill-opacity', fillOp(g));
+  syncSpread();
 }
 const LABELS = { timing: 'Hourcast', ai: 'AI HOCO', automated: 'AUTO-HOCO', 'human-mimic': 'HOCO ENSEMBLE', manual: 'MANUAL HOCO' };
 // Show one chosen run (an ensemble, a manual run, an archived forecast) instead of the live day view.
@@ -1649,7 +1715,7 @@ async function renderAll() {
     $('emptyText').textContent = S.product === 'ai' ? 'No AI forecast is available for the selected date and region.' : 'The next run usually arrives within the hour.';
     if (S.archive) setNotice(`Archive · ${dayDate(baseDay())}`, 'Back to today', 'arch');
     $('runSlider').max = 0; $('runTime').textContent = '–'; $('runNote').textContent = ''; $('covers').textContent = '–'; $('runCount').textContent = '0 runs';
-    S.geo = { type: 'FeatureCollection', features: [] }; map.getSource('hoco')?.setData(S.geo); Extras.onEmpty(); return;
+    S.current = null; setGeo({ type: 'FeatureCollection', features: [] }); Extras.onEmpty(); return;
   }
   $('empty').classList.add('hidden'); $('summary').classList.remove('hidden');
   let i = S.idx[S.day]; if (i == null || i >= n) i = n - 1;
@@ -1898,10 +1964,12 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ---------- extras (radar, strikes, export, search, change, cookies) ----------
-import('./extras.js?v=23').then((m) => {
+import('./extras.js?v=24').then((m) => {
   m.initExtras({ baseDay, runAt, showObsGeo, openSummary: () => { $('summary').classList.add('open'); $('sumHead').setAttribute('aria-expanded', 'true'); }, map, S, BANDS, REGIONS, TYPE_LABEL: LABELS, toast, openPop, measureDock, fetchGeo, peakOf, riskOf, bandFor, bandLabel, created, startOf, endOf, hhmm, dayName, dayDate,
     embed: EMBED, embedLayers: EMBED ? (params.get('layers') || '') : null, radarOpacity: () => SETTINGS.radarOpacity, showChanged: () => SETTINGS.changed !== false, openEmbed: EMBED ? null : () => Stage4.openEmbed(),
     riskAtGeo, runsFor, addDays, nearestPlace, colorExpr, mapStyle: () => SETTINGS.mapStyle, setMapStyle: (k) => { const s = { ...SETTINGS, mapStyle: k, styleV2: true }; try { localStorage.setItem('hocoSettings', JSON.stringify(s)); } catch (e) { } applySettings(s, { mapStyle: k }); },
+    spreadActive, spreadAvailable: () => !!spreadGrid,
+    setSpread: on => { spreadWanted = on; $('probe').classList.add('hidden'); syncSpread(); },
     goDay: (d) => { S.day = d; clearCustom(); renderAll(); }, strikesDefault: () => SETTINGS.strikesDefault, onConsent: () => Stage4.renderAds(),
     outlines: () => SETTINGS.outlines !== false, setOutlines: (on) => { const s2 = { ...SETTINGS, outlines: on, styleV2: true }; try { localStorage.setItem('hocoSettings', JSON.stringify(s2)); } catch (e) { } applySettings(s2, { outlines: on }); } });
   Extras = m;
@@ -1927,7 +1995,7 @@ function openHourcast(source, window) {
 }
 
 // ---------- tools (runs, ensemble, manual run, developer) ----------
-import('./tools.js?v=8').then((m) => {
+import('./tools.js?v=9').then((m) => {
   m.initTools({ hourcastWindows: timing.windowsFor, openHourcast, baseDay, app, auth, db, S, BANDS, REGIONS, fetchGeo, cachePut: (id, g) => cache.set(id, g), showCustom, clearCustom, toast,
     created, startOf, endOf, hhmm, dayName, dayDate, addDays, parseHocoTime, regionMatches, notifyDefault: SETTINGS.notifyRuns !== false,
     renderSettings: (b) => Stage4.renderSettings(b), comparing: () => Stage4.comparing(), loadTo: (r) => Stage4.loadTo(r), renderAds: () => Stage4.renderAds() });

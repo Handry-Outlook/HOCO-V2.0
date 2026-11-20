@@ -351,6 +351,11 @@ function probabilityAt(index, lon, lat) {
   return 0.025; // Midpoint of the published map's uncoloured under-5% band.
 }
 
+export function forecastSampler(geo) {
+  const index = forecastIndex(geo);
+  return (lon, lat) => probabilityAt(index, lon, lat);
+}
+
 export function verifyMap(geo, region, observations) {
   const forecast = forecastIndex(geo);
   const { west, east, south, north } = region;

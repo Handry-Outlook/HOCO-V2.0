@@ -323,12 +323,27 @@ async function step() {
 const PLAY = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>';
 const PAUSE = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>';
 let lineSaved = null;
+export function syncForecastLayers() {
+  const map = X.map, spread = X.spreadActive();
+  const visible = O.forecast && !spread;
+  if (map.getLayer('hoco-line')) map.setLayoutProperty('hoco-line', 'visibility', visible ? 'visible' : 'none');
+  if (map.getLayer('hoco-fill')) map.setLayoutProperty('hoco-fill', 'visibility', visible && !O.outlines && !diffOn ? 'visible' : 'none');
+  if (map.getLayer('hoco-diff')) map.setLayoutProperty('hoco-diff', 'visibility', spread ? 'none' : 'visible');
+  const toggle = $('lySpread'), forecast = document.querySelector('#layersPop [data-layer="forecast"]');
+  if (toggle) {
+    toggle.checked = spread;
+    toggle.disabled = !X.spreadAvailable();
+    $('lySpreadNote').textContent = X.spreadAvailable() ? 'Standard deviation across contributing fields' : 'Unavailable for this forecast';
+  }
+  if (forecast) forecast.disabled = spread;
+}
 function setOutlines(on) {
   const map = X.map; O.outlines = on;
   if (!map.getLayer('hoco-line')) return;
   if (on) { if (!lineSaved) lineSaved = { c: map.getPaintProperty('hoco-line', 'line-color'), w: map.getPaintProperty('hoco-line', 'line-width') };
     map.setLayoutProperty('hoco-fill', 'visibility', 'none'); map.setPaintProperty('hoco-line', 'line-color', ['coalesce', ['get', 'fill'], X.colorExpr()]); map.setPaintProperty('hoco-line', 'line-width', 2.2); }
   else { if (O.forecast) map.setLayoutProperty('hoco-fill', 'visibility', 'visible'); if (lineSaved) { map.setPaintProperty('hoco-line', 'line-color', lineSaved.c); map.setPaintProperty('hoco-line', 'line-width', lineSaved.w); } lineSaved = null; }
+  syncForecastLayers();
 }
 
 // ------------------------------------------------------------------ layers + map style popover
@@ -367,11 +382,14 @@ function renderLayersPop() {
   pop.innerHTML = `<span class="kicker" style="padding:4px 6px 6px">Map layers</span>
     ${[['forecast', 'Forecast areas', 'HOCO thunderstorm risk'], ['radar', 'Rain radar', 'Observed rain through the period'], ['strikes', 'Lightning strikes', 'Newest in gold']].map(([k, l, d]) =>
       `<label class="item layer"><span><b>${l}</b><small>${d}</small></span><input type="checkbox" class="switch" data-layer="${k}" ${O[k] ? 'checked' : ''}></label>`).join('')}
+    <label class="item layer"><span><b>Model spread</b><small id="lySpreadNote"></small></span><input type="checkbox" class="switch" id="lySpread" aria-describedby="lySpreadNote"></label>
     <label class="item layer"><span><b>Map outlines</b><small>Coasts and borders on top of the colours</small></span><input type="checkbox" class="switch" id="lyOutlines" ${X.outlines() ? 'checked' : ''}></label>
     <label class="item layer"><span><b>Forecast as outlines only</b><small>Handy with radar on</small></span><input type="checkbox" class="switch" id="lyHocoLines" ${O.outlines ? 'checked' : ''}></label>
     <span class="kicker" style="padding:10px 6px 6px;display:block">Map style</span>
     <div class="stylegrid">${STYLES.map(([k, l, d]) => `<button class="stylebtn" data-style="${k}" aria-pressed="${cur === k}" title="${d}"><i>${styleThumb(k)}</i><span>${l}</span></button>`).join('')}</div>`;
   pop.querySelectorAll('[data-layer]').forEach(i => i.onchange = () => setLayer(i.dataset.layer, i.checked));
+  $('lySpread').onchange = (e) => X.setSpread(e.target.checked);
+  syncForecastLayers();
   $('lyOutlines').onchange = (e) => X.setOutlines(e.target.checked);
   $('lyHocoLines').onchange = (e) => setOutlines(e.target.checked);
   pop.querySelectorAll('[data-style]').forEach(b => b.onclick = () => { X.setMapStyle(b.dataset.style); pop.querySelectorAll('[data-style]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
@@ -379,7 +397,7 @@ function renderLayersPop() {
 export function setLayer(k, on, opts = {}) {
   O[k] = on;
   const map = X.map;
-  if (k === 'forecast') { ['hoco-fill', 'hoco-line'].forEach(id => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none')); return; }
+  if (k === 'forecast') { syncForecastLayers(); return; }
   if (k === 'radar' && !on) removeRadar();
   if (k === 'strikes' && !on) removeStrikes();
   if (k === 'strikes' && on) O.strikeData = null;
@@ -630,7 +648,8 @@ function showDiff(on) {
       'circle-color': ['interpolate', ['linear'], ['get', 'd'], -40, '#1d4ed8', -5, '#93c5fd', 5, '#fca5a5', 40, '#b91c1c'],
       'circle-radius': ['interpolate', ['exponential', 2], ['zoom'], 4, 3, 6, 9, 8, 30], 'circle-blur': 0.5, 'circle-opacity': 0.75 } }, labelLayer());
     ['hoco-fill'].forEach(id => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', 'none'));
-  } else if (O.forecast && !O.outlines) map.getLayer('hoco-fill') && map.setLayoutProperty('hoco-fill', 'visibility', 'visible');
+  }
+  syncForecastLayers();
   renderChangeBox();
 }
 let changeState = null;

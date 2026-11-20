@@ -3,6 +3,7 @@
 import { collection, query, where, orderBy, limit, getDocs, addDoc, updateDoc, doc, getDoc, onSnapshot, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 import { blendRuns } from './ensemble.js?v=4';
+import { encodeRunSpread } from './model-spread.js?v=1';
 import { PRODUCTS, hasHourcast, hourcastRegion, productButtons } from './products.js?v=1';
 
 // Real model names and run frequency (hours), as in the classic manual builder.
@@ -413,6 +414,21 @@ async function buildEnsemble(grp, chosen, mixOn, timed) {
     const entries = loaded.map(({ r, geojson }) => ({ geojson, weight: +(weights[r.id] * share(r)).toFixed(3), createdMs: X.created(r)?.getTime() || 0, r }));
     const geo = blendRuns(entries, X.BANDS, { allowQuiet: timed });
     const used = entries.filter(e => e.weight > 0);
+    const area = X.REGIONS.find(item => item.id === region && Number.isFinite(item.west));
+    if (area && used.length >= 2 && used.every(({ r }) => r.region === region)) {
+      try {
+        const { forecastSampler } = await import('./run-verification.js?v=5');
+        const members = used.map(({ r, weight, geojson }) => ({
+          id: r.id, weight, label: `${PRODUCTS[r.type]?.label || 'Run'} ${X.hhmm(X.created(r))}`,
+          sample: forecastSampler(geojson)
+        }));
+        const spread = encodeRunSpread(members, [area.west, area.south, area.east, area.north],
+          890000 - JSON.stringify(geo).length);
+        if (spread) geo.properties.modelSpread = spread;
+      } catch (err) {
+        console.warn('Model spread unavailable for this ensemble', err);
+      }
+    }
     status('Saving…');
     const payload = {
       region, startTime: fmtHoco(grp.start), endTime: fmtHoco(grp.end), weather: 'lightning',
