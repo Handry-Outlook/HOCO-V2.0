@@ -862,6 +862,8 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
   body.timing-active.obs-on #dock{grid-template-areas:"days date all" "timing timing timing"}
   #timingPeriods{grid-area:timing;min-height:34px}
   .topbar .type button{padding:0 7px}
+  .topbar #timingMode{flex-direction:column;justify-content:center;line-height:1.1}
+  .topbar #timingMode .pill{display:block;margin:2px 0 0;padding:1px 4px;font-size:9px}
   .topbar #regionBtn{min-width:0;flex-shrink:1}
 }
 @media(max-width:370px){
@@ -900,7 +902,7 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
   <div class="seg type" role="group" aria-label="Forecast type">
     <button id="typeTrad" aria-pressed="true" aria-label="Traditional">Trad<span class="typelong">itional</span></button>
     <button id="typeAi" aria-pressed="false" aria-label="AI HOCO (beta)">AI<span class="typelong">&nbsp;HOCO</span> <span class="pill">Beta</span></button>
-    <button id="timingMode" aria-pressed="false" hidden>Hourcast</button>
+    <button id="timingMode" aria-pressed="false" aria-label="Hourcast (beta)" hidden>Hourcast <span class="pill" aria-hidden="true">Beta</span></button>
     <button id="productInfo" aria-label="About forecast products" aria-haspopup="dialog" title="About forecast products"><span aria-hidden="true">i</span></button>
   </div>
   <nav>
