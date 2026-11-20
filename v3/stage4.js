@@ -421,17 +421,131 @@ function binStats(day) {
   if (!n) return null; const ob = pos / n, clim = ob * (1 - ob);
   return { pod: pos ? posHi / pos : null, far: nHi ? 1 - posHi / nHi : null, bss: clim ? 1 - (bs / n) / clim : null, bins };
 }
-function relChart(f, o, n) {
+function relChart(f, o, n, { perfect = true, detailed = false } = {}) {
   if (!Array.isArray(f) || !f.length) return '';
   const W = 320, H = 210, P = 34, x = (v) => P + v * (W - P - 10), y = (v) => H - P - v * (H - P - 10);
   const pts = f.map((v, i) => [v, o[i], n?.[i] || 0]).filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]) && p[2] !== 0);
   return `<svg viewBox="0 0 ${W} ${H}" class="relchart" role="img" aria-label="Forecast chance against how often lightning happened">
-    <line x1="${x(0)}" y1="${y(0)}" x2="${x(1)}" y2="${y(1)}" stroke="currentColor" stroke-opacity=".35" stroke-dasharray="4 4"/>
+    ${perfect ? `<line x1="${x(0)}" y1="${y(0)}" x2="${x(1)}" y2="${y(1)}" stroke="currentColor" stroke-opacity=".35" stroke-dasharray="4 4"/>` : ''}
     <line x1="${x(0)}" y1="${y(0)}" x2="${x(1)}" y2="${y(0)}" stroke="currentColor" stroke-opacity=".4"/><line x1="${x(0)}" y1="${y(0)}" x2="${x(0)}" y2="${y(1)}" stroke="currentColor" stroke-opacity=".4"/>
     ${[0, 0.5, 1].map(t => `<text x="${x(t)}" y="${H - 16}" font-size="10" text-anchor="middle" fill="currentColor" opacity=".6">${t * 100}%</text><text x="${P - 6}" y="${y(t) + 3}" font-size="10" text-anchor="end" fill="currentColor" opacity=".6">${t * 100}%</text>`).join('')}
     <polyline fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" points="${pts.map(p => `${x(p[0])},${y(p[1])}`).join(' ')}"/>
-    ${pts.map(p => `<circle cx="${x(p[0])}" cy="${y(p[1])}" r="3.5" fill="var(--accent)"/>`).join('')}
-    <text x="${(W + P) / 2}" y="${H - 2}" font-size="10" text-anchor="middle" fill="currentColor" opacity=".6">HOCO said</text></svg>`;
+    ${pts.map(p => `<circle cx="${x(p[0])}" cy="${y(p[1])}" r="3.5" fill="var(--accent)">${detailed ? `<title>${Math.round(p[0] * 100)}% forecast · ${Math.round(p[1] * 100)}% observed · ${p[2].toLocaleString()} samples</title>` : ''}</circle>`).join('')}
+    <text x="${(W + P) / 2}" y="${H - 2}" font-size="10" text-anchor="middle" fill="currentColor" opacity=".7">${detailed ? 'Forecast chance' : 'HOCO said'}</text>
+    ${detailed ? `<text x="8" y="${H / 2}" transform="rotate(-90 8 ${H / 2})" font-size="9" text-anchor="middle" fill="currentColor" opacity=".7">Observed lightning</text>` : ''}</svg>`;
+}
+
+async function openRunVerification() {
+  const run = X.S.custom || X.S.current;
+  if (!run) { X.toast('Select a forecast to verify.'); return; }
+  const opener = document.activeElement;
+  const region = X.REGIONS.find(r => r.id === run.region) || (run.region === 'UK'
+    ? { west: -11, east: 3, south: 49, north: 61 }
+    : X.REGIONS.find(r => r.id === X.S.region));
+  const windows = run.type === 'timing' ? X.hourcastRuns().filter(w => w.sourceRunId === run.sourceRunId) : [];
+  const displayTime = (date) => date ? `${X.dayDate(date)}, ${X.hhmm(date)}` : '–';
+  const period = run.windowValidity || `${displayTime(X.startOf(run))} – ${displayTime(X.endOf(run))}`;
+  const d = dialog(`<div class="rowbetween"><h2>Forecast verification</h2><button class="btn icon" data-x aria-label="Close verification">✕</button></div>
+    <p class="lead">${esc(typeLabel(run))} · ${esc(run.region || X.S.region)} · Issued ${esc(displayTime(X.created(run)))}</p>
+    ${windows.length > 1 ? `<label class="field"><span class="kicker">Verify</span><select id="verScope"><option value="selected">Selected window</option><option value="all">Whole Hourcast run</option></select></label>` : ''}
+    <p class="lead" id="verPeriod">${esc(period)}</p>
+    <div id="verResults" class="accbody" aria-live="polite"></div>`, 'Forecast verification', true);
+  const body = $('verResults'), scope = $('verScope');
+  let pending, closed = false;
+  function close() {
+    closed = true;
+    pending?.abort();
+    d.classList.add('hidden');
+    opener?.focus();
+  }
+  d.querySelector('[data-x]').onclick = close;
+  d.querySelector('[data-x]').focus();
+
+  async function load() {
+    pending?.abort();
+    pending = new AbortController();
+    const controller = pending, { signal } = controller;
+    const all = scope?.value === 'all';
+    const maps = all ? windows : [run];
+    const start = X.startOf(maps[0])?.getTime();
+    let end = X.endOf(maps.at(-1))?.getTime();
+    // Automated full-period forecasts publish their end as the last included minute.
+    if (['automated', 'ai'].includes(run.type) && new Date(end).getUTCMinutes() === 59) end += 60_000;
+    body.textContent = 'Loading verification…';
+    const status = message => { if (!closed && !signal.aborted && body.isConnected) body.textContent = message; };
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || end - start > 48 * 3600_000 ||
+        !Number.isFinite(region?.west)) {
+      status('This forecast does not have a verifiable time period and map area.');
+      return;
+    }
+    $('verPeriod').textContent = all ? `${displayTime(new Date(start))} – ${displayTime(new Date(end - 1))}` : period;
+    if (run.weather && !String(run.weather).toLowerCase().includes('lightning')) {
+      status('Verification is available for lightning forecasts.');
+      return;
+    }
+    let timeout;
+    try {
+      const { OBSERVATION_DELAY, loadObservations, verifyMap, combinedVerification } = await import('./run-verification.js?v=1');
+      if (Date.now() < end + OBSERVATION_DELAY) {
+        status('Verification is available after the forecast period ends and lightning observations have arrived.');
+        return;
+      }
+      if (signal.aborted) return;
+      timeout = setTimeout(() => {
+        status('Verification took too long. Reopen this screen to try again.');
+        controller.abort();
+      }, all ? 65_000 : 20_000);
+      const { points, coverage } = await loadObservations(start, end, signal);
+      const scores = [];
+      // Limit concurrent map downloads when the whole Hourcast run is selected.
+      for (let i = 0; i < maps.length && !signal.aborted; i += 3) {
+        const batch = await Promise.all(maps.slice(i, i + 3).map(async window => {
+          const geo = await X.fetchGeo(window);
+          if (signal.aborted) return null;
+          if (window.type !== 'timing') return verifyMap(geo, region, points);
+          const a = X.startOf(window).getTime(), b = X.endOf(window).getTime();
+          return verifyMap(geo, region, points.filter(point => point[2] >= a && point[2] < b));
+        }));
+        scores.push(...batch);
+      }
+      if (closed || signal.aborted || !body.isConnected) return;
+      const score = all ? combinedVerification(scores) : scores[0];
+      const pct = value => (100 * value).toFixed(1) + '%';
+      const fmtBins = key => score.bins.map(bin => bin[key]);
+      const chart = (perfect) => relChart(fmtBins('forecast'), fmtBins('observed'), fmtBins('count'), { perfect, detailed: true });
+      const startedBeforeIssue = run.type === 'timing' && start < X.created(run)?.getTime();
+      const difference = Math.round(1000 * (score.forecast - score.observed)) / 10;
+      const summary = difference
+        ? `On average, forecast chances were ${Math.abs(difference).toFixed(1)} percentage points ${difference > 0 ? 'higher' : 'lower'} than the observed rate.`
+        : 'The mean forecast chance and observed rate were within 0.1 percentage points.';
+      body.innerHTML = `<div class="ver-metrics">
+        <div><small>Brier score</small><strong>${score.brier.toFixed(4)}</strong><small>0 is best</small></div>
+        <div><small>Mean forecast chance</small><strong>${pct(score.forecast)}</strong></div>
+        <div><small>Observed lightning rate</small><strong>${pct(score.observed)}</strong></div>
+      </div>
+      <p class="lead">${summary}</p>
+      <div class="setgrp"><div class="rowbetween ver-chart-head"><b>Reliability chart</b><button class="btn sm" id="verPerfect" aria-pressed="true">Compare with perfect calibration</button></div>
+        <div id="verChart">${chart(true)}</div>
+        <div class="ver-legend"><span>● ${esc(typeLabel(run))}</span><span id="verLineKey">┄ Perfect calibration</span></div>
+        <p class="lead">Points closer to the dashed line had forecast chances that better matched observed frequencies.</p>
+      </div>
+      <small class="muted">${score.cells.toLocaleString()} ${all ? 'location-window samples' : 'sampled locations'} · Lightning within 20 km · UKWX observations${coverage < 1 ? ` · ${(coverage * 100).toFixed(2)}% time coverage` : ''}</small>
+      <small class="muted">Map-based estimate using forecast points and colour bands. Only areas with supported lightning coverage are scored.</small>
+      ${startedBeforeIssue ? '<small class="muted">The first verified window was already in progress when this run was issued.</small>' : ''}`;
+      $('verPerfect').onclick = (event) => {
+        const show = event.currentTarget.getAttribute('aria-pressed') !== 'true';
+        event.currentTarget.setAttribute('aria-pressed', show);
+        $('verChart').innerHTML = chart(show);
+        $('verLineKey').classList.toggle('hidden', !show);
+      };
+    } catch (error) {
+      status(error instanceof Error ? error.message : 'Verification is unavailable for this forecast.');
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  if (scope) scope.onchange = load;
+  await load();
 }
 function bandBars(bins) {
   const groups = [['Under 10%', 0, 0.1], ['10–30%', 0.1, 0.3], ['30–50%', 0.3, 0.5], ['50%+', 0.5, 1.01]].map(([l, a, b]) => {
@@ -727,6 +841,14 @@ export function initStage4(ctx) {
   addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; installBanner(); });
   if ('serviceWorker' in navigator && !X.embed) navigator.serviceWorker.register('sw.js').catch(() => { });
   document.querySelectorAll('[data-compare]').forEach(b => b.onclick = () => openCompare(2));
-  addEventListener('keydown', (e) => { if (e.key === 'Escape' && comparing()) closeCompare();
+  const verify = $('verifyBtn');
+  verify.onclick = openRunVerification;
+  verify.disabled = verify.dataset.ready !== 'true';
+  addEventListener('keydown', (e) => {
+    if ($('verResults') && !$('cookieDlg').classList.contains('hidden')) {
+      if (e.key === 'Escape') $('cookieDlg').querySelector('[data-x]').click();
+      return;
+    }
+    if (e.key === 'Escape' && comparing()) closeCompare();
     if (e.key.toLowerCase() === 'c' && !e.target.closest('input,textarea,select') && !e.metaKey && !e.ctrlKey) comparing() ? closeCompare() : openCompare(2); });
 }

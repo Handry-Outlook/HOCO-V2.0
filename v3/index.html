@@ -71,7 +71,7 @@ a{color:var(--accent)}
 .legend .bar{display:flex;height:10px;border-radius:999px;overflow:hidden}
 .legend .bar i{flex:1}
 .legend .ticks{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:6px}
-.actions{display:flex;gap:8px}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
 .actions .btn{flex:1;font-size:13px}
 
 /* dock */
@@ -308,6 +308,14 @@ body.comparing .dock,body.comparing .summary,body.comparing .ctrls,body.comparin
 .acc-big{font-size:30px;font-weight:800;letter-spacing:-.02em}.acc-card>small{font-size:11px;color:var(--muted);line-height:1.3}
 .acc-row{display:flex;justify-content:space-between;font-size:13px;gap:6px}.acc-row span{color:var(--muted)}
 .relchart{width:100%;max-width:420px;color:var(--text)}
+.ver-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ver-metrics>div{display:flex;flex-direction:column;gap:4px;padding:10px;background:var(--chip);border-radius:10px}
+.ver-metrics strong{font-size:clamp(17px,4vw,22px);font-variant-numeric:tabular-nums}
+.ver-metrics small,.ver-legend{color:var(--muted)}
+.ver-chart-head,.ver-legend{display:flex;flex-wrap:wrap;gap:8px}
+.ver-legend{font-size:12px}
+.ver-legend>span:first-child{color:var(--accent);font-weight:700}
+#verChart{text-align:center}
 .check{display:flex;gap:10px;align-items:flex-start;font-size:14px;padding:4px 0}.check i{width:20px;height:20px;border-radius:999px;border:2px solid var(--border);flex:none;display:grid;place-items:center;font-style:normal;font-size:12px;font-weight:800}
 .check.ok i{background:var(--good);border-color:var(--good);color:#fff}.check small{display:block;color:var(--muted);font-size:12px}
 .coach{position:fixed;inset:0;z-index:80}
@@ -932,7 +940,7 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
     <div class="meta"><span><small>Valid</small> <strong id="sumValid">–</strong></span><span><small>Issued</small> <strong id="sumIssued">–</strong></span></div>
     <div class="timing-details"><p id="timingMethod" hidden></p><a id="timingSource" hidden>Source full-day run</a></div>
     <div class="muted legend-cap">Colours show the chance of lightning within 20 km</div>
-    <div class="actions"><button class="btn" id="shareBtn">Share</button><button class="btn" data-export aria-haspopup="menu">Export</button><button class="btn" data-compare>Compare</button></div>
+    <div class="actions"><button class="btn" id="shareBtn">Share</button><button class="btn" data-export aria-haspopup="menu">Export</button><button class="btn" data-compare>Compare</button><button class="btn" id="verifyBtn" aria-haspopup="dialog" title="Verify this forecast against observed lightning" disabled>Verify</button></div>
     <div class="guestcard hidden" data-guest><span><b>You're viewing as a guest.</b> Sign in to run your own HOCO, build ensembles and save runs.</span><div class="chips"><button class="btn primary sm" data-signin>Sign in</button><button class="btn sm" data-register>Register</button></div></div>
     <div class="adslot hidden" data-ad="sheet"></div>
   </div>
@@ -1563,8 +1571,14 @@ function showObsGeo(g) {
   S.obsGeo = g || null; const use = g || S.geo, src = map.getSource('hoco'); if (!use) return;
   if (src) src.setData(use); if (map.getLayer('hoco-fill')) map.setPaintProperty('hoco-fill', 'fill-opacity', fillOp(use));
 }
+function setVerificationAvailable(available) {
+  const button = $('verifyBtn');
+  button.dataset.ready = String(available);
+  button.disabled = !available || !button.onclick;
+}
 function setGeo(g) {
   S.geo = g; S.obsGeo = null; const src = map.getSource('hoco');
+  setVerificationAvailable(!!(S.custom || S.current));
   if (src) src.setData(g); else if (map.isStyleLoaded()) addLayers();
   if (map.getLayer('hoco-fill')) map.setPaintProperty('hoco-fill', 'fill-opacity', fillOp(g));
 }
@@ -1573,6 +1587,7 @@ const LABELS = { timing: 'Hourcast', ai: 'AI HOCO', automated: 'AUTO-HOCO', 'hum
 async function showCustom(run) {
   if (S.timing) setTiming(false);
   S.custom = run; document.body.classList.add('custom');
+  setVerificationAvailable(false);
   const tok = ++loadToken;
   $('empty').classList.add('hidden');
   const label = run.type === 'human-mimic' && run.forecastProduct === 'timing' ? 'Hourcast Ensemble' : LABELS[run.type] || 'HOCO', c = created(run), st = startOf(run), en = endOf(run);
@@ -1651,6 +1666,7 @@ async function renderAll() {
     initialWindow = null;
     return;
   }
+  setVerificationAvailable(false);
   const tok = ++loadToken;
   try {
     const g = await fetchGeo(run); if (tok !== loadToken) return;
@@ -1886,7 +1902,7 @@ import('./extras.js?v=23').then((m) => {
 }).catch((e) => console.error(e));
 
 // ---------- stage 4 (settings, compare, accuracy, alerts, install, tutorial, embed, ads) ----------
-import('./stage4.js?v=20').then((m) => {
+import('./stage4.js?v=21').then((m) => {
   m.initStage4({ hourcastRuns: timing.runs, hourcastWindows: timing.windowsFor, measureDock, baseDay, extras: () => Extras, map, S, BANDS, REGIONS, db, auth, storage, doc, getDoc, getDocs, query, collection, where, orderBy, limit, addDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, dateKey, nearestPlace, regionMatches,
     colorExpr, fillColor, styleUrl, applySettings, setTheme, setProduct, setRegion, runsFor, riskAt: riskAtGeo, embed: EMBED, goDay: (d) => { S.day = d; clearCustom(); renderAll(); },
     callable: (name) => async (data) => { const f = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js'); return f.httpsCallable(f.getFunctions(app, 'us-central1'), name)(data); },
