@@ -820,6 +820,11 @@ body.comparing .tools{z-index:40}
 
 /* compare: radar and strikes */
 .cx-obsbtns{display:flex;gap:4px}
+.cx-verifying .cx-ver-label{padding:6px 10px;font-size:12px}
+.cx-verifying .cx-tools select{max-width:100%;min-width:0;padding:6px;color:var(--text);background:var(--chip);border:1px solid var(--border);border-radius:8px}
+.cx-reference-key{flex:none;display:flex;flex-wrap:wrap;gap:4px 16px;align-items:center;padding:8px 12px calc(8px + env(safe-area-inset-bottom));color:var(--text);background:var(--surface);border-top:1px solid var(--border);font-size:12px}
+.cx-reference-key span{display:flex;gap:5px;align-items:center}
+.cx-reference-key i{width:11px;height:11px;border-radius:3px}
 .cx-tog{height:40px;gap:6px}
 .cx-tog[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
 #cxObsHost{flex:none}
@@ -837,10 +842,12 @@ body.comparing .tools{z-index:40}
 @media (max-width:640px){ .cx-tog{height:34px;padding:0 9px} .cx-obs{padding:6px 8px calc(6px + env(safe-area-inset-bottom));gap:6px} .cx-oticks{display:none} .cx-ohead small{display:none} .cx-omid{min-width:120px} }
 
 @media (max-width:640px){ .cx-title{display:none} .cx-key{margin-left:auto} }
+@media (max-width:640px){ .cx-verifying .cx-tools{flex-wrap:wrap} .cx-verifying .cx-reference-key{font-size:11px;padding-inline:8px} .cx-verifying .cx-stat small{display:block} }
 
 .cx-obs .cx-tog.sm{height:32px}
 
 @media (max-width:640px){ .cx-obs{flex-wrap:nowrap} .cx-obs .btn.sm{padding:0 8px} .cx-ohead b{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .cx-obs{position:relative} .cx-okeys{position:absolute;left:0;right:0;bottom:100%;padding:8px 10px;background:var(--surface);border-top:1px solid var(--border);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)} }
+@media (max-width:640px){ .cx-verifying .cx-obs{flex-wrap:wrap} .cx-verifying .cx-omid{flex-basis:140px} }
 
 #obsHoco{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #obsMode[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
@@ -1902,7 +1909,7 @@ import('./extras.js?v=23').then((m) => {
 }).catch((e) => console.error(e));
 
 // ---------- stage 4 (settings, compare, accuracy, alerts, install, tutorial, embed, ads) ----------
-import('./stage4.js?v=21').then((m) => {
+import('./stage4.js?v=22').then((m) => {
   m.initStage4({ hourcastRuns: timing.runs, hourcastWindows: timing.windowsFor, measureDock, baseDay, extras: () => Extras, map, S, BANDS, REGIONS, db, auth, storage, doc, getDoc, getDocs, query, collection, where, orderBy, limit, addDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, dateKey, nearestPlace, regionMatches,
     colorExpr, fillColor, styleUrl, applySettings, setTheme, setProduct, setRegion, runsFor, riskAt: riskAtGeo, embed: EMBED, goDay: (d) => { S.day = d; clearCustom(); renderAll(); },
     callable: (name) => async (data) => { const f = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js'); return f.httpsCallable(f.getFunctions(app, 'us-central1'), name)(data); },

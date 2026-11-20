@@ -4,8 +4,10 @@ const SIX_HOURS = DAY / 4;
 const FEED = 'https://ukwx.duckdns.org/lightning';
 const RAD = Math.PI / 180;
 const SAMPLE_KM = 15;
+const MAP_CELL_KM = 5;
 const EVENT_KM = 20;
 const BUCKET_DEGREES = 0.5;
+const COVERAGE = { west: -17.8, east: 7.8, south: 48.7, north: 63, slope: 0.3491, intercept: 49.3739 };
 export const OBSERVATION_DELAY = 15 * MINUTE;
 
 const dayStart = ms => Math.floor((ms - SIX_HOURS) / DAY) * DAY + SIX_HOURS;
@@ -36,17 +38,18 @@ export async function loadObservations(start, end, signal, now = Date.now()) {
       const time = point.t * 1000;
       if (time >= from && time < observedTo) points.push([point.lon, point.lat, time]);
     }
-    return { points, duration: observedTo - from };
+    return { points, from, to: observedTo };
   }));
-  const coverage = pages.reduce((sum, page) => sum + page.duration, 0) / (end - start);
+  const coverage = pages.reduce((sum, page) => sum + page.to - page.from, 0) / (end - start);
   if (coverage < 0.95) throw Error('The lightning archive does not cover enough of this forecast window.');
-  return { points: pages.flatMap(page => page.points), coverage };
+  return { points: pages.flatMap(page => page.points), coverage, intervals: pages.map(({ from, to }) => [from, to]) };
 }
 
+const coverageEdge = lon => COVERAGE.slope * lon + COVERAGE.intercept;
 function withinCoverage(lon, lat) {
   // Match the conservative coverage used by the HOCO verification pipeline.
-  return lon >= -17.8 && lon <= 7.8 && lat >= 48.7 && lat <= 63 &&
-    lat >= 0.3491 * lon + 49.1739 + 0.2;
+  return lon >= COVERAGE.west && lon <= COVERAGE.east && lat >= COVERAGE.south &&
+    lat <= COVERAGE.north && lat >= coverageEdge(lon);
 }
 
 const bucket = value => Math.floor(value / BUCKET_DEGREES);
@@ -74,6 +77,67 @@ const hav = radians => Math.sin(radians / 2) ** 2;
 
 function distanceKey(lon, lat, point) {
   return hav((point[1] - lat) * RAD) + Math.cos(lat * RAD) * Math.cos(point[1] * RAD) * hav((point[0] - lon) * RAD);
+}
+
+function observationLookup(region, observations) {
+  const { west, east, south, north } = region;
+  const padding = 0.5;
+  const strikes = spatialIndex(observations.filter(([lon, lat]) =>
+    lon >= west - padding && lon <= east + padding && lat >= south - padding && lat <= north + padding
+  ));
+  const radius = hav(EVENT_KM / 6371);
+  return (lon, lat) => {
+    if (lon < west || lon > east || lat < south || lat > north || !withinCoverage(lon, lat)) return null;
+    for (const strike of neighbours(strikes, lon, lat)) {
+      if (distanceKey(lon, lat, strike) <= radius) return 100;
+    }
+    return 0;
+  };
+}
+
+function coveredRing(west, east, south, north) {
+  west = Math.max(west, COVERAGE.west);
+  north = Math.min(north, COVERAGE.north);
+  south = Math.max(south, COVERAGE.south);
+  east = Math.min(east, COVERAGE.east, (north - COVERAGE.intercept) / COVERAGE.slope);
+  if (east <= west || north <= south) return null;
+  const lower = [[west, Math.max(south, coverageEdge(west))]];
+  const corner = (south - COVERAGE.intercept) / COVERAGE.slope;
+  if (corner > west && corner < east) lower.push([corner, south]);
+  return [[west, north], ...lower, [east, Math.max(south, coverageEdge(east))], [east, north], [west, north]];
+}
+
+export function observedReference(region, observations) {
+  const riskAt = observationLookup(region, observations);
+  const { west, east, south, north } = region;
+  const geometry = coveredRing(west, east, south, north);
+  if (!geometry) throw Error('No supported lightning observations for this map area.');
+  const features = [{
+    type: 'Feature', properties: { feature_type: 'coverage' }, geometry: { type: 'Polygon', coordinates: [geometry] }
+  }];
+  const step = MAP_CELL_KM / 111.195;
+  // Merge adjacent cells by row to avoid drawing a polygon for every strike or sample.
+  const mapNorth = Math.min(north, COVERAGE.north), mapEast = Math.min(east, COVERAGE.east);
+  for (let bottom = Math.max(south, COVERAGE.south); bottom < mapNorth; bottom += step) {
+    const top = Math.min(mapNorth, bottom + step), lat = (bottom + top) / 2;
+    const lonStep = step / Math.cos(lat * RAD);
+    let span = null;
+    const addSpan = right => {
+      const ring = coveredRing(span, right, bottom, top);
+      if (ring) features.push({
+        type: 'Feature', properties: { feature_type: 'polygon', risk: 100 },
+        geometry: { type: 'Polygon', coordinates: [ring] }
+      });
+      span = null;
+    };
+    for (let left = Math.max(west, COVERAGE.west); left < mapEast; left += lonStep) {
+      const right = Math.min(mapEast, left + lonStep);
+      if (riskAt((left + right) / 2, lat) === 100) span ??= left;
+      else if (span !== null) addSpan(left);
+    }
+    if (span !== null) addSpan(mapEast);
+  }
+  return { riskAt, geo: { type: 'FeatureCollection', features } };
 }
 
 function insideRing(lon, lat, ring) {
@@ -142,26 +206,17 @@ function probabilityAt(index, lon, lat) {
 export function verifyMap(geo, region, observations) {
   const forecast = forecastIndex(geo);
   const { west, east, south, north } = region;
-  const padding = 0.5;
-  const strikes = spatialIndex(observations.filter(([lon, lat]) =>
-    lon >= west - padding && lon <= east + padding && lat >= south - padding && lat <= north + padding
-  ));
+  const observedRiskAt = observationLookup(region, observations);
   const step = SAMPLE_KM / 111.195;
-  const radius = hav(EVENT_KM / 6371);
   const bins = Array.from({ length: 10 }, () => ({ forecast: 0, observed: 0, count: 0 }));
   let cells = 0, hits = 0, expected = 0, loss = 0;
   for (let lat = south + step / 2; lat < north; lat += step) {
     const lonStep = step / Math.cos(lat * RAD);
     for (let lon = west + lonStep / 2; lon < east; lon += lonStep) {
-      if (!withinCoverage(lon, lat)) continue;
+      const risk = observedRiskAt(lon, lat);
+      if (risk === null) continue;
       const probability = probabilityAt(forecast, lon, lat);
-      let observed = 0;
-      for (const strike of neighbours(strikes, lon, lat)) {
-        if (distanceKey(lon, lat, strike) <= radius) {
-          observed = 1;
-          break;
-        }
-      }
+      const observed = risk / 100;
       const bin = bins[Math.min(9, Math.floor(probability * 10))];
       bin.forecast += probability;
       bin.observed += observed;

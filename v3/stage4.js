@@ -70,6 +70,7 @@ export function openSettings() {
 
 // ------------------------------------------------------------------ compare maps: 1-4 maps side by side, or two maps with a swipe divider
 const C = { panes: [], hourcast: new Map(), days: [], maps: [], marks: [], link: true, syncing: false, day: 0, mode: 'side', split: 0.5 };
+const REFERENCE_COLOURS = { lightning: '#7048c7', quiet: '#8da9bd' };
 const typeLabel = (r) => (r?.forecastProduct === 'timing' && r.type === 'human-mimic' ? 'Hourcast Ensemble' : PRODUCTS[r?.type]?.label || ({'human-mimic':'Ensemble',manual:'Manual'}[r?.type]) || 'Run');
 const typeCls = (r) => ({ timing: 'ai', automated: 'trad', ai: 'ai', 'human-mimic': 'ens', manual: 'man' }[r?.type] || 'man');
 const runDay = (r) => { const s = r && X.startOf(r); if (!s) return null; const t = X.baseDay(); const d = Math.round((new Date(s).setHours(0, 0, 0, 0) - t) / 864e5); return d >= 0 && d <= 2 ? d : null; };
@@ -85,6 +86,10 @@ const CO = { outlines: (() => { try { return localStorage.getItem('hocoCmpOutlin
 const E = () => X.extras?.();
 const hmm = (ms) => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 function obsRange() {
+  if (C.verification) {
+    const { start, end } = C.verification.entry, frame = E()?.frameOf || (time => Math.floor(time / 3e5) * 3e5);
+    return { s: frame(start), e: frame(end) };
+  }
   const runs = C.panes.map(findRun).filter(Boolean), now = Date.now();
   const starts = runs.map(r => X.startOf(r)?.getTime()).filter(Number.isFinite), ends = runs.map(r => X.endOf(r)?.getTime()).filter(Number.isFinite);
   if (!starts.length) return null;
@@ -109,7 +114,7 @@ function obsBar() {
     <div class="cx-omid"><div class="cx-ohead"><b id="cxOTime">${CO.radar ? 'Radar' : 'Strikes'} · ${X.dayName(new Date(CO.t))} ${hmm(CO.t)}</b><span class="tag live${live ? '' : ' hidden'}" id="cxOLive">Live</span><small id="cxOInfo">${esc(CO.note)}</small></div>
       <label class="sr" for="cxOSlider">Observed time</label><input type="range" id="cxOSlider" min="0" max="${n}" value="${i}" step="1" style="--pct:${n ? i / n * 100 : 100}%">
       <div class="cx-oticks"><span>${X.dayName(new Date(r.s))} ${hmm(r.s)}</span><span>${hmm(r.e)}</span></div></div>
-    ${CO.radar ? `<button class="btn sm cx-tog" id="cxOLines" aria-pressed="${CO.outlines}" title="Draw the forecast as coloured outlines while radar is on" aria-label="Forecast as outlines"><svg class="cx-short" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M4 8c2-4 9-5 13-2s4 9 0 11-10 3-12-1-3-5-1-8z"/></svg><span class="cx-long">Outlines</span></button>` : ''}<button class="btn sm" id="cxONow">Now</button><button class="btn sm" id="cxOKey" aria-expanded="${CO.keyOpen}">Key</button><button class="btn icon sm" id="cxObsOff" aria-label="Turn off radar and strikes">✕</button>
+    ${CO.radar ? `<button class="btn sm cx-tog" id="cxOLines" aria-pressed="${CO.outlines}" title="Draw the forecast as coloured outlines while radar is on" aria-label="Forecast as outlines"><svg class="cx-short" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M4 8c2-4 9-5 13-2s4 9 0 11-10 3-12-1-3-5-1-8z"/></svg><span class="cx-long">Outlines</span></button>` : ''}<button class="btn sm" id="cxONow">${C.verification ? 'End' : 'Now'}</button><button class="btn sm" id="cxOKey" aria-expanded="${CO.keyOpen}">Key</button><button class="btn icon sm" id="cxObsOff" aria-label="Turn off radar and strikes">✕</button>
     ${key}</div>`;
 }
 function renderObsBar() {
@@ -142,14 +147,19 @@ async function playStep() {
 }
 // forecast drawn as coloured outlines while radar is on, so the rain stays readable
 function forecastStyle(m) {
-  if (!m.getLayer('hoco-fill')) return;
+  if (!m.getLayer('hoco-fill') || !m.getLayer('hoco-line')) return;
   if (CO.radar && CO.outlines) { m.setLayoutProperty('hoco-fill', 'visibility', 'none'); m.setPaintProperty('hoco-line', 'line-color', ['coalesce', ['get', 'fill'], X.colorExpr()]); m.setPaintProperty('hoco-line', 'line-width', 2.2); }
   else { m.setLayoutProperty('hoco-fill', 'visibility', 'visible'); m.setPaintProperty('hoco-line', 'line-color', 'rgba(16,34,56,0.45)'); m.setPaintProperty('hoco-line', 'line-width', 0.6); }
 }
 function applyObs(i) {
   const m = C.maps[i]; if (!m || !m.isStyleLoaded?.() && !m.getSource('hoco')) return;
   forecastStyle(m);
-  if (!CO.radar) { if (m.getLayer('cx-radar')) m.removeLayer('cx-radar'); if (m.getSource('cx-radar')) m.removeSource('cx-radar'); if (CO.states[i]) CO.states[i].key = ''; }
+  if (!CO.radar) {
+    const radar = CO.states[i];
+    if (radar) { radar.tok++; radar.key = ''; }
+    if (m.getLayer('cx-radar')) m.removeLayer('cx-radar');
+    if (m.getSource('cx-radar')) m.removeSource('cx-radar');
+  }
   if (!CO.strikes) { if (m.getLayer('cx-strikes')) m.removeLayer('cx-strikes'); if (m.getSource('cx-strikes')) m.removeSource('cx-strikes'); }
   paintPane(i);
 }
@@ -161,24 +171,32 @@ async function paintPane(i) {
     const st = CO.states[i] || (CO.states[i] = ex.newRadarState('cx-radar'));
     st.add = (coords, map, s) => ex.addCanvasRadar(coords, map, s, map.getLayer('hoco-line') ? 'hoco-line' : map.getLayer('cx-coast') ? 'cx-coast' : undefined, getSettings().radarOpacity ?? 0.85);
     const got = await ex.paintRadar(m, st, CO.t, CO.playing);
+    if (C.maps[i] !== m) return;
     if (got === 0) { CO.note = 'No radar for this time'; updateObsHead(); } else if (got) { if (CO.note) { CO.note = ''; updateObsHead(); } }
   }
   if (CO.strikes && CO.list) {
-    const g = ex.strikeFeatures(CO.list, CO.t, CO.t0);
+    const end = C.verification && CO.t === CO.t1 ? C.verification.entry.end : CO.t;
+    const g = ex.strikeFeatures(CO.list, end, CO.t0);
     if (m.getSource('cx-strikes')) m.getSource('cx-strikes').setData(g);
     else if (m.getSource('hoco')) { m.addSource('cx-strikes', { type: 'geojson', data: g }); m.addLayer(ex.strikeLayer('cx-strikes')); }
   }
 }
 async function paintAll() {
+  const maps = C.maps;
   if (CO.strikes) await ensureStrikes();
-  await Promise.all(C.maps.map((_, i) => paintPane(i)));
+  if (C.maps === maps) await Promise.all(maps.map((_, i) => paintPane(i)));
 }
 async function ensureStrikes() {
+  if (C.verification) return;
   const r = obsRange(), ex = E(); if (!r || r.future || !ex) return;
   const key = `${X.S.region}|${r.s}|${r.e}`; if (CO.listKey === key && CO.list && Date.now() - (CO.listAt || 0) < 120000) return;
   CO.note = 'Loading strikes…'; updateObsHead();
-  try { CO.list = await ex.loadStrikes(r.s, r.e + 5 * 60000, X.S.region, true); CO.listKey = key; CO.listAt = Date.now(); CO.note = ''; }
-  catch (e) { CO.note = 'Strikes are unavailable right now'; }
+  const maps = C.maps;
+  try {
+    const list = await ex.loadStrikes(r.s, r.e + 5 * 60000, X.S.region, true);
+    if (C.maps !== maps) return;
+    CO.list = list; CO.listKey = key; CO.listAt = Date.now(); CO.note = '';
+  } catch (e) { if (C.maps === maps) CO.note = 'Strikes are unavailable right now'; }
   updateObsHead();
 }
 function wireObs() {
@@ -215,8 +233,44 @@ export function openCompare(n = 2, sel) {
   C.view = rb && (fitZ == null || X.map.getZoom() < fitZ + 0.6) ? rb : X.map.getBounds();
   drawCompare();
 }
+function showVerificationMap(entries, selected, region, buildReference, returnToVerification) {
+  const previous = { panes: C.panes, mode: C.mode, split: C.split, view: C.view };
+  const previousObs = { ...CO };
+  C.verification = {
+    entries, region, buildReference,
+    restore() {
+      Object.assign(C, previous);
+      Object.assign(CO, previousObs, { playing: false, states: [] });
+      returnToVerification();
+    }
+  };
+  C.mode = 'swipe';
+  C.split = 0.5;
+  C.view = [[region.west, region.south], [region.east, region.north]];
+  Object.assign(CO, { radar: false, strikes: false, keyOpen: false });
+  setVerificationWindow(selected);
+}
+
+function setVerificationWindow(index) {
+  const verification = C.verification;
+  const entry = verification.entries[index];
+  const reference = verification.buildReference(verification.region, entry.points);
+  Object.assign(verification, { index, entry, reference });
+  C.panes = [entry.run.id, 'observed-reference'];
+  stopObs();
+  const { west, east, south, north } = verification.region;
+  const strikes = entry.points.filter(([lon, lat]) => lon >= west - 0.5 && lon <= east + 0.5 &&
+    lat >= south - 0.5 && lat <= north + 0.5).map(([lon, lat, t]) => ({ lon, lat, t })).sort((a, b) => a.t - b.t);
+  Object.assign(CO, { t: null, t0: null, t1: null, list: strikes, listKey: '', note: '' });
+  drawCompare();
+}
 const CHEV = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
 function paneHead(i) {
+  if (C.verification) {
+    const label = i === 0 ? typeLabel(C.verification.entry.run) : 'Observed lightning';
+    return `<div class="cx-chip cx-ver-label"><b>${esc(label)}</b></div>
+      <div class="cx-stat" id="cxStat${i}" aria-live="polite"></div>`;
+  }
   const r = findRun(C.panes[i]), c = r && X.created(r), d = runDay(r), list = r && (r.type === 'automated' || r.type === 'ai') && d != null ? X.runsFor(d, r.type) : [], latest = list.at(-1)?.id === r?.id;
   return `<div class="cx-chip"><span class="cx-num">${i + 1}</span>
     <button class="cx-pick" data-pick="${i}" aria-haspopup="menu" aria-label="Change the run on map ${i + 1}"><span class="cx-tag ${typeCls(r)}">${esc(typeLabel(r))}</span>
@@ -226,28 +280,40 @@ function paneHead(i) {
 }
 function drawCompare() {
   const n = C.panes.length; if (n !== 2 && C.mode === 'swipe') C.mode = 'side';
+  const verification = C.verification;
+  C.swipeResize?.disconnect();
   document.body.classList.add('comparing');
   const el = $('compare'); el.classList.remove('hidden'); el.classList.add('cx');
+  el.classList.toggle('cx-verifying', !!verification);
   const reg = X.REGIONS.find(r => r.id === X.S.region), dt = X.baseDay(); dt.setDate(dt.getDate() + C.day);
+  const verificationWindows = verification?.entries.length > 1
+    ? `<select id="cxVerWindow" aria-label="Hourcast window">${verification.entries.map((entry, i) =>
+      `<option value="${i}"${i === verification.index ? ' selected' : ''}>${esc(entry.label)}</option>`).join('')}</select>`
+    : '';
   el.innerHTML = `<header class="cx-top">
-      <button class="btn icon" id="cmpBack" aria-label="Back to the forecast map" title="Back (Esc)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
-      <div class="cx-title"><b>Compare maps</b><small>${esc(reg?.name || X.S.region)} · ${n} map${n > 1 ? 's' : ''}</small></div>
+      <button class="btn icon" id="cmpBack" aria-label="${verification ? 'Back to verification' : 'Back to the forecast map'}" title="Back (Esc)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <div class="cx-title"><b>${verification ? 'Forecast vs observations' : 'Compare maps'}</b><small>${verification ? esc(verification.entry.label) : `${esc(reg?.name || X.S.region)} · ${n} map${n > 1 ? 's' : ''}`}</small></div>
       <div class="cx-tools">
-        <div class="seg" role="group" aria-label="Forecast day for Traditional and AI maps">${[0, 1, 2].map(d => { const x = new Date(dt); x.setDate(x.getDate() - C.day + d); return `<button data-cday="${d}" aria-pressed="${C.day === d}" title="${X.dayDate(x)}">Day ${d}</button>`; }).join('')}</div>
+        ${verification ? verificationWindows : `<div class="seg" role="group" aria-label="Forecast day for Traditional and AI maps">${[0, 1, 2].map(d => { const x = new Date(dt); x.setDate(x.getDate() - C.day + d); return `<button data-cday="${d}" aria-pressed="${C.day === d}" title="${X.dayDate(x)}">Day ${d}</button>`; }).join('')}</div>`}
         ${n === 2 ? `<div class="seg" role="group" aria-label="Layout"><button data-cmode="side" aria-pressed="${C.mode === 'side'}">Side<span class="cx-long"> by side</span></button><button data-cmode="swipe" aria-pressed="${C.mode === 'swipe'}">Swipe</button></div>` : ''}
-        <button class="btn" id="cmpAdd" ${n >= 4 ? 'disabled title="Up to 4 maps"' : 'title="Add a map"'} aria-label="Add a map">+<span class="cx-long">&nbsp;Add map</span></button>
-        <label class="cx-sync" title="Pan and zoom all maps together"><input type="checkbox" id="cmpLink" ${C.link || C.mode === 'swipe' ? 'checked' : ''} ${C.mode === 'swipe' ? 'disabled' : ''}><svg class="cx-short" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span class="cx-long">Move together</span></label>
+        ${verification ? '' : `<button class="btn" id="cmpAdd" ${n >= 4 ? 'disabled title="Up to 4 maps"' : 'title="Add a map"'} aria-label="Add a map">+<span class="cx-long">&nbsp;Add map</span></button>
+        <label class="cx-sync" title="Pan and zoom all maps together"><input type="checkbox" id="cmpLink" ${C.link || C.mode === 'swipe' ? 'checked' : ''} ${C.mode === 'swipe' ? 'disabled' : ''}><svg class="cx-short" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span class="cx-long">Move together</span></label>`}
       </div>
       <span class="cx-obsbtns">${obsButtons()}</span>
       <div class="cx-key" aria-label="Colour key: chance of lightning within 20 km"><span class="cx-bar">${X.BANDS.map(b => `<i style="background:${b.fill}"></i>`).join('')}</span><span class="cx-ticks"><span>5%</span><span>50%</span><span>90%</span></span></div>
       <button class="btn primary" id="cmpClose">Done</button>
     </header>
-    <div class="cx-grid" data-n="${n}" data-mode="${C.mode}">${C.panes.map((_, i) => `<section class="cx-pane" data-i="${i}" aria-label="Map ${i + 1}"><div class="cx-map" id="cmpMap${i}"></div>${paneHead(i)}</section>`).join('')}
-      ${C.mode === 'swipe' ? `<div class="cx-divider" id="cxDiv" role="slider" tabindex="0" aria-label="Swipe between map 1 and map 2" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(C.split * 100)}"><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6-6 6 6 6M15 6l6 6-6 6"/></svg></span></div>` : ''}
+    <div class="cx-grid" data-n="${n}" data-mode="${C.mode}">${C.panes.map((_, i) => `<section class="cx-pane" data-i="${i}" aria-label="${verification ? (i === 0 ? 'Forecast map' : 'Observed lightning map') : 'Map ' + (i + 1)}"><div class="cx-map" id="cmpMap${i}"></div>${paneHead(i)}</section>`).join('')}
+      ${C.mode === 'swipe' ? `<div class="cx-divider" id="cxDiv" role="slider" tabindex="0" aria-label="${verification ? 'Swipe between forecast and observed lightning' : 'Swipe between map 1 and map 2'}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(C.split * 100)}"><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6-6 6 6 6M15 6l6 6-6 6"/></svg></span></div>` : ''}
     </div>
     <div id="cxObsHost"></div>
+    ${verification ? `<div class="cx-reference-key" aria-label="Observed lightning map key">
+      <span><i style="background:${REFERENCE_COLOURS.lightning}"></i><b>100%</b> Lightning within 20 km</span>
+      <span><i style="background:${REFERENCE_COLOURS.quiet}"></i><b>0%</b> No lightning within 20 km</span>
+      <span>Unshaded areas are unverified${verification.entry.coverage < 1 ? ` · ${(verification.entry.coverage * 100).toFixed(2)}% time coverage` : ''}</span>
+    </div>` : ''}
     <div class="cx-menu hidden" id="cxMenu" role="menu"></div>`;
-  C.maps.forEach(m => m && m.remove()); C.maps = []; C.marks = []; CO.states = [];
+  discardCompareMaps();
   const bounds = C.view || X.map.getBounds();
   C.panes.forEach((id, i) => {
     const m = new mapboxgl.Map({ container: `cmpMap${i}`, style: X.styleUrl(), bounds, fitBoundsOptions: { padding: 10 }, attributionControl: false, logoPosition: 'bottom-left', projection: 'mercator', dragRotate: false, pitchWithRotate: false });
@@ -268,9 +334,9 @@ function drawCompare() {
       m.once('remove', () => resize.disconnect());
     }
     if (i === C.panes.length - 1) m.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right');
-    m.on('style.load', () => { addPaneLayers(m); loadPane(i).then(() => { if (C.maps[i] === m) applyObs(i); }); });
+    m.on('style.load', () => { addPaneLayers(m, !!verification && i === 1); loadPane(i).then(() => { if (C.maps[i] === m) applyObs(i); }); });
     m.on('moveend', () => { if (CO.radar) paintPane(i); });
-    m.on('move', () => { if (C.syncing) return; if (i === 0 || C.link || C.mode === 'swipe') C.view = m.getBounds(); if (!C.link && C.mode !== 'swipe') return; C.syncing = true; C.maps.forEach(o => { if (o !== m) o.jumpTo({ center: m.getCenter(), zoom: m.getZoom() }); }); C.syncing = false; });
+    m.on('move', () => { if (C.syncing) return; if (i === 0 || verification || C.link || C.mode === 'swipe') C.view = m.getBounds(); if (!verification && !C.link && C.mode !== 'swipe') return; C.syncing = true; C.maps.forEach(o => { if (o !== m) o.jumpTo({ center: m.getCenter(), zoom: m.getZoom() }); }); C.syncing = false; });
     m.on('mousemove', (e) => paneProbe(i, e.lngLat));
     m.on('click', (e) => paneProbe(i, e.lngLat));
     m.on('mouseout', () => clearProbe());
@@ -285,15 +351,20 @@ function drawCompare() {
     C.panes = C.panes.map(id => { const r = findRun(id); if (!r || (r.type !== 'automated' && r.type !== 'ai')) return id; const list = X.runsFor(runDay(r) ?? C.day, r.type), back = list.length - 1 - list.findIndex(x => x.id === id), t = X.runsFor(C.day, r.type); return t[Math.max(0, t.length - 1 - back)]?.id || id; });
     drawCompare(); });
   el.querySelectorAll('[data-cmode]').forEach(b => b.onclick = () => { C.mode = b.dataset.cmode; drawCompare(); });
-  $('cmpAdd').onclick = (e) => { e.stopPropagation(); if (C.panes.length >= 4) return; openMenu(C.panes.length, $('cmpAdd')); };
-  $('cmpLink').onchange = (e) => { C.link = e.target.checked; };
+  if ($('cmpAdd')) $('cmpAdd').onclick = (e) => { e.stopPropagation(); if (C.panes.length >= 4) return; openMenu(C.panes.length, $('cmpAdd')); };
+  if ($('cmpLink')) $('cmpLink').onchange = (e) => { C.link = e.target.checked; };
+  if ($('cxVerWindow')) $('cxVerWindow').onchange = (e) => { setVerificationWindow(+e.target.value); $('cxVerWindow').focus(); };
   $('cmpClose').onclick = closeCompare; $('cmpBack').onclick = closeCompare;
   el.onclick = (e) => { if (!e.target.closest('#cxMenu,[data-pick],#cmpAdd')) $('cxMenu')?.classList.add('hidden'); };
 }
 function wireSwipe() {
   const grid = document.querySelector('.cx-grid'), top = grid.querySelector('.cx-pane[data-i="1"]'), div = $('cxDiv');
   const apply = () => { const w = grid.clientWidth, x = Math.round(C.split * w); top.style.clipPath = `inset(0 0 0 ${x}px)`; div.style.left = x + 'px'; div.setAttribute('aria-valuenow', Math.round(C.split * 100)); };
-  apply(); new ResizeObserver(apply).observe(grid);
+  apply();
+  if ('ResizeObserver' in window) {
+    C.swipeResize = new ResizeObserver(apply);
+    C.swipeResize.observe(grid);
+  }
   div.onpointerdown = (e) => { e.preventDefault(); div.setPointerCapture(e.pointerId); div.classList.add('drag');
     const move = (ev) => { const r = grid.getBoundingClientRect(); C.split = Math.min(0.97, Math.max(0.03, (ev.clientX - r.left) / r.width)); apply(); };
     div.onpointermove = move; div.onpointerup = div.onpointercancel = () => { div.onpointermove = null; div.classList.remove('drag'); }; };
@@ -360,7 +431,26 @@ function openMenu(i, btn) {
   menu.classList.remove('hidden');
 }
 function setPane(i, id) { if (i >= C.panes.length) C.panes.push(id); else C.panes[i] = id; drawCompare(); }
-export function closeCompare() { C.pickInto = null; stopObs(); CO.states = []; C.maps.forEach(m => m && m.remove()); C.maps = []; const el = $('compare'); el.classList.add('hidden'); el.innerHTML = ''; document.body.classList.remove('comparing'); X.map.resize(); }
+function discardCompareMaps() {
+  CO.states.forEach(radar => radar.tok++);
+  CO.states = [];
+  C.maps.forEach(m => m && m.remove());
+  C.maps = []; C.marks = [];
+  paneGeo.length = paneStat.length = 0;
+}
+export function closeCompare() {
+  const verification = C.verification;
+  C.verification = null;
+  C.pickInto = null;
+  stopObs();
+  C.swipeResize?.disconnect();
+  discardCompareMaps();
+  const el = $('compare');
+  el.classList.add('hidden'); el.innerHTML = '';
+  document.body.classList.remove('comparing');
+  X.map.resize();
+  verification?.restore();
+}
 export function loadTo(run) {
   extra.set(run.id, run);
   if (C.pickInto != null) { const i = C.pickInto; C.pickInto = null; X.closeTools(); setPane(Math.min(i, C.panes.length), run.id); return; }
@@ -375,38 +465,61 @@ export function loadTo(run) {
   d.querySelectorAll('[data-slot]').forEach(b => b.onclick = () => { pick = +b.dataset.slot; d.querySelectorAll('[data-slot]').forEach(x => x.setAttribute('aria-pressed', x === b)); lbl(); });
   $('ltGo').onclick = () => { d.classList.add('hidden'); X.closeTools(); setPane(Math.min(pick, C.panes.length), run.id); };
 }
-function addPaneLayers(m) {
+function addPaneLayers(m, observed = false) {
   if (m.getSource('hoco')) return;
   const label = m.getStyle().layers.find(l => l.type === 'symbol' && l.layout && l.layout['text-field'])?.id;
   m.addSource('hoco', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-  m.addLayer({ id: 'hoco-fill', type: 'fill', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'polygon'], paint: { 'fill-color': X.fillColor(), 'fill-opacity': 0.7 } }, label);
-  m.addLayer({ id: 'hoco-line', type: 'line', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'polygon'], paint: { 'line-color': 'rgba(16,34,56,0.45)', 'line-width': 0.6 } }, label);
+  if (observed) m.addLayer({ id: 'hoco-observed-coverage', type: 'fill', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'coverage'], paint: { 'fill-color': REFERENCE_COLOURS.quiet, 'fill-opacity': 0.28 } }, label);
+  m.addLayer({ id: 'hoco-fill', type: 'fill', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'polygon'], paint: { 'fill-color': observed ? REFERENCE_COLOURS.lightning : X.fillColor(), 'fill-opacity': 0.7, 'fill-antialias': !observed } }, label);
+  if (!observed) m.addLayer({ id: 'hoco-line', type: 'line', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'polygon'], paint: { 'line-color': 'rgba(16,34,56,0.45)', 'line-width': 0.6 } }, label);
   try { m.addSource('cx-ref', { type: 'vector', url: 'mapbox://mapbox.mapbox-streets-v8' });
     m.addLayer({ id: 'cx-coast', type: 'line', source: 'cx-ref', 'source-layer': 'water', paint: { 'line-color': 'rgba(15,27,45,0.55)', 'line-width': 0.7 } }, label);
     m.addLayer({ id: 'cx-borders', type: 'line', source: 'cx-ref', 'source-layer': 'admin', filter: ['all', ['<=', ['get', 'admin_level'], 1], ['==', ['get', 'maritime'], 'false']], paint: { 'line-color': 'rgba(15,27,45,0.5)', 'line-width': 0.8, 'line-dasharray': [2, 1] } }, label); } catch (e) { /* outlines are optional */ }
 }
 const paneGeo = [], paneStat = [];
 async function loadPane(i) {
-  const m = C.maps[i], run = findRun(C.panes[i]); if (!m || !run) return;
+  const verification = C.verification;
+  const m = C.maps[i], run = verification?.entry.run || findRun(C.panes[i]); if (!m || !run) return;
   try {
-    const g = await X.fetchGeo(run); if (C.maps[i] !== m) return; paneGeo[i] = g;
-    if (!m.getSource('hoco')) addPaneLayers(m);
+    const observed = !!verification && i === 1;
+    const g = verification ? (observed ? verification.reference.geo : verification.entry.geo) : await X.fetchGeo(run);
+    if (C.maps[i] !== m) return;
+    paneGeo[i] = g;
+    if (!m.getSource('hoco')) addPaneLayers(m, observed);
     m.getSource('hoco').setData(g);
-    m.setPaintProperty('hoco-fill', 'fill-opacity', Math.min(1, (g?.properties?.hoco_layout === 'bands_v2' ? 0.7 : 0.32) * getSettings().opacity));
-    paneStat[i] = X.peakOf(g); C.panes.forEach((_, j) => renderStat(j));
-  } catch (e) { const s = $(`cxStat${i}`); if (s) s.textContent = 'Could not load this run'; }
+    if (!observed) {
+      m.setPaintProperty('hoco-fill', 'fill-opacity', Math.min(1, (g?.properties?.hoco_layout === 'bands_v2' ? 0.7 : 0.32) * getSettings().opacity));
+      paneStat[i] = X.peakOf(g);
+    }
+    C.panes.forEach((_, j) => renderStat(j));
+  } catch (e) { const s = $(`cxStat${i}`); if (C.maps[i] === m && s) s.textContent = 'Could not load this map'; }
 }
 const pctTxt = (v) => v >= 5 ? Math.round(v) + '%' : '<5%';
 function delta(a, b) { if (a == null || b == null) return ''; const d = Math.round(Math.max(a, 0)) - Math.round(Math.max(b, 0)); return `<span class="cx-d ${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d === 0 ? '±0' : (d > 0 ? '+' : '−') + Math.abs(d)} vs map 1</span>`; }
 function renderStat(i, here) {
-  const el = $(`cxStat${i}`), pk = paneStat[i]; if (!el || !pk) return;
+  const el = $(`cxStat${i}`), pk = paneStat[i]; if (!el) return;
+  const verification = C.verification;
+  if (verification) {
+    el.classList.toggle('here', !!here);
+    if (i === 1) {
+      el.innerHTML = here ? here.v[i] === null ? '<b>Unverified</b>' : `<b>${here.v[i]}%</b><span>here</span>` : `<small>${esc(verification.entry.label)}</small>`;
+    } else if (here && here.v[i] !== null) {
+      el.innerHTML = `<b>${pctTxt(here.v[i])}</b><span>here</span>`;
+    } else if (pk) {
+      el.innerHTML = `<b>${pctTxt(pk.risk)}</b><span>forecast peak</span><small>${esc(verification.entry.label)}</small>`;
+    }
+    el.hidden = !el.textContent;
+    return;
+  }
+  if (!pk) return;
   const run = findRun(C.panes[i]), s = run && X.startOf(run), e = run && X.endOf(run);
   if (here) { el.innerHTML = `<b>${pctTxt(here.v[i])}</b><span>here</span>${i > 0 ? delta(here.v[i], here.v[0]) : ''}`; el.classList.add('here'); return; }
   el.classList.remove('here');
   el.innerHTML = `<b>${pctTxt(pk.risk)}</b><span>peak${pk.lat != null && pk.risk >= 5 ? ` near ${esc(X.nearestPlace(pk.lat, pk.lon))}` : ''}</span>${i > 0 ? delta(pk.risk, paneStat[0]?.risk) : ''}<small>${run?.windowValidity ? esc(run.windowValidity) : s ? `${X.dayName(s)} ${X.hhmm(s)} – ${X.dayName(e)} ${X.hhmm(e)}` : ''}</small>`;
 }
 function paneProbe(i, ll) {
-  const v = C.panes.map((_, j) => paneGeo[j] ? X.riskAt(paneGeo[j], ll.lng, ll.lat) : null);
+  const v = C.panes.map((_, j) => C.verification && j === 1 ? C.verification.reference.riskAt(ll.lng, ll.lat) :
+    paneGeo[j] ? X.riskAt(paneGeo[j], ll.lng, ll.lat) : null);
   C.marks.forEach((mk, j) => { if (j === i || !C.maps[j]) mk.remove(); else mk.setLngLat(ll).addTo(C.maps[j]); });
   C.panes.forEach((_, j) => renderStat(j, { v }));
 }
@@ -485,7 +598,7 @@ async function openRunVerification() {
     }
     let timeout;
     try {
-      const { OBSERVATION_DELAY, loadObservations, verifyMap, combinedVerification } = await import('./run-verification.js?v=1');
+      const { OBSERVATION_DELAY, loadObservations, verifyMap, combinedVerification, observedReference } = await import('./run-verification.js?v=2');
       if (Date.now() < end + OBSERVATION_DELAY) {
         status('Verification is available after the forecast period ends and lightning observations have arrived.');
         return;
@@ -495,21 +608,28 @@ async function openRunVerification() {
         status('Verification took too long. Reopen this screen to try again.');
         controller.abort();
       }, all ? 65_000 : 20_000);
-      const { points, coverage } = await loadObservations(start, end, signal);
-      const scores = [];
+      const { points, coverage, intervals } = await loadObservations(start, end, signal);
+      const results = [];
       // Limit concurrent map downloads when the whole Hourcast run is selected.
       for (let i = 0; i < maps.length && !signal.aborted; i += 3) {
         const batch = await Promise.all(maps.slice(i, i + 3).map(async window => {
           const geo = await X.fetchGeo(window);
           if (signal.aborted) return null;
-          if (window.type !== 'timing') return verifyMap(geo, region, points);
-          const a = X.startOf(window).getTime(), b = X.endOf(window).getTime();
-          return verifyMap(geo, region, points.filter(point => point[2] >= a && point[2] < b));
+          const a = window.type === 'timing' ? X.startOf(window).getTime() : start;
+          const b = window.type === 'timing' ? X.endOf(window).getTime() : end;
+          const windowPoints = all ? points.filter(point => point[2] >= a && point[2] < b) : points;
+          const covered = intervals.reduce((sum, [from, to]) => sum + Math.max(0, Math.min(to, b) - Math.max(from, a)), 0);
+          return {
+            score: verifyMap(geo, region, windowPoints),
+            entry: { run: window, geo, start: a, end: b, points: windowPoints, coverage: covered / (b - a),
+              label: window.windowValidity || period }
+          };
         }));
-        scores.push(...batch);
+        results.push(...batch);
       }
       if (closed || signal.aborted || !body.isConnected) return;
-      const score = all ? combinedVerification(scores) : scores[0];
+      const score = all ? combinedVerification(results.map(result => result.score)) : results[0].score;
+      const entries = results.map(result => result.entry).filter(entry => entry.coverage >= 0.95);
       const pct = value => (100 * value).toFixed(1) + '%';
       const fmtBins = key => score.bins.map(bin => bin[key]);
       const chart = (perfect) => relChart(fmtBins('forecast'), fmtBins('observed'), fmtBins('count'), { perfect, detailed: true });
@@ -524,6 +644,7 @@ async function openRunVerification() {
         <div><small>Observed lightning rate</small><strong>${pct(score.observed)}</strong></div>
       </div>
       <p class="lead">${summary}</p>
+      ${entries.length ? '<button class="btn primary" id="verMap">Compare map with observed lightning</button>' : ''}
       <div class="setgrp"><div class="rowbetween ver-chart-head"><b>Reliability chart</b><button class="btn sm" id="verPerfect" aria-pressed="true">Compare with perfect calibration</button></div>
         <div id="verChart">${chart(true)}</div>
         <div class="ver-legend"><span>● ${esc(typeLabel(run))}</span><span id="verLineKey">┄ Perfect calibration</span></div>
@@ -537,6 +658,15 @@ async function openRunVerification() {
         event.currentTarget.setAttribute('aria-pressed', show);
         $('verChart').innerHTML = chart(show);
         $('verLineKey').classList.toggle('hidden', !show);
+      };
+      if ($('verMap')) $('verMap').onclick = () => {
+        const selected = Math.max(0, entries.findIndex(entry => entry.run.id === run.id));
+        d.classList.add('hidden');
+        showVerificationMap(entries, selected, region, observedReference, () => {
+          d.classList.remove('hidden');
+          $('verMap')?.focus();
+        });
+        $('cmpBack')?.focus();
       };
     } catch (error) {
       status(error instanceof Error ? error.message : 'Verification is unavailable for this forecast.');
