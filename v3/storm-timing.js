@@ -1,4 +1,4 @@
-import { doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const $ = id => document.getElementById(id);
 const format = options => new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", ...options });
@@ -14,11 +14,11 @@ function windowHours(start, end) {
     return (zone(start) === zone(end) ? clock.format(start) : zonedClock.format(start)) + "–" + zonedClock.format(end);
 }
 
-export function createStormTiming({ db, display, firstAvailable, selectDay }) {
+export function createStormTiming({ db, display }) {
     const periods = $("timingPeriods");
     const slider = $("timingSlider"), preview = $("timingPreview");
     const cached = new Map();
-    let key, stop, timer, pending, windows = [], selected, record, region, day;
+    let key, stop, pending, windows = [], selected, record, region, day, sourceRun;
 
     function previewWindow(index) {
         const item = windows[index];
@@ -30,12 +30,7 @@ export function createStormTiming({ db, display, firstAvailable, selectDay }) {
     }
     slider.oninput = () => previewWindow(Number(slider.value));
     slider.onchange = () => { if (windows.length) select(windows[Number(slider.value)], region, day); };
-    function step(direction) {
-        if (windows.length < 2) return;
-        slider.value = Math.max(0, Math.min(windows.length - 1, Number(slider.value) + direction));
-        previewWindow(Number(slider.value));
-        slider.onchange();
-    }
+
 
     function address(region, day) {
         const url = new URL(location.href);
@@ -43,6 +38,7 @@ export function createStormTiming({ db, display, firstAvailable, selectDay }) {
         url.searchParams.set("region", region);
         url.searchParams.set("day", day);
         url.searchParams.set("view", "timing");
+        if (sourceRun) url.searchParams.set("run", sourceRun);
         if (selected) url.searchParams.set("window", selected);
         else url.searchParams.delete("window");
         history.replaceState(null, "", url);
@@ -50,7 +46,6 @@ export function createStormTiming({ db, display, firstAvailable, selectDay }) {
 
     function reset() {
         stop?.(); stop = null;
-        clearTimeout(timer);
         pending?.abort();
         key = null; windows = []; record = null; selected = null; cached.clear();
         periods.hidden = true;
@@ -84,7 +79,7 @@ export function createStormTiming({ db, display, firstAvailable, selectDay }) {
                 data = await response.json();
                 if (data.type !== "FeatureCollection" || !Array.isArray(data.features)) throw Error();
             }
-            if (controller.signal.aborted || end <= Date.now()) return;
+            if (controller.signal.aborted) return;
             cached.set(url.href, data);
             display(data, { id: record.sourceRunId + "/" + selected, region, type: "ai",
                 validFrom: item.validFrom, validTo: item.validTo, createdAt: record.issuedAt });
@@ -96,15 +91,13 @@ export function createStormTiming({ db, display, firstAvailable, selectDay }) {
     }
 
     function render(region, day) {
-        clearTimeout(timer);
         pending?.abort();
-        const now = Date.now();
         windows = (record?.schema === 1 && Array.isArray(record.windows) ? record.windows : [])
-            .filter(w => w.validFrom?.toMillis?.() < w.validTo?.toMillis?.() && w.validTo.toMillis() > now)
+            .filter(w => w.validFrom?.toMillis?.() < w.validTo?.toMillis?.())
             .sort((a, b) => a.validFrom.toMillis() - b.validFrom.toMillis());
         periods.hidden = !windows.length;
         const notes = [];
-        if (record?.timingVersion && day === 2) notes.push("Storm hour covers the first 18 hours of Day 2.");
+        if (record?.timingVersion && record.day === "day2") notes.push("Storm hour covers the first 18 hours of Day 2.");
         if (record?.timingInputs === "historical-timing") notes.push("Window estimates use the broader outlook and historical lightning timing.");
         $("timingMethod").hidden = !windows.length || !notes.length;
         $("timingMethod").textContent = notes.join(" ");
@@ -118,53 +111,39 @@ export function createStormTiming({ db, display, firstAvailable, selectDay }) {
             address(region, day);
             display(empty);
             $("timingIssued").textContent = "";
-            $("timingTitle").textContent = "No active window";
-            $("timingStatus").textContent = day === 0 ? "No hourly forecast is active for this run. Try Day 1 or Day 2."
-                : "There are no published windows for this day.";
+            $("timingTitle").textContent = "No Storm hour forecast";
+            $("timingStatus").textContent = sourceRun ? "No windows were saved for this run." : "Choose another date or forecast day.";
             return;
         }
         $("timingSource").href = "./?" + new URLSearchParams({ region, day, run: record.sourceRunId });
         $("timingIssued").textContent = record.issuedAt ? "Issued " + stamp.format(record.issuedAt.toDate()) : "";
-        timer = setTimeout(() => render(region, day), windows[0].validTo.toMillis() - now + 30);
-        select(windows.find(w => w.validFrom.toDate().toISOString() === selected) || windows[0], region, day);
+        const current = windows.find(w => w.validFrom.toDate().toISOString() === selected);
+        const next = windows.find(w => w.validTo.toMillis() > Date.now());
+        select(current || next || windows[0], region, day);
     }
 
-    async function chooseAvailable(region, watchedKey) {
-        for (const day of [1, 2]) {
-            try {
-                const snapshot = await getDoc(doc(db, "system_stats", "storm_timing_" + region.toLowerCase() + "_day" + day));
-                if (key !== watchedKey || windows.length) return;
-                if (snapshot.data()?.windows?.some(w => w.validTo?.toMillis?.() > Date.now())) {
-                    selectDay(day);
-                    return;
-                }
-            } catch { if (key !== watchedKey) return; }
-        }
-    }
-
-    function watch(nextRegion, nextDay, initialWindow) {
-        region = nextRegion; day = nextDay;
-        const next = region + day;
+    function watch(nextRegion, nextDay, runId, initialWindow) {
+        const next = JSON.stringify([nextRegion, nextDay, runId]);
         if (key === next) return;
         reset();
-        const preferAvailable = firstAvailable && day === 0;
-        firstAvailable = false;
+        region = nextRegion; day = nextDay; sourceRun = runId;
         key = next; selected = initialWindow;
+        if (!runId) { render(region, day); return; }
         display(empty);
         address(region, day);
-        $("timingTitle").textContent = "Storm timing";
+        $("timingTitle").textContent = "Storm hour";
         $("timingStatus").textContent = "Loading forecast windows…";
-        stop = onSnapshot(doc(db, "system_stats", "storm_timing_" + region.toLowerCase() + "_day" + day), { includeMetadataChanges: true }, snapshot => {
-            if (key !== next || snapshot.metadata.fromCache) return;
-            record = snapshot.data();
+        stop = onSnapshot(doc(db, "system_stats", "storm_timing_run_" + runId), snapshot => {
+            if (key !== next || (snapshot.metadata.fromCache && !snapshot.exists())) return;
+            const data = snapshot.data();
+            record = data?.sourceRunId === runId && data.region === region ? data : null;
             render(region, day);
-            if (preferAvailable && !windows.length) chooseAvailable(region, next);
         }, () => {
             if (key !== next) return;
             record = null;
             render(region, day);
-            $("timingStatus").textContent = "Storm timing is temporarily unavailable.";
+            $("timingStatus").textContent = "This run’s timing forecast could not be loaded.";
         });
     }
-    return { watch, reset, step };
+    return { watch, reset };
 }

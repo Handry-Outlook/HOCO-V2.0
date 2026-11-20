@@ -850,13 +850,16 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
 .cx-obs{margin-bottom:var(--adb,0px)}.compare.cx{top:var(--adt,0px)}
 
 #timingPeriods,#timingInfo,#timingMode[hidden]{display:none}
-.timing-active #timingPeriods{display:flex;align-items:center;gap:10px;min-width:0;flex:1;padding:0 8px}
+.timing-active #dock{flex-wrap:wrap}
+.timing-active #timingPeriods{display:flex;align-items:center;gap:10px;min-width:0;flex:0 0 100%;order:1;padding:3px 8px;border-top:1px solid var(--border)}
 .timing-active #timingPeriods[hidden]{display:none}
 #timingPeriods input{flex:1;min-width:36px}
+#timingPeriods label{font-size:11px;font-weight:650;white-space:nowrap;color:var(--muted)}
 #timingPreview{font-size:12px;font-weight:650;white-space:nowrap}
 .timing-active #summary:not(.has-timed-map) .legend{display:none}
 @media(max-width:640px){
-  .timing-active #dock{grid-template-columns:1fr;grid-template-areas:"days" "timing"}
+  .timing-active #dock{grid-template-areas:"days date all" "run run lbl" "timing timing timing"}
+  body.timing-active.obs-on #dock{grid-template-areas:"days date all" "timing timing timing"}
   #timingPeriods{grid-area:timing;min-height:34px}
   .topbar .type button{padding:0 7px}
   .topbar #regionBtn{min-width:0;flex-shrink:1}
@@ -867,8 +870,7 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
   .topbar nav .btn.icon{width:28px}
   .topbar .authbtns .btn{padding:0 6px}
 }
-.timing-active #dateBtn,.timing-active #allRunsBtn,.timing-active #dock .runrow,.timing-active #runLabel,
-.timing-active #procChip,.timing-active #sumHead,.timing-active #sumMore,.timing-active #summary .viewbar,
+.timing-active #procChip,.timing-active #sumHead,.timing-active #sumMore,
 .timing-active #empty,.timing-active #ctrlsBox [data-compare]{display:none!important}
 .timing-active #timingInfo{display:grid;gap:5px;padding:3px 2px}
 #timingInfo h2{font-size:20px;letter-spacing:-.03em;line-height:1.15;margin:0}
@@ -948,7 +950,7 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
 <section class="dock card hidden" id="dock" aria-label="Choose a day and a run">
   <div class="daytabs" role="tablist" aria-label="Forecast day" id="dayTabs"></div>
   <div id="timingPeriods" hidden>
-    <label class="sr" for="timingSlider">Forecast window in UK time</label>
+    <label for="timingSlider">Valid window</label>
     <input type="range" id="timingSlider" min="0" max="0" step="1" value="0">
     <output id="timingPreview" for="timingSlider"></output>
   </div>
@@ -1027,7 +1029,7 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
 <div class="toast hidden" id="toast" role="status"></div>
 
 <script type="module">
-import { createStormTiming } from "./storm-timing.js?v=3";
+import { createStormTiming } from "./storm-timing.js?v=4";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore, collection, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs, where, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -1078,12 +1080,11 @@ if (EMBED && ['light', 'dark'].includes(params.get('theme'))) S.theme = params.g
 if (params.get('region') && REGIONS.some(r => r.id === params.get('region') && r.west !== undefined)) S.region = params.get('region');
 if (['0','1','2'].includes(params.get('day'))) S.day = +params.get('day');
 if (params.get('view') === 'ai') S.product = 'ai';
-const supportsTiming = () => !EMBED && (!S.archive || !!S.archive.sharedId) && !S.custom && ['England','Scotland'].includes(S.region);
+const supportsTiming = () => !EMBED && !S.custom && ['England','Scotland'].includes(S.region);
 S.timing = params.get('view') === 'timing' && supportsTiming();
-let fullDayProduct = S.timing ? 'ai' : S.product;
+let fullDayProduct = S.product;
 let initialWindow = S.timing ? params.get('window') : null;
-if (S.timing) S.product = 'ai';
-const wantRun = !S.timing && params.get('run');
+const wantRun = params.get('run');
 let resolvingSharedRun = !!wantRun;
 const cache = new Map();
 const $ = (id) => document.getElementById(id);
@@ -1291,20 +1292,22 @@ map.on('click', (e) => { if (innerWidth <= 640 && $('summary').classList.contain
 // "Today" is the date of the outlook in force right now (the newest run whose period covers now), so just after
 // midnight Day 0 is still the outlook that runs to 05:59, instead of a day that has not started yet.
 const baseDay = () => { if (S.archive) return new Date(S.archive.date + 'T00:00:00');
-  const now = Date.now(), ms = (r) => created(r)?.getTime() || 0, want = S.product === 'ai' ? ['ai', 'automated'] : ['automated'];
+  const now = Date.now(), ms = (r) => created(r)?.getTime() || 0, want = !S.timing && S.product === 'ai' ? ['ai', 'automated'] : ['automated'];
   let cur = null;
   for (const type of want) { cur = S.runs.filter(r => r.type === type && r.status !== 'pending' && regionMatches(S.region, r) && startOf(r) && endOf(r) &&
     startOf(r).getTime() <= now && endOf(r).getTime() > now).sort((a, b) => ms(b) - ms(a))[0]; if (cur) break; }
   const t = cur ? new Date(startOf(cur)) : new Date(); t.setHours(0, 0, 0, 0); return t; };
 const srcRuns = () => S.archive ? S.archive.runs : S.runs;
 const hidden = (r) => r.cancelled === true;
+const dayRunType = () => !S.timing && S.product === 'ai' ? 'ai' : 'automated';
+const isDayRun = (r) => r.type === dayRunType() && (!S.timing || (r.stormHour === true && !hidden(r)));
+const runPeak = (r) => S.timing ? r.stormHourPeak : S.peaks[r.id];
 function buildDays() {
   const today = baseDay();
-  const type = S.product === 'ai' ? 'ai' : 'automated';
   for (let d = 0; d < 3; d++) {
     const key = dateKey(addDays(today, d));
-    S.byDay[d] = srcRuns().filter(r => r.type === type && r.status !== 'pending' && regionMatches(S.region, r) && startOf(r) && dateKey(startOf(r)) === key &&
-      (r.geojsonUrl || r.inlineGeojson || r.inlineGeojsonText || r.geojson || r.ensembleGeojson))
+    S.byDay[d] = srcRuns().filter(r => isDayRun(r) && r.status !== 'pending' && regionMatches(S.region, r) && startOf(r) && dateKey(startOf(r)) === key &&
+      (S.timing || r.geojsonUrl || r.inlineGeojson || r.inlineGeojsonText || r.geojson || r.ensembleGeojson))
       .sort((a, b) => (created(a)?.getTime() || 0) - (created(b)?.getTime() || 0));
   }
 }
@@ -1313,20 +1316,19 @@ function renderDays() {
   const today = baseDay();
   $('dateLabel').textContent = S.archive ? today.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Today';
   $('dateBtn').classList.toggle('arch', !!S.archive);
-  $('dayTabs').innerHTML = [0, 1, 2].map(d => { const dt = addDays(today, d), last = S.byDay[d].at(-1), pk = last && S.peaks[last.id];
-    if (S.timing) return `<button class="daytab" role="tab" aria-selected="${d === S.day}" data-day="${d}">Day ${d}</button>`;
+  $('dayTabs').innerHTML = [0, 1, 2].map(d => { const dt = addDays(today, d), last = S.byDay[d].at(-1), pk = last && runPeak(last);
     const b = pk != null ? bandFor(pk) : null;
     return `<button class="daytab" role="tab" aria-selected="${d === S.day}" data-day="${d}"><span>Day ${d}<small>${dayName(dt)} ${dt.getDate()}</small></span>${pk != null ? `<em style="background:${b ? b.fill : 'var(--track)'}">${Math.round(pk)}%</em>` : ''}</button>`; }).join('');
   $('dayTabs').querySelectorAll('.daytab').forEach(b => b.onclick = () => { S.day = +b.dataset.day; clearCustom(); renderAll(); });
 }
 async function loadPeaks() {
+  if (S.timing) { renderDays(); return; }
   for (let d = 0; d < 3; d++) { const last = S.byDay[d].at(-1); if (!last || S.peaks[last.id] != null) continue;
     try { S.peaks[last.id] = peakOf(await fetchGeo(last)).risk; } catch (e) { /* ignore */ } }
   renderDays();
 }
 let loadToken = 0;
-const timing = createStormTiming({ db, firstAvailable: S.timing && !params.has('day') && !params.has('window'),
-  selectDay(day) { S.day = day; renderAll(); },
+const timing = createStormTiming({ db,
   display(geo, run) {
   $('probe').classList.add('hidden');
   S.current = run || null;
@@ -1342,25 +1344,26 @@ function syncPeriodControls() {
   $('typeTrad').setAttribute('aria-pressed', !S.timing && S.product !== 'ai');
   $('typeAi').setAttribute('aria-pressed', !S.timing && S.product === 'ai');
 }
+function keepSourceRun(id) {
+  if (!id) return;
+  const list = S.byDay[S.day];
+  const found = list.findIndex(r => (r.sourceRunId || r.id) === id);
+  if (found >= 0) {
+    S.idx[S.day] = found;
+    S.follow[S.day] = found === list.length - 1;
+  }
+}
 function setTiming(on) {
   if (on === S.timing || (on && !supportsTiming())) return;
+  const previous = S.byDay[S.day][S.idx[S.day]];
   ++loadToken;
   S.timing = on;
   syncPeriodControls();
   if (on) {
     fullDayProduct = S.product;
-    if (S.product !== 'ai') {
-      S.product = 'ai';
-      $('typeTrad').setAttribute('aria-pressed', false);
-      $('typeAi').setAttribute('aria-pressed', false);
-      buildDays();
-    }
   } else {
     timing.reset();
     S.product = fullDayProduct;
-    $('typeTrad').setAttribute('aria-pressed', S.product !== 'ai');
-    $('typeAi').setAttribute('aria-pressed', S.product === 'ai');
-    buildDays();
     S.current = null;
     setGeo({type:'FeatureCollection', features:[]});
     Extras.onEmpty();
@@ -1369,6 +1372,12 @@ function setTiming(on) {
     if (S.product === 'ai') url.searchParams.set('view', 'ai'); else url.searchParams.delete('view');
     history.replaceState(null, '', url);
   }
+  S.idx = [null, null, null];
+  S.follow = [true, true, true];
+  syncPeriodControls();
+  buildDays();
+  keepSourceRun(previous?.sourceRunId || previous?.id);
+  loadPeaks();
   renderAll();
   measureDock();
 }
@@ -1378,7 +1387,7 @@ function setNotice(text, back, kind) {
   document.querySelectorAll('[data-view]').forEach(v => { v.classList.toggle('hidden', !text); v.classList.toggle('arch', kind === 'arch'); if (text) { v.querySelector('[data-view-text]').textContent = text; v.querySelector('[data-view-back]').textContent = back; } });
   measureDock();
 }
-document.querySelectorAll('[data-view-back]').forEach(b => b.onclick = () => S.custom ? clearCustom() : (S.archive && S.idx[S.day] === S.byDay[S.day].length - 1) ? setArchive(null) : setRun(S.byDay[S.day].length - 1));
+document.querySelectorAll('[data-view-back]').forEach(b => b.onclick = () => S.custom ? clearCustom() : (S.archive && (!S.byDay[S.day].length || S.idx[S.day] === S.byDay[S.day].length - 1)) ? setArchive(null) : setRun(S.byDay[S.day].length - 1));
 document.querySelectorAll('[data-plain]').forEach(p => p.onclick = () => p.classList.toggle('clamp'));
 // ---------- archive: view a past date ----------
 async function setArchive(key) {
@@ -1397,14 +1406,15 @@ async function setArchive(key) {
 let calMonth = null;
 const peakCache = (() => { try { return JSON.parse(localStorage.getItem('hocoDayPeaks') || '{}'); } catch (e) { return {}; } })();
 function savePeakCache() { try { localStorage.setItem('hocoDayPeaks', JSON.stringify(peakCache)); } catch (e) { } }
+const calendarProduct = () => S.timing ? 'timing' : S.product;
 const FIRST_DAY = '2025-06-01';
 function renderCal() {
   const pop = $('calPop'), m = calMonth, first = new Date(m.getFullYear(), m.getMonth(), 1), days = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
   const off = (first.getDay() + 6) % 7, todayK = dateKey(new Date()), sel = S.archive?.date || todayK;
   let cells = ''; for (let i = 0; i < off; i++) cells += '<span></span>';
   for (let d = 1; d <= days; d++) { const k = dateKey(new Date(m.getFullYear(), m.getMonth(), d)), fut = k > todayK, old = k < FIRST_DAY;
-    const pk = peakCache[`${S.region}|${S.product}|${k}`], b = pk != null && pk >= 30 ? bandFor(pk) : null;
-    cells += `<button data-k="${k}" aria-pressed="${k === sel}" ${fut || old ? 'disabled' : ''} aria-label="${k}${pk != null ? `, peak ${Math.round(pk)}%` : ''}">${d}${fut || old ? '' : `<i class="${b ? 'storm' : ''}" style="${b ? `background:${b.fill}` : ''}"></i>`}</button>`; }
+    const pk = peakCache[`${S.region}|${calendarProduct()}|${k}`], b = pk != null && pk >= 30 ? bandFor(pk) : null;
+    cells += `<button data-k="${k}" aria-pressed="${k === sel}" ${fut || old ? 'disabled' : ''} aria-label="${k}${pk != null ? `, peak ${Math.round(pk)}%` : ''}">${d}${fut || old || (S.timing && (pk == null || pk < 0)) ? '' : `<i class="${b ? 'storm' : ''}" style="${b ? `background:${b.fill}` : ''}"></i>`}</button>`; }
   pop.innerHTML = `<div class="cal-head"><button class="btn icon sm" id="calPrev" aria-label="Previous month">‹</button><b>${m.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</b><button class="btn icon sm" id="calNext" aria-label="Next month">›</button></div>
     <div class="cal-grid">${['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(x => `<span class="dow">${x}</span>`).join('')}${cells}</div>
     <div class="cal-key"><span><i></i>Runs saved</span><span><i style="background:#e0182d"></i>Storm day (peak 30%+)</span></div>
@@ -1417,22 +1427,24 @@ function renderCal() {
 }
 let calJob = 0;
 async function fillCalPeaks(m) {
-  const job = ++calJob, todayK = dateKey(new Date()), days = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate(), type = S.product === 'ai' ? 'ai' : 'automated';
+  const job = ++calJob, todayK = dateKey(new Date()), days = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
   for (let d = days; d >= 1; d--) {
     if (job !== calJob || $('calPop').classList.contains('hidden')) return;
-    const k = dateKey(new Date(m.getFullYear(), m.getMonth(), d)), ck = `${S.region}|${S.product}|${k}`;
+    const k = dateKey(new Date(m.getFullYear(), m.getMonth(), d)), ck = `${S.region}|${calendarProduct()}|${k}`;
     if (k >= todayK || k < FIRST_DAY || peakCache[ck] != null) continue;
     try {
       const s0 = new Date(k + 'T00:00:00'), s1 = new Date(k + 'T23:59:59');
       const snap = await getDocs(query(collection(db, 'hoco_requests'), where('createdAt', '>=', s0), where('createdAt', '<=', s1), orderBy('createdAt', 'desc'), limit(60)));
-      let last = null; snap.forEach(x => { const r = { id: x.id, ...x.data() }; if (!last && r.type === type && regionMatches(S.region, r) && startOf(r) && dateKey(startOf(r)) === k && (r.geojsonUrl || r.inlineGeojson || r.inlineGeojsonText)) last = r; });
-      peakCache[ck] = last ? peakOf(await fetchGeo(last)).risk : -1; savePeakCache();
+      let last = null; snap.forEach(x => { const r = { id: x.id, ...x.data() }; if (!last && isDayRun(r) && regionMatches(S.region, r) && startOf(r) && dateKey(startOf(r)) === k && (r.geojsonUrl || r.inlineGeojson || r.inlineGeojsonText)) last = r; });
+      peakCache[ck] = last ? (S.timing ? (last.stormHourPeak ?? 0) : peakOf(await fetchGeo(last)).risk) : S.timing ? null : -1; savePeakCache();
       if (job === calJob) renderCalDots();
     } catch (e) { peakCache[ck] = -1; }
   }
 }
 function renderCalDots() {
-  $('calPop').querySelectorAll('[data-k]:not([disabled])').forEach(b => { const pk = peakCache[`${S.region}|${S.product}|${b.dataset.k}`], i = b.querySelector('i'); if (!i) return;
+  $('calPop').querySelectorAll('[data-k]:not([disabled])').forEach(b => { const pk = peakCache[`${S.region}|${calendarProduct()}|${b.dataset.k}`]; let i = b.querySelector('i');
+    if (pk != null && pk >= 0 && !i) { i = document.createElement('i'); b.append(i); }
+    if (!i) return;
     if (pk === -1) { i.style.display = 'none'; return; } const bd = pk != null && pk >= 30 ? bandFor(pk) : null; i.className = bd ? 'storm' : ''; i.style.background = bd ? bd.fill : ''; });
 }
 $('dateBtn').onclick = (e) => { e.stopPropagation(); calMonth = new Date((S.archive?.date || dateKey(new Date())) + 'T00:00:00'); calMonth.setDate(1); renderCal(); openPop($('calPop'), $('dateBtn'));
@@ -1441,8 +1453,8 @@ $('dateBtn').onclick = (e) => { e.stopPropagation(); calMonth = new Date((S.arch
 $('allRunsBtn').onclick = async (e) => {
   e.stopPropagation(); const pop = $('runsPop'), runs = S.byDay[S.day];
   const draw = () => {
-    const rows = runs.map((r, i) => { const pk = S.peaks[r.id], prev = i > 0 ? S.peaks[runs[i - 1].id] : null, d = pk != null && prev != null ? Math.round(pk) - Math.round(prev) : null;
-      return `<button class="rrow" data-i="${i}" aria-pressed="${i === S.idx[S.day]}"><b>${hhmm(created(r))}</b><span class="muted">${i === runs.length - 1 ? 'Latest' : dayName(created(r))}</span><span class="pk">${pk == null ? '…' : pk >= 5 ? Math.round(pk) + '%' : '<5%'}</span><span class="dl ${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d == null ? '' : d === 0 ? '±0' : (d > 0 ? '+' : '−') + Math.abs(d)}</span></button>`; }).reverse().join('');
+    const rows = runs.map((r, i) => { const pk = runPeak(r), prev = i > 0 ? runPeak(runs[i - 1]) : null, d = pk != null && prev != null ? Math.round(pk) - Math.round(prev) : null;
+      return `<button class="rrow" data-i="${i}" aria-pressed="${i === S.idx[S.day]}"><b>${hhmm(created(r))}</b><span class="muted">${i === runs.length - 1 ? 'Latest' : dayName(created(r))}</span><span class="pk">${pk == null ? (S.timing ? '–' : '…') : pk >= 5 ? Math.round(pk) + '%' : '<5%'}</span><span class="dl ${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d == null ? '' : d === 0 ? '±0' : (d > 0 ? '+' : '−') + Math.abs(d)}</span></button>`; }).reverse().join('');
     const keep = pop.querySelector('.rlist')?.scrollTop;
     pop.innerHTML = `<div class="rowbetween rhead"><b>Day ${S.day} runs · ${dayDate(addDays(baseDay(), S.day))}</b><span class="muted" style="font-size:12px">peak · change</span></div><div class="rlist">${rows}</div>`;
     if (keep != null) pop.querySelector('.rlist').scrollTop = keep;
@@ -1451,6 +1463,7 @@ $('allRunsBtn').onclick = async (e) => {
   draw(); openPop(pop, $('allRunsBtn'));
   const r = $('allRunsBtn').getBoundingClientRect(); pop.style.top = ''; pop.style.bottom = (innerHeight - r.top + 8) + 'px'; pop.style.left = Math.max(10, Math.min(r.right - 340, innerWidth - 350)) + 'px';
   pop.style.maxHeight = Math.max(160, Math.min(460, r.top - 18)) + 'px'; pop.querySelector('[aria-pressed="true"]')?.scrollIntoView({ block: 'nearest' });
+  if (S.timing) return;
   for (let i = runs.length - 1; i >= 0; i--) { if (pop.classList.contains('hidden')) return; const x = runs[i]; if (S.peaks[x.id] != null) continue;
     try { S.peaks[x.id] = peakOf(await fetchGeo(x)).risk; } catch (err) { S.peaks[x.id] = 0; } draw(); }
 };
@@ -1551,19 +1564,23 @@ function clearCustom() { if (!S.custom) return; S.custom = null; document.body.c
 async function renderAll() {
   if (S.custom || resolvingSharedRun) return;
   renderDays();
-  if (S.timing) {
-    $('skel').classList.add('hidden');
-    $('dock').classList.remove('hidden');
-    $('summary').classList.remove('hidden');
-    $('timingKicker').textContent = `AI HOCO · Day ${S.day} · Storm hour`;
-    timing.watch(S.region, S.day, initialWindow);
-    initialWindow = null;
-    return;
-  }
   const runs = S.byDay[S.day], n = runs.length;
   const label = S.product === 'ai' ? 'AI HOCO' : 'AUTO-HOCO';
   $('sumKicker').textContent = `${label} · Day ${S.day}`;
   $('sumTitle').textContent = `Thunderstorm risk, ${S.region}`;
+  if (S.timing) {
+    $('summary').classList.remove('hidden');
+    $('empty').classList.add('hidden');
+    $('timingKicker').textContent = `AI HOCO · Day ${S.day} · Storm hour`;
+    if (!n) {
+      $('runSlider').value = $('runSlider').max = 0;
+      $('runSlider').disabled = $('prevRun').disabled = $('nextRun').disabled = $('allRunsBtn').disabled = true;
+      $('runCnt').textContent = '0'; $('runTime').textContent = '–'; $('runNote').textContent = '';
+      setNotice(S.archive ? `Archive · ${dayDate(baseDay())}` : null, 'Back to today', 'arch');
+      timing.watch(S.region, S.day, null);
+      return;
+    }
+  }
   if (!n) {
     $('empty').classList.remove('hidden'); $('summary').classList.add('hidden'); setNotice(null);
     $('emptyTitle').textContent = S.product === 'ai' ? 'No AI HOCO runs for this day yet' : 'No runs for this day yet';
@@ -1576,7 +1593,7 @@ async function renderAll() {
   let i = S.idx[S.day]; if (i == null || i >= n) i = n - 1;
   S.idx[S.day] = i;
   const run = runs[i], isLatest = i === n - 1, behind = n - 1 - i;
-  const sl = $('runSlider'); sl.max = n - 1; sl.value = i; sl.style.setProperty('--pct', n > 1 ? (i / (n - 1) * 100) + '%' : '100%');
+  const sl = $('runSlider'); sl.disabled = false; $('allRunsBtn').disabled = false; sl.max = n - 1; sl.value = i; sl.style.setProperty('--pct', n > 1 ? (i / (n - 1) * 100) + '%' : '100%');
   sl.setAttribute('aria-valuetext', `Run issued ${hhmm(created(run))}${isLatest ? ', latest' : ''}`);
   $('runTime').textContent = hhmm(created(run));
   const note = $('runNote'); note.textContent = isLatest ? 'Latest' : `${behind} run${behind > 1 ? 's' : ''} behind`; note.className = isLatest ? '' : 'old';
@@ -1589,6 +1606,11 @@ async function renderAll() {
   $('runCount').textContent = `${n} run${n > 1 ? 's' : ''} for ${S.day === 0 && !S.archive ? 'today' : dayDate(st)} · covers ${cov}`; $('runCnt').textContent = n; $('allRunsBtn').title = `All ${n} runs for this day`; $('runLabel').title = `Covers ${cov}`;
   if (S.archive) setNotice(`Archive · ${dayDate(baseDay())}${isLatest ? '' : ` · run issued ${hhmm(created(run))}`}`, isLatest ? 'Back to today' : `Latest (${hhmm(created(runs[n - 1]))})`, 'arch');
   else setNotice(isLatest ? null : `You are viewing an older run, issued ${hhmm(created(run))}`, `Back to latest (${hhmm(created(runs[n - 1]))})`);
+  if (S.timing) {
+    timing.watch(S.region, S.day, run.id, initialWindow);
+    initialWindow = null;
+    return;
+  }
   const tok = ++loadToken;
   try {
     const g = await fetchGeo(run); if (tok !== loadToken) return;
@@ -1614,16 +1636,20 @@ $('runSlider').oninput = (e) => setRun(+e.target.value);
 $('prevRun').onclick = () => setRun(S.idx[S.day] - 1);
 $('nextRun').onclick = () => setRun(S.idx[S.day] + 1);
 addEventListener('keydown', (e) => { if (e.target.closest('input,textarea,select')) return;
-  if (S.timing && ['ArrowLeft', 'ArrowRight'].includes(e.key)) {
-    e.preventDefault();
-    timing.step(e.key === 'ArrowLeft' ? -1 : 1);
-    return;
-  }
   if (e.key === 'ArrowLeft') setRun(S.idx[S.day] - 1); else if (e.key === 'ArrowRight') setRun(S.idx[S.day] + 1);
   else if (['1', '2', '3'].includes(e.key)) { S.day = +e.key - 1; renderAll(); } else if (e.key.toLowerCase() === 't') setProduct(S.product === 'ai' ? 'traditional' : 'ai'); });
 
 // ---------- product, region, account ----------
-function setProduct(p) { if (S.timing) setTiming(false); S.custom && clearCustom(); S.product = p; localStorage.setItem('hocoAutoProduct', p); $('typeTrad').setAttribute('aria-pressed', p !== 'ai'); $('typeAi').setAttribute('aria-pressed', p === 'ai'); S.idx = [null, null, null]; S.follow = [true, true, true]; buildDays(); loadPeaks(); renderAll(); }
+function setProduct(p) {
+  const source = S.timing ? S.byDay[S.day][S.idx[S.day]]?.id : null;
+  if (S.timing) setTiming(false);
+  if (S.custom) clearCustom();
+  S.product = p;
+  localStorage.setItem('hocoAutoProduct', p);
+  syncPeriodControls();
+  S.idx = [null, null, null]; S.follow = [true, true, true];
+  buildDays(); keepSourceRun(source); loadPeaks(); renderAll();
+}
 $('typeTrad').onclick = () => setProduct('traditional'); $('typeAi').onclick = () => setProduct('ai');
 syncPeriodControls();
 function openPop(pop, btn) {
@@ -1710,7 +1736,6 @@ function riskAtGeo(g, lon, lat) {
 let firstLoad = true;
 async function startData() {
   if (unsub) return;
-  if (S.timing) renderAll();
   if (resolvingSharedRun) {
     let cancelled = false;
     unsub = () => { cancelled = true; };
@@ -1722,11 +1747,10 @@ async function startData() {
       S.product = run.type === 'ai' ? 'ai' : 'traditional';
       S.archive = { date: dateKey(addDays(startOf(run), -S.day)), runs: [run], sharedId: run.id };
       buildDays();
-      if (!S.byDay[S.day].length) throw Error();
+      if (!S.timing && !S.byDay[S.day].length) throw Error();
       resolvingSharedRun = false;
       S.idx[S.day] = 0; S.follow[S.day] = false;
-      $('typeAi').setAttribute('aria-pressed', S.product === 'ai');
-      $('typeTrad').setAttribute('aria-pressed', S.product === 'traditional');
+      syncPeriodControls();
       $('skel').classList.add('hidden'); $('dock').classList.remove('hidden');
       renderAll();
       const archive = S.archive, from = addDays(startOf(run), -4), to = addDays(startOf(run), 4);
@@ -1753,6 +1777,8 @@ async function startData() {
   }
   let first = true;
   unsub = onSnapshot(query(collection(db, 'hoco_requests'), orderBy('createdAt', 'desc'), limit(300)), (snap) => {
+    const selectedTiming = S.timing && !S.archive
+      ? S.byDay.map((list, day) => S.follow[day] ? null : list[S.idx[day]]?.id) : null;
     S.runs = []; snap.forEach(d => S.runs.push({ ...d.data(), id: d.id }));
     if (S.archive?.sharedId) {
       const update = S.runs.find(r => r.id === S.archive.sharedId);
@@ -1763,6 +1789,11 @@ async function startData() {
       }
     }
     buildDays();
+    selectedTiming?.forEach((id, day) => {
+      if (!id) return;
+      const i = S.byDay[day].findIndex(run => run.id === id);
+      S.idx[day] = i < 0 ? null : i;
+    });
     if (first) { first = false; $('skel').classList.add('hidden'); $('dock').classList.remove('hidden'); measureDock();
       if (firstLoad && !EMBED && !S.timing) { firstLoad = false; Stage4.startTutorial(); Stage4.installBanner?.(); } }
     // keep the viewer on the latest run when a new one arrives, unless they chose an older one
