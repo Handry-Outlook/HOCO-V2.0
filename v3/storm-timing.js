@@ -9,6 +9,11 @@ const stamp = format({ day: "numeric", month: "short", hour: "2-digit", minute: 
     hourCycle: "h23", timeZoneName: "short" });
 const empty = { type: "FeatureCollection", features: [] };
 
+function windowHours(start, end) {
+    const zone = value => zonedClock.formatToParts(value).find(part => part.type === "timeZoneName")?.value;
+    return (zone(start) === zone(end) ? clock.format(start) : zonedClock.format(start)) + "–" + zonedClock.format(end);
+}
+
 export function createStormTiming({ db, display, firstAvailable, selectDay }) {
     const periods = $("timingPeriods");
     const slider = $("timingSlider"), preview = $("timingPreview");
@@ -19,7 +24,7 @@ export function createStormTiming({ db, display, firstAvailable, selectDay }) {
         const item = windows[index];
         if (!item) return;
         const start = item.validFrom.toDate(), end = item.validTo.toDate();
-        preview.textContent = clock.format(start) + "–" + zonedClock.format(end);
+        preview.textContent = windowHours(start, end);
         slider.setAttribute("aria-valuetext", stamp.format(start) + " to " + stamp.format(end));
         slider.style.setProperty("--pct", windows.length > 1 ? index / (windows.length - 1) * 100 + "%" : "100%");
     }
@@ -65,8 +70,7 @@ export function createStormTiming({ db, display, firstAvailable, selectDay }) {
         previewWindow(Number(slider.value));
         $("timingTitle").textContent = date.format(start);
         $("timingStatus").textContent = "Loading window…";
-        const zone = value => zonedClock.formatToParts(value).find(part => part.type === "timeZoneName")?.value;
-        const hours = (zone(start) === zone(end) ? clock.format(start) : zonedClock.format(start)) + "–" + zonedClock.format(end);
+        const hours = windowHours(start, end);
         const dates = date.format(start) === date.format(end) ? date.format(start) : date.format(start) + " → " + date.format(end);
         const validity = stamp.format(start) + " – " + stamp.format(end);
         display(empty);
