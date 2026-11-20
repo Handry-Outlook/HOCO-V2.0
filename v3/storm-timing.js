@@ -19,8 +19,15 @@ function savedWindows(record) {
         .sort((a, b) => a.validFrom.toMillis() - b.validFrom.toMillis());
 }
 
+function windowDisplayEnd(record, item) {
+    // Keep the exclusive boundary for selection and comparisons, but show the final included minute.
+    return record.timingVersion === "storm-hour-v2"
+        ? new Date(item.validTo.toMillis() - 1)
+        : item.validTo.toDate();
+}
+
 function windowRun(record, item) {
-    const start = item.validFrom.toDate(), end = item.validTo.toDate();
+    const start = item.validFrom.toDate(), end = windowDisplayEnd(record, item);
     return {
         id: record.sourceRunId + "/" + start.toISOString(), type: "timing",
         sourceRunId: record.sourceRunId, region: record.region, geojsonUrl: item.geojsonUrl,
@@ -39,7 +46,7 @@ export function createStormTiming({ db, display, userId }) {
     function previewWindow(index) {
         const item = windows[index];
         if (!item) return;
-        const start = item.validFrom.toDate(), end = item.validTo.toDate();
+        const start = item.validFrom.toDate(), end = windowDisplayEnd(record, item);
         preview.textContent = windowHours(start, end);
         slider.setAttribute("aria-valuetext", stamp.format(start) + " to " + stamp.format(end));
         slider.style.setProperty("--pct", windows.length > 1 ? index / (windows.length - 1) * 100 + "%" : "100%");
