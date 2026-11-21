@@ -1,7 +1,8 @@
 // HOCO v3 extras: radar + lightning strikes with an "observed" time slider, PNG export,
 // place search, change since the previous run, cookie consent, offline notice, shortcuts.
+import { initExport } from './export.js?v=1';
 
-let X;
+let X, Exp = null;
 const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, '0');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -448,90 +449,8 @@ export function archiveMode(on) {
   else if (O.before) { if (!O.before.strikes && O.strikes) setLayer('strikes', false, { temp: true }); O.before = null; }
 }
 
-// ------------------------------------------------------------------ export: PNG or KML, with options
-const EXPORTS = { landscape: [1600, 1000, 'Landscape'], square: [1080, 1080, 'Square'], story: [1080, 1920, 'Story'] };
-const EX = { size: 'landscape', file: 'png', key: true };
-async function renderExport(kind, withKey = true) {
-  const [W, H] = EXPORTS[kind], run = O.run;
-  await Promise.race([new Promise(r => { X.map.once('render', r); X.map.triggerRepaint(); }), new Promise(r => setTimeout(r, 700))]);
-  const src = X.map.getCanvas(), c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
-  g.fillStyle = '#eef2f7'; g.fillRect(0, 0, W, H);
-  const stripH = Math.round(H * 0.06), mapH = H - stripH, scale = Math.max(W / src.width, mapH / src.height), dw = src.width * scale, dh = src.height * scale;
-  g.drawImage(src, (W - dw) / 2, (mapH - dh) / 2, dw, dh);
-  const u = Math.min(W, H) / 1080, F = (s, w = 600) => `${w} ${Math.round(s * u)}px Inter, system-ui, sans-serif`;
-  const pk = X.peakOf(X.S.geo || { features: [] }), st = X.startOf(run), en = X.endOf(run), cr = X.created(run);
-  const lines = [[`${run.type === 'timing' ? 'Hourcast' : 'HOCO Thunderstorm Outlook'}: ${run.region || X.S.region}`, F(34, 800), '#0f1b2d'],
-    [`Chance of lightning within 20 km${pk.risk >= 5 ? ` · peak ${Math.round(pk.risk)}%` : ''}`, F(22, 500), '#3b4a5e'],
-    [`Valid ${run.windowValidity || (st && en ? `${X.dayName(st)} ${X.hhmm(st)} – ${X.dayName(en)} ${X.hhmm(en)}` : '')}  ·  Issued ${cr ? `${X.dayDate(cr)} ${X.hhmm(cr)}` : ''}`, F(20, 500), '#3b4a5e']];
-  const padB = 22 * u; let bw = 0; lines.forEach(l => { g.font = l[1]; bw = Math.max(bw, g.measureText(l[0]).width); });
-  const bx = 28 * u, by = 28 * u, bh = padB * 2 + 34 * u + 2 * 30 * u; bw = Math.min(W - 56 * u, bw + padB * 2);
-  g.fillStyle = '#ffffff'; g.strokeStyle = '#0f1b2d'; g.lineWidth = 2 * u; g.fillRect(bx, by, bw, bh); g.strokeRect(bx, by, bw, bh);
-  let y = by + padB + 30 * u; lines.forEach((l, i) => { g.font = l[1]; g.fillStyle = l[2]; g.fillText(l[0], bx + padB, y, bw - padB * 2); y += i === 0 ? 34 * u : 30 * u; });
-  if (withKey) {
-    const bands = X.BANDS, kw = Math.min(64 * u, (W - 56 * u - 20 * u) / bands.length), kh = 26 * u, kx = 28 * u, extra = O.strikes ? 40 * u : 0, ky = mapH - 28 * u - kh - 26 * u - extra;
-    g.fillStyle = '#ffffff'; g.fillRect(kx - 10 * u, ky - 10 * u, kw * bands.length + 20 * u, kh + 46 * u + extra); g.strokeRect(kx - 10 * u, ky - 10 * u, kw * bands.length + 20 * u, kh + 46 * u + extra);
-    bands.forEach((b, i) => { g.fillStyle = b.fill; g.fillRect(kx + i * kw, ky, kw - 2 * u, kh); g.fillStyle = '#0f1b2d'; g.font = F(16, 600); g.textAlign = 'center';
-      g.fillText(i === bands.length - 1 ? `${b.min}%+` : `${b.min}`, kx + i * kw + (kw - 2 * u) / 2, ky + kh + 22 * u); });
-    g.textAlign = 'left';
-    if (O.strikes) { let sx = kx; const sy = ky + kh + 50 * u; g.font = F(15, 600);
-      STRIKE_CLASSES.forEach(([col, l]) => { g.fillStyle = col; g.beginPath(); g.arc(sx + 7 * u, sy - 5 * u, 7 * u, 0, Math.PI * 2); g.fill(); g.fillStyle = '#0f1b2d'; g.fillText(l, sx + 18 * u, sy); sx += g.measureText(l).width + 36 * u; }); }
-  }
-  g.fillStyle = '#0f1b2d'; g.fillRect(0, mapH, W, stripH); g.fillStyle = '#ffffff'; g.font = F(20, 700);
-  g.fillText('Handry Outlook · HOCO', 28 * u, mapH + stripH / 2 + 7 * u);
-  g.font = F(16, 500); g.textAlign = 'right'; g.fillStyle = '#c9d3e0';
-  g.fillText(`${(X.TYPE_LABEL[run.type] || 'HOCO')}${O.strikes ? '  ·  Strikes: Met Office, ukwx' : ''}  ·  Map © Mapbox © OpenStreetMap`, W - 28 * u, mapH + stripH / 2 + 6 * u); g.textAlign = 'left';
-  return c;
-}
-function kmlColor(hex, a = 'b3') { const h = hex.replace('#', ''); return a + h.slice(4, 6) + h.slice(2, 4) + h.slice(0, 2); }
-function buildKml() {
-  const run = O.run, g = X.S.geo, st = X.startOf(run), en = X.endOf(run), xe = (s) => String(s).replace(/[<&>]/g, c => ({ '<': '&lt;', '&': '&amp;', '>': '&gt;' }[c]));
-  const styles = X.BANDS.map((b, i) => `<Style id="b${i}"><LineStyle><color>${kmlColor(b.fill, 'ff')}</color><width>1</width></LineStyle><PolyStyle><color>${kmlColor(b.fill)}</color></PolyStyle></Style>`).join('');
-  const marks = g.features.filter(f => f.properties?.feature_type === 'polygon' && (f.geometry?.type === 'Polygon' || f.geometry?.type === 'MultiPolygon')).map(f => {
-    const r = X.riskOf(f.properties), b = X.bandFor(r), i = Math.max(0, X.BANDS.indexOf(b)), polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
-    return polys.map(p => `<Placemark><name>${xe(X.bandLabel(b))}</name><styleUrl>#b${i}</styleUrl><Polygon><tessellate>1</tessellate>${p.map((ring, k) => `<${k ? 'innerBoundaryIs' : 'outerBoundaryIs'}><LinearRing><coordinates>${ring.map(c => `${c[0]},${c[1]},0`).join(' ')}</coordinates></LinearRing></${k ? 'innerBoundaryIs' : 'outerBoundaryIs'}>`).join('')}</Polygon></Placemark>`).join('');
-  }).join('');
-  return `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${run.type === "timing" ? "Hourcast" : "HOCO"} ${xe(run.region || X.S.region)} ${st ? X.dayDate(st) : ''}</name>
-<description>Chance of lightning within 20 km. Valid ${run.windowValidity || (st && en ? `${X.dayName(st)} ${X.hhmm(st)} – ${X.dayName(en)} ${X.hhmm(en)}` : '')}. Handry Outlook HOCO.</description>${styles}${marks}</Document></kml>`;
-}
-async function download(blob, name) {
-  const file = new File([blob], name, { type: blob.type });
-  if (matchMedia('(pointer: coarse)').matches && navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file], title: 'HOCO outlook' }); return; } catch (e) { } }
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-}
-function fileBase() { const run = O.run, st = X.startOf(run); if (run.type === 'timing') return `Hourcast-${run.region}-${st.toISOString().slice(0,16).replace(':','')}`; return `HOCO-${run.region || X.S.region}-${st ? `${st.getFullYear()}${pad(st.getMonth() + 1)}${pad(st.getDate())}` : 'run'}`; }
-export function openExport() {
-  const run = O.run; if (!run) return X.toast('Nothing to export yet');
-  const d = $('cookieDlg'), st = X.startOf(run), en = X.endOf(run);
-  const draw = () => {
-    d.innerHTML = `<section class="dialog" role="dialog" aria-modal="true" aria-label="Export image"><div class="rowbetween"><h2>Export image</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
-      <div class="expreview"><b>${run.type === 'timing' ? 'Hourcast' : 'HOCO Thunderstorm Outlook'}: ${esc(run.region || X.S.region)}</b><span>${run.windowValidity || (st && en ? `${X.dayName(st)} ${X.hhmm(st)} – ${X.dayName(en)} ${X.hhmm(en)}` : '')}</span></div>
-      <label class="item layer"><span><b>Show lightning strikes</b><small>Observed strikes up to now, newest in gold</small></span><input type="checkbox" class="switch" id="exStrikes" ${O.strikes ? 'checked' : ''}></label>
-      <label class="item layer"><span><b>Show colour key</b><small>The chance-of-lightning boxes</small></span><input type="checkbox" class="switch" id="exKey" ${EX.key ? 'checked' : ''}></label>
-      <div class="setgrp"><span class="kicker">File</span><div class="seg wide" role="group"><button data-file="png" aria-pressed="${EX.file === 'png'}">PNG image</button><button data-file="kml" aria-pressed="${EX.file === 'kml'}">KML (Google Earth)</button></div></div>
-      ${EX.file === 'png' ? `<div class="setgrp"><span class="kicker">Size</span><div class="seg wide" role="group">${Object.entries(EXPORTS).map(([k, [w, h, l]]) => `<button data-size="${k}" aria-pressed="${EX.size === k}">${l}<small style="display:block;font-weight:500;font-size:11px;opacity:.75">${w}×${h}</small></button>`).join('')}</div></div>` : ''}
-      <div class="chips" style="justify-content:flex-end"><button class="btn" id="exLink">Copy link</button>${X.openEmbed ? '<button class="btn" id="exEmbed">Embed</button>' : ''}<button class="btn" id="exShare">Share</button><button class="btn primary" id="exGo">Download ${EX.file.toUpperCase()}</button></div></section>`;
-    d.classList.remove('hidden');
-    d.querySelector('[data-x]').onclick = () => d.classList.add('hidden');
-    $('exStrikes').onchange = (e) => setLayer('strikes', e.target.checked);
-    $('exKey').onchange = (e) => { EX.key = e.target.checked; };
-    d.querySelectorAll('[data-file]').forEach(b => b.onclick = () => { EX.file = b.dataset.file; draw(); });
-    d.querySelectorAll('[data-size]').forEach(b => b.onclick = () => { EX.size = b.dataset.size; draw(); });
-    $('exLink').onclick = async () => { try { await navigator.clipboard.writeText(location.href); X.toast('Link copied'); } catch (e) { X.toast(location.href); } };
-    $('exEmbed') && ($('exEmbed').onclick = () => { d.classList.add('hidden'); X.openEmbed(); });
-    const make = async () => {
-      if (EX.file === 'kml') return new Blob([buildKml()], { type: 'application/vnd.google-earth.kml+xml' });
-      if (O.strikes && O.loadingStrikes) await new Promise(r => setTimeout(r, 1500));
-      const c = await renderExport(EX.size, EX.key); return new Promise(r => c.toBlob(r, 'image/png'));
-    };
-    $('exGo').onclick = async () => { X.toast('Preparing…'); const b = await make(); await download(b, `${fileBase()}${EX.file === 'png' ? '-' + EX.size : ''}.${EX.file}`); X.toast(EX.file === 'kml' ? 'KML saved' : 'Image saved'); };
-    $('exShare').onclick = async () => {
-      const b = await make(), f = new File([b], `${fileBase()}.${EX.file}`, { type: b.type });
-      if (navigator.canShare?.({ files: [f] })) { try { await navigator.share({ files: [f], title: 'HOCO outlook', url: location.href }); return; } catch (e) { return; } }
-      try { await navigator.clipboard.writeText(location.href); X.toast('Sharing files is not supported here, so the link was copied'); } catch (e) { X.toast(location.href); }
-    };
-  };
-  draw();
-}
+// ------------------------------------------------------------------ export: Pivotal-style chart or KML (export.js)
+export function openExport() { return Exp?.openExport(); }
 
 // ------------------------------------------------------------------ places: search, saved places, place card, alerts
 let placeMarker = null, place = null;
@@ -697,7 +616,7 @@ function renderChangeBox() {
   const relation = c.reference ? `vs ${esc(c.reference)}` : `since the ${c.t} run`;
   const d = lastDiff, nm = (x) => X.nearestPlace(x.c[1], x.c[0]);
   els.forEach(e => { e.classList.remove('hidden');
-    e.innerHTML = `<div class="ch-line"><span class="arr ${c.dp > 0 ? 'up' : c.dp < 0 ? 'down' : ''}">${c.dp > 0 ? '▲' : c.dp < 0 ? '▼' : '•'}</span><span>${c.dp === 0 ? 'Peak unchanged' : `Peak ${c.dp > 0 ? '+' : '−'}${Math.abs(c.dp)}`} ${relation}</span>
+    e.innerHTML = `<div class="ch-line"><span class="ch-main"><span class="arr ${c.dp > 0 ? 'up' : c.dp < 0 ? 'down' : ''}">${c.dp > 0 ? '▲' : c.dp < 0 ? '▼' : '•'}</span><span>${c.dp === 0 ? 'Peak unchanged' : `Peak ${c.dp > 0 ? '+' : '−'}${Math.abs(c.dp)}`} ${relation}</span></span>
       ${d ? `<button class="linkbtn" data-diff>${diffOn ? 'Hide map' : 'Show on map'}</button>` : ''}</div>
       ${diffOn && d ? `<div class="ch-map"><span class="kicker">Changes ${relation}</span><div class="ch-key"><span><i style="background:#c53030"></i>Risk up</span><span><i style="background:#2b59d9"></i>Risk down</span></div>
         ${!d.feats.length ? '<small>No changes of 5 percentage points or more.</small>' : ''}
@@ -726,6 +645,12 @@ async function renderChange(run, geo, prev) {
 
 // ------------------------------------------------------------------ cookies, offline, shortcuts
 function consent() { try { return JSON.parse(localStorage.getItem('hocoConsent') || 'null'); } catch (e) { return null; } }
+export function syncCookieBar() {
+  const bar = $('cookieBar'); if (!bar) return;
+  const welcomeHidden = $('welcome')?.classList.contains('hidden') !== false;
+  const coachHidden = $('coach')?.classList.contains('hidden') !== false;
+  bar.classList.toggle('hidden', !(!consent() && !X?.embed && welcomeHidden && coachHidden));
+}
 function saveConsent(v) { try { localStorage.setItem('hocoConsent', JSON.stringify({ ...v, at: new Date().toISOString() })); } catch (e) { } $('cookieBar').classList.add('hidden'); $('cookieDlg').classList.add('hidden'); X.onConsent?.(); }
 export function openCookies() {
   const c = consent() || { stats: false, ads: false }, d = $('cookieDlg');
@@ -750,12 +675,36 @@ export function openShortcuts() {
 // ------------------------------------------------------------------ init + hooks
 export function initExtras(ctx) {
   X = ctx;
-  window.__hocoRenderExport = (k) => renderExport(k || 'landscape').then(c => c.toDataURL('image/png'));   // for checking the layout
+  Exp = initExport({
+    X, O, setLayer, paintRadar, newRadarState, loadStrikes,
+    strikeFeatures, strikeLayer, STRIKE_CLASSES, riskOutlineLayer,
+    getDiffState: () => ({ diffOn, lastDiff }),
+  });
+  window.__hocoRenderExport = (k, opts) => Exp.renderExport(k || 'landscape', opts).then(c => c.toDataURL('image/png'));   // for checking the layout
+  window.__hocoExportApi = Exp;
   buildObsBar();
   if (X.embedLayers != null) { O.radar = X.embedLayers.includes('radar'); O.strikes = X.embedLayers.includes('strikes'); }
   else { try { const l = JSON.parse(localStorage.getItem('hocoLayers') || 'null'); if (l) { O.radar = !!l.radar; O.strikes = !!l.strikes; } else if (X.strikesDefault?.()) O.strikes = true; } catch (e) { } }
-  $('layersBtn').onclick = (e) => { e.stopPropagation(); renderLayersPop(); X.openPop($('layersPop'), $('layersBtn')); const p = $('layersPop'), r = $('layersBtn').getBoundingClientRect();
-    if (innerWidth > 640) { p.style.left = ''; p.style.right = (innerWidth - r.left + 8) + 'px'; p.style.top = Math.max(10, Math.min(r.top, innerHeight - p.offsetHeight - 10)) + 'px'; } else { const top = $('ctrlsBox').getBoundingClientRect().top; p.style.left = ''; p.style.right = '56px'; p.style.bottom = ''; p.style.top = top + 'px'; p.style.maxHeight = `calc(100dvh - ${top}px - var(--dockh,90px) - 24px)`; } };
+  $('layersBtn').onclick = (e) => {
+    e.stopPropagation(); renderLayersPop(); X.openPop($('layersPop'), $('layersBtn'));
+    const p = $('layersPop'), r = $('layersBtn').getBoundingClientRect();
+    const topMin = $('ctrlsBox').getBoundingClientRect().top;
+    p.style.left = '';
+    if (innerWidth > 640) {
+      const dock = $('dock');
+      const dockVis = dock && !dock.classList.contains('hidden') && getComputedStyle(dock).display !== 'none';
+      const bottomLimit = dockVis ? Math.min(innerHeight - 12, dock.getBoundingClientRect().top - 8) : innerHeight - 12;
+      const maxH = Math.max(200, bottomLimit - topMin);
+      p.style.right = (innerWidth - r.left + 8) + 'px';
+      p.style.bottom = '';
+      p.style.maxHeight = maxH + 'px';
+      const popH = Math.min(p.scrollHeight, maxH);
+      p.style.top = Math.max(topMin, Math.min(r.top, bottomLimit - popH)) + 'px';
+    } else {
+      p.style.right = '56px'; p.style.bottom = ''; p.style.top = topMin + 'px';
+      p.style.maxHeight = `calc(100dvh - ${topMin}px - var(--dockh,90px) - 24px)`;
+    }
+  };
   document.querySelectorAll('[data-export]').forEach(b => b.onclick = (e) => { e.stopPropagation(); openExport(); });
   $('searchBtn').onclick = (e) => { e.stopPropagation(); addingAlert = false; X.openPop($('searchPop'), $('searchBtn')); const p = $('searchPop');
     if (innerWidth <= 640) { p.style.left = '10px'; p.style.right = '10px'; } $('searchIn').value = ''; search(''); setTimeout(() => $('searchIn').focus(), 30); };
@@ -770,8 +719,8 @@ export function initExtras(ctx) {
   X.map.on('click', 'strikes', strikeClick);
   X.map.on('mouseenter', 'strikes', () => { X.map.getCanvas().style.cursor = 'pointer'; });
   X.map.on('mouseleave', 'strikes', () => { X.map.getCanvas().style.cursor = ''; });
-  // cookie banner on first visit
-  if (!consent() && !X.embed) $('cookieBar').classList.remove('hidden');
+  // cookie banner on first visit (wait until welcome / tutorial overlays are dismissed)
+  syncCookieBar();
   $('ckAll').onclick = () => saveConsent({ stats: true, ads: true });
   $('ckReject').onclick = () => saveConsent({ stats: false, ads: false });
   $('ckManage').onclick = openCookies;

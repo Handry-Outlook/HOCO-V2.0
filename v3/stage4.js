@@ -925,11 +925,12 @@ export function startTutorial(force) {
     try { if (localStorage.getItem('hocoTutorial')) return; } catch (e) { return; }
   }
   let i = 0; const ov = $('coach');
-  const end = () => { ov.classList.add('hidden'); ov.innerHTML = ''; try { localStorage.setItem('hocoTutorial', '1'); } catch (e) { } };
+  const end = () => { ov.classList.add('hidden'); ov.innerHTML = ''; try { localStorage.setItem('hocoTutorial', '1'); } catch (e) { } X.extras?.().syncCookieBar?.(); };
   const show = () => {
     const [sel, title, text] = STEPS[i];
     const el = [...document.querySelectorAll(sel)].find(e => e.offsetParent !== null && e.getBoundingClientRect().width > 0);
     if (!el) { if (++i < STEPS.length) return show(); return end(); }
+    $('cookieBar')?.classList.add('hidden');
     const r = el.getBoundingClientRect(), pd = 6;
     ov.classList.remove('hidden');
     ov.innerHTML = `<div class="coach-hole" style="left:${r.left - pd}px;top:${r.top - pd}px;width:${r.width + pd * 2}px;height:${r.height + pd * 2}px"></div>
