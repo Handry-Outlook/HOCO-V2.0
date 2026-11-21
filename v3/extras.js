@@ -1,6 +1,6 @@
 // HOCO v3 extras: radar + lightning strikes with an "observed" time slider, PNG export,
 // place search, change since the previous run, cookie consent, offline notice, shortcuts.
-import { initExport } from './export.js?v=2';
+import { initExport } from './export.js?v=3';
 
 let X, Exp = null;
 const $ = (id) => document.getElementById(id);

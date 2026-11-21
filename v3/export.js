@@ -1,7 +1,7 @@
 // HOCO v3 publication-grade chart & animation export: Pivotal-Weather-style layout with
 // official Handry Outlook branding, domain bounding boxes, lat/lon graticule, static PNG radar
 // timestamp confirmation, accumulating decaying lightning GIF/Video export, and multi-region KML.
-import { createGifEncoder } from './gif-encoder.js?v=1';
+import { createGifEncoder } from './gif-encoder.js?v=2';
 
 const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, '0');
@@ -324,9 +324,9 @@ export function initExport(deps) {
         paint: O.outlines
           ? { 'line-color': ['coalesce', ['get', 'fill'], X.colorExpr()], 'line-width': 2.2 }
           : {
-            'line-color': X.mapIsDark() ? 'rgba(8,16,28,0.72)' : 'rgba(16,34,56,0.56)',
-            'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.45, 8, 1.15],
-            'line-opacity': 0.82,
+            'line-color': X.mapIsDark() ? 'rgba(8,16,28,0.86)' : 'rgba(16,34,56,0.72)',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.85, 8, 1.4],
+            'line-opacity': 0.9,
           },
       }, label);
     }
@@ -589,45 +589,42 @@ export function initExport(deps) {
     };
   }
 
-  // Draw official Handry Outlook logo cropped cleanly from v3/icons/icon-512.png
+  // Draw official square Handry Outlook logo from v3/icons/icon-512.png
   function drawBrandLogo(ctx, logoImg, { mapX, mapY, mapW, mapH, padIn, isDark, u }) {
     const halo = isDark ? 'rgba(8,14,24,0.92)' : 'rgba(255,255,255,0.94)';
     const ink = isDark ? '#f8fafc' : '#0b1320';
-    const dstH = Math.round(52 * u);
+    const size = Math.round(136 * u);
 
     if (logoImg && logoImg.naturalWidth > 0) {
       const nw = logoImg.naturalWidth, nh = logoImg.naturalHeight;
-      // Clean horizontal crop around the rainbow arc + vertical divider + Handry Outlook wordmark
-      const sx = Math.round(nw * 0.045), sy = Math.round(nh * 0.295);
-      const sw = Math.round(nw * 0.91), sh = Math.round(nh * 0.41);
-      const dstW = Math.round(dstH * (sw / sh));
-      const x = mapX + mapW - padIn - dstW;
-      const y = mapY + mapH - padIn - dstH;
+      const x = mapX + mapW - padIn - size;
+      const y = mapY + mapH - padIn - size;
+      const radius = Math.max(8, 12 * u);
 
       ctx.save();
       ctx.shadowColor = isDark ? 'rgba(0,0,0,0.55)' : 'rgba(15,23,42,0.28)';
-      ctx.shadowBlur = Math.max(4, 7 * u);
-      ctx.shadowOffsetY = Math.max(1, 2 * u);
-      roundRectPath(ctx, x, y, dstW, dstH, Math.max(4, 7 * u));
+      ctx.shadowBlur = Math.max(5, 8 * u);
+      ctx.shadowOffsetY = Math.max(2, 3 * u);
+      roundRectPath(ctx, x, y, size, size, radius);
       ctx.fillStyle = '#283673';
       ctx.fill();
       ctx.restore();
 
       ctx.save();
-      roundRectPath(ctx, x, y, dstW, dstH, Math.max(4, 7 * u));
+      roundRectPath(ctx, x, y, size, size, radius);
       ctx.clip();
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(logoImg, sx, sy, sw, sh, x, y, dstW, dstH);
+      ctx.drawImage(logoImg, 0, 0, nw, nh, x, y, size, size);
       ctx.restore();
 
       ctx.save();
-      roundRectPath(ctx, x, y, dstW, dstH, Math.max(4, 7 * u));
-      ctx.strokeStyle = isDark ? 'rgba(248,250,252,0.55)' : 'rgba(255,255,255,0.9)';
-      ctx.lineWidth = Math.max(1.5, 2 * u);
+      roundRectPath(ctx, x, y, size, size, radius);
+      ctx.strokeStyle = isDark ? 'rgba(248,250,252,0.58)' : 'rgba(255,255,255,0.92)';
+      ctx.lineWidth = Math.max(1.5, 2.2 * u);
       ctx.stroke();
       ctx.restore();
-      return { w: dstW, h: dstH };
+      return { w: size, h: size };
     }
 
     // Minimal text fallback if local asset failed to load
@@ -1130,10 +1127,9 @@ export function initExport(deps) {
     }
 
     // Estimate logo dimensions cleanly before drawDomainBoxes so region badges avoid it
-    const estLogoH = Math.round(52 * u);
-    const estLogoW = logoImg && logoImg.naturalWidth > 0
-      ? Math.round(estLogoH * ((logoImg.naturalWidth * 0.91) / (logoImg.naturalHeight * 0.41)))
-      : Math.round(145 * u);
+    const estLogoSize = Math.round(136 * u);
+    const estLogoW = logoImg && logoImg.naturalWidth > 0 ? estLogoSize : Math.round(145 * u);
+    const estLogoH = logoImg && logoImg.naturalWidth > 0 ? estLogoSize : Math.round(28 * u);
 
     // 6. Forecast domain bounding box(es) + non-overlapping region labels
     if (withBbox) {
@@ -1267,6 +1263,52 @@ export function initExport(deps) {
     if (frames.at(-1) !== endMs) frames.push(endMs);
 
     return { available: true, startMs, endMs, stepMs, frames };
+  }
+
+  // Draw forecast risk polygon outlines above radar so storm risk contours stay crisp
+  function drawRiskOutlines(ctx, mergedGeo, project, mapX, mapY, u, isDark) {
+    if (!O.forecast || X.spreadActive?.() || !mergedGeo?.features?.length) return;
+    ctx.save();
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    const outlinesMode = !!O.outlines;
+    const baseStroke = isDark ? 'rgba(8,16,28,0.88)' : 'rgba(16,34,56,0.78)';
+    const baseWidth = Math.max(1.0, 1.35 * u);
+    const outWidth = Math.max(1.8, 2.4 * u);
+
+    const strokeRings = (rings) => {
+      if (!rings?.length) return;
+      ctx.beginPath();
+      for (const ring of rings) {
+        if (!ring?.length) continue;
+        for (let i = 0; i < ring.length; i++) {
+          const [px, py] = project(ring[i][0], ring[i][1]);
+          if (i === 0) ctx.moveTo(mapX + px, mapY + py);
+          else ctx.lineTo(mapX + px, mapY + py);
+        }
+        ctx.closePath();
+      }
+      ctx.stroke();
+    };
+
+    for (const f of mergedGeo.features) {
+      if (f.properties?.feature_type !== 'polygon' || !f.geometry) continue;
+      if (outlinesMode) {
+        ctx.strokeStyle = f.properties.fill || X.bandFor?.(X.riskOf?.(f.properties))?.fill || '#0f172a';
+        ctx.lineWidth = outWidth;
+        ctx.globalAlpha = 0.95;
+      } else {
+        ctx.strokeStyle = baseStroke;
+        ctx.lineWidth = baseWidth;
+        ctx.globalAlpha = 0.92;
+      }
+      if (f.geometry.type === 'Polygon') {
+        strokeRings(f.geometry.coordinates);
+      } else if (f.geometry.type === 'MultiPolygon') {
+        for (const poly of f.geometry.coordinates) strokeRings(poly);
+      }
+    }
+    ctx.restore();
   }
 
   // Draw accumulating & colour-decaying lightning strikes up to frameMs (never disappearing once struck)
@@ -1427,6 +1469,7 @@ export function initExport(deps) {
             ctx.globalAlpha = radarAlpha;
             ctx.drawImage(radarBuf, mx, my, mw, mh);
             ctx.restore();
+            drawRiskOutlines(ctx, mergedGeo, proj.project, mx, my, layout.u, isDark);
           }
           if (animStrikes) {
             drawAccumulatingStrikes(ctx, allStrikes, t, decayRefMs, proj.project, mx, my, layout.u);

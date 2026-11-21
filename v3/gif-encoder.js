@@ -177,7 +177,7 @@ export function createGifEncoder({ width, height, paletteColors = [] }) {
       while (bits >= 8) {
         sub[subLen++] = accum & 255;
         if (subLen === 255) flushSub();
-        accum >>= 8;
+        accum >>>= 8;
         bits -= 8;
       }
     };
@@ -207,13 +207,13 @@ export function createGifEncoder({ width, height, paletteColors = [] }) {
       emit(ent);
       ent = c;
 
-      if (nextCode < 4095) {
-        hTab[idx] = fcode;
-        codeTab[idx] = nextCode++;
-        if (nextCode === maxCode && maxCode < 4096) {
+      if (nextCode < 4096) {
+        if (nextCode === maxCode) {
           codeSize++;
           maxCode <<= 1;
         }
+        hTab[idx] = fcode;
+        codeTab[idx] = nextCode++;
       } else {
         emit(CLEAR);
         hTab.fill(-1);
@@ -224,6 +224,7 @@ export function createGifEncoder({ width, height, paletteColors = [] }) {
     }
 
     emit(ent);
+    if (nextCode === maxCode && maxCode < 4096) codeSize++;
     emit(EOI);
     if (bits > 0) {
       sub[subLen++] = accum & 255;
