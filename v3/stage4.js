@@ -18,7 +18,7 @@ function dialog(html, label, wide) {
   d.querySelectorAll('[data-x]').forEach(b => b.onclick = () => d.classList.add('hidden'));
   return d;
 }
-export function openProductInfo() {
+function forecastProductDetails() {
   const schedules = [
     { regions: ['England', 'Scotland'], interval: 3, hours: [1, 4, 7, 10, 13, 16, 19, 22] },
     { regions: ['Germany', 'Poland', 'Baltics', 'France'], interval: 6, hours: [1, 7, 13, 19] },
@@ -32,8 +32,7 @@ export function openProductInfo() {
     const times = hours.map(hour => `${pad(hour)}:05`).map(time => `<time datetime="${time}">${time}</time>`).join('');
     return `<dt>${interval}-hourly starts (UTC)</dt><dd>${times}</dd>`;
   }).join('');
-  const d = dialog(`<div class="rowbetween"><h2>Forecast products</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
-    <table class="forecast-schedule" aria-describedby="forecast-schedule-note">
+  return `<div class="forecast-product-details"><table class="forecast-schedule" aria-describedby="forecast-schedule-note">
       <caption>Scheduled runs for Days 0–2</caption>
       <thead><tr><th scope="col">Region</th><th scope="col">${PRODUCTS.automated.label}</th><th scope="col">${PRODUCTS.ai.label}</th><th scope="col">${PRODUCTS.timing.label}</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -41,7 +40,11 @@ export function openProductInfo() {
     <dl class="forecast-starts">${starts}</dl>
     <small class="muted" id="forecast-schedule-note">Maps appear after processing finishes. AI HOCO can be skipped for individual runs.</small>
     <dl class="forecast-defs">${['automated','ai','timing'].map(key => `<dt><b>${PRODUCTS[key].label}</b></dt><dd>${PRODUCTS[key].detail}</dd>`).join('')}</dl>
-    <small class="muted">Use the Hourcast slider to view 1-hour windows on Day 0, 2-hour windows on Day 1, and 3-hour windows on Day 2.</small>`, 'Forecast products');
+    <small class="muted">Use the Hourcast slider to view 1-hour windows on Day 0, 2-hour windows on Day 1, and 3-hour windows on Day 2.</small></div>`;
+}
+export function openProductInfo() {
+  const d = dialog(`<div class="rowbetween"><h2>Forecast products</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
+    ${forecastProductDetails()}`, 'Forecast products');
   const opener = document.activeElement, close = d.querySelector('[data-x]');
   close.closest('.dialog').classList.add('forecast-product-info');
   close.onclick = () => { d.classList.add('hidden'); opener?.focus(); };
@@ -839,18 +842,48 @@ export function openApi() {
 // ------------------------------------------------------------------ Europe region map
 const REGION_TAG = { Live: ['#1f9d70', 'Live'], Beta: ['#6c47ff', 'Beta'], Archive: ['#8a94a6', 'Archive only'] };
 export function openEurope() {
-  const d = dialog(`<div class="rowbetween"><h2>Choose a region</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
-    <p class="lead">Tap a box on the map, or pick from the list.</p>
-    <div class="eu-wrap"><div id="euMap" class="eu-map"></div><div class="eu-list">${X.REGIONS.map(r => { const t = REGION_TAG[r.tag], off = r.west === undefined;
-      return `<button class="arow" data-eu="${r.id}" ${off ? 'disabled' : ''} aria-pressed="${r.id === X.S.region}"><span><b>${esc(r.name)}</b><small>${off ? 'Coming soon' : t ? t[1] : esc(r.tag)}</small></span><i class="eu-dot" style="background:${t ? t[0] : 'transparent'};border-color:${t ? t[0] : 'var(--muted)'}"></i></button>`; }).join('')}</div></div>`, 'Europe map', true);
+  const regions = X.REGIONS.map(r => {
+    const t = REGION_TAG[r.tag], off = r.west === undefined;
+    return `<button class="arow" data-eu="${esc(r.id)}" ${off ? 'disabled' : ''} aria-pressed="${r.id === X.S.region}"><span><b>${esc(r.name)}</b><small>${off ? 'Coming soon' : t ? t[1] : esc(r.tag)}</small></span><i class="eu-dot" style="background:${t ? t[0] : 'transparent'};border-color:${t ? t[0] : 'var(--muted)'}"></i></button>`;
+  }).join('');
+  const d = dialog(`<div class="eu-picker-layout">
+    <section class="eu-picker" aria-labelledby="euTitle">
+      <div class="rowbetween"><h2 id="euTitle">Choose a region</h2><div class="eu-picker-actions">
+        <button class="btn sm hidden" id="euShowProducts" aria-controls="euProducts" aria-expanded="true">Forecast products</button>
+        <button class="btn icon" data-x aria-label="Close region picker">✕</button>
+      </div></div>
+      <p class="lead">Tap a box on the map, or pick from the list.</p>
+      <div class="eu-wrap"><div id="euMap" class="eu-map"></div><div class="eu-list">${regions}</div></div>
+    </section>
+    <aside id="euProducts" class="eu-products" aria-labelledby="euProductsTitle">
+      <div class="rowbetween"><h3 id="euProductsTitle">Forecast products</h3><button class="btn icon sm" id="euHideProducts" aria-label="Hide forecast products">✕</button></div>
+      ${forecastProductDetails()}
+    </aside>
+  </div>`, 'Europe map', true);
+  const pickerDialog = d.querySelector('.dialog');
+  pickerDialog.classList.add('eu-dialog');
   const feats = X.REGIONS.filter(r => r.west !== undefined).map(r => ({ type: 'Feature', properties: { id: r.id, name: r.name, col: (REGION_TAG[r.tag] || ['#8a94a6'])[0], on: r.id === X.S.region ? 1 : 0 },
     geometry: { type: 'Polygon', coordinates: [[[r.west, r.south], [r.east, r.south], [r.east, r.north], [r.west, r.north], [r.west, r.south]]] } }));
   const m = new mapboxgl.Map({ container: 'euMap', style: X.styleUrl(), center: [8, 52], zoom: 2.9, attributionControl: false, logoPosition: 'bottom-left', projection: 'mercator' });
   m.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-left');
-  const close = () => { d.classList.add('hidden'); try { m.remove(); } catch (e) { } };
+  const close = () => { d.classList.add('hidden'); try { m.remove(); } catch (e) { } $('regionBtn').focus(); };
   const pickR = (id) => { close(); X.setRegion(id); };
   d.querySelectorAll('[data-eu]').forEach(b => b.onclick = () => pickR(b.dataset.eu));
-  d.querySelectorAll('[data-x]').forEach(b => b.onclick = close);
+  const closeButton = d.querySelector('[data-x]');
+  closeButton.onclick = close;
+  pickerDialog.onkeydown = (e) => { if (e.key === 'Escape') close(); };
+  closeButton.focus();
+  const showProducts = $('euShowProducts'), hideProducts = $('euHideProducts');
+  const setProductsVisible = (visible) => {
+    $('euProducts').classList.toggle('hidden', !visible);
+    d.querySelector('.eu-picker-layout').classList.toggle('eu-picker-only', !visible);
+    showProducts.classList.toggle('hidden', visible);
+    showProducts.setAttribute('aria-expanded', String(visible));
+    (visible ? hideProducts : showProducts).focus();
+    m.resize();
+  };
+  showProducts.onclick = () => setProductsVisible(true);
+  hideProducts.onclick = () => setProductsVisible(false);
   m.on('load', () => {
     m.addSource('regions', { type: 'geojson', data: { type: 'FeatureCollection', features: feats } });
     m.addLayer({ id: 'reg-fill', type: 'fill', source: 'regions', paint: { 'fill-color': ['get', 'col'], 'fill-opacity': ['case', ['==', ['get', 'on'], 1], 0.35, 0.16] } });
@@ -888,7 +921,7 @@ const STEPS = [
 ];
 export function startTutorial(force) {
   if (!force) {
-    if (document.querySelector('#cookieDlg:not(.hidden) .forecast-product-info')) return;
+    if (document.querySelector('#cookieDlg:not(.hidden) :is(.forecast-product-info, .eu-dialog)')) return;
     try { if (localStorage.getItem('hocoTutorial')) return; } catch (e) { return; }
   }
   let i = 0; const ov = $('coach');

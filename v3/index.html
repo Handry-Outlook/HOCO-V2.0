@@ -458,7 +458,7 @@ i.exp{background:var(--track);border:1px solid var(--muted)}i.obs{background:var
 [data-theme="dark"] .verdict.fair{color:#ffc25e}[data-theme="dark"] .verdict.bad,[data-theme="dark"] b.bad{color:#ff8a80}
 .apiline{display:block;padding:10px 12px;border-radius:10px;background:var(--chip);font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;overflow-x:auto;white-space:nowrap}
 .apiline b{color:var(--accent);margin-right:8px}
-.eu-wrap{display:grid;grid-template-columns:1fr 240px;gap:12px;min-height:380px}
+.eu-wrap{display:grid;grid-template-columns:minmax(0,1fr) clamp(170px,28%,240px);gap:12px;min-height:380px}
 .eu-map{border-radius:14px;overflow:hidden;min-height:360px;border:1px solid var(--border)}
 .eu-list{display:flex;flex-direction:column;gap:6px;max-height:420px;overflow:auto}
 .eu-list .arow[disabled]{opacity:.5;cursor:not-allowed}.eu-dot{width:12px;height:12px;border-radius:4px;border:2px solid;flex:none}
@@ -913,6 +913,7 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
 .hourcast-pick{margin:4px 0 8px;padding:8px;background:var(--pill);border:1px solid var(--border);border-radius:8px}
 .hourcast-pick select,.cx-window-pick select{width:100%;min-width:0}
 .dialog.forecast-product-info{padding:clamp(12px,3.5vw,20px)}
+.forecast-product-details{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
 .forecast-schedule{width:100%;border-collapse:collapse;font-size:clamp(12px,3.35vw,14px)}
 .forecast-schedule caption{text-align:left;font-weight:700;font-size:14px;margin:2px 0 8px}
 .forecast-schedule th,.forecast-schedule td{padding:7px clamp(3px,1.25vw,10px);border-bottom:1px solid var(--border);text-align:left}
@@ -922,6 +923,31 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
 .forecast-starts dt{font-weight:650}
 .forecast-starts dd{margin:0 0 5px;display:flex;flex-wrap:wrap;gap:3px 8px;color:var(--muted);font-variant-numeric:tabular-nums}
 .forecast-defs{margin:8px 0}.forecast-defs dd{margin:3px 0 12px;color:var(--muted);line-height:1.4}
+.dialog.eu-dialog{width:min(1220px,100%);padding:0;display:block;scrollbar-gutter:stable}
+.eu-picker-layout{display:grid;grid-template-columns:minmax(0,1fr) clamp(318px,29vw,360px)}
+.eu-picker-layout.eu-picker-only{grid-template-columns:minmax(0,1fr)}
+.eu-picker,.eu-products{display:flex;flex-direction:column;min-width:0;gap:8px;padding:20px}
+.eu-picker-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.eu-products{padding:14px 16px;border-inline-start:1px solid var(--border)}
+.eu-products h3{margin:0;font-size:16px}
+.eu-products .forecast-product-details{font-size:13px}
+.eu-products .forecast-schedule{font-size:12px}
+.eu-products .forecast-schedule th,.eu-products .forecast-schedule td{padding-inline:5px}
+@media(min-width:921px){
+  .eu-picker .eu-wrap{flex:1}
+  .eu-products{padding-inline:14px;max-height:min(550px,calc(100dvh - 26px));overflow-y:auto}
+}
+@media(max-width:920px){
+  .eu-picker-layout{grid-template-columns:minmax(0,1fr)}
+  .eu-products{border-inline-start:0;border-top:1px solid var(--border)}
+}
+@media(max-width:640px){
+  .dialog.eu-dialog{scrollbar-gutter:auto}
+  .eu-picker,.eu-products{padding:12px}
+  .eu-picker .eu-map{min-height:236px}
+  .eu-picker .eu-list{max-height:220px}
+  .eu-products .forecast-schedule th,.eu-products .forecast-schedule td{padding-inline:4px}
+}
 @media(max-width:370px){#productInfo{width:19px}.topbar #regionBtn{max-width:75px}}
 </style>
 <link rel="manifest" href="manifest.webmanifest">
@@ -2068,7 +2094,7 @@ import('./extras.js?v=26').then((m) => {
 }).catch((e) => console.error(e));
 
 // ---------- stage 4 (settings, compare, accuracy, alerts, install, tutorial, embed, ads) ----------
-import('./stage4.js?v=28').then((m) => {
+import('./stage4.js?v=29').then((m) => {
   m.initStage4({ hourcastRuns: timing.runs, hourcastWindows: timing.windowsFor, measureDock, baseDay, extras: () => Extras, map, S, BANDS, REGIONS, db, auth, storage, doc, getDoc, getDocs, query, collection, where, orderBy, limit, addDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, dateKey, nearestPlace, regionMatches,
     colorExpr, fillColor, styleUrl, applySettings, setTheme, setProduct, setRegion, runsFor, riskAt: riskAtGeo, embed: EMBED, goDay: (d) => { S.day = d; clearCustom(); renderAll(); },
     callable: (name) => async (data) => { const f = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js'); return f.httpsCallable(f.getFunctions(app, 'us-central1'), name)(data); },
