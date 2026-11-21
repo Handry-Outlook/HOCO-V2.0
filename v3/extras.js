@@ -1,6 +1,6 @@
 // HOCO v3 extras: radar + lightning strikes with an "observed" time slider, PNG export,
 // place search, change since the previous run, cookie consent, offline notice, shortcuts.
-import { initExport } from './export.js?v=1';
+import { initExport } from './export.js?v=2';
 
 let X, Exp = null;
 const $ = (id) => document.getElementById(id);
@@ -67,37 +67,30 @@ async function drawRadar() {
 async function drawRadarFrame() {
   await paintRadar(X.map, MAIN_RADAR, O.t, O.playing, setObsInfo);
 }
-// Draw one radar frame for any map (the main map, or a compare map). st keeps that map's canvas and state.
-export async function paintRadar(map, st, t, playing, info) {
-  const cv = map.getCanvas(), W = cv.clientWidth, H = cv.clientHeight; if (!W || !H || t == null) return;
-  // backing resolution: screen pixels x device ratio (rounded up like RadarLoop), lighter while playing
-  let dpr = playing ? 1 : Math.max(1, Math.min(2, Math.ceil((devicePixelRatio || 1) - 1e-3)));
-  while ((W * dpr > 4096 || H * dpr > 4096 || W * H * dpr * dpr > 5e6) && dpr > 1) dpr -= 0.5;
-  const Wd = Math.round(W * dpr), Hd = Math.round(H * dpr);
-  const nw = map.unproject([0, 0]), se = map.unproject([W, H]);
-  // native data zoom: one level sharper than the screen needs, capped at the provider's z7
-  let z = Math.max(3, Math.min(7, Math.round(map.getZoom() + Math.log2(dpr) + 0.5)));
-  let gx0, gx1, gy0, gy1, tx0, tx1, ty0, ty1;
+function radarTileWindow(nw, se, targetZoom) {
+  let z = Math.max(3, Math.min(7, Math.round(targetZoom)));
   for (;;) {
-    gx0 = lon2x(nw.lng, z) * 256; gx1 = lon2x(se.lng, z) * 256; gy0 = lat2y(Math.min(85, nw.lat), z) * 256; gy1 = lat2y(Math.max(-85, se.lat), z) * 256;
-    tx0 = Math.floor(gx0 / 256) - 1; tx1 = Math.floor(gx1 / 256) + 1; ty0 = Math.max(0, Math.floor(gy0 / 256) - 1); ty1 = Math.min(2 ** z - 1, Math.floor(gy1 / 256) + 1);
-    if ((tx1 - tx0 + 1) * (ty1 - ty0 + 1) <= 110 || z <= 3) break; z--;
+    const gx0 = lon2x(nw.lng, z) * 256, gx1 = lon2x(se.lng, z) * 256;
+    const gy0 = lat2y(Math.min(85, nw.lat), z) * 256, gy1 = lat2y(Math.max(-85, se.lat), z) * 256;
+    const tx0 = Math.floor(gx0 / 256) - 1, tx1 = Math.floor(gx1 / 256) + 1;
+    const ty0 = Math.max(0, Math.floor(gy0 / 256) - 1), ty1 = Math.min(2 ** z - 1, Math.floor(gy1 / 256) + 1);
+    if ((tx1 - tx0 + 1) * (ty1 - ty0 + 1) <= 110 || z <= 3) return { z, gx0, gx1, gy0, gy1, tx0, tx1, ty0, ty1 };
+    z--;
   }
-  const frame = frameOf(t), key = `${frame}|${z}|${Wd}x${Hd}|${nw.lng.toFixed(4)},${nw.lat.toFixed(4)},${se.lng.toFixed(4)},${se.lat.toFixed(4)}`;
-  if (key === st.key) return;
-  const tok = ++st.tok; info?.('Loading radar…');
-  const n = 2 ** z, jobs = [];
+}
+export async function renderRadarCanvas(canvas, nw, se, Wd, Hd, t, targetZoom, guard, win) {
+  const { z, gx0, gx1, gy0, gy1, tx0, tx1, ty0, ty1 } = win || radarTileWindow(nw, se, targetZoom);
+  const frame = frameOf(t), n = 2 ** z, jobs = [];
   for (let x = tx0; x <= tx1; x++) for (let y = ty0; y <= ty1; y++) { const wx = ((x % n) + n) % n; jobs.push(loadTile(frame, z, wx, y).then(d => [x, y, d])); }
-  const tiles = await Promise.all(jobs); if (tok !== st.tok) return;
+  const tiles = await Promise.all(jobs); if (guard && !guard()) return null;
   const cols = tx1 - tx0 + 1, grid = new Array(cols * (ty1 - ty0 + 1)).fill(null); let got = 0;
   tiles.forEach(([x, y, d]) => { if (d) { got++; grid[(y - ty0) * cols + (x - tx0)] = d; } });
-  // sample positions per output column / row (mercator is linear on screen when the map is not rotated)
   const sx = new Float64Array(Wd), sy = new Float64Array(Hd);
   for (let i = 0; i < Wd; i++) sx[i] = gx0 + (i + 0.5) / Wd * (gx1 - gx0) - 0.5 - tx0 * 256;
   for (let j = 0; j < Hd; j++) sy[j] = gy0 + (j + 0.5) / Hd * (gy1 - gy0) - 0.5 - ty0 * 256;
   const rowsT = ty1 - ty0 + 1, maxX = cols * 256 - 1, maxY = rowsT * 256 - 1;
-  const val = (X_, Y_) => { if (X_ < 0 || Y_ < 0 || X_ > maxX || Y_ > maxY) return 0; const t = grid[(Y_ >> 8) * cols + (X_ >> 8)]; return t ? t[((Y_ & 255) << 8) | (X_ & 255)] : 0; };
-  const canvas = st.canvas; canvas.width = Wd; canvas.height = Hd;
+  const val = (X_, Y_) => { if (X_ < 0 || Y_ < 0 || X_ > maxX || Y_ > maxY) return 0; const tile = grid[(Y_ >> 8) * cols + (X_ >> 8)]; return tile ? tile[((Y_ & 255) << 8) | (X_ & 255)] : 0; };
+  canvas.width = Wd; canvas.height = Hd;
   const g = canvas.getContext('2d'), img = g.createImageData(Wd, Hd), out = img.data, L = LUT;
   for (let j = 0; j < Hd; j++) {
     const fy = sy[j], y0 = Math.floor(fy), wy = fy - y0, row = j * Wd * 4;
@@ -111,6 +104,23 @@ export async function paintRadar(map, st, t, playing, info) {
     }
   }
   g.putImageData(img, 0, 0);
+  return got;
+}
+// Draw one radar frame for any map (the main map, or a compare map). st keeps that map's canvas and state.
+export async function paintRadar(map, st, t, playing, info) {
+  const cv = map.getCanvas(), W = cv.clientWidth, H = cv.clientHeight; if (!W || !H || t == null) return;
+  // backing resolution: screen pixels x device ratio (rounded up like RadarLoop), lighter while playing
+  let dpr = playing ? 1 : Math.max(1, Math.min(2, Math.ceil((devicePixelRatio || 1) - 1e-3)));
+  while ((W * dpr > 4096 || H * dpr > 4096 || W * H * dpr * dpr > 5e6) && dpr > 1) dpr -= 0.5;
+  const Wd = Math.round(W * dpr), Hd = Math.round(H * dpr);
+  const nw = map.unproject([0, 0]), se = map.unproject([W, H]);
+  // native data zoom: one level sharper than the screen needs, capped at the provider's z7
+  const win = radarTileWindow(nw, se, map.getZoom() + Math.log2(dpr) + 0.5);
+  const frame = frameOf(t), key = `${frame}|${win.z}|${Wd}x${Hd}|${nw.lng.toFixed(4)},${nw.lat.toFixed(4)},${se.lng.toFixed(4)},${se.lat.toFixed(4)}`;
+  if (key === st.key) return;
+  const tok = ++st.tok; info?.('Loading radar…');
+  const got = await renderRadarCanvas(st.canvas, nw, se, Wd, Hd, t, win.z, () => tok === st.tok, win);
+  if (got == null) return;
   st.key = key;
   const coords = [[nw.lng, nw.lat], [se.lng, nw.lat], [se.lng, se.lat], [nw.lng, se.lat]];
   const src = map.getSource(st.id || 'radar');
@@ -676,8 +686,8 @@ export function openShortcuts() {
 export function initExtras(ctx) {
   X = ctx;
   Exp = initExport({
-    X, O, setLayer, paintRadar, newRadarState, loadStrikes,
-    strikeFeatures, strikeLayer, STRIKE_CLASSES, riskOutlineLayer,
+    X, O, setLayer, paintRadar, newRadarState, renderRadarCanvas, frameOf, RADAR_STEP, OPERATIONAL,
+    loadStrikes, strikeFeatures, strikeLayer, STRIKE_CLASSES, riskOutlineLayer,
     getDiffState: () => ({ diffOn, lastDiff }),
   });
   window.__hocoRenderExport = (k, opts) => Exp.renderExport(k || 'landscape', opts).then(c => c.toDataURL('image/png'));   // for checking the layout

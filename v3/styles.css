@@ -462,6 +462,18 @@ body.tools-open .myrun,body.comparing .myrun{display:none}
 .expreview .exscope{font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:#eef2f7;color:#1e3a8a;white-space:nowrap}
 .exregions{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
 .exchip{font-size:11.5px!important;font-weight:600;padding:2px 8px;border-radius:999px;background:#f1f5f9;color:#0f1b2d!important;border:1px solid rgba(15,27,45,.14)}
+.seg.filegrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.seg.filegrid button{padding:0 6px;font-size:13px}
+.exconfirm{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:12px;background:var(--accent-soft);border:1px solid var(--accent)}
+.exconfirm b{font-size:15px}
+.exconfirm p{margin:0;font-size:13px;line-height:1.45;color:var(--text)}
+.exprog{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:10px;background:var(--chip);border:1px solid var(--border)}
+.exprog-bar{height:6px;border-radius:999px;background:var(--track);overflow:hidden}
+.exprog-bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .12s linear}
+.dialog.exdlg{padding:16px 18px;gap:6px}
+.dialog.exdlg .setgrp{padding:5px 0 2px;gap:5px}
+.dialog.exdlg .expreview{padding:9px 12px;gap:3px}
+.dialog.exdlg label.item.layer{padding:6px 10px}
 .eu-wrap{display:grid;grid-template-columns:minmax(0,1fr) clamp(170px,28%,240px);gap:12px;min-height:380px}
 .eu-map{border-radius:14px;overflow:hidden;min-height:360px;border:1px solid var(--border)}
 .eu-list{display:flex;flex-direction:column;gap:6px;max-height:420px;overflow:auto}
@@ -871,6 +883,7 @@ body.comparing .tools{z-index:40}
   .eu-picker .eu-map{min-height:236px}
   .eu-picker .eu-list{max-height:220px}
   .eu-products .forecast-schedule th,.eu-products .forecast-schedule td{padding-inline:4px}
+  .seg.filegrid{grid-template-columns:1fr 1fr}
   .caught b{font-size:18px}
   .welcome{padding:20px}
   .welcome h1{font-size:32px}

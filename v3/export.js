@@ -1,5 +1,7 @@
-// HOCO v3 publication-grade chart export: Pivotal-Weather-style layout with domain bounding boxes,
-// lat/lon graticule + edge ticks, entire-region & multi-region cycle plotting, and multi-region KML.
+// HOCO v3 publication-grade chart & animation export: Pivotal-Weather-style layout with
+// official Handry Outlook branding, domain bounding boxes, lat/lon graticule, static PNG radar
+// timestamp confirmation, accumulating decaying lightning GIF/Video export, and multi-region KML.
+import { createGifEncoder } from './gif-encoder.js?v=1';
 
 const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, '0');
@@ -12,6 +14,11 @@ const EXPORTS = {
   story: [1080, 1920, 'Story'],
 };
 
+const ANIM_SIZES = {
+  gif: { landscape: [960, 660], square: [760, 760], story: [640, 1138] },
+  video: { landscape: [1280, 880], square: [960, 960], story: [720, 1280] },
+};
+
 const EX = {
   size: 'landscape',
   file: 'png',
@@ -19,10 +26,14 @@ const EX = {
   key: true,
   bbox: true,
   graticule: true,
+  animRadar: true,
+  animStrikes: true,
 };
 
 const UTC_DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const fmtUtc = (d) => d ? `${UTC_DOW[d.getUTCDay()]} ${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}Z` : '';
+const fmtUtcShort = (d) => d ? `${UTC_DOW[d.getUTCDay()]} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}Z` : '';
+const fmtUtcHm = (d) => d ? `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}Z` : '';
 const fmtLocal = (d) => d ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : '';
 const fmtLat = (v) => v === 0 ? '0°' : `${Math.abs(v)}°${v > 0 ? 'N' : 'S'}`;
 const fmtLon = (v) => v === 0 ? '0°' : `${Math.abs(v)}°${v > 0 ? 'E' : 'W'}`;
@@ -31,6 +42,14 @@ const parseAutoParts = (id) => {
   return m ? { prefix: m[1], dayTag: m[3] } : null;
 };
 const hasGeoPayload = (r) => !!(r && (r.geojsonUrl || r.inlineGeojson || r.inlineGeojsonText || r.geojson || r.ensembleGeojson));
+
+const lon2norm = (lon) => (lon + 180) / 360;
+const lat2norm = (lat) => {
+  const r = Math.max(-85, Math.min(85, lat)) * Math.PI / 180;
+  return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2;
+};
+const norm2lon = (nx) => nx * 360 - 180;
+const norm2lat = (ny) => Math.atan(Math.sinh(Math.PI * (1 - 2 * ny))) * 180 / Math.PI;
 
 function kmlColor(hex, a = 'b3') {
   const h = String(hex || '#9fd8c4').replace('#', '');
@@ -52,7 +71,7 @@ function pickTicks(minVal, maxVal, step) {
 }
 
 function rectsOverlap(a, b, padPx = 4) {
-  return !(a.x + a.w + padPx <= b.x || b.x + b.w + padPx <= a.x || a.y + a.h + padPx <= b.y || b.y + b.h + padPx <= a.y);
+  return !(a.x + a.w + padPx <= b.x || b.x + b.w + padPx <= a.x || a.y + a.h + padPx <= a.y || b.y + b.h + padPx <= a.y);
 }
 
 function roundRectPath(ctx, x, y, w, h, r) {
@@ -66,10 +85,55 @@ function roundRectPath(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+function drawHalodText(ctx, text, x, y, haloCol, fillCol, haloWidth) {
+  ctx.lineJoin = 'round';
+  ctx.miterLimit = 2;
+  ctx.strokeStyle = haloCol;
+  ctx.lineWidth = haloWidth;
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = fillCol;
+  ctx.fillText(text, x, y);
+}
+
+let brandLogoPromise = null;
+function loadBrandLogo() {
+  if (brandLogoPromise) return brandLogoPromise;
+  brandLogoPromise = (async () => {
+    for (const src of ['./icons/icon-512.png', './icons/icon-192.png']) {
+      try {
+        const img = await new Promise((resolve, reject) => {
+          const el = new Image();
+          el.onload = () => resolve(el);
+          el.onerror = reject;
+          el.src = src;
+        });
+        if (img.naturalWidth > 0) return img;
+      } catch {}
+    }
+    return null;
+  })();
+  return brandLogoPromise;
+}
+
+function pickVideoMime() {
+  if (typeof MediaRecorder === 'undefined') return null;
+  const cands = [
+    'video/mp4;codecs=avc1.42E01E',
+    'video/mp4',
+    'video/webm;codecs=vp9',
+    'video/webm;codecs=vp8',
+    'video/webm',
+  ];
+  for (const m of cands) {
+    if (!MediaRecorder.isTypeSupported || MediaRecorder.isTypeSupported(m)) return m;
+  }
+  return '';
+}
+
 export function initExport(deps) {
   const {
-    X, O, setLayer, paintRadar, newRadarState, loadStrikes,
-    strikeFeatures, strikeLayer, STRIKE_CLASSES, riskOutlineLayer, getDiffState,
+    X, O, setLayer, paintRadar, newRadarState, renderRadarCanvas, frameOf, RADAR_STEP, OPERATIONAL,
+    loadStrikes, strikeFeatures, strikeLayer, STRIKE_CLASSES, riskOutlineLayer, getDiffState,
   } = deps;
 
   const validRegions = () => (X.REGIONS || []).filter((r) => Number.isFinite(r.west));
@@ -311,55 +375,89 @@ export function initExport(deps) {
     }
   }
 
-  async function prepareStrikeGeo(items, includeStrikes) {
-    if (!includeStrikes || O.t == null || O.t0 == null) return null;
-    const endT = O.t === O.tNow ? (O.strikeEnd ?? O.t) : O.t;
-    const rawList = Array.isArray(O.strikeData)
-      ? O.strikeData
-      : await loadStrikes(O.t0, Math.min(endT + 5 * 60000, Date.now())).catch(() => []);
+  function filterStrikesToBounds(list, items, nw, se) {
     const regs = items.map((i) => i.region).filter((r) => Number.isFinite(r?.west));
-    let filtered = rawList;
     if (regs.length) {
       const w = Math.min(...regs.map((r) => r.west));
       const s = Math.min(...regs.map((r) => r.south));
       const e = Math.max(...regs.map((r) => r.east));
       const n = Math.max(...regs.map((r) => r.north));
-      filtered = rawList.filter((p) => p.lon >= w && p.lon <= e && p.lat >= s && p.lat <= n);
+      return list.filter((p) => p.lon >= w && p.lon <= e && p.lat >= s && p.lat <= n);
     }
-    return strikeFeatures(filtered, endT, O.t0);
+    if (nw && se) {
+      return list.filter((p) => p.lon >= nw.lng && p.lon <= se.lng && p.lat >= se.lat && p.lat <= nw.lat);
+    }
+    return list;
   }
 
-  async function captureMapFrame({ mapW, mapH, extent, items, mergedGeo, spreadGeo, includeStrikes, includeRadar }) {
+  async function prepareStrikeGeo(items, includeStrikes) {
+    if (!includeStrikes || O.t == null || O.t0 == null) return { geo: null, count: 0 };
+    const endT = O.t === O.tNow ? (O.strikeEnd ?? O.t) : O.t;
+    const rawList = Array.isArray(O.strikeData)
+      ? O.strikeData
+      : await loadStrikes(O.t0, Math.min(endT + 5 * 60000, Date.now())).catch(() => []);
+    const filtered = filterStrikesToBounds(rawList || [], items);
+    const geo = strikeFeatures(filtered, endT, O.t0);
+    return { geo, count: geo.features.length };
+  }
+
+  async function captureMapFrame({ mapW, mapH, extent, items, mergedGeo, spreadGeo, includeStrikes, includeRadar, radarTime }) {
     const boundsRegions = items.map((i) => i.region).filter((r) => Number.isFinite(r?.west));
     const effectiveExtent = (extent === 'current' || !boundsRegions.length) ? 'current' : extent;
 
     if (effectiveExtent === 'current') {
-      await Promise.race([new Promise((r) => { X.map.once('render', r); X.map.triggerRepaint(); }), new Promise((r) => setTimeout(r, 700))]);
-      const src = X.map.getCanvas();
-      const srcW = src.clientWidth || src.width || mapW;
-      const srcH = src.clientHeight || src.height || mapH;
-      const scale = Math.max(mapW / srcW, mapH / srcH);
-      const dw = srcW * scale, dh = srcH * scale;
-      const ox = (mapW - dw) / 2, oy = (mapH - dh) / 2;
-      return {
-        effectiveExtent,
-        drawMapTo(ctx, mapX, mapY) {
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(mapX, mapY, mapW, mapH);
-          ctx.clip();
-          ctx.drawImage(src, mapX + ox, mapY + oy, dw, dh);
-          ctx.restore();
-        },
-        project(lon, lat) {
-          const p = X.map.project ? X.map.project([lon, lat]) : { x: mapW / 2, y: mapH / 2 };
-          return [ox + p.x * scale, oy + p.y * scale];
-        },
-        unproject(px, py) {
-          return X.map.unproject([(px - ox) / scale, (py - oy) / scale]);
-        },
-        cleanup() {},
-      };
+      const hideObs = (!includeRadar && X.map.getLayer('radar')) || (!includeStrikes && X.map.getLayer('strikes'));
+      const savedVis = {};
+      if (hideObs) {
+        for (const lid of ['radar', 'strikes']) {
+          if (!X.map.getLayer(lid)) continue;
+          savedVis[lid] = X.map.getLayoutProperty?.(lid, 'visibility') ?? 'visible';
+          if ((lid === 'radar' && !includeRadar) || (lid === 'strikes' && !includeStrikes)) {
+            X.map.setLayoutProperty(lid, 'visibility', 'none');
+          }
+        }
+      }
+      try {
+        await Promise.race([new Promise((r) => { X.map.once('render', r); X.map.triggerRepaint(); }), new Promise((r) => setTimeout(r, 700))]);
+        const src = X.map.getCanvas();
+        const srcW = src.clientWidth || src.width || mapW;
+        const srcH = src.clientHeight || src.height || mapH;
+        const scale = Math.max(mapW / srcW, mapH / srcH);
+        const dw = srcW * scale, dh = srcH * scale;
+        const ox = (mapW - dw) / 2, oy = (mapH - dh) / 2;
+
+        // Snapshot immediately so saved map layers can be restored cleanly without affecting downstream draws
+        const snap = document.createElement('canvas');
+        snap.width = mapW;
+        snap.height = mapH;
+        snap.getContext('2d').drawImage(src, ox, oy, dw, dh);
+
+        const nw = X.map.unproject([-ox / scale, -oy / scale]);
+        const se = X.map.unproject([(mapW - ox) / scale, (mapH - oy) / scale]);
+        const strikeCount = includeStrikes ? (O.strikeCount ?? null) : null;
+
+        return {
+          effectiveExtent,
+          nw,
+          se,
+          strikeCount,
+          drawMapTo(ctx, mapX, mapY) {
+            ctx.drawImage(snap, mapX, mapY, mapW, mapH);
+          },
+          project(lon, lat) {
+            const p = X.map.project ? X.map.project([lon, lat]) : { x: mapW / 2, y: mapH / 2 };
+            return [ox + p.x * scale, oy + p.y * scale];
+          },
+          unproject(px, py) {
+            return X.map.unproject([(px - ox) / scale, (py - oy) / scale]);
+          },
+          cleanup() {},
+        };
+      } finally {
+        for (const [lid, v] of Object.entries(savedVis)) {
+          if (X.map.getLayer(lid)) X.map.setLayoutProperty(lid, 'visibility', v);
+        }
+      }
     }
 
     const west = Math.min(...boundsRegions.map((r) => r.west));
@@ -368,7 +466,8 @@ export function initExport(deps) {
     const north = Math.max(...boundsRegions.map((r) => r.north));
     const padPx = Math.round(Math.min(mapW, mapH) * 0.055);
 
-    const strikeGeo = await prepareStrikeGeo(items, includeStrikes);
+    const strikeRes = await prepareStrikeGeo(items, includeStrikes);
+    const rTime = radarTime ?? O.t;
 
     const host = document.createElement('div');
     host.className = 'hoco-export-offscreen';
@@ -407,7 +506,7 @@ export function initExport(deps) {
         : null;
 
       let rst = null;
-      if (includeRadar && O.t != null) {
+      if (includeRadar && rTime != null) {
         rst = newRadarState('ex-radar');
         rst.add = (coords, mapInst, st) => {
           if (mapInst.getSource(st.id)) return;
@@ -421,23 +520,30 @@ export function initExport(deps) {
         };
       }
 
-      addForecastAndOverlaysToMap(m, { mergedGeo, spreadGeo, diffGeo, strikeGeo, includeStrikes });
+      addForecastAndOverlaysToMap(m, { mergedGeo, spreadGeo, diffGeo, strikeGeo: strikeRes.geo, includeStrikes });
 
       if (rst) {
-        await paintRadar(m, rst, O.t, false).catch(() => {});
+        await paintRadar(m, rst, rTime, false).catch(() => {});
       }
 
       await new Promise((resolve) => {
         let done = false;
         const fin = () => { if (!done) { done = true; resolve(); } };
+        if (m.loaded?.() && m.areTilesLoaded?.()) return fin();
         m.once('idle', fin);
         setTimeout(fin, 8000);
       });
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       await Promise.race([new Promise((r) => { m.once('render', r); m.triggerRepaint(); }), new Promise((r) => setTimeout(r, 350))]);
 
+      const nw = m.unproject([0, 0]);
+      const se = m.unproject([mapW, mapH]);
+
       return {
         effectiveExtent,
+        nw,
+        se,
+        strikeCount: includeStrikes ? strikeRes.count : null,
         drawMapTo(ctx, mapX, mapY) {
           const cv = m.getCanvas();
           ctx.save();
@@ -466,36 +572,77 @@ export function initExport(deps) {
     }
   }
 
-  // Vector rendering of the Handry Outlook rainbow emblem (canvas-safe, matches icons/icon-192.png palette)
-  function drawBrandEmblem(ctx, cx, bottomY, radius) {
-    const arcs = [
-      [1.00, '#f5c817'],
-      [0.83, '#c8281d'],
-      [0.66, '#f07427'],
-      [0.49, '#ffffff'],
-      [0.33, '#7d8796'],
-      [0.18, '#283673'],
-    ];
-    for (const [frac, col] of arcs) {
-      ctx.beginPath();
-      ctx.arc(cx, bottomY, radius * frac, Math.PI, 0, false);
-      ctx.closePath();
-      ctx.fillStyle = col;
+  // Exact linear Mercator projector for animations (lets us release offscreen Mapbox GL immediately)
+  function createMercatorProjector(nw, se, mapW, mapH) {
+    const nx0 = lon2norm(nw.lng), nx1 = lon2norm(se.lng);
+    const ny0 = lat2norm(nw.lat), ny1 = lat2norm(se.lat);
+    const spanX = Math.max(1e-8, nx1 - nx0);
+    const spanY = Math.max(1e-8, ny1 - ny0);
+    return {
+      approxZoom: Math.log2((mapW / 256) / spanX),
+      project(lon, lat) {
+        return [(lon2norm(lon) - nx0) / spanX * mapW, (lat2norm(lat) - ny0) / spanY * mapH];
+      },
+      unproject(px, py) {
+        return { lng: norm2lon(nx0 + (px / mapW) * spanX), lat: norm2lat(ny0 + (py / mapH) * spanY) };
+      },
+    };
+  }
+
+  // Draw official Handry Outlook logo cropped cleanly from v3/icons/icon-512.png
+  function drawBrandLogo(ctx, logoImg, { mapX, mapY, mapW, mapH, padIn, isDark, u }) {
+    const halo = isDark ? 'rgba(8,14,24,0.92)' : 'rgba(255,255,255,0.94)';
+    const ink = isDark ? '#f8fafc' : '#0b1320';
+    const dstH = Math.round(52 * u);
+
+    if (logoImg && logoImg.naturalWidth > 0) {
+      const nw = logoImg.naturalWidth, nh = logoImg.naturalHeight;
+      // Clean horizontal crop around the rainbow arc + vertical divider + Handry Outlook wordmark
+      const sx = Math.round(nw * 0.045), sy = Math.round(nh * 0.295);
+      const sw = Math.round(nw * 0.91), sh = Math.round(nh * 0.41);
+      const dstW = Math.round(dstH * (sw / sh));
+      const x = mapX + mapW - padIn - dstW;
+      const y = mapY + mapH - padIn - dstH;
+
+      ctx.save();
+      ctx.shadowColor = isDark ? 'rgba(0,0,0,0.55)' : 'rgba(15,23,42,0.28)';
+      ctx.shadowBlur = Math.max(4, 7 * u);
+      ctx.shadowOffsetY = Math.max(1, 2 * u);
+      roundRectPath(ctx, x, y, dstW, dstH, Math.max(4, 7 * u));
+      ctx.fillStyle = '#283673';
       ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      roundRectPath(ctx, x, y, dstW, dstH, Math.max(4, 7 * u));
+      ctx.clip();
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(logoImg, sx, sy, sw, sh, x, y, dstW, dstH);
+      ctx.restore();
+
+      ctx.save();
+      roundRectPath(ctx, x, y, dstW, dstH, Math.max(4, 7 * u));
+      ctx.strokeStyle = isDark ? 'rgba(248,250,252,0.55)' : 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = Math.max(1.5, 2 * u);
+      ctx.stroke();
+      ctx.restore();
+      return { w: dstW, h: dstH };
     }
+
+    // Minimal text fallback if local asset failed to load
+    ctx.font = `800 ${Math.max(12, Math.round(20 * u))}px Inter, system-ui, sans-serif`;
+    const fallback = 'Handry Outlook';
+    const w = Math.ceil(ctx.measureText(fallback).width);
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
+    drawHalodText(ctx, fallback, mapX + mapW - padIn, mapY + mapH - padIn + 1, halo, ink, Math.max(3, 4.5 * u));
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    return { w, h: Math.round(28 * u) };
   }
 
-  function drawHalodText(ctx, text, x, y, haloCol, fillCol, haloWidth) {
-    ctx.lineJoin = 'round';
-    ctx.miterLimit = 2;
-    ctx.strokeStyle = haloCol;
-    ctx.lineWidth = haloWidth;
-    ctx.strokeText(text, x, y);
-    ctx.fillStyle = fillCol;
-    ctx.fillText(text, x, y);
-  }
-
-  function drawDomainBoxes(ctx, { items, mapX, mapY, mapW, mapH, project, isDark, singleRegion }) {
+  function drawDomainBoxes(ctx, { items, mapX, mapY, mapW, mapH, project, isDark, singleRegion, logoBox, stampBox }) {
     const boxRegions = items.filter((it) => Number.isFinite(it.region?.west));
     if (!boxRegions.length) return;
     const u = Math.min(mapW, mapH) / 900;
@@ -512,7 +659,6 @@ export function initExport(deps) {
       return { it, x0, y0, x1, y1, w: x1 - x0, h: y1 - y0 };
     });
 
-    // Draw outer box frames clipped cleanly to the map frame
     ctx.save();
     ctx.beginPath();
     ctx.rect(mapX, mapY, mapW, mapH);
@@ -527,29 +673,25 @@ export function initExport(deps) {
       ctx.lineWidth = Math.max(1.4, 1.8 * u);
       ctx.strokeRect(b.x0, b.y0, b.w, b.h);
 
-      // Subtle corner bracket accents for multi-region clarity
       const arm = Math.min(14 * u, b.w * 0.16, b.h * 0.16);
       if (arm >= 5) {
         ctx.lineWidth = Math.max(2.2, 2.8 * u);
         ctx.beginPath();
-        // NW
         ctx.moveTo(b.x0, b.y0 + arm); ctx.lineTo(b.x0, b.y0); ctx.lineTo(b.x0 + arm, b.y0);
-        // NE
         ctx.moveTo(b.x1 - arm, b.y0); ctx.lineTo(b.x1, b.y0); ctx.lineTo(b.x1, b.y0 + arm);
-        // SE
         ctx.moveTo(b.x1, b.y1 - arm); ctx.lineTo(b.x1, b.y1); ctx.lineTo(b.x1 - arm, b.y1);
-        // SW
         ctx.moveTo(b.x0 + arm, b.y1); ctx.lineTo(b.x0, b.y1); ctx.lineTo(b.x0, b.y1 - arm);
         ctx.stroke();
       }
     }
 
-    // Place compact non-overlapping corner labels inside each domain bounding box
     const placed = [
-      // Reserve bottom-left attribution and bottom-right Handry Outlook brand mark areas
+      // Reserve bottom-left URL attribution and bottom-right official logo + optional top-right timestamp badge
       { x: mapX, y: mapY + mapH - 42 * u, w: Math.min(mapW * 0.44, 340 * u), h: 42 * u },
-      { x: mapX + mapW - Math.min(mapW * 0.44, 340 * u), y: mapY + mapH - 54 * u, w: Math.min(mapW * 0.44, 340 * u), h: 54 * u },
+      { x: mapX + mapW - ((logoBox?.w || 180) + 28 * u), y: mapY + mapH - ((logoBox?.h || 56) + 28 * u), w: (logoBox?.w || 180) + 28 * u, h: (logoBox?.h || 56) + 28 * u },
     ];
+    if (stampBox) placed.push(stampBox);
+
     const fontSize = Math.max(10, Math.round(12 * u));
     const pillPadX = Math.round(7 * u);
     const pillH = Math.round(fontSize + 9 * u);
@@ -632,7 +774,6 @@ export function initExport(deps) {
     const lons = pickTicks(minLon, maxLon, lonStep);
     const lats = pickTicks(minLat, maxLat, latStep);
 
-    // Subtle interior graticule lines
     ctx.save();
     ctx.beginPath();
     ctx.rect(mapX, mapY, mapW, mapH);
@@ -657,10 +798,8 @@ export function initExport(deps) {
     }
     ctx.restore();
 
-    // Crisp outer tick pips + coordinate labels along left & bottom margins
     const tickLen = Math.round(5 * u);
-    const lblFont = `600 ${Math.max(10, Math.round(12 * u))}px Inter, system-ui, sans-serif`;
-    ctx.font = lblFont;
+    ctx.font = `600 ${Math.max(10, Math.round(12 * u))}px Inter, system-ui, sans-serif`;
     ctx.strokeStyle = '#0f172a';
     ctx.fillStyle = '#334155';
     ctx.lineWidth = Math.max(1.1, 1.3 * u);
@@ -700,15 +839,14 @@ export function initExport(deps) {
     ctx.textBaseline = 'alphabetic';
   }
 
-  function drawLegendStrip(ctx, { W, mapX, mapW, stripY, stripH, spreadActive, includeStrikes, includeRadar, u }) {
+  function drawLegendStrip(ctx, { W, mapX, mapW, stripY, spreadActive, includeStrikes, includeRadar, u }) {
     const F = (sz, wt = 700) => `${wt} ${Math.max(10, Math.round(sz * u))}px Inter, system-ui, sans-serif`;
     const isSpread = spreadActive;
     const barH = Math.round(16 * u);
     const barTop = stripY + Math.round(24 * u);
     const showExtras = includeStrikes || includeRadar;
-    const wideInline = includeStrikes && !includeRadar && W >= 1400;
+    const wideInline = includeStrikes && !includeRadar && W >= 1360;
 
-    // Colorbar title + segmented cells with aligned edge boundary ticks (Pivotal Weather grammar)
     const labelStr = isSpread ? 'Spread (pp):' : 'Risk (%):';
     ctx.font = F(14.5, 700);
     const lblW = Math.ceil(ctx.measureText(labelStr).width) + Math.round(14 * u);
@@ -716,7 +854,7 @@ export function initExport(deps) {
     const endLabel = isSpread ? '30+' : '100%';
     ctx.font = F(12.5, 600);
     const endCapW = Math.ceil(ctx.measureText(endLabel).width / 2) + Math.round(6 * u);
-    const capPx = bands.length <= 6 ? 420 * u : (wideInline ? Math.min(mapW * 0.56, 760 * u) : 920 * u);
+    const capPx = bands.length <= 6 ? 420 * u : (wideInline ? Math.min(mapW * 0.54, 740 * u) : 920 * u);
     const maxBarW = Math.min(mapW - lblW - endCapW, capPx);
     const barX = mapX + lblW;
     const barW = Math.max(180 * u, maxBarW);
@@ -737,7 +875,6 @@ export function initExport(deps) {
       const cx = barX + i * cellW;
       ctx.fillStyle = fill;
       ctx.fillRect(cx, barTop, cellW + 0.5, barH);
-      // Boundary tick pip + label cleanly aligned at left edge of each interval
       ctx.strokeStyle = '#1e293b';
       ctx.lineWidth = Math.max(1, 1 * u);
       ctx.beginPath();
@@ -749,7 +886,6 @@ export function initExport(deps) {
       const txt = isSpread && i === bands.length - 1 ? `${val}+` : String(val);
       ctx.fillText(txt, cx, barTop - 5 * u);
     });
-    // Right closing border + upper-bound tick for risk (%) scale
     ctx.strokeStyle = '#1e293b';
     ctx.lineWidth = Math.max(1.2, 1.3 * u);
     ctx.strokeRect(barX, barTop, barW, barH);
@@ -768,10 +904,9 @@ export function initExport(deps) {
       return;
     }
 
-    // Lightning strikes and/or rain rate legend
     ctx.textAlign = 'left';
     const secY = wideInline ? (barTop + barH / 2) : (barTop + barH + 18 * u);
-    let sx = wideInline ? (barX + barW + 46 * u) : mapX;
+    let sx = wideInline ? (barX + barW + 44 * u) : mapX;
     if (includeStrikes) {
       ctx.font = F(13.5, 700);
       ctx.fillStyle = '#0f172a';
@@ -795,7 +930,7 @@ export function initExport(deps) {
       }
     }
 
-    if (includeRadar && sx + 180 * u <= mapX + mapW) {
+    if (includeRadar && sx + 170 * u <= mapX + mapW) {
       if (includeStrikes) sx += 8 * u;
       ctx.font = F(13.5, 700);
       ctx.fillStyle = '#0f172a';
@@ -818,25 +953,7 @@ export function initExport(deps) {
     ctx.textBaseline = 'alphabetic';
   }
 
-  async function renderExport(kind = EX.size, optsOrWithKey = {}) {
-    const opts = typeof optsOrWithKey === 'boolean'
-      ? { key: optsOrWithKey }
-      : (optsOrWithKey || {});
-    const run = opts.run || O.run;
-    if (!run) throw new Error('No active run to export');
-
-    const [W, H] = EXPORTS[kind] || EXPORTS.landscape;
-    const extent = opts.extent || EX.extent;
-    const withKey = opts.key !== undefined ? !!opts.key : EX.key;
-    const withBbox = opts.bbox !== undefined ? !!opts.bbox : EX.bbox;
-    const withGraticule = opts.graticule !== undefined ? !!opts.graticule : (withBbox && EX.graticule);
-    const includeStrikes = opts.strikes !== undefined ? !!opts.strikes : !!O.strikes;
-    const includeRadar = opts.radar !== undefined ? !!opts.radar : !!O.radar;
-
-    const info = opts.regionInfo || findAvailableRegionRuns(run);
-    const data = await loadExportData(run, info, extent);
-    const { items, mergedGeo, spreadGeo } = data;
-
+  function computeLayout({ W, H, run, extent, items, includeStrikes, includeRadar, withKey, withBbox, withGraticule, radarTime, strikeCount, obsStamp }) {
     const u = Math.min(W, H) / 1080;
     const F = (sz, wt = 700) => `${wt} ${Math.max(10, Math.round(sz * u))}px Inter, system-ui, sans-serif`;
     const isStory = W < H;
@@ -876,7 +993,13 @@ export function initExport(deps) {
     const peakParts = items
       .map((it) => `${it.region.name}: ${it.peak?.risk >= 5 ? Math.round(it.peak.risk) + '%' : '<5%'}`)
       .join('  ·  ');
-    const microLeft = `Peak: ${peakParts}${includeStrikes ? '  ·  Strikes: Met Office, UKWX' : ''}${includeRadar ? '  ·  Radar: Windy' : ''}`;
+
+    // Never mention external radar/strike data providers on exported media
+    const microParts = [`Peak: ${peakParts}`];
+    if (obsStamp) microParts.push(`Obs: ${fmtUtc(new Date(obsStamp))}`);
+    else if (includeRadar && radarTime != null) microParts.push(`Radar: ${fmtUtc(new Date(radarTime))}`);
+    if (includeStrikes && strikeCount != null) microParts.push(`Strikes: ${strikeCount}`);
+    const microLeft = microParts.join('  ·  ');
     const microRight = 'Map © Mapbox © OpenStreetMap';
 
     const tmpCtx = document.createElement('canvas').getContext('2d');
@@ -885,155 +1008,507 @@ export function initExport(deps) {
 
     const headerH = Math.round(topPad + (isStory ? 28 : 30) * u + (metaWrapped ? 44 : 24) * u + 22 * u);
     const tickBandH = withGraticule ? Math.round(24 * u) : Math.round(10 * u);
-    const extraLegendRow = (includeStrikes && !includeRadar && W >= 1400) || (!includeStrikes && !includeRadar) ? 0 : Math.round(28 * u);
+    const extraLegendRow = (includeStrikes && !includeRadar && W >= 1360) || (!includeStrikes && !includeRadar) ? 0 : Math.round(28 * u);
     const legendH = withKey ? Math.round(52 * u + extraLegendRow) : Math.round(12 * u);
     const bottomPad = Math.round(10 * u);
     const mapX = leftM;
     const mapY = headerH;
-    const mapH = Math.max(320, H - mapY - tickBandH - legendH - bottomPad);
+    const mapH = Math.max(260, H - mapY - tickBandH - legendH - bottomPad);
+
+    return {
+      W, H, u, F, isStory, topPad, mapX, mapY, mapW, mapH, tickBandH, legendH,
+      spreadActive, multiRegion, domainTag, titleText, validStr, initStr, microLeft, microRight, metaWrapped,
+    };
+  }
+
+  function composeChartFrame(g, layout, {
+    drawMapLayer, project, unproject, items, extent, isDark, logoImg,
+    withGraticule, withBbox, withKey, includeStrikes, includeRadar,
+    stampText, progressFrac,
+  }) {
+    const {
+      W, H, u, F, isStory, topPad, mapX, mapY, mapW, mapH, tickBandH, legendH,
+      spreadActive, multiRegion, domainTag, titleText, validStr, initStr, microLeft, microRight, metaWrapped,
+    } = layout;
+
+    // 1. White Pivotal-Weather-style outer matte
+    g.fillStyle = '#ffffff';
+    g.fillRect(0, 0, W, H);
+
+    // 2. Top header typography
+    let y = topPad + Math.round(22 * u);
+    g.font = F(isStory ? 13.5 : 15, 700);
+    const domW = g.measureText(domainTag).width;
+    g.textAlign = 'right';
+    g.fillStyle = '#1e3a8a';
+    g.fillText(domainTag, mapX + mapW, y);
+
+    g.textAlign = 'left';
+    g.font = F(isStory ? 22 : 25, 800);
+    g.fillStyle = '#0b1320';
+    g.fillText(titleText, mapX, y, Math.max(120, mapW - domW - 14 * u));
+
+    y += Math.round((isStory ? 24 : 25) * u);
+    g.font = F(isStory ? 15.5 : 17, 600);
+    g.fillStyle = '#1e293b';
+    if (metaWrapped) {
+      g.fillText(validStr, mapX, y, mapW);
+      y += Math.round(20 * u);
+      g.fillStyle = '#334155';
+      g.fillText(initStr, mapX, y, mapW);
+    } else {
+      g.fillText(validStr, mapX, y);
+      g.textAlign = 'right';
+      g.fillText(initStr, mapX + mapW, y);
+      g.textAlign = 'left';
+    }
+
+    const microY = mapY - Math.round(6 * u);
+    g.font = F(11.5, 500);
+    g.fillStyle = '#475569';
+    g.textAlign = 'right';
+    const mrW = g.measureText(microRight).width;
+    g.fillText(microRight, mapX + mapW, microY);
+    g.textAlign = 'left';
+    g.fillText(microLeft, mapX, microY, Math.max(100, mapW - mrW - 16 * u));
+
+    // 3. Base map + animated/static overlays inside clipped map frame
+    g.save();
+    g.beginPath();
+    g.rect(mapX, mapY, mapW, mapH);
+    g.clip();
+    drawMapLayer(g, mapX, mapY, mapW, mapH);
+    g.restore();
+
+    // 4. Graticule + edge ticks
+    if (withGraticule) {
+      drawGraticuleAndTicks(g, { mapX, mapY, mapW, mapH, project, unproject, isDark, u });
+    }
+
+    // 5. Draw top-right timestamp badge (if radar / animation timestamp active) & compute exclusion rects
+    let stampBox = null;
+    if (stampText) {
+      const sFont = F(13.5, 700);
+      g.font = sFont;
+      const tw = g.measureText(stampText).width;
+      const sxPad = Math.round(10 * u);
+      const pillW = Math.round(tw + sxPad * 2 + 10 * u);
+      const pillH = Math.round(26 * u);
+      const px = mapX + mapW - Math.round(12 * u) - pillW;
+      const py = mapY + Math.round(12 * u);
+      stampBox = { x: px, y: py, w: pillW, h: pillH };
+
+      g.save();
+      g.fillStyle = isDark ? 'rgba(11,18,32,0.9)' : 'rgba(255,255,255,0.94)';
+      g.strokeStyle = isDark ? 'rgba(248,250,252,0.65)' : 'rgba(15,27,45,0.55)';
+      g.lineWidth = Math.max(1.2, 1.3 * u);
+      roundRectPath(g, px, py, pillW, pillH, 5 * u);
+      g.fill();
+      g.stroke();
+
+      // Status dot
+      g.beginPath();
+      g.arc(px + sxPad + 3 * u, py + pillH / 2, Math.max(3, 3.5 * u), 0, Math.PI * 2);
+      g.fillStyle = '#16a34a';
+      g.fill();
+
+      g.fillStyle = isDark ? '#f8fafc' : '#0f172a';
+      g.textBaseline = 'middle';
+      g.textAlign = 'left';
+      g.fillText(stampText, px + sxPad + 11 * u, py + pillH / 2 + 0.5);
+      g.restore();
+      g.textBaseline = 'alphabetic';
+    }
+
+    // Optional thin playback progress bar across top inside border for GIF/Video animations
+    if (progressFrac != null) {
+      const barH = Math.max(3, Math.round(4 * u));
+      g.fillStyle = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(15,23,42,0.12)';
+      g.fillRect(mapX, mapY, mapW, barH);
+      g.fillStyle = '#2f5fe0';
+      g.fillRect(mapX, mapY, Math.round(mapW * Math.max(0, Math.min(1, progressFrac))), barH);
+    }
+
+    // Estimate logo dimensions cleanly before drawDomainBoxes so region badges avoid it
+    const estLogoH = Math.round(52 * u);
+    const estLogoW = logoImg && logoImg.naturalWidth > 0
+      ? Math.round(estLogoH * ((logoImg.naturalWidth * 0.91) / (logoImg.naturalHeight * 0.41)))
+      : Math.round(145 * u);
+
+    // 6. Forecast domain bounding box(es) + non-overlapping region labels
+    if (withBbox) {
+      drawDomainBoxes(g, {
+        items, mapX, mapY, mapW, mapH,
+        project,
+        isDark,
+        singleRegion: !multiRegion && extent !== 'current',
+        logoBox: { w: estLogoW, h: estLogoH },
+        stampBox,
+      });
+    }
+
+    // 7. Bottom corner attribution (left) & official repo logo (right)
+    const halo = isDark ? 'rgba(8,14,24,0.92)' : 'rgba(255,255,255,0.94)';
+    const ink = isDark ? '#f8fafc' : '#0b1320';
+    const padIn = Math.round(12 * u);
+
+    g.font = F(16, 700);
+    g.textAlign = 'left';
+    g.textBaseline = 'bottom';
+    drawHalodText(g, 'handry-outlook.github.io/HOCO-V2.0', mapX + padIn, mapY + mapH - padIn + 1, halo, ink, Math.max(3, 4.5 * u));
+    g.textBaseline = 'alphabetic';
+
+    drawBrandLogo(g, logoImg, { mapX, mapY, mapW, mapH, padIn, isDark, u });
+
+    // 8. Outer crisp border enclosing map viewport
+    g.strokeStyle = '#0f172a';
+    g.lineWidth = Math.max(1.6, 2 * u);
+    g.lineJoin = 'miter';
+    g.strokeRect(mapX, mapY, mapW, mapH);
+
+    // 9. Bottom colorbar + legend strip
+    if (withKey) {
+      drawLegendStrip(g, {
+        W, mapX, mapW,
+        stripY: mapY + mapH + tickBandH,
+        stripH: legendH,
+        spreadActive,
+        includeStrikes,
+        includeRadar,
+        u,
+      });
+    }
+  }
+
+  async function renderExport(kind = EX.size, optsOrWithKey = {}) {
+    const opts = typeof optsOrWithKey === 'boolean'
+      ? { key: optsOrWithKey }
+      : (optsOrWithKey || {});
+    const run = opts.run || O.run;
+    if (!run) throw new Error('No active run to export');
+
+    const [W, H] = EXPORTS[kind] || EXPORTS.landscape;
+    const extent = opts.extent || EX.extent;
+    const withKey = opts.key !== undefined ? !!opts.key : EX.key;
+    const withBbox = opts.bbox !== undefined ? !!opts.bbox : EX.bbox;
+    const withGraticule = opts.graticule !== undefined ? !!opts.graticule : (withBbox && EX.graticule);
+    const includeStrikes = opts.strikes !== undefined ? !!opts.strikes : !!O.strikes;
+    const includeRadar = opts.radar !== undefined ? !!opts.radar : !!O.radar;
+    const radarTime = opts.radarTime !== undefined ? opts.radarTime : (includeRadar ? O.t : null);
+
+    const info = opts.regionInfo || findAvailableRegionRuns(run);
+    const [data, logoImg] = await Promise.all([loadExportData(run, info, extent), loadBrandLogo()]);
+    const { items, mergedGeo, spreadGeo } = data;
+
+    const layout = computeLayout({
+      W, H, run, extent, items, includeStrikes, includeRadar,
+      withKey, withBbox, withGraticule, radarTime,
+    });
 
     const capture = await captureMapFrame({
-      mapW, mapH, extent, items, mergedGeo, spreadGeo, includeStrikes, includeRadar,
+      mapW: layout.mapW, mapH: layout.mapH, extent, items, mergedGeo, spreadGeo,
+      includeStrikes, includeRadar, radarTime,
     });
 
     try {
+      // Refresh microLeft if capture computed strike count
+      const finalLayout = computeLayout({
+        W, H, run, extent, items, includeStrikes, includeRadar,
+        withKey, withBbox, withGraticule, radarTime, strikeCount: capture.strikeCount,
+      });
       const canvas = document.createElement('canvas');
       canvas.width = W;
       canvas.height = H;
       const g = canvas.getContext('2d');
-
-      // 1. Crisp white Pivotal-Weather-style outer matte
-      g.fillStyle = '#ffffff';
-      g.fillRect(0, 0, W, H);
-
-      // 2. Top header typography
-      let y = topPad + Math.round(22 * u);
-      g.font = F(isStory ? 22 : 25, 800);
-      g.fillStyle = '#0b1320';
-      const domainFont = F(isStory ? 13.5 : 15, 700);
-      g.font = domainFont;
-      const domW = g.measureText(domainTag).width;
-      g.textAlign = 'right';
-      g.fillStyle = '#1e3a8a';
-      g.fillText(domainTag, mapX + mapW, y);
-
-      g.textAlign = 'left';
-      g.font = F(isStory ? 22 : 25, 800);
-      g.fillStyle = '#0b1320';
-      g.fillText(titleText, mapX, y, Math.max(120, mapW - domW - 14 * u));
-
-      y += Math.round((isStory ? 24 : 25) * u);
-      g.font = F(isStory ? 15.5 : 17, 600);
-      g.fillStyle = '#1e293b';
-      if (metaWrapped) {
-        g.fillText(validStr, mapX, y, mapW);
-        y += Math.round(20 * u);
-        g.fillStyle = '#334155';
-        g.fillText(initStr, mapX, y, mapW);
-      } else {
-        g.fillText(validStr, mapX, y);
-        g.textAlign = 'right';
-        g.fillText(initStr, mapX + mapW, y);
-        g.textAlign = 'left';
-      }
-
-      // Micro-attribution / peak line directly above the map border (exact Pivotal Weather position)
-      const microY = mapY - Math.round(6 * u);
-      g.font = F(11.5, 500);
-      g.fillStyle = '#475569';
-      g.textAlign = 'right';
-      const mrW = g.measureText(microRight).width;
-      g.fillText(microRight, mapX + mapW, microY);
-      g.textAlign = 'left';
-      g.fillText(microLeft, mapX, microY, Math.max(100, mapW - mrW - 16 * u));
-
-      // 3. Draw map into clipped frame
-      capture.drawMapTo(g, mapX, mapY);
-
       const isDark = !!X.mapIsDark?.();
+      const stampText = includeRadar && radarTime != null ? `Radar · ${fmtUtcShort(new Date(radarTime))}` : '';
 
-      // 4. Graticule + outside coordinate ticks
-      if (withGraticule) {
-        drawGraticuleAndTicks(g, {
-          mapX, mapY, mapW, mapH,
-          project: capture.project,
-          unproject: capture.unproject,
-          isDark,
-          u,
-        });
-      }
-
-      // 5. Forecast domain bounding box(es) + non-overlapping corner badges
-      if (withBbox) {
-        drawDomainBoxes(g, {
-          items, mapX, mapY, mapW, mapH,
-          project: capture.project,
-          isDark,
-          singleRegion: !multiRegion && capture.effectiveExtent !== 'current',
-        });
-      }
-
-      // 6. Subtle Pivotal-Weather-style corner watermarks inside map frame
-      const halo = isDark ? 'rgba(8,14,24,0.92)' : 'rgba(255,255,255,0.94)';
-      const ink = isDark ? '#f8fafc' : '#0b1320';
-      const padIn = Math.round(12 * u);
-
-      // Bottom-left URL mark
-      g.font = F(16.5, 700);
-      g.textAlign = 'left';
-      g.textBaseline = 'bottom';
-      drawHalodText(g, 'handry-outlook.github.io/HOCO-V2.0', mapX + padIn, mapY + mapH - padIn + 1, halo, ink, Math.max(3, 4.5 * u));
-
-      // Bottom-right vector Handry Outlook emblem + wordmark
-      const wmText = 'handry outlook';
-      g.font = F(26, 800);
-      const wmW = g.measureText(wmText).width;
-      const embR = Math.round(13 * u);
-      const wmRight = mapX + mapW - padIn;
-      const wmY = mapY + mapH - padIn + 2;
-      g.textAlign = 'right';
-      drawHalodText(g, wmText, wmRight, wmY, halo, ink, Math.max(3.5, 5.5 * u));
-
-      // Draw crisp rounded badge behind the rainbow arc emblem right beside the wordmark
-      const embCx = wmRight - wmW - embR - 9 * u;
-      const embCy = wmY - 4 * u;
-      const badgeSize = embR * 2 + 6 * u;
-      g.save();
-      roundRectPath(g, embCx - badgeSize / 2, embCy - badgeSize * 0.72, badgeSize, badgeSize * 0.86, 5 * u);
-      g.fillStyle = '#283673';
-      g.fill();
-      g.strokeStyle = halo;
-      g.lineWidth = Math.max(1.5, 2 * u);
-      g.stroke();
-      drawBrandEmblem(g, embCx, embCy + badgeSize * 0.04, embR * 0.86);
-      g.restore();
-
-      g.textAlign = 'left';
-      g.textBaseline = 'alphabetic';
-
-      // 7. Outer black border enclosing the map viewport
-      g.strokeStyle = '#0f172a';
-      g.lineWidth = Math.max(1.6, 2 * u);
-      g.lineJoin = 'miter';
-      g.strokeRect(mapX, mapY, mapW, mapH);
-
-      // 8. Bottom colorbar legend strip
-      if (withKey) {
-        drawLegendStrip(g, {
-          W, mapX, mapW,
-          stripY: mapY + mapH + tickBandH,
-          stripH: legendH,
-          spreadActive,
-          includeStrikes,
-          includeRadar,
-          u,
-        });
-      }
+      composeChartFrame(g, finalLayout, {
+        drawMapLayer: (ctx, mx, my) => capture.drawMapTo(ctx, mx, my),
+        project: capture.project,
+        unproject: capture.unproject,
+        items,
+        extent: capture.effectiveExtent,
+        isDark,
+        logoImg,
+        withGraticule,
+        withBbox,
+        withKey,
+        includeStrikes,
+        includeRadar,
+        stampText,
+      });
 
       return canvas;
     } finally {
       capture.cleanup();
     }
+  }
+
+  function animationWindow(run, format = 'gif') {
+    if (!run) return { available: false, reason: 'No forecast selected.' };
+    const st = X.startOf(run)?.getTime();
+    let en = X.endOf(run)?.getTime();
+    if (!Number.isFinite(st) || !Number.isFinite(en)) return { available: false, reason: 'Forecast period is unavailable.' };
+    if (['automated', 'ai'].includes(run.type) && new Date(en).getUTCMinutes() === 59) en += 60000;
+
+    const startMs = frameOf(st);
+    const endMs = frameOf(Math.min(en, Date.now() - RADAR_STEP));
+    if (endMs <= startMs) {
+      return { available: false, reason: 'Animation is available once this forecast period has started.' };
+    }
+
+    const span = endMs - startMs;
+    const maxFrames = format === 'gif' ? 36 : 48;
+    const candidateSteps = [5, 10, 15, 20, 30, 45, 60].map((m) => m * 60000);
+    const stepMs = candidateSteps.find((s) => Math.floor(span / s) + 1 <= maxFrames) || 60 * 60000;
+    const frames = [];
+    for (let t = startMs; t <= endMs; t += stepMs) frames.push(t);
+    if (frames.at(-1) !== endMs) frames.push(endMs);
+
+    return { available: true, startMs, endMs, stepMs, frames };
+  }
+
+  // Draw accumulating & colour-decaying lightning strikes up to frameMs (never disappearing once struck)
+  function drawAccumulatingStrikes(ctx, strikes, frameMs, decayRefMs, project, mapX, mapY, u) {
+    if (!strikes?.length) return 0;
+    const buckets = [[], [], [], [], []]; // 0 = newest gold ... 4 = oldest plum
+    let count = 0;
+
+    for (const p of strikes) {
+      if (p.t > frameMs) break;
+      count++;
+      const age = frameMs - p.t;
+      const cls = age <= decayRefMs ? 0
+        : age <= decayRefMs * 2.2 ? 1
+          : age <= decayRefMs * 4.5 ? 2
+            : age <= decayRefMs * 9.0 ? 3
+              : 4;
+      buckets[cls].push(p);
+    }
+
+    const radii = [4.9 * u, 4.0 * u, 3.4 * u, 2.9 * u, 2.5 * u];
+    const alphas = [1.0, 0.96, 0.90, 0.84, 0.76];
+    const strokeCol = '#1a1205';
+
+    // Paint oldest decayed strikes first, ending with newest bright gold strikes on top
+    for (let c = 4; c >= 0; c--) {
+      const grp = buckets[c];
+      if (!grp.length) continue;
+      ctx.save();
+      ctx.fillStyle = STRIKE_CLASSES[c][0];
+      ctx.strokeStyle = strokeCol;
+      ctx.lineWidth = Math.max(0.6, (c === 0 ? 1.15 : 0.7) * u);
+      ctx.globalAlpha = alphas[c];
+      const r = Math.max(2, radii[c]);
+      for (const p of grp) {
+        const [px, py] = project(p.lon, p.lat);
+        ctx.beginPath();
+        ctx.arc(mapX + px, mapY + py, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    return count;
+  }
+
+  function buildGifPalette(isDark) {
+    const cols = [
+      '#ffffff', '#000000', '#0f172a', '#0f1b2d', '#1e293b', '#334155', '#475569',
+      '#283673', '#2f5fe0', '#1e3a8a', '#16a34a',
+      isDark ? '#16202e' : '#cddde9',
+      isDark ? '#2a3340' : '#f4f5f0',
+    ];
+    for (const b of X.BANDS || []) cols.push(b.fill);
+    for (const [sc] of STRIKE_CLASSES || []) cols.push(sc);
+    for (let i = 0; i < (OPERATIONAL?.length || 0); i += 2) cols.push(OPERATIONAL[i]);
+    return cols.slice(0, 40);
+  }
+
+  async function renderAnimation(format = 'gif', opts = {}) {
+    const run = opts.run || O.run;
+    if (!run) throw new Error('No active run to export');
+
+    const sizeKey = opts.size || EX.size;
+    const extent = opts.extent || EX.extent;
+    const withKey = opts.key !== undefined ? !!opts.key : EX.key;
+    const withBbox = opts.bbox !== undefined ? !!opts.bbox : EX.bbox;
+    const withGraticule = opts.graticule !== undefined ? !!opts.graticule : (withBbox && EX.graticule);
+    const animRadar = opts.animRadar !== undefined ? !!opts.animRadar : EX.animRadar;
+    const animStrikes = opts.animStrikes !== undefined ? !!opts.animStrikes : EX.animStrikes;
+    const onProgress = opts.onProgress;
+    const signal = opts.signal;
+
+    const win = opts.window || animationWindow(run, format);
+    if (!win.available) throw new Error(win.reason || 'Animation unavailable for this forecast period');
+    if (signal?.aborted) throw new DOMException('Export cancelled', 'AbortError');
+
+    const [W, H] = ANIM_SIZES[format]?.[sizeKey] || ANIM_SIZES.gif.landscape;
+    const info = opts.regionInfo || findAvailableRegionRuns(run);
+    const [data, logoImg] = await Promise.all([loadExportData(run, info, extent), loadBrandLogo()]);
+    const { items, mergedGeo, spreadGeo } = data;
+
+    const baseLayout = computeLayout({
+      W, H, run, extent, items,
+      includeStrikes: animStrikes, includeRadar: animRadar,
+      withKey, withBbox, withGraticule, obsStamp: win.startMs,
+    });
+
+    onProgress?.({ phase: 'Preparing map & strikes…', index: 0, total: win.frames.length, t: win.startMs });
+
+    // Capture static base map (without radar/strikes) ONCE, then release WebGL context immediately
+    const capture = await captureMapFrame({
+      mapW: baseLayout.mapW, mapH: baseLayout.mapH, extent, items, mergedGeo, spreadGeo,
+      includeStrikes: false, includeRadar: false,
+    });
+
+    const baseCanvas = document.createElement('canvas');
+    baseCanvas.width = baseLayout.mapW;
+    baseCanvas.height = baseLayout.mapH;
+    let proj, nw, se, effExtent;
+    try {
+      capture.drawMapTo(baseCanvas.getContext('2d'), 0, 0);
+      nw = capture.nw;
+      se = capture.se;
+      effExtent = capture.effectiveExtent;
+      proj = createMercatorProjector(nw, se, baseLayout.mapW, baseLayout.mapH);
+    } finally {
+      capture.cleanup();
+    }
+    if (signal?.aborted) throw new DOMException('Export cancelled', 'AbortError');
+
+    let allStrikes = [];
+    if (animStrikes) {
+      const rawStrikes = await loadStrikes(win.startMs, win.endMs + RADAR_STEP).catch(() => []);
+      allStrikes = filterStrikesToBounds(rawStrikes || [], items, nw, se)
+        .filter((p) => p.t >= win.startMs && p.t <= win.endMs + RADAR_STEP)
+        .sort((a, b) => a.t - b.t);
+    }
+
+    const decayRefMs = Math.min(45 * 60000, Math.max(win.stepMs, Math.round((win.endMs - win.startMs) / 16)));
+    const isDark = !!X.mapIsDark?.();
+    const radarAlpha = X.radarOpacity ? X.radarOpacity() : 0.85;
+
+    const frameCanvas = document.createElement('canvas');
+    frameCanvas.width = W;
+    frameCanvas.height = H;
+    const fCtx = frameCanvas.getContext('2d', { willReadFrequently: format === 'gif' });
+    const radarBuf = document.createElement('canvas');
+    const capturedSampleFrames = opts.captureFrames ? [] : null;
+
+    const drawSingleFrame = async (t, frameIdx, totalFrames) => {
+      if (signal?.aborted) throw new DOMException('Export cancelled', 'AbortError');
+      if (animRadar && renderRadarCanvas) {
+        const rdCtx = radarBuf.getContext('2d');
+        radarBuf.width = baseLayout.mapW;
+        radarBuf.height = baseLayout.mapH;
+        rdCtx.clearRect(0, 0, baseLayout.mapW, baseLayout.mapH);
+        await renderRadarCanvas(radarBuf, nw, se, baseLayout.mapW, baseLayout.mapH, t, Math.round(proj.approxZoom)).catch(() => 0);
+      }
+
+      const d = new Date(t);
+      let strikeCount = 0;
+      if (animStrikes) {
+        for (const p of allStrikes) { if (p.t <= t) strikeCount++; else break; }
+      }
+
+      const layout = computeLayout({
+        W, H, run, extent, items,
+        includeStrikes: animStrikes, includeRadar: animRadar,
+        withKey, withBbox, withGraticule, obsStamp: t, strikeCount,
+      });
+
+      composeChartFrame(fCtx, layout, {
+        drawMapLayer(ctx, mx, my, mw, mh) {
+          ctx.drawImage(baseCanvas, mx, my, mw, mh);
+          if (animRadar && radarBuf.width > 0) {
+            ctx.save();
+            ctx.globalAlpha = radarAlpha;
+            ctx.drawImage(radarBuf, mx, my, mw, mh);
+            ctx.restore();
+          }
+          if (animStrikes) {
+            drawAccumulatingStrikes(ctx, allStrikes, t, decayRefMs, proj.project, mx, my, layout.u);
+          }
+        },
+        project: proj.project,
+        unproject: proj.unproject,
+        items,
+        extent: effExtent,
+        isDark,
+        logoImg,
+        withGraticule,
+        withBbox,
+        withKey,
+        includeStrikes: animStrikes,
+        includeRadar: animRadar,
+        stampText: `${fmtUtcShort(d)} · ${fmtLocal(d)} loc`,
+        progressFrac: totalFrames > 1 ? frameIdx / (totalFrames - 1) : 1,
+      });
+
+      return { strikeCount };
+    };
+
+    if (format === 'video') {
+      const mime = pickVideoMime();
+      if (mime === null || typeof frameCanvas.captureStream !== 'function') {
+        throw new Error('Video export is not supported in this browser — try GIF animation instead.');
+      }
+      let stream = frameCanvas.captureStream(0);
+      let track = stream.getVideoTracks?.()[0];
+      if (typeof track?.requestFrame !== 'function') {
+        stream.getTracks().forEach((tr) => tr.stop());
+        stream = frameCanvas.captureStream(10);
+        track = stream.getVideoTracks?.()[0];
+      }
+      const chunks = [];
+      const rec = mime ? new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 2_800_000 }) : new MediaRecorder(stream);
+      rec.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+
+      const stopped = new Promise((resolve, reject) => {
+        rec.onstop = () => resolve(new Blob(chunks, { type: rec.mimeType || mime || 'video/webm' }));
+        rec.onerror = (e) => reject(e.error || new Error('Video recording failed'));
+      });
+
+      rec.start(100);
+      try {
+        for (let i = 0; i < win.frames.length; i++) {
+          const t = win.frames[i];
+          const infoFrame = await drawSingleFrame(t, i, win.frames.length);
+          if (capturedSampleFrames && (i === 0 || i === win.frames.length - 1)) {
+            capturedSampleFrames.push({ index: i, t, strikeCount: infoFrame.strikeCount, dataUrl: frameCanvas.toDataURL('image/png') });
+          }
+          track?.requestFrame?.();
+          onProgress?.({ phase: 'Recording video…', index: i + 1, total: win.frames.length, t });
+          await new Promise((r) => setTimeout(r, i === win.frames.length - 1 ? 900 : 170));
+        }
+        track?.requestFrame?.();
+      } finally {
+        try { if (rec.state !== 'inactive') rec.stop(); } catch {}
+        stream.getTracks().forEach((tr) => tr.stop());
+      }
+
+      const blob = await stopped;
+      const ext = (blob.type || '').includes('mp4') ? 'mp4' : 'webm';
+      return { blob, ext, frames: win.frames.length, sampleFrames: capturedSampleFrames };
+    }
+
+    // GIF animation encoding
+    const gif = createGifEncoder({ width: W, height: H, paletteColors: buildGifPalette(isDark) });
+    for (let i = 0; i < win.frames.length; i++) {
+      const t = win.frames[i];
+      const infoFrame = await drawSingleFrame(t, i, win.frames.length);
+      if (capturedSampleFrames && (i === 0 || i === win.frames.length - 1)) {
+        capturedSampleFrames.push({ index: i, t, strikeCount: infoFrame.strikeCount, dataUrl: frameCanvas.toDataURL('image/png') });
+      }
+      const rgba = fCtx.getImageData(0, 0, W, H).data;
+      gif.addFrame(rgba, i === win.frames.length - 1 ? 120 : 18);
+      onProgress?.({ phase: 'Encoding GIF…', index: i + 1, total: win.frames.length, t });
+      await new Promise((r) => setTimeout(r, 0));
+    }
+
+    return { blob: gif.finish(), ext: 'gif', frames: win.frames.length, sampleFrames: capturedSampleFrames };
   }
 
   function bboxRing(r) {
@@ -1107,10 +1582,11 @@ export function initExport(deps) {
     const curReg = canonicalRegion(run);
     const info = findAvailableRegionRuns(run);
     let busy = false;
+    let abortCtrl = null;
+    let confirmRadar = null; // null | { action: 'download' | 'share' }
 
     const alive = () => dlgGen === gen && !d.classList.contains('hidden');
 
-    // If Hourcast (timing) is active, check sibling manifests in the background and update the dialog if still open
     if (info.isTiming && info.entries.some((e) => e.pendingTiming)) {
       info.resolveTiming().then((resolved) => {
         if (!alive()) return;
@@ -1121,9 +1597,20 @@ export function initExport(deps) {
       });
     }
 
+    const closeDialog = () => {
+      abortCtrl?.abort();
+      d.classList.add('hidden');
+    };
+
     const draw = () => {
       const canAll = info.entries.length > 1;
       if (EX.extent === 'all' && !canAll) EX.extent = 'region';
+      const isAnim = EX.file === 'gif' || EX.file === 'video';
+      const isMedia = EX.file === 'png' || isAnim;
+      const animWin = isAnim ? animationWindow(run, EX.file) : null;
+      const canVideo = typeof MediaRecorder !== 'undefined';
+      if (EX.file === 'video' && !canVideo) EX.file = 'gif';
+
       const extentLabel = EX.extent === 'current'
         ? `${curReg.name} · Current view`
         : EX.extent === 'all' && canAll
@@ -1140,44 +1627,178 @@ export function initExport(deps) {
         ['all', 'All regions', canAll ? `${info.entries.length} regions` : 'Only 1 region', !canAll],
       ];
 
-      d.innerHTML = `<section class="dialog" role="dialog" aria-modal="true" aria-label="Export chart">
+      const sizePresets = isAnim
+        ? Object.entries(ANIM_SIZES[EX.file]).map(([k, [w, h]]) => [k, w, h, EXPORTS[k][2]])
+        : Object.entries(EXPORTS).map(([k, [w, h, l]]) => [k, w, h, l]);
+
+      const fileBtns = [
+        ['png', 'PNG image', false],
+        ['gif', 'GIF animation', false],
+        ['video', 'Video', !canVideo],
+        ['kml', 'KML', false],
+      ];
+
+      let confirmHtml = '';
+      if (confirmRadar) {
+        const hasFrame = O.t != null;
+        const tsUtc = hasFrame ? fmtUtc(new Date(O.t)) : '';
+        const tsHm = hasFrame ? fmtUtcHm(new Date(O.t)) : '';
+        const tsLocal = hasFrame ? fmtLocal(new Date(O.t)) : '';
+        confirmHtml = `<div class="exconfirm" role="alertdialog" aria-label="Confirm radar layer">
+          <b>${hasFrame ? 'Include radar in PNG export?' : 'No radar frame yet'}</b>
+          <p>${hasFrame
+            ? `Radar is active at <b>${esc(tsUtc)}</b> (${esc(tsLocal)} local). Display this radar snapshot with its timestamp on the chart, or close the radar layer before exporting?`
+            : 'Radar is turned on, but no radar frame is available for this forecast time yet. Close the radar layer and export without it?'}</p>
+          <div class="chips" style="justify-content:flex-end">
+            <button class="btn" id="exRadarCancel">Back</button>
+            <button class="btn" id="exRadarOff">Close radar &amp; export</button>
+            ${hasFrame ? `<button class="btn primary" id="exRadarKeep">Keep radar (${esc(tsHm)})</button>` : ''}
+          </div>
+        </div>`;
+      }
+
+      const goLabel = EX.file === 'png'
+        ? 'Download PNG'
+        : EX.file === 'gif'
+          ? 'Export GIF'
+          : EX.file === 'video'
+            ? 'Export Video'
+            : 'Download KML';
+
+      const goDisabled = (isAnim && !animWin.available);
+
+      d.innerHTML = `<section class="dialog exdlg" role="dialog" aria-modal="true" aria-label="Export chart">
         <div class="rowbetween"><h2>Export chart</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
         <div class="expreview">
           <div class="rowbetween"><b>${run.type === 'timing' ? 'Hourcast' : run.type === 'ai' ? 'AI HOCO Outlook' : 'HOCO Thunderstorm Outlook'}</b><span class="exscope">${esc(extentLabel)}</span></div>
           <span>${esc(run.windowValidity || (st && en ? `${X.dayName(st)} ${X.hhmm(st)} – ${X.dayName(en)} ${X.hhmm(en)}` : ''))}</span>
           ${regionChips}
         </div>
+        ${confirmHtml}
+        ${!confirmRadar ? `
         <div class="setgrp"><span class="kicker">Map area</span>
           <div class="seg wide stack" role="group" aria-label="Map area">
             ${areaOpts.map(([k, l, sub, off]) => `<button data-extent="${k}" aria-pressed="${EX.extent === k}" ${off ? 'disabled' : ''}><span>${l}</span><small>${esc(sub)}</small></button>`).join('')}
           </div>
         </div>
         <label class="item layer"><span><b>Domain bounding box</b><small>Region boundary frame, corner peak label &amp; lat/lon ticks</small></span><input type="checkbox" class="switch" id="exBbox" ${EX.bbox ? 'checked' : ''}></label>
-        <label class="item layer"><span><b>Show lightning strikes</b><small>Observed strikes up to now, newest in gold</small></span><input type="checkbox" class="switch" id="exStrikes" ${O.strikes ? 'checked' : ''}></label>
-        ${EX.file === 'png' ? `<label class="item layer"><span><b>Show colour key</b><small>Probability scale &amp; strike legend below the map</small></span><input type="checkbox" class="switch" id="exKey" ${EX.key ? 'checked' : ''}></label>` : ''}
-        <div class="setgrp"><span class="kicker">File</span>
-          <div class="seg wide" role="group"><button data-file="png" aria-pressed="${EX.file === 'png'}">PNG image</button><button data-file="kml" aria-pressed="${EX.file === 'kml'}">KML (Google Earth)</button></div>
+        ${!isAnim ? `<label class="item layer"><span><b>Show lightning strikes</b><small>Observed strikes up to now, newest in gold</small></span><input type="checkbox" class="switch" id="exStrikes" ${O.strikes ? 'checked' : ''}></label>` : `
+          <label class="item layer"><span><b>Animate rain radar</b><small>Observed radar frames through the HOCO period</small></span><input type="checkbox" class="switch" id="exAnimRadar" ${EX.animRadar ? 'checked' : ''}></label>
+          <label class="item layer"><span><b>Accumulate lightning strikes</b><small>Strikes persist and decay in colour as storms evolve</small></span><input type="checkbox" class="switch" id="exAnimStrikes" ${EX.animStrikes ? 'checked' : ''}></label>
+        `}
+        ${isMedia ? `<label class="item layer"><span><b>Show colour key</b><small>Probability scale &amp; legend below the map</small></span><input type="checkbox" class="switch" id="exKey" ${EX.key ? 'checked' : ''}></label>` : ''}
+        <div class="setgrp"><span class="kicker">Format</span>
+          <div class="seg wide filegrid" role="group">${fileBtns.map(([k, l, off]) => `<button data-file="${k}" aria-pressed="${EX.file === k}" ${off ? 'disabled' : ''}>${l}</button>`).join('')}</div>
+          ${isAnim ? `<small class="muted" id="exAnimNote">${animWin.available ? `${animWin.frames.length} frames (${Math.round(animWin.stepMs / 60000)} min steps) · ${fmtUtcShort(new Date(animWin.startMs))} → ${fmtUtcShort(new Date(animWin.endMs))}` : esc(animWin.reason)}</small>` : ''}
         </div>
-        ${EX.file === 'png' ? `<div class="setgrp"><span class="kicker">Size</span>
-          <div class="seg wide stack" role="group">${Object.entries(EXPORTS).map(([k, [w, h, l]]) => `<button data-size="${k}" aria-pressed="${EX.size === k}"><span>${l}</span><small>${w}×${h}</small></button>`).join('')}</div>
+        ${isMedia ? `<div class="setgrp"><span class="kicker">Size</span>
+          <div class="seg wide stack" role="group">${sizePresets.map(([k, w, h, l]) => `<button data-size="${k}" aria-pressed="${EX.size === k}"><span>${l}</span><small>${w}×${h}</small></button>`).join('')}</div>
         </div>` : ''}
+        <div class="exprog hidden" id="exProg"><div class="rowbetween"><small id="exProgTxt">Preparing…</small><button class="linkbtn" id="exCancel" type="button">Cancel</button></div><div class="exprog-bar"><i id="exProgFill"></i></div></div>
         <div class="chips" style="justify-content:flex-end">
           <button class="btn" id="exLink">Copy link</button>
-          ${X.openEmbed ? '<button class="btn" id="exEmbed">Embed</button>' : ''}
-          <button class="btn" id="exShare">Share</button>
-          <button class="btn primary" id="exGo">Download ${EX.file.toUpperCase()}</button>
-        </div>
+          ${X.openEmbed && !isAnim ? '<button class="btn" id="exEmbed">Embed</button>' : ''}
+          <button class="btn" id="exShare" ${goDisabled ? 'disabled' : ''}>Share</button>
+          <button class="btn primary" id="exGo" ${goDisabled ? 'disabled' : ''}>${goLabel}</button>
+        </div>` : ''}
       </section>`;
 
       d.classList.remove('hidden');
-      d.querySelector('[data-x]').onclick = () => d.classList.add('hidden');
+      d.querySelector('[data-x]').onclick = closeDialog;
+
+      const setBusy = (on, txt = 'Rendering…', frac = 0) => {
+        busy = on;
+        const go = $('exGo'), sh = $('exShare'), prog = $('exProg'), fill = $('exProgFill'), ptxt = $('exProgTxt');
+        if (go) { go.disabled = on || goDisabled; go.textContent = on ? 'Rendering…' : goLabel; }
+        if (sh) sh.disabled = on || goDisabled;
+        if (prog) prog.classList.toggle('hidden', !(on && isAnim));
+        if (ptxt) ptxt.textContent = txt;
+        if (fill) fill.style.width = `${Math.round(frac * 100)}%`;
+      };
+
+      const runExportAction = async (action, overrides = {}) => {
+        if (busy) return;
+        abortCtrl = new AbortController();
+        const { signal } = abortCtrl;
+        setBusy(true, isAnim ? 'Preparing animation…' : 'Rendering…', 0);
+        if (!isAnim) X.toast(EX.extent === 'current' ? 'Preparing…' : 'Rendering chart…');
+        try {
+          let blob, ext = EX.file;
+          if (EX.file === 'kml') {
+            const xml = await buildKml(run, info, EX.extent, EX.bbox);
+            blob = new Blob([xml], { type: 'application/vnd.google-earth.kml+xml' });
+          } else if (isAnim) {
+            const res = await renderAnimation(EX.file, {
+              run, regionInfo: info, extent: EX.extent, size: EX.size,
+              key: EX.key, bbox: EX.bbox, graticule: EX.bbox,
+              animRadar: EX.animRadar, animStrikes: EX.animStrikes,
+              signal,
+              onProgress({ phase, index, total }) {
+                if (alive()) setBusy(true, `${phase} ${index}/${total}`, total ? index / total : 0);
+              },
+            });
+            blob = res.blob;
+            ext = res.ext;
+          } else {
+            if (O.strikes && O.loadingStrikes) await new Promise((r) => setTimeout(r, 1500));
+            const c = await renderExport(EX.size, {
+              run, regionInfo: info, extent: EX.extent, key: EX.key, bbox: EX.bbox, graticule: EX.bbox, ...overrides,
+            });
+            blob = await new Promise((resolve, reject) => c.toBlob((b) => b ? resolve(b) : reject(new Error('PNG encode failed')), 'image/png'));
+          }
+
+          const outExt = ext;
+          const suffix = EX.file === 'kml' ? '' : `-${EX.size}`;
+          const filename = `${fileBase(run, EX.extent, info.entries)}${suffix}.${outExt}`;
+
+          if (action === 'share') {
+            const f = new File([blob], filename, { type: blob.type });
+            if (navigator.canShare?.({ files: [f] })) {
+              try { await navigator.share({ files: [f], title: 'HOCO outlook', url: location.href }); return; } catch { return; }
+            }
+            try { await navigator.clipboard.writeText(location.href); X.toast('Sharing files is not supported here, so the link was copied'); }
+            catch { X.toast(location.href); }
+            return;
+          }
+          await download(blob, filename);
+          X.toast(EX.file === 'kml' ? 'KML saved' : isAnim ? 'Animation saved' : 'Chart saved');
+        } catch (err) {
+          if (err?.name === 'AbortError') X.toast('Export cancelled');
+          else { console.error('[export]', err); X.toast(err?.message || 'Could not prepare export'); }
+        } finally {
+          abortCtrl = null;
+          if (alive()) setBusy(false);
+        }
+      };
+
+      if (confirmRadar) {
+        const pendingAction = confirmRadar.action;
+        $('exRadarCancel').onclick = () => { confirmRadar = null; draw(); };
+        $('exRadarKeep') && ($('exRadarKeep').onclick = () => {
+          const ts = O.t;
+          confirmRadar = null;
+          draw();
+          runExportAction(pendingAction, { radar: true, radarTime: ts });
+        });
+        $('exRadarOff').onclick = async () => {
+          confirmRadar = null;
+          setLayer('radar', false);
+          draw();
+          await new Promise((r) => setTimeout(r, 100));
+          runExportAction(pendingAction, { radar: false, radarTime: null });
+        };
+        return;
+      }
+
       $('exBbox').onchange = (e) => { EX.bbox = e.target.checked; };
-      $('exStrikes').onchange = (e) => setLayer('strikes', e.target.checked);
+      $('exStrikes') && ($('exStrikes').onchange = (e) => setLayer('strikes', e.target.checked));
+      $('exAnimRadar') && ($('exAnimRadar').onchange = (e) => { EX.animRadar = e.target.checked; });
+      $('exAnimStrikes') && ($('exAnimStrikes').onchange = (e) => { EX.animStrikes = e.target.checked; });
       $('exKey') && ($('exKey').onchange = (e) => { EX.key = e.target.checked; });
       d.querySelectorAll('[data-extent]:not([disabled])').forEach((b) => {
         b.onclick = () => { if (busy) return; EX.extent = b.dataset.extent; draw(); };
       });
-      d.querySelectorAll('[data-file]').forEach((b) => {
+      d.querySelectorAll('[data-file]:not([disabled])').forEach((b) => {
         b.onclick = () => { if (busy) return; EX.file = b.dataset.file; draw(); };
       });
       d.querySelectorAll('[data-size]').forEach((b) => {
@@ -1187,68 +1808,25 @@ export function initExport(deps) {
         try { await navigator.clipboard.writeText(location.href); X.toast('Link copied'); }
         catch { X.toast(location.href); }
       };
-      $('exEmbed') && ($('exEmbed').onclick = () => { d.classList.add('hidden'); X.openEmbed(); });
+      $('exEmbed') && ($('exEmbed').onclick = () => { closeDialog(); X.openEmbed(); });
+      $('exCancel') && ($('exCancel').onclick = () => abortCtrl?.abort());
 
-      const setBusy = (on) => {
-        busy = on;
-        const go = $('exGo'), sh = $('exShare');
-        if (go) { go.disabled = on; go.textContent = on ? 'Rendering…' : `Download ${EX.file.toUpperCase()}`; }
-        if (sh) sh.disabled = on;
-      };
-
-      const make = async () => {
-        if (EX.file === 'kml') {
-          const xml = await buildKml(run, info, EX.extent, EX.bbox);
-          return new Blob([xml], { type: 'application/vnd.google-earth.kml+xml' });
-        }
-        if (O.strikes && O.loadingStrikes) await new Promise((r) => setTimeout(r, 1500));
-        const c = await renderExport(EX.size, {
-          run, regionInfo: info, extent: EX.extent, key: EX.key, bbox: EX.bbox, graticule: EX.bbox,
-        });
-        return new Promise((resolve, reject) => c.toBlob((blob) => blob ? resolve(blob) : reject(new Error('PNG encode failed')), 'image/png'));
-      };
-
-      const suffix = EX.file === 'png' ? `-${EX.size}` : '';
-      const outName = () => `${fileBase(run, EX.extent, info.entries)}${suffix}.${EX.file}`;
-
-      $('exGo').onclick = async () => {
+      const triggerAction = (action) => {
         if (busy) return;
-        setBusy(true);
-        X.toast(EX.extent === 'current' ? 'Preparing…' : 'Rendering chart…');
-        try {
-          const b = await make();
-          await download(b, outName());
-          X.toast(EX.file === 'kml' ? 'KML saved' : 'Chart saved');
-        } catch (err) {
-          console.error('[export]', err);
-          X.toast('Could not prepare export');
-        } finally {
-          if (alive()) setBusy(false);
+        if (EX.file === 'png' && O.radar) {
+          confirmRadar = { action };
+          draw();
+          return;
         }
+        runExportAction(action);
       };
 
-      $('exShare').onclick = async () => {
-        if (busy) return;
-        setBusy(true);
-        try {
-          const b = await make();
-          const f = new File([b], outName(), { type: b.type });
-          if (navigator.canShare?.({ files: [f] })) {
-            try { await navigator.share({ files: [f], title: 'HOCO outlook', url: location.href }); return; } catch { return; }
-          }
-          try { await navigator.clipboard.writeText(location.href); X.toast('Sharing files is not supported here, so the link was copied'); }
-          catch { X.toast(location.href); }
-        } catch (err) {
-          console.error('[export]', err);
-          X.toast('Could not share export');
-        } finally {
-          if (alive()) setBusy(false);
-        }
-      };
+      $('exGo').onclick = () => triggerAction('download');
+      $('exShare').onclick = () => triggerAction('share');
     };
 
     draw();
   }
 
-  return { openExport, renderExport, findAvailableRegionRuns, buildKml };
+  return { openExport, renderExport, renderAnimation, animationWindow, findAvailableRegionRuns, buildKml };
 }
