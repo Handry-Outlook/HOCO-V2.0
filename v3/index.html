@@ -1048,7 +1048,7 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
   <section class="welcome" aria-label="Welcome to HOCO">
     <button class="btn icon sm wclose hidden" id="welcomeClose" aria-label="Close">✕</button>
     <div style="display:flex;align-items:center;gap:14px"><img src="icons/icon-192.png" alt="Handry Outlook" style="width:56px;height:56px;border-radius:14px"><div><h1>HOCO</h1><span class="muted" style="font-size:14px">Thunderstorm outlooks for the UK and Ireland, by Handry Outlook</span></div></div>
-    <p style="margin:0;font-size:15px;line-height:1.5">See where thunderstorms are likely over the next three days. HOCO blends several weather models every hour and checks itself against real lightning.</p>
+    <p style="margin:0;font-size:15px;line-height:1.5">See where thunderstorms are likely over the next three days. HOCO blends several weather models and checks its forecasts against real lightning.</p>
     <button class="btn primary big" id="guestBtn" type="button">See today's outlook</button>
     <form id="authForm">
       <label class="sr" for="email">Email</label><input id="email" type="email" autocomplete="email" placeholder="Email" required>
@@ -2068,7 +2068,7 @@ import('./extras.js?v=26').then((m) => {
 }).catch((e) => console.error(e));
 
 // ---------- stage 4 (settings, compare, accuracy, alerts, install, tutorial, embed, ads) ----------
-import('./stage4.js?v=27').then((m) => {
+import('./stage4.js?v=28').then((m) => {
   m.initStage4({ hourcastRuns: timing.runs, hourcastWindows: timing.windowsFor, measureDock, baseDay, extras: () => Extras, map, S, BANDS, REGIONS, db, auth, storage, doc, getDoc, getDocs, query, collection, where, orderBy, limit, addDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, dateKey, nearestPlace, regionMatches,
     colorExpr, fillColor, styleUrl, applySettings, setTheme, setProduct, setRegion, runsFor, riskAt: riskAtGeo, embed: EMBED, goDay: (d) => { S.day = d; clearCustom(); renderAll(); },
     callable: (name) => async (data) => { const f = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js'); return f.httpsCallable(f.getFunctions(app, 'us-central1'), name)(data); },

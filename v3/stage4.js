@@ -882,12 +882,15 @@ export function installBanner() {
 // ------------------------------------------------------------------ tutorial (coach marks)
 const STEPS = [
   ['#dayTabs', 'Pick a day', 'Day 0 is today and tonight, Day 1 is tomorrow, Day 2 the day after. Each shows its highest chance.'],
-  ['.runrow', 'The slider picks a run, not a time', 'HOCO issues a new run about every hour. Each run is one map for the whole period. Drag to see an earlier run; "All runs" lists them with their peaks.'],
+  ['.runrow', 'Choose an earlier forecast', 'Drag the slider to see an earlier run. "All runs" lists the runs and their peak chances. The forecast info button shows the schedule for each region.'],
   ['#summary', 'The headline', 'The highest chance of lightning within 20 km, where it is, and what changed since the last run.'],
   ['#layersBtn', 'Radar and lightning', 'Turn on rain radar and lightning strikes, then play them back through the forecast period up to now.'],
 ];
 export function startTutorial(force) {
-  if (!force) { try { if (localStorage.getItem('hocoTutorial')) return; } catch (e) { return; } }
+  if (!force) {
+    if (document.querySelector('#cookieDlg:not(.hidden) .forecast-product-info')) return;
+    try { if (localStorage.getItem('hocoTutorial')) return; } catch (e) { return; }
+  }
   let i = 0; const ov = $('coach');
   const end = () => { ov.classList.add('hidden'); ov.innerHTML = ''; try { localStorage.setItem('hocoTutorial', '1'); } catch (e) { } };
   const show = () => {
