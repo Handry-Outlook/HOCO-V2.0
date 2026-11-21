@@ -19,10 +19,31 @@ function dialog(html, label, wide) {
   return d;
 }
 export function openProductInfo() {
+  const schedules = [
+    { regions: ['England', 'Scotland'], interval: 3, hours: [1, 4, 7, 10, 13, 16, 19, 22] },
+    { regions: ['Germany', 'Poland', 'Baltics', 'France'], interval: 6, hours: [1, 7, 13, 19] },
+  ];
+  const rows = schedules.flatMap(({ regions, interval }) => regions.map(region => {
+    const cadence = `Every ${interval}h`;
+    const ai = traditionalOnlyRegion(region) ? '<td class="muted">Unavailable</td>' : `<td>${cadence}</td>`;
+    return `<tr><th scope="row">${region}</th><td>${cadence}</td>${ai}<td>${cadence}</td></tr>`;
+  })).join('');
+  const starts = schedules.map(({ interval, hours }) => {
+    const times = hours.map(hour => `${pad(hour)}:05`).map(time => `<time datetime="${time}">${time}</time>`).join('');
+    return `<dt>${interval}-hourly starts (UTC)</dt><dd>${times}</dd>`;
+  }).join('');
   const d = dialog(`<div class="rowbetween"><h2>Forecast products</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
+    <table class="forecast-schedule" aria-describedby="forecast-schedule-note">
+      <caption>Scheduled runs for Days 0–2</caption>
+      <thead><tr><th scope="col">Region</th><th scope="col">${PRODUCTS.automated.label}</th><th scope="col">${PRODUCTS.ai.label}</th><th scope="col">${PRODUCTS.timing.label}</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <dl class="forecast-starts">${starts}</dl>
+    <small class="muted" id="forecast-schedule-note">Maps appear after processing finishes. AI HOCO can be skipped for individual runs.</small>
     <dl class="forecast-defs">${['automated','ai','timing'].map(key => `<dt><b>${PRODUCTS[key].label}</b></dt><dd>${PRODUCTS[key].detail}</dd>`).join('')}</dl>
-    <small class="muted">The percentages apply to the displayed period. Use the Hourcast slider to change that period.</small>`, 'Forecast products');
+    <small class="muted">Use the Hourcast slider to view 1-hour windows on Day 0, 2-hour windows on Day 1, and 3-hour windows on Day 2.</small>`, 'Forecast products');
   const opener = document.activeElement, close = d.querySelector('[data-x]');
+  close.closest('.dialog').classList.add('forecast-product-info');
   close.onclick = () => { d.classList.add('hidden'); opener?.focus(); };
   close.focus();
 }
