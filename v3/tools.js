@@ -4,7 +4,7 @@ import { collection, query, where, orderBy, limit, getDocs, addDoc, updateDoc, d
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js";
 import { blendRuns } from './ensemble.js?v=4';
 import { encodeRunSpread } from './model-spread.js?v=1';
-import { PRODUCTS, hasHourcast, hourcastRegion, productButtons } from './products.js?v=1';
+import { PRODUCTS, hasHourcast, hourcastRegion, productButtons, traditionalOnlyRegion } from './products.js?v=2';
 
 // Real model names and run frequency (hours), as in the classic manual builder.
 const MODELS = { swisseu: { name: 'SWISS-EU', freq: 3 }, hardmi: { name: 'HARMONIE', freq: 3 }, swissnow: { name: 'SWISS-NOW', freq: 1 },
@@ -478,11 +478,13 @@ function renderManual(body) {
   if (!M.len) M.len = 12;
   const st = new Date(M.start), en = M.customEnd && M.end ? new Date(M.end) : new Date(st.getTime() + M.len * 3.6e6), hours = Math.max(1, (en - st) / 3.6e6);
   const left = cap === Infinity ? Infinity : Math.max(0, cap - T.myToday), opts = runOptions(M.model, M.start);
-  const product = M.product || 'automated', chosenRegion = M.region || X.S.region;
-  const nModels = new Set(M.scen.map(x => x.model)).size, mode = product === 'ai' ? 'learned' : M.mode || 'custom';
+  const chosenRegion = M.region || X.S.region, traditionalOnly = traditionalOnlyRegion(chosenRegion);
+  if (traditionalOnly && M.product === 'ai') M.product = 'automated';
+  const product = M.product || 'automated';
+  const nModels = new Set(M.scen.map(x => x.model)).size, mode = traditionalOnly ? 'custom' : product === 'ai' ? 'learned' : M.mode || 'custom';
   body.innerHTML = `
-    <div class="field"><span class="kicker">Forecast product</span><div class="product-choices" role="group" aria-label="Forecast product">${productButtons('manual-product', product)}</div>
-      <small class="muted">${PRODUCTS[product].detail}${product === 'timing' ? ' Manual Hourcast uses hourly windows up to 24 hours in England and Scotland.' : ''}</small></div>
+    <div class="field"><span class="kicker">Forecast product</span><div class="product-choices" role="group" aria-label="Forecast product">${productButtons('manual-product', product, traditionalOnly ? ['automated', 'timing'] : undefined)}</div>
+      <small class="muted">${PRODUCTS[product].detail}${product === 'timing' ? ' Manual Hourcast uses hourly windows up to 24 hours.' : ''}</small></div>
     <div class="field"><span class="kicker">Region</span><div class="chips">${X.REGIONS.filter(x => x.west !== undefined && (product !== 'timing' || hourcastRegion(x.id))).map(x => `<button class="chipbtn" data-reg="${x.id}" aria-pressed="${x.id === (M.region || X.S.region)}">${x.name}</button>`).join('')}</div></div>
     <div class="grid2"><label class="field"><span class="kicker">Starts</span><input type="datetime-local" id="mStart" value="${M.start}"></label>
       <div class="field"><span class="kicker">Length</span><div class="chips">${[3, 6, 12, 24].map(h => `<button class="chipbtn" data-h="${h}" aria-pressed="${!M.customEnd && M.len === h}">${h} h</button>`).join('')}</div></div></div>
@@ -490,7 +492,7 @@ function renderManual(body) {
     ${M.customEnd ? `<label class="field"><span class="kicker">Ends</span><input type="datetime-local" id="mEnd" value="${M.end || localInput(en)}"></label>` : ''}
     ${canScen ? `
       <div class="field"><div class="rowbetween"><span class="kicker">Models and runs</span><small class="muted">${M.scen.length ? `${M.scen.length} run${M.scen.length > 1 ? 's' : ''} · ${nModels} model${nModels > 1 ? 's' : ''}` : 'standard set'}</small></div>
-        <div class="seg wide" role="group" aria-label="Weighting"><button data-mode="learned" aria-pressed="${mode === 'learned'}">Learned</button><button data-mode="custom" aria-pressed="${mode === 'custom'}" ${product === 'ai' ? 'disabled' : ''}>Custom</button></div>
+        <div class="seg wide" role="group" aria-label="Weighting">${traditionalOnly ? '' : `<button data-mode="learned" aria-pressed="${mode === 'learned'}">Learned</button>`}<button data-mode="custom" aria-pressed="${mode === 'custom'}" ${product === 'ai' ? 'disabled' : ''}>Custom</button></div>
         ${mode === 'learned' ? '<small class="muted">AI HOCO\'s learned weights decide how much each model counts. Falls back to the standard weights if none is live.</small>' : ''}
         <div class="chips modelchips">${Object.entries(MODELS).map(([k, m]) => `<button class="chipbtn" data-model="${k}" aria-pressed="${k === M.model}">${m.name}</button>`).join('')}</div>
         <div class="chips runchips">${opts.map(o => { const added = M.scen.some(x => x.model === M.model && x.run === o.iso);
@@ -538,7 +540,7 @@ async function startManual() {
   if (s >= e) return X.toast('The start must be before the end');
   const product = M.product || 'automated';
   if (product === 'timing' && (!hourcastRegion(M.region || X.S.region) || e - s > 864e5 || e <= new Date())) {
-    return X.toast('Choose an active period up to 24 hours in England or Scotland.');
+    return X.toast('Choose an active period up to 24 hours in a supported Hourcast region.');
   }
   if (r !== 'developer' && (e - s) / 3.6e6 > 72) return X.toast('A run can cover up to 72 hours');
   if (cap !== Infinity && T.myToday >= cap) return X.toast(`You've used all ${cap} runs for today`);

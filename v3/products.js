@@ -10,7 +10,7 @@ export const PRODUCTS = {
   },
   timing: {
     label: 'Hourcast',
-    detail: 'Uses AI HOCO and time-specific model guidance to forecast lightning in individual valid windows.'
+    detail: 'Uses time-specific model guidance to forecast lightning in individual windows. Germany, Poland, the Baltics and France use the Traditional outlook as their basis.'
   }
 };
 
@@ -19,4 +19,5 @@ export function productButtons(attribute, value, options = ['automated', 'ai', '
 }
 
 export const hasHourcast = run => run?.stormHour === true;
-export const hourcastRegion = region => region === 'England' || region === 'Scotland';
+export const traditionalOnlyRegion = region => ['Germany', 'Poland', 'Baltics', 'France'].includes(region);
+export const hourcastRegion = region => region === 'England' || region === 'Scotland' || traditionalOnlyRegion(region);

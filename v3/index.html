@@ -879,7 +879,7 @@ body.comparing .tools{z-index:40}
 body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(--adb,0px))}
 .cx-obs{margin-bottom:var(--adb,0px)}.compare.cx{top:var(--adt,0px)}
 
-#timingPeriods,#timingStatus,.timing-details,#timingMode[hidden]{display:none}
+#timingPeriods,#timingStatus,.timing-details,#timingMode[hidden],#typeAi[hidden]{display:none}
 .timing-active #dock{flex-wrap:wrap}
 .timing-active #timingPeriods{display:flex;align-items:center;gap:10px;min-width:0;flex:0 0 100%;order:1;padding:3px 8px;border-top:1px solid var(--border)}
 .timing-active #timingPeriods[hidden]{display:none}
@@ -1060,7 +1060,8 @@ body.custom .obsbar{bottom:calc(var(--gap) + env(safe-area-inset-bottom) + var(-
 <div class="toast hidden" id="toast" role="status"></div>
 
 <script type="module">
-import { createStormTiming } from "./storm-timing.js?v=7";
+import { createStormTiming } from "./storm-timing.js?v=8";
+import { hourcastRegion, traditionalOnlyRegion } from "./products.js?v=2";
 import { decodeSpread, spreadAt, spreadMap, SPREAD_BANDS } from "./model-spread.js?v=1";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
@@ -1082,10 +1083,11 @@ const BANDS = [{min:5,fill:'#9fd8c4'},{min:10,fill:'#66c2a4'},{min:15,fill:'#b3e
 const REGIONS = [
   { id:'England', name:'England', tag:'Live', west:-10.234, south:48.788, east:5.471, north:56.578 },
   { id:'Scotland', name:'Scotland', tag:'Beta', west:-9.4482, south:55.9161, east:0, north:60 },
-  { id:'Germany', name:'Germany', tag:'Archive', west:0.9558, south:46.9809, east:16.9409, north:55.8567 },
-  { id:'Poland', name:'Poland', tag:'Archive', west:11.7142, south:47.9787, east:27.1252, north:55.4243 },
-  { id:'Baltics', name:'Baltics', tag:'Archive', west:11.6949, south:52.7695, east:36.4801, north:63.4481 },
-  { id:'France', name:'France', tag:'Coming soon' }, { id:'Spain', name:'Spain', tag:'Coming soon' }];
+  { id:'Germany', name:'Germany', tag:'Beta', west:0.9558, south:46.9809, east:16.9409, north:55.8567 },
+  { id:'Poland', name:'Poland', tag:'Beta', west:11.7142, south:47.9787, east:27.1252, north:55.4243 },
+  { id:'Baltics', name:'Baltics', tag:'Beta', west:11.6949, south:52.7695, east:36.4801, north:63.4481 },
+  { id:'France', name:'France', tag:'Beta', west:-7.9761, south:42.1448, east:12.0850, north:53.2849 },
+  { id:'Spain', name:'Spain', tag:'Coming soon' }];
 const PLACES = [['London',51.51,-0.13],['Brighton',50.82,-0.14],['Southampton',50.90,-1.40],['the Isle of Wight',50.69,-1.30],['Portsmouth',50.80,-1.09],
   ['Bournemouth',50.72,-1.88],['Exeter',50.72,-3.53],['Plymouth',50.37,-4.14],['Cornwall',50.30,-5.00],['Bristol',51.45,-2.59],['Cardiff',51.48,-3.18],
   ['Swansea',51.62,-3.94],['Mid Wales',52.40,-3.60],['North Wales',53.10,-3.80],['Birmingham',52.48,-1.90],['Oxford',51.75,-1.26],['Cambridge',52.21,0.12],
@@ -1112,7 +1114,8 @@ if (EMBED && ['light', 'dark'].includes(params.get('theme'))) S.theme = params.g
 if (params.get('region') && REGIONS.some(r => r.id === params.get('region') && r.west !== undefined)) S.region = params.get('region');
 if (['0','1','2'].includes(params.get('day'))) S.day = +params.get('day');
 if (params.get('view') === 'ai') S.product = 'ai';
-const supportsTiming = () => !S.custom && ['England','Scotland'].includes(S.region);
+if (traditionalOnlyRegion(S.region)) S.product = 'traditional';
+const supportsTiming = () => !S.custom && hourcastRegion(S.region);
 S.timing = params.get('view') === 'timing' && supportsTiming();
 let fullDayProduct = S.product;
 let initialWindow = S.timing ? params.get('window') : null;
@@ -1271,6 +1274,51 @@ function addLayers() {
     paint: { 'line-color': mapIsDark() ? 'rgba(8,16,28,0.7)' : 'rgba(16,34,56,0.55)', 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.4, 8, 1.1], 'line-opacity': 0.8 } }, label);
   if (!map.getLayer('hoco-points')) map.addLayer({ id: 'hoco-points', type: 'circle', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'point'], paint: { 'circle-radius': 12, 'circle-opacity': 0 } });
   addOutlines(label);
+  addRegionBoxes();
+}
+function addRegionBoxes() {
+  if (map.getSource('hoco-region-boxes')) return;
+  const features = REGIONS.filter(r => hourcastRegion(r.id)).flatMap(r => {
+    const properties = { id: r.id, name: r.name };
+    const { west, south, east, north } = r;
+    const ring = [[west, south], [east, south], [east, north], [west, north], [west, south]];
+    return [
+      { type: 'Feature', properties, geometry: { type: 'Polygon', coordinates: [ring] } },
+      { type: 'Feature', properties, geometry: { type: 'Point', coordinates: [(west + east) / 2, north - (north - south) * 0.13] } }
+    ];
+  });
+  map.addSource('hoco-region-boxes', { type: 'geojson', data: { type: 'FeatureCollection', features } });
+  const source = 'hoco-region-boxes';
+  const polygon = ['==', ['geometry-type'], 'Polygon'];
+  map.addLayer({ id: 'hoco-region-hit', type: 'fill', source, filter: polygon,
+    paint: { 'fill-color': '#000000', 'fill-opacity': 0.001 } });
+  map.addLayer({ id: 'hoco-region-line', type: 'line', source, filter: polygon,
+    paint: { 'line-dasharray': [0.65, 2.4], 'line-opacity': 0.80 } });
+  if (!EMBED) map.addLayer({ id: 'hoco-region-label', type: 'symbol', source,
+    filter: ['==', ['geometry-type'], 'Point'],
+    layout: { 'text-field': ['get', 'name'], 'text-size': 11, 'text-font': ['Open Sans Semibold', 'Arial Unicode MS Regular'] },
+    paint: { 'text-halo-color': mapIsDark() ? '#111a25' : '#fff', 'text-halo-width': 1.5 } });
+  syncRegionBoxes();
+}
+function syncRegionBoxes() {
+  const selected = ['==', ['get', 'id'], S.region];
+  const color = ['case', selected, mapIsDark() ? '#9ed4ff' : '#1d56ba', mapIsDark() ? '#aab9ca' : '#566a87'];
+  if (map.getLayer('hoco-region-line')) {
+    map.setPaintProperty('hoco-region-line', 'line-color', color);
+    map.setPaintProperty('hoco-region-line', 'line-width', ['case', selected, 2.5, 1.25]);
+  }
+  if (map.getLayer('hoco-region-label')) map.setPaintProperty('hoco-region-label', 'text-color', color);
+}
+function regionBoxAt(point, coords) {
+  if (EMBED || !map.getLayer('hoco-region-hit')) return null;
+  const close = [[point.x - 5, point.y - 5], [point.x + 5, point.y + 5]];
+  const edges = ['hoco-region-label', 'hoco-region-line'].filter(id => map.getLayer(id));
+  const edge = map.queryRenderedFeatures(close, { layers: edges }).find(f => f.properties.id !== S.region);
+  if (edge) return edge.properties.id;
+  const hits = map.queryRenderedFeatures(point, { layers: ['hoco-region-hit'] }).map(f => f.properties.id);
+  if (hits.includes(S.region)) return null;
+  const distance = r => Math.hypot((r.west + r.east) / 2 - coords.lng, (r.south + r.north) / 2 - coords.lat);
+  return REGIONS.filter(r => hits.includes(r.id)).sort((a, b) => distance(a) - distance(b))[0]?.id;
 }
 // Coastlines and borders drawn on top of the risk colours, so the map stays readable under high risk (as on the classic site).
 // light lines on dark maps (Dark style, satellite, or Default in dark mode), dark lines on light maps
@@ -1373,7 +1421,15 @@ let raf = null;
 map.on('mousemove', (e) => { if (raf) return; raf = requestAnimationFrame(() => { raf = null; showProbe(probeAt(e.point), e.point); }); });
 map.on('mouseout', () => probe.classList.add('hidden'));
 map.on('dragstart', () => probe.classList.add('hidden')); map.on('zoomstart', () => { if (!matchMedia('(hover:hover)').matches) probe.classList.add('hidden'); });
-map.on('click', (e) => { if (innerWidth <= 640 && $('summary').classList.contains('open')) { $('summary').classList.remove('open'); $('sumHead').setAttribute('aria-expanded', 'false'); } showProbe(probeAt(e.point), e.point); });
+map.on('click', (e) => {
+  const region = regionBoxAt(e.point, e.lngLat);
+  if (region) { setRegion(region); return; }
+  if (innerWidth <= 640 && $('summary').classList.contains('open')) {
+    $('summary').classList.remove('open');
+    $('sumHead').setAttribute('aria-expanded', 'false');
+  }
+  showProbe(probeAt(e.point), e.point);
+});
 
 // ---------- data ----------
 // "Today" is the date of the outlook in force right now (the newest run whose period covers now), so just after
@@ -1454,6 +1510,7 @@ function syncPeriodControls() {
   $('timingMode').hidden = !supportsTiming();
   $('timingMode').setAttribute('aria-pressed', S.timing);
   $('typeTrad').setAttribute('aria-pressed', !S.timing && S.product !== 'ai');
+  $('typeAi').hidden = traditionalOnlyRegion(S.region);
   $('typeAi').setAttribute('aria-pressed', !S.timing && S.product === 'ai');
 }
 function keepSourceRun(id) {
@@ -1768,6 +1825,7 @@ addEventListener('keydown', (e) => { if (e.target.closest('input,textarea,select
 
 // ---------- product, region, account ----------
 function setProduct(p) {
+  if (p === 'ai' && traditionalOnlyRegion(S.region)) return;
   const source = S.timing ? S.byDay[S.day][S.idx[S.day]]?.id : null;
   if (S.timing) setTiming(false);
   if (S.custom) clearCustom();
@@ -1794,7 +1852,30 @@ function renderRegionPop() {
   $('euBtn').onclick = () => { $('regionPop').classList.add('hidden'); Stage4.openEurope(); };
   $('regionPop').querySelectorAll('button[data-r]:not([disabled])').forEach(b => b.onclick = () => { $('regionPop').classList.add('hidden'); setRegion(b.dataset.r); });
 }
-function setRegion(id) { if (S.timing && !['England','Scotland'].includes(id)) setTiming(false); clearCustom(); if (S.archive) S.archive = null; S.region = id; $('regionName').textContent = S.region; S.idx = [null, null, null]; S.follow = [true, true, true]; buildDays(); loadPeaks(); renderAll(); fitRegion(); }
+function setRegion(id) {
+  if (id === S.region || !REGIONS.some(r => r.id === id && Number.isFinite(r.west))) return;
+  ++loadToken;
+  S.custom = null;
+  document.body.classList.remove('custom');
+  S.current = null;
+  S.timingBaseline = null;
+  timing.reset();
+  S.region = id;
+  if (traditionalOnlyRegion(id)) S.product = fullDayProduct = 'traditional';
+  if (!hourcastRegion(id)) S.timing = false;
+  S.idx = [null, null, null];
+  S.follow = [true, true, true];
+  $('regionName').textContent = id;
+  setGeo({ type: 'FeatureCollection', features: [] });
+  Extras.onEmpty();
+  syncRegionBoxes();
+  syncPeriodControls();
+  fitRegion();
+  if (S.archive?.sharedId) { setArchive(S.archive.date); return; }
+  buildDays();
+  loadPeaks();
+  renderAll();
+}
 $('regionBtn').onclick = (e) => { e.stopPropagation(); renderRegionPop(); openPop($('regionPop'), $('regionBtn')); };
 $('regionName').textContent = S.region;
 $('accountBtn').onclick = (e) => { e.stopPropagation();
@@ -1965,7 +2046,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ---------- extras (radar, strikes, export, search, change, cookies) ----------
-import('./extras.js?v=25').then((m) => {
+import('./extras.js?v=26').then((m) => {
   m.initExtras({ baseDay, runAt, showObsGeo, openSummary: () => { $('summary').classList.add('open'); $('sumHead').setAttribute('aria-expanded', 'true'); }, map, S, BANDS, REGIONS, TYPE_LABEL: LABELS, toast, openPop, measureDock, fetchGeo, peakOf, riskOf, bandFor, bandLabel, created, startOf, endOf, hhmm, dayName, dayDate,
     embed: EMBED, embedLayers: EMBED ? (params.get('layers') || '') : null, radarOpacity: () => SETTINGS.radarOpacity, showChanged: () => SETTINGS.changed !== false, openEmbed: EMBED ? null : () => Stage4.openEmbed(),
     riskAtGeo, runsFor, addDays, nearestPlace, colorExpr, mapStyle: () => SETTINGS.mapStyle, setMapStyle: (k) => { const s = { ...SETTINGS, mapStyle: k, styleV2: true }; try { localStorage.setItem('hocoSettings', JSON.stringify(s)); } catch (e) { } applySettings(s, { mapStyle: k }); },
@@ -1978,7 +2059,7 @@ import('./extras.js?v=25').then((m) => {
 }).catch((e) => console.error(e));
 
 // ---------- stage 4 (settings, compare, accuracy, alerts, install, tutorial, embed, ads) ----------
-import('./stage4.js?v=25').then((m) => {
+import('./stage4.js?v=26').then((m) => {
   m.initStage4({ hourcastRuns: timing.runs, hourcastWindows: timing.windowsFor, measureDock, baseDay, extras: () => Extras, map, S, BANDS, REGIONS, db, auth, storage, doc, getDoc, getDocs, query, collection, where, orderBy, limit, addDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, dateKey, nearestPlace, regionMatches,
     colorExpr, fillColor, styleUrl, applySettings, setTheme, setProduct, setRegion, runsFor, riskAt: riskAtGeo, embed: EMBED, goDay: (d) => { S.day = d; clearCustom(); renderAll(); },
     callable: (name) => async (data) => { const f = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js'); return f.httpsCallable(f.getFunctions(app, 'us-central1'), name)(data); },
@@ -1996,7 +2077,7 @@ function openHourcast(source, window) {
 }
 
 // ---------- tools (runs, ensemble, manual run, developer) ----------
-import('./tools.js?v=9').then((m) => {
+import('./tools.js?v=10').then((m) => {
   m.initTools({ hourcastWindows: timing.windowsFor, openHourcast, baseDay, app, auth, db, S, BANDS, REGIONS, fetchGeo, cachePut: (id, g) => cache.set(id, g), showCustom, clearCustom, toast,
     created, startOf, endOf, hhmm, dayName, dayDate, addDays, parseHocoTime, regionMatches, notifyDefault: SETTINGS.notifyRuns !== false,
     renderSettings: (b) => Stage4.renderSettings(b), comparing: () => Stage4.comparing(), loadTo: (r) => Stage4.loadTo(r), renderAds: () => Stage4.renderAds() });

@@ -21,7 +21,7 @@ function savedWindows(record) {
 
 function windowDisplayEnd(record, item) {
     // Keep the exclusive boundary for selection and comparisons, but show the final included minute.
-    return record.timingVersion === "storm-hour-v2"
+    return ["storm-hour-v2", "storm-hour-traditional-v1"].includes(record.timingVersion)
         ? new Date(item.validTo.toMillis() - 1)
         : item.validTo.toDate();
 }
@@ -30,7 +30,7 @@ function windowRun(record, item) {
     const start = item.validFrom.toDate(), end = windowDisplayEnd(record, item);
     return {
         id: record.sourceRunId + "/" + start.toISOString(), type: "timing",
-        sourceRunId: record.sourceRunId, region: record.region, geojsonUrl: item.geojsonUrl,
+        sourceRunId: record.sourceRunId, region: record.region, geojsonUrl: item.geojsonUrl, basis: record.basis,
         createdAt: record.issuedAt, ownerId: record.ownerId, validFrom: item.validFrom, validTo: item.validTo,
         windowLabel: windowHours(start, end),
         windowValidity: stamp.format(start) + " – " + stamp.format(end)
@@ -166,6 +166,9 @@ export function createStormTiming({ db, display, userId }) {
         windows = savedWindows(record);
         periods.hidden = !windows.length;
         const notes = [];
+        if (record?.basis === "traditional") notes.push(record.timingInputs === "validity-duration"
+            ? "Traditional outlook divided by window duration."
+            : "Based on Traditional HOCO and hourly model guidance.");
         if (record?.timingVersion && record.day === "day2") notes.push("Hourcast covers the first 18 hours of Day 2.");
         if (record?.timingInputs === "historical-timing") notes.push("Window estimates use the broader outlook and historical lightning timing.");
         $("timingMethod").hidden = !windows.length || !notes.length;

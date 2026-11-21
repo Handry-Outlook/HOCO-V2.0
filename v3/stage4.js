@@ -1,6 +1,6 @@
 // HOCO v3 account side: settings, compare maps (+ load a run into a map), accuracy, AI HOCO status,
 // upgrade requests, API access, install, tutorial, embed code, Europe map, ad spaces.
-import { PRODUCTS, hasHourcast, productButtons } from './products.js?v=1';
+import { PRODUCTS, hasHourcast, hourcastRegion, productButtons, traditionalOnlyRegion } from './products.js?v=2';
 
 let X;
 const $ = (id) => document.getElementById(id);
@@ -196,7 +196,7 @@ async function ensureStrikes() {
   CO.note = 'Loading strikes…'; updateObsHead();
   const maps = C.maps;
   try {
-    const list = await ex.loadStrikes(r.s, r.e + 5 * 60000, X.S.region, true);
+    const list = await ex.loadStrikes(r.s, r.e + 5 * 60000);
     if (C.maps !== maps) return;
     CO.list = list; CO.listKey = key; CO.listAt = Date.now(); CO.note = '';
   } catch (e) { if (C.maps === maps) CO.note = 'Strikes are unavailable right now'; }
@@ -907,7 +907,8 @@ export function openEmbed() {
   if (source) $('emDay').value = String(X.S.day);
   const upd = () => {
     const region = $('emRegion');
-    for (const item of region.options) item.disabled = prod === 'timing' && !['England', 'Scotland'].includes(item.value);
+    for (const item of region.options) item.disabled = (prod === 'timing' && !hourcastRegion(item.value)) ||
+      (prod === 'ai' && traditionalOnlyRegion(item.value));
     if (region.selectedOptions[0]?.disabled) region.value = 'England';
     const u = new URL(base); u.searchParams.set('embed', '1'); u.searchParams.set('region', $('emRegion').value); u.searchParams.set('day', $('emDay').value);
     if (prod === 'ai') u.searchParams.set('view', 'ai');

@@ -148,39 +148,55 @@ async function getJson(url, fresh) {
 }
 const strikesOf = (raw) => Array.isArray(raw) ? raw : (raw?.lightning_strikes || raw?.strikes || []);
 const ukwxOf = (raw) => (raw?.points || []).map(p => ({ t: p.t * 1000, lon: p.lon, lat: p.lat }));
-async function loadStrikes(startMs, endMs, regionId, own) {
-  const key = `${regionId}|${startMs}|${endMs}`, live = Date.now() - endMs < 15 * 60000;
-  if (!own && O.strikeKey === key && O.strikeData && (!live || Date.now() - O.strikeAt < 120000)) return O.strikeData;
-  const out = [], add = (t, lon, lat) => { if (t >= startMs && t <= endMs && Number.isFinite(lon) && Number.isFinite(lat)) out.push({ t, lon, lat }); };
-  const fromStd = (raw) => strikesOf(raw).forEach(s => s?.coordinates && add(new Date(s.strike_time).getTime(), +s.coordinates[0], +s.coordinates[1]));
-  const uk = regionId === 'England' || regionId === 'Scotland', s = new Date(startMs), mo = s.getMonth(), yr = s.getFullYear();
-  const jobs = [];
-  if (uk) {
-    jobs.push(getJson(FEEDS.recent).then(fromStd));
-    if (yr === 2025 && mo >= 8) jobs.push(getJson(FEEDS.autumn25).then(fromStd));
-    if (yr === 2026 && mo >= 4 && mo <= 8) { jobs.push(getJson(FEEDS.summer26a).then(fromStd)); jobs.push(getJson(FEEDS.summer26).then(fromStd)); }
-    if (Date.now() - endMs < 36 * 3600000 || Date.now() - startMs < 36 * 3600000) jobs.push(getJson(METOFFICE, true).then(async (raw) => {
-      fromStd(raw); const chunks = (raw?.chunks || []).map(c => `${METOFFICE}?last-minutes=1&chunk=${c.chunk}`);
-      (await Promise.all(chunks.map(u => getJson(u, true)))).forEach(fromStd); }));
+let strikeFeed;
+async function loadStrikes(startMs, endMs) {
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) return [];
+  const key = `${startMs}|${endMs}`;
+  const fresh = Date.now() - endMs < 15 * 60000;
+  if (strikeFeed?.key === key && (!fresh || Date.now() - strikeFeed.at < 120000)) return strikeFeed.data;
+  const data = collectStrikes(startMs, endMs);
+  strikeFeed = { key, at: Date.now(), data };
+  return data;
+}
+async function collectStrikes(startMs, endMs) {
+  const strikes = new Map();
+  function add(t, lon, lat) {
+    if (!(t >= startMs && t < endMs && Number.isFinite(lon) && Number.isFinite(lat))) return;
+    const key = `${Math.round(t / 1000)}|${lon.toFixed(3)}|${lat.toFixed(3)}`;
+    if (!strikes.has(key)) strikes.set(key, { t, lon, lat });
   }
-  // ukwx: one file per 06Z-06Z weather day, plus the live feed
-  const dayKey = (ms) => new Date(ms - 6 * 3600000).toISOString().slice(0, 10);
-  const keys = []; let c = new Date(dayKey(startMs) + 'T00:00:00Z'); const last = new Date(dayKey(endMs) + 'T00:00:00Z');
-  while (c <= last && keys.length < 5) { keys.push(c.toISOString().slice(0, 10)); c = new Date(c.getTime() + 864e5); }
-  keys.forEach(k => jobs.push(getJson(`${UKWX}/archive/europe/${k}.json`).then(raw => ukwxOf(raw).forEach(p => add(p.t, p.lon, p.lat)))));
-  if (Date.now() - endMs < 6 * 3600000) jobs.push(getJson(`${UKWX}/europe`, true).then(raw => ukwxOf(raw).forEach(p => add(p.t, p.lon, p.lat))));
+  const fromMet = raw => strikesOf(raw).forEach(s => {
+    if (s?.coordinates) add(Date.parse(s.strike_time), Number(s.coordinates[0]), Number(s.coordinates[1]));
+  });
+  const fromUKWX = raw => ukwxOf(raw).forEach(p => add(p.t, p.lon, p.lat));
+  const jobs = [getJson(FEEDS.recent).then(fromMet)];
+  const start = new Date(startMs), end = new Date(endMs - 1);
+  const overlaps = (a, b) => start < new Date(b) && end >= new Date(a);
+  if (overlaps('2025-09-01', '2026-01-01')) jobs.push(getJson(FEEDS.autumn25).then(fromMet));
+  if (overlaps('2026-05-01', '2026-10-01')) {
+    jobs.push(getJson(FEEDS.summer26a).then(fromMet), getJson(FEEDS.summer26).then(fromMet));
+  }
+  if (Date.now() - endMs < 36 * 3600000) jobs.push(getJson(METOFFICE, true).then(async raw => {
+    fromMet(raw);
+    const chunks = (raw?.chunks || []).filter(item => /^\d+$/.test(String(item.chunk)));
+    const rows = await Promise.all(chunks.map(c => getJson(`${METOFFICE}?last-minutes=1&chunk=${c.chunk}`, true)));
+    rows.forEach(fromMet);
+  }));
+  const weatherDay = ms => Math.floor((ms - 6 * 3600000) / 864e5) * 864e5 + 6 * 3600000;
+  const today = weatherDay(Date.now());
+  for (let day = weatherDay(startMs); day < endMs && day <= today; day += 864e5) {
+    const name = new Date(day).toISOString().slice(0, 10);
+    const live = day === today;
+    const url = live ? `${UKWX}/europe` : `${UKWX}/archive/europe/${name}.json`;
+    jobs.push(getJson(url, live).then(fromUKWX));
+  }
   await Promise.all(jobs);
-  const r = X.REGIONS.find(x => x.id === regionId), seen = new Set();
-  const list = out.filter(p => (!r || (p.lon >= r.west && p.lon <= r.east && p.lat >= r.south && p.lat <= r.north)))
-    .filter(p => { const k = `${Math.round(p.t / 1000)}|${p.lon.toFixed(3)}|${p.lat.toFixed(3)}`; if (seen.has(k)) return false; seen.add(k); return true; })
-    .sort((a, b) => a.t - b.t);
-  if (!own) { O.strikeKey = key; O.strikeData = list; O.strikeAt = Date.now(); }
-  return list;
+  return [...strikes.values()].sort((a, b) => a.t - b.t);
 }
 // newest strikes are gold, fading through orange and red to dark plum
 // strike colour = how far through the observed part of the forecast period it happened (newest in gold)
 const STRIKE_CLASSES = [['#ffd21f', 'Newest'], ['#ff9a1f', 'Recent'], ['#f0442a', 'Mid'], ['#b3173d', 'Older'], ['#5c1a4f', 'Oldest']];
-function strikeGeo() { return strikeFeatures(O.strikeData || [], O.t, O.t0); }
+function strikeGeo() { return strikeFeatures(O.strikeData || [], O.t === O.tNow ? O.strikeEnd ?? O.t : O.t, O.t0); }
 export function strikeFeatures(list, t, s) {
   const span = Math.max(1, t - s);
   const feats = []; for (const p of list) { if (p.t > t) break; const f = (p.t - s) / span, c = Math.min(4, Math.max(0, 4 - Math.floor(f * 5)));
@@ -224,7 +240,7 @@ function strikeClick(e) {
 // ------------------------------------------------------------------ observed time bar: whole forecast period, future part greyed
 // 'last24': the slider always covers the past 24 hours and the forecast underneath follows the time.
 // 'run': only the chosen forecast's own period, with that forecast fixed underneath.
-const loadMode = () => { try { return localStorage.getItem('hocoObsMode') === 'run' ? 'run' : 'last24'; } catch (e) { return 'last24'; } };
+const loadMode = () => { try { return localStorage.getItem('hocoObsMode') === 'last24' ? 'last24' : 'run'; } catch (e) { return 'run'; } };
 O.mode = loadMode(); O.tempRun = false;
 const effMode = () => (O.mode === 'run' || O.tempRun || X.S.custom || X.S.timing) ? 'run' : 'last24';
 function obsRange(run) {
@@ -265,13 +281,13 @@ function renderObsHead() {
 function setObsInfo(m) { const el = $('obsInfo'); if (el) { el.dataset.msg = m || ''; renderObsHead(); } }
 function renderObsKeys() {
   const k = $('obsKeys'); if (!k) return;
-  k.innerHTML = (O.strikes ? `<div class="okey"><b>Strikes</b>${STRIKE_CLASSES.map(c => `<span><i style="background:${c[0]}"></i>${c[1]}</span>`).join('')}<small>Colour = how far through the forecast period the strike happened</small></div>` : '')
+  k.innerHTML = (O.strikes ? `<div class="okey"><b>Strikes</b>${STRIKE_CLASSES.map(c => `<span><i style="background:${c[0]}"></i>${c[1]}</span>`).join('')}<small>Met Office and UKWX · colour shows time within the selected period</small></div>` : '')
     + (O.radar ? `<div class="okey rain"><b>Rain rate</b><span class="rainwrap"><span class="rainbar"></span><span class="rticks"><span>0.1</span><span>1</span><span>5</span><span>20</span><span>100 mm/h</span></span></span></div>` : '');
 }
 function syncObs() {
   const on = O.radar || O.strikes, bar = $('obsBar');
   document.body.classList.toggle('obs-on', on);
-  if (!on || !O.run) { bar.classList.add('hidden'); stop(); followHoco(); X.measureDock(); return; }
+  if (!on || !O.run) { bar.classList.add('hidden'); stop(); if (!O.run) removeStrikes(); followHoco(); X.measureDock(); return; }
   bar.classList.remove('hidden'); renderObsKeys();
   const r = obsRange(O.run);
   if (!r || r.future) { $('obsSlider').disabled = true; $('obsPlay').disabled = true; $('obsNow').disabled = true;
@@ -295,10 +311,29 @@ async function setTime(ms, force) {
   const sl = $('obsSlider'); sl.value = Math.round((O.t - O.t0) / RADAR_STEP); sl.style.setProperty('--pct', sl.max > 0 ? sl.value / sl.max * 100 + '%' : '100%');
   renderObsHead();
   if (O.strikes) {
-    if (!O.strikeData || force) { if (!O.loadingStrikes) { O.loadingStrikes = true; setObsInfo('Loading strikes…');
-      const run = O.run, r = obsRange(run);
-      try { await loadStrikes(r.s, effMode() === 'last24' ? r.e + 5 * 60000 : Math.min(X.endOf(run).getTime(), Date.now()), X.S.region); } catch (e) { O.strikeData = []; }
-      O.loadingStrikes = false; setObsInfo(''); } }
+    const run = O.run;
+    const period = obsRange(run);
+    const ownPeriod = effMode() === 'run';
+    const start = ownPeriod ? X.startOf(run).getTime() : period.s;
+    let end = ownPeriod ? X.endOf(run).getTime() : period.e + RADAR_STEP;
+    if (ownPeriod && ['ai', 'automated'].includes(run.type) && new Date(end).getUTCMinutes() === 59) end += 60000;
+    end = Math.min(end, Math.floor(Date.now() / 60000) * 60000);
+    const key = `${start}|${end}`;
+    if (force || O.strikeKey !== key || !O.strikeData) {
+      O.strikeKey = key;
+      setObsInfo('Loading strikes…');
+      try {
+        const hits = await loadStrikes(start, end);
+        if (O.run !== run || !O.strikes || O.strikeKey !== key) return;
+        O.strikeData = hits;
+        O.strikeEnd = end;
+        O.strikeAt = Date.now();
+      } catch (error) {
+        if (O.run !== run || O.strikeKey !== key) return;
+        O.strikeData = [];
+      }
+      setObsInfo('');
+    }
     drawStrikes();
   }
   followHoco();
@@ -761,12 +796,13 @@ export function onShown(run, geo, prev) {
   // picking another day or an older run shows that run's own period until you go back to the latest Day 0
   O.tempRun = !!run && X.S.day !== 0 || (X.S.byDay?.[0]?.length && run && X.S.byDay[0].at(-1)?.id !== run.id && X.S.day === 0);
   if (O.hocoId !== undefined) O.hocoId = null;
+  ++hocoTok;
   O.run = run;
   if (place && !placeMarker) setPlace(place, false); else renderPlace();
   renderChange(run, geo, prev);
   O.strikeData = null; syncObs();
 }
-export function onEmpty() { O.run = null; changeTok++; lastDiff = null; changeState = null; if (diffOn) showDiff(false); renderChangeBox(); document.querySelectorAll('[data-plain]').forEach(e => e.classList.add('hidden')); syncObs(); }
+export function onEmpty() { O.run = null; ++hocoTok; changeTok++; lastDiff = null; changeState = null; if (diffOn) showDiff(false); renderChangeBox(); document.querySelectorAll('[data-plain]').forEach(e => e.classList.add('hidden')); syncObs(); }
 // the basemap style was swapped: our layers must be added again
 export function onStyle() {
   O.frameKey = ''; MAIN_RADAR.key = ''; lineSaved = null;
