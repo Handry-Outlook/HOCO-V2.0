@@ -711,98 +711,316 @@ async function openRunVerification() {
   if (scope) scope.onchange = load;
   await load();
 }
-function bandBars(bins) {
-  const groups = [['Under 10%', 0, 0.1], ['10–30%', 0.1, 0.3], ['30–50%', 0.3, 0.5], ['50%+', 0.5, 1.01]].map(([l, a, b]) => {
-    const bs = bins.filter(x => x.lo >= a - 1e-9 && x.lo < b - 1e-9), c = bs.reduce((s, x) => s + x.c, 0);
-    return { l, exp: c ? bs.reduce((s, x) => s + x.f * x.c, 0) / c : 0, obs: c ? bs.reduce((s, x) => s + x.o * x.c, 0) / c : 0, c };
-  }).filter(g => g.c);
-  const max = Math.max(...groups.map(g => Math.max(g.exp, g.obs)), 0.01);
-  return `<div class="bars">${groups.map(g => `<div class="bar-g"><div class="bar-pair"><i class="exp" style="height:${g.exp / max * 100}%" title="Expected ${Math.round(g.exp * 100)}%"></i><i class="obs" style="height:${g.obs / max * 100}%" title="Observed ${Math.round(g.obs * 100)}%"></i></div><small>${g.l}</small><small class="muted">${Math.round(g.exp * 100)}% / ${Math.round(g.obs * 100)}%</small></div>`).join('')}</div>
-    <div class="bar-key"><span><i class="exp"></i>Expected</span><span><i class="obs"></i>Observed</span></div>`;
-}
-// Recent days, checked here against observed strikes: peak of that day's latest Day 0 run vs lightning in the region.
-async function recentDays(nDays) {
-  const out = [], today = new Date(); today.setHours(0, 0, 0, 0);
-  const r = X.REGIONS.find(x => x.id === X.S.region);
-  for (let k = 1; k <= nDays; k++) {
-    const day = new Date(today); day.setDate(day.getDate() - k); const key = `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
-    const row = { day, key, peak: null, lightning: null };
-    try {
-      const s0 = new Date(key + 'T00:00:00'), s1 = new Date(key + 'T23:59:59');
-      const snap = await X.getDocs(X.query(X.collection(X.db, 'hoco_requests'), X.where('createdAt', '>=', s0), X.where('createdAt', '<=', s1), X.orderBy('createdAt', 'desc'), X.limit(60)));
-      let last = null; snap.forEach(x => { const d = { id: x.id, ...x.data() }; if (!last && d.type === 'automated' && X.regionMatches(X.S.region, d) && X.startOf(d) && X.dateKey(X.startOf(d)) === key) last = d; });
-      if (last) row.peak = X.peakOf(await X.fetchGeo(last)).risk;
-    } catch (e) { }
-    try {
-      const resp = await fetch(`https://ukwx.duckdns.org/lightning/archive/europe/${key}.json`, { cache: 'force-cache' });
-      if (resp.ok) { const j = await resp.json(); row.lightning = (j.points || []).filter(p => !r || (p.lon >= r.west && p.lon <= r.east && p.lat >= r.south && p.lat <= r.north)).length; }
-    } catch (e) { }
-    out.push(row);
+// Normalize both ML reliability arrays ([{ forecast, observed, weight }]) and live curve arrays into { f, o, c, lo } bins
+function normRelBins(src) {
+  if (!src) return [];
+  if (Array.isArray(src)) {
+    return src.map(p => ({
+      f: Number(p.forecast),
+      o: Number(p.observed),
+      c: Number(p.weight ?? p.count ?? 0),
+      lo: Math.min(0.9, Math.max(0, Math.floor((Number(p.forecast) || 0) * 10 + 1e-6) / 10)),
+    })).filter(b => Number.isFinite(b.f) && Number.isFinite(b.o) && b.c > 0).sort((a, b) => a.f - b.f);
   }
-  return out;
+  const F = src.reliabilityForecast, O = src.reliabilityObserved, N = src.reliabilityCount;
+  if (!Array.isArray(F) || !Array.isArray(N)) return [];
+  return F.map((f, i) => ({ f: Number(f), o: Number(O?.[i] || 0), c: Number(N[i] || 0), lo: i / F.length }))
+    .filter(b => Number.isFinite(b.f) && Number.isFinite(b.o) && b.c > 0);
+}
+function statsFromBins(bins) {
+  if (!bins?.length) return null;
+  let pos = 0, n = 0, posHi = 0, nHi = 0, bs = 0;
+  for (const b of bins) {
+    pos += b.o * b.c;
+    n += b.c;
+    bs += b.c * (b.o * (1 - b.f) ** 2 + (1 - b.o) * b.f ** 2);
+    if (b.lo >= 0.1 - 1e-9) { posHi += b.o * b.c; nHi += b.c; }
+  }
+  if (!n) return null;
+  const ob = pos / n, clim = ob * (1 - ob);
+  return { pod: pos > 0 ? posHi / pos : null, far: nHi > 0 ? 1 - posHi / nHi : null, bss: clim > 0 ? 1 - (bs / n) / clim : null, pos, n, bins };
+}
+function isHealthyLiveDoc(doc) {
+  if (!doc) return false;
+  return ['day0', 'day1', 'day2'].some(b => {
+    const d = doc[b];
+    if (!d) return false;
+    if ((Number(d.positives) || 0) > 0) return true;
+    return Number.isFinite(d.auc) && Math.abs(d.auc - 0.5) > 0.005;
+  });
+}
+function dualRelChart(tradBins, aiBins) {
+  if (!tradBins?.length && !aiBins?.length) return '<p class="muted">No calibration curve available yet.</p>';
+  const W = 340, H = 216, P = 36, x = (v) => P + v * (W - P - 12), y = (v) => H - P - v * (H - P - 12);
+  const poly = (bins, cls, col, titlePrefix) => {
+    if (!bins?.length) return '';
+    const pts = bins.map(b => `${x(b.f).toFixed(1)},${y(b.o).toFixed(1)}`).join(' ');
+    const dots = bins.map(b => `<circle cx="${x(b.f).toFixed(1)}" cy="${y(b.o).toFixed(1)}" r="3.4" fill="${col}"><title>${titlePrefix}: forecast ${Math.round(b.f * 100)}% → observed ${Math.round(b.o * 100)}% (${Math.round(b.c).toLocaleString()})</title></circle>`).join('');
+    return `<polyline class="${cls}" fill="none" stroke="${col}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" points="${pts}"/>${dots}`;
+  };
+  return `<svg viewBox="0 0 ${W} ${H}" class="relchart" role="img" aria-label="Traditional HOCO and AI HOCO forecast percentages vs observed lightning">
+    <line x1="${x(0)}" y1="${y(0)}" x2="${x(1)}" y2="${y(1)}" stroke="currentColor" stroke-opacity=".35" stroke-dasharray="4 4"/>
+    <line x1="${x(0)}" y1="${y(0)}" x2="${x(1)}" y2="${y(0)}" stroke="currentColor" stroke-opacity=".4"/><line x1="${x(0)}" y1="${y(0)}" x2="${x(0)}" y2="${y(1)}" stroke="currentColor" stroke-opacity=".4"/>
+    ${[0, 0.5, 1].map(t => `<text x="${x(t)}" y="${H - 17}" font-size="10" text-anchor="middle" fill="currentColor" opacity=".6">${t * 100}%</text><text x="${P - 6}" y="${y(t) + 3}" font-size="10" text-anchor="end" fill="currentColor" opacity=".6">${t * 100}%</text>`).join('')}
+    ${poly(tradBins, 'rel-trad', '#4f6382', 'Traditional HOCO')}
+    ${poly(aiBins, 'rel-ai', '#1f9d70', 'AI HOCO')}
+    <text x="${(W + P) / 2}" y="${H - 2}" font-size="10" text-anchor="middle" fill="currentColor" opacity=".7">Forecast chance (%)</text>
+    <text x="10" y="${H / 2}" transform="rotate(-90 10 ${H / 2})" font-size="9" text-anchor="middle" fill="currentColor" opacity=".7">Observed (%)</text>
+  </svg>
+  <div class="acc-legend">${tradBins?.length ? '<span><i class="trad"></i>Traditional HOCO</span>' : ''}${aiBins?.length ? '<span><i class="ai"></i>AI HOCO</span>' : ''}<span>┄ Perfect calibration</span></div>`;
+}
+function dualBandBars(tradBins, aiBins) {
+  const agg = (bins, a, b) => {
+    const bs = (bins || []).filter(x => x.lo >= a - 1e-9 && x.lo < b - 1e-9), c = bs.reduce((s, x) => s + x.c, 0);
+    return c ? { exp: bs.reduce((s, x) => s + x.f * x.c, 0) / c, obs: bs.reduce((s, x) => s + x.o * x.c, 0) / c, c } : null;
+  };
+  const groups = [['Under 10%', 0, 0.1], ['10–30%', 0.1, 0.3], ['30–50%', 0.3, 0.5], ['50%+', 0.5, 1.01]].map(([l, a, b]) => {
+    const t = agg(tradBins, a, b), ai = agg(aiBins, a, b), base = t || ai;
+    return base ? { l, exp: base.exp, tradObs: t?.obs ?? null, aiObs: ai?.obs ?? null } : null;
+  }).filter(Boolean);
+  if (!groups.length) return '<p class="muted">No risk-band breakdown available yet.</p>';
+  const hasAi = groups.some(g => g.aiObs != null), hasTrad = groups.some(g => g.tradObs != null);
+  const max = Math.max(...groups.map(g => Math.max(g.exp, g.tradObs || 0, g.aiObs || 0)), 0.01);
+  const pct = v => `${Math.round(v * 100)}%`;
+  return `<div class="bars">${groups.map(g => `<div class="bar-g"><div class="bar-pair">
+    <i class="exp" style="height:${g.exp / max * 100}%" title="Expected midpoint ${pct(g.exp)}"></i>
+    ${g.tradObs != null ? `<i class="trad" style="height:${g.tradObs / max * 100}%" title="Traditional observed ${pct(g.tradObs)}"></i>` : ''}
+    ${g.aiObs != null ? `<i class="ai" style="height:${g.aiObs / max * 100}%" title="AI HOCO observed ${pct(g.aiObs)}"></i>` : ''}
+  </div><small>${g.l}</small><small class="muted">${[pct(g.exp), g.tradObs != null ? pct(g.tradObs) : null, g.aiObs != null ? pct(g.aiObs) : null].filter(Boolean).join(' / ')}</small></div>`).join('')}</div>
+    <div class="bar-key"><span><i class="exp"></i>Expected</span>${hasTrad ? '<span><i class="trad"></i>Trad obs</span>' : ''}${hasAi ? '<span><i class="ai"></i>AI obs</span>' : ''}</div>`;
+}
+// Recent days, checked here against observed strikes: peak of that day's latest Day 0 Traditional & AI runs vs lightning in the region.
+async function recentDays(nDays) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const r = X.REGIONS.find(x => x.id === X.S.region);
+  const from = new Date(today); from.setDate(from.getDate() - nDays - 1);
+  const to = new Date(today); to.setDate(to.getDate() + 1);
+  const byId = new Map();
+  for (const run of (X.S.runs || [])) {
+    if (run?.id) byId.set(run.id, run);
+  }
+  try {
+    const snap = await X.getDocs(X.query(
+      X.collection(X.db, 'hoco_requests'),
+      X.where('createdAt', '>=', from),
+      X.where('createdAt', '<=', to),
+      X.orderBy('createdAt', 'desc'),
+      X.limit(1200)
+    ));
+    snap.forEach(x => byId.set(x.id, { id: x.id, ...x.data() }));
+  } catch (e) { }
+
+  const regionRuns = [...byId.values()]
+    .filter(d => d && (d.type === 'automated' || d.type === 'ai') && d.status !== 'pending' && X.regionMatches(X.S.region, d) && (d.geojsonUrl || d.inlineGeojson || d.inlineGeojsonText))
+    .sort((a, b) => (X.created(b)?.getTime() || 0) - (X.created(a)?.getTime() || 0));
+
+  const dayPick = (runs, key, kind) => {
+    const match = (d) => {
+      if (d.type !== kind) return false;
+      const st = X.startOf(d);
+      if (!st) return false;
+      const kLocal = X.dateKey(st), kUtc = st.toISOString().slice(0, 10);
+      return kLocal === key || kUtc === key;
+    };
+    return runs.find(d => match(d) && !/-Day[12]-/i.test(d.id)) || runs.find(match) || null;
+  };
+
+  const rows = [];
+  for (let k = 1; k <= nDays; k++) {
+    const day = new Date(today); day.setDate(day.getDate() - k);
+    const key = `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
+    rows.push({ day, key, tradRun: dayPick(regionRuns, key, 'automated'), aiRun: dayPick(regionRuns, key, 'ai'), tradPeak: null, aiPeak: null, lightning: null });
+  }
+
+  await Promise.all(rows.map(async (row) => {
+    const tasks = [
+      (async () => { if (row.tradRun) try { row.tradPeak = X.peakOf(await X.fetchGeo(row.tradRun)).risk; } catch (e) { } })(),
+      (async () => { if (row.aiRun) try { row.aiPeak = X.peakOf(await X.fetchGeo(row.aiRun)).risk; } catch (e) { } })(),
+      (async () => {
+        try {
+          const resp = await fetch(`https://ukwx.duckdns.org/lightning/archive/europe/${row.key}.json`, { cache: 'force-cache' });
+          if (resp.ok) {
+            const j = await resp.json();
+            row.lightning = (j.points || []).filter(p => !r || (p.lon >= r.west && p.lon <= r.east && p.lat >= r.south && p.lat <= r.north)).length;
+          }
+        } catch (e) { }
+      })(),
+    ];
+    await Promise.all(tasks);
+  }));
+  return rows;
 }
 function verdict(peak, n) {
   if (peak == null || n == null) return ['–', ''];
   if (n >= 5) return peak >= 50 ? ['Good', 'good'] : peak >= 15 ? ['Fair', 'fair'] : ['Missed', 'bad'];
   return peak < 30 ? ['Good', 'good'] : peak < 50 ? ['Fair', 'fair'] : ['False alarm', 'bad'];
 }
-export async function openAccuracy(tab = 'accuracy') {
-  const d = dialog(`<div class="rowbetween"><h2>${tab === 'ai' ? 'AI HOCO status' : 'How accurate is HOCO?'}</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
-    ${seg('acctab', tab, [['accuracy', 'Accuracy'], ['ai', 'AI HOCO status']])}<div id="accBody" class="accbody"><div class="muted center"><span class="spin"></span> Loading…</div></div>`, 'Accuracy', tab === 'accuracy');
-  d.querySelectorAll('[data-acctab]').forEach(b => b.onclick = () => openAccuracy(b.dataset.acctab));
+export async function openAccuracy() {
+  const d = dialog(`<div class="rowbetween"><h2>How accurate is HOCO?</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
+    <p class="lead">Traditional HOCO and AI HOCO accuracy compared against observed lightning.</p>
+    <div id="accBody" class="accbody"><div class="muted center"><span class="spin"></span> Loading performance data…</div></div>`, 'Accuracy', true);
   const body = $('accBody');
+  const pct = (v) => v == null || !Number.isFinite(v) ? '–' : Math.round(v * 100) + '%';
+  const fmtPeak = (v) => v == null ? '–' : v < 5 ? '<5%' : Math.round(v) + '%';
   try {
-    if (tab === 'accuracy') {
-      const snap = await X.getDoc(X.doc(X.db, 'system_stats', 'accuracy_v2'));
-      if (!snap.exists()) { body.innerHTML = '<p class="muted">No accuracy figures yet.</p>'; return; }
-      const a = snap.data(); let curves = null;
-      if (a.curveStoragePath) { try { curves = await (await fetch(await X.getDownloadURL(X.ref(X.storage, a.curveStoragePath)), { cache: 'no-store' })).json(); } catch (e) { } }
-      const upd = a.lastUpdated?.toDate ? a.lastUpdated.toDate() : (a.lastUpdated ? new Date(a.lastUpdated) : null);
-      const st = [0, 1, 2].map(i => binStats(curves?.[`day${i}`])), s0 = st[0];
-      const pct = (v) => v == null || !Number.isFinite(v) ? '–' : Math.round(v * 100) + '%';
-      body.innerHTML = `<div class="rowbetween"><p class="lead">AUTO-HOCO checked against real lightning, all verified runs${upd && !isNaN(upd) ? ` · updated ${X.dayDate(upd)}` : ''}</p>${X.S.role === 'developer' ? '<button class="btn sm" id="accRecalc">↻ Recalculate · dev</button>' : ''}</div>
+    const safeDoc = (id) => X.getDoc(X.doc(X.db, 'system_stats', id)).catch(() => null);
+    const [mlSnap, aiSnap, autoLiveSnap, aiLiveSnap] = await Promise.all([
+      safeDoc('hoco_ml'), safeDoc('ai_hoco'), safeDoc('accuracy_v2'), safeDoc('accuracy_ai'),
+    ]);
+    const ml = mlSnap?.exists?.() ? mlSnap.data() : null;
+    const aiDoc = aiSnap?.exists?.() ? aiSnap.data() : null;
+    const autoLive = autoLiveSnap?.exists?.() ? autoLiveSnap.data() : null;
+    const aiLive = aiLiveSnap?.exists?.() ? aiLiveSnap.data() : null;
+
+    const loadCurves = async (doc) => {
+      if (!doc?.curveStoragePath) return null;
+      try { return await (await fetch(await X.getDownloadURL(X.ref(X.storage, doc.curveStoragePath)), { cache: 'no-store' })).json(); }
+      catch (e) { return null; }
+    };
+    const [autoCurves, aiCurves] = await Promise.all([
+      isHealthyLiveDoc(autoLive) ? loadCurves(autoLive) : null,
+      isHealthyLiveDoc(aiLive) ? loadCurves(aiLive) : null,
+    ]);
+
+    const status = aiDoc?.status || 'training';
+    const checks = ml?.readiness?.checks || [], passed = checks.filter(c => c.ok).length, ready = checks.length > 0 && passed === checks.length;
+    const trained = ml?.trainedAt ? (ml.trainedAt.toDate ? ml.trainedAt.toDate() : new Date(ml.trainedAt)) : null;
+    const chip = status === 'published' ? `<span class="tag live">AI Live${aiDoc?.version ? ` · v${esc(aiDoc.version)}` : ''}</span>` : status === 'paused' ? '<span class="tag arch">AI Paused</span>' : '<span class="tag beta">AI Training</span>';
+    const kindLabels = { context: 'Weights + weather context', weights: 'Learned weights', calibration: 'Calibrated' };
+
+    const dayData = ['day0', 'day1', 'day2'].map((b, i) => {
+      const liveEntry = (status === 'published' || status === 'paused') ? aiDoc?.model?.[b] : null;
+      const candEntry = ml?.candidate?.[b] || null;
+      const mlEntry = liveEntry || candEntry;
+      const vt = mlEntry?.vsTraditional || null;
+      const mlTradBins = normRelBins(vt?.reliabilityTraditional);
+      const mlAiBins = normRelBins(vt?.reliability);
+      const liveTradBins = normRelBins(autoCurves?.[b]);
+      const liveAiBins = normRelBins(aiCurves?.[b]);
+      const tradBins = mlTradBins.length ? mlTradBins : liveTradBins;
+      const aiBins = mlAiBins.length ? mlAiBins : liveAiBins;
+      const tradBinSt = statsFromBins(tradBins), aiBinSt = statsFromBins(aiBins);
+      const tradBrier = vt?.traditional?.brier ?? (isHealthyLiveDoc(autoLive) ? autoLive?.[b]?.brierScore : null);
+      const aiBrier = vt?.model?.brier ?? (isHealthyLiveDoc(aiLive) ? aiLive?.[b]?.brierScore : null);
+      const tradAuc = vt?.traditional?.auc ?? (isHealthyLiveDoc(autoLive) ? autoLive?.[b]?.auc : null);
+      const aiAuc = vt?.model?.auc ?? (isHealthyLiveDoc(aiLive) ? aiLive?.[b]?.auc : null);
+      const gain = (Number.isFinite(aiBrier) && Number.isFinite(tradBrier) && tradBrier > 0) ? (1 - aiBrier / tradBrier) * 100 : null;
+      return { b, i, kind: mlEntry?.kind || null, scope: mlEntry?.scope || null, tradBrier, aiBrier, gain, tradAuc, aiAuc, tradBins, aiBins, tradPod: tradBinSt?.pod ?? null, aiPod: aiBinSt?.pod ?? null, tradFar: tradBinSt?.far ?? null, aiFar: aiBinSt?.far ?? null, nEval: vt?.model?.n ?? vt?.traditional?.n ?? (isHealthyLiveDoc(autoLive) ? autoLive?.[b]?.count : null) };
+    });
+
+    const hasAnyMetrics = dayData.some(x => Number.isFinite(x.tradBrier) || Number.isFinite(x.tradAuc) || Number.isFinite(x.aiBrier) || Number.isFinite(x.aiAuc));
+    const setupEffects = (
+      Object.values(aiDoc?.model || {}).find(e => e?.setupEffects?.length)?.setupEffects
+      || Object.values(ml?.candidate || {}).find(e => e?.setupEffects?.length)?.setupEffects
+      || ml?.context?.pooled?.setupEffects
+      || []
+    );
+    const verRuns = ml?.data?.runs ?? ml?.readiness?.featureRuns ?? null;
+    const lightDays = ml?.readiness?.lightningDays ?? null;
+    const liveNote = isHealthyLiveDoc(autoLive)
+      ? `<p class="muted" style="margin:0;font-size:12px">Ongoing live audit: Traditional Day 0 AUC ${f2(autoLive.day0?.auc)}${isHealthyLiveDoc(aiLive) ? ` · AI HOCO Day 0 AUC ${f2(aiLive.day0?.auc)}` : ''}.</p>`
+      : (X.S.role === 'developer' && autoLive ? '<p class="muted" style="margin:0;font-size:12px">Note: Legacy live recalculator reported 0 matched lightning cells, so verified ML evaluation metrics are shown above.</p>' : '');
+
+    const dayName = (x) => `Day ${x.i}`;
+    const renderDayPerf = (idx) => {
+      const x = dayData[idx];
+      const deltaBadge = (g) => Number.isFinite(g) ? `<span class="acc-delta ${g >= 0 ? 'good' : 'bad'}">${g >= 0 ? '+' : '−'}${Math.abs(g).toFixed(1)}% vs Trad</span>` : '';
+      const aucDiff = Number.isFinite(x.aiAuc) && Number.isFinite(x.tradAuc) ? x.aiAuc - x.tradAuc : null;
+      return `
         <div class="acc-grid">
-          <div class="acc-card"><span class="kicker">Lightning inside a 10%+ area</span><div class="acc-big">${pct(s0?.pod)}</div><small>Day 0</small></div>
-          <div class="acc-card"><span class="kicker">10%+ areas that stayed dry</span><div class="acc-big">${pct(s0?.far)}</div><small>false alarms, Day 0. Lightning is rare, so many areas stay dry.</small></div>
-          ${s0?.bss != null && s0.bss > 0 ? `<div class="acc-card"><span class="kicker">Better than climatology</span><div class="acc-big">+${Math.round(s0.bss * 100)}%</div><small>Brier skill, Day 0 (approximate)</small></div>`
-            : `<div class="acc-card"><span class="kicker">Ranking skill</span><div class="acc-big">${f2(a.day0?.auc)}</div><small>AUC, Day 0. 1.0 is perfect, 0.5 is a coin toss. HOCO's percentages run high against this check, so Brier skill is not shown.</small></div>`}</div>
-        <div class="setgrp"><span class="kicker">Lightning caught, by day</span><div class="caught">${[0, 1, 2].map(i => `<div><b>${pct(st[i]?.pod)}</b><small>Day ${i}</small><span class="cbar"><i style="width:${(st[i]?.pod || 0) * 100}%"></i></span><small class="muted">AUC ${f2(a[`day${i}`]?.auc)}</small></div>`).join('')}</div></div>
+          <div class="acc-card"><span class="kicker">Forecast error · Brier (${dayName(x)})</span>
+            <div class="acc-pair">${Number.isFinite(x.aiBrier) ? `<div><small>AI HOCO</small><b class="${Number.isFinite(x.tradBrier) && x.aiBrier <= x.tradBrier ? 'good' : ''}">${f2(x.aiBrier, 4)}</b></div>` : ''}
+              <div><small>Traditional</small><b>${f2(x.tradBrier, 4)}</b></div></div>
+            ${deltaBadge(x.gain)}<small>Lower is better · 0 is perfect</small></div>
+          <div class="acc-card"><span class="kicker">Ranking skill · AUC (${dayName(x)})</span>
+            <div class="acc-pair">${Number.isFinite(x.aiAuc) ? `<div><small>AI HOCO</small><b class="${aucDiff != null && aucDiff >= 0 ? 'good' : ''}">${f2(x.aiAuc)}</b></div>` : ''}
+              <div><small>Traditional</small><b>${f2(x.tradAuc)}</b></div></div>
+            ${aucDiff != null ? `<span class="acc-delta ${aucDiff >= 0 ? 'good' : 'bad'}">${aucDiff >= 0 ? '+' : '−'}${Math.abs(aucDiff).toFixed(3)} AUC</span>` : ''}<small>1.0 is perfect · 0.5 is coin toss</small></div>
+          <div class="acc-card"><span class="kicker">Lightning caught · 10%+ (${dayName(x)})</span>
+            <div class="acc-pair">${x.aiPod != null ? `<div><small>AI HOCO</small><b>${pct(x.aiPod)}</b></div>` : ''}
+              <div><small>Traditional</small><b>${pct(x.tradPod)}</b></div></div>
+            <small>${x.tradFar != null ? `10%+ dry false alarm: Trad ${pct(x.tradFar)}${x.aiFar != null ? ` · AI ${pct(x.aiFar)}` : ''}` : 'Verified lightning inside 10%+ zones'}</small></div>
+        </div>
         <div class="acc-2col">
-          ${curves?.day0?.reliabilityForecast ? `<div class="setgrp"><span class="kicker">Are the percentages honest?</span>${relChart(curves.day0.reliabilityForecast, curves.day0.reliabilityObserved, curves.day0.reliabilityCount)}<small class="muted">Closer to the dashed line is better. Below it, HOCO's chances were too high.</small></div>` : ''}
-          ${s0 ? `<div class="setgrp"><span class="kicker">Chance of lightning by risk band</span>${bandBars(s0.bins)}</div>` : ''}</div>
-        <div class="setgrp"><div class="rowbetween"><span class="kicker">Recent days · ${esc(X.S.region)}</span>${seg('accn', 7, [[7, '7 days'], [14, '14 days']])}</div>
-          <table class="acctable"><thead><tr><th>Day</th><th>Peak</th><th>Lightning?</th><th>Result</th></tr></thead><tbody id="accRows"><tr><td colspan="4" class="muted">Checking recent days…</td></tr></tbody></table>
-          <small class="muted">Peak of the last Day 0 run for each day, against observed strikes in the region (5+ strikes counts as lightning).</small></div>
-        <div class="adslot hidden" data-ad="accuracy"></div>`;
-      renderAds();
-      $('accRecalc') && ($('accRecalc').onclick = async (ev) => { const b = ev.currentTarget; b.disabled = true; b.textContent = 'Calculating…';
-        try { await X.callable('calculateAutoAccuracy')(); X.toast('Accuracy recalculated'); openAccuracy('accuracy'); } catch (e) { X.toast('Recalculation failed'); b.disabled = false; b.textContent = '↻ Recalculate · dev'; } });
-      let job = 0;
-      const fill = async (n) => { const me = ++job, rows = $('accRows'); if (!rows) return; rows.innerHTML = `<tr><td colspan="4" class="muted"><span class="spin"></span> Checking ${n} days…</td></tr>`;
-        const list = await recentDays(n); if (me !== job || !$('accRows')) return;
-        $('accRows').innerHTML = list.map(r => { const [v, c] = verdict(r.peak, r.lightning); return `<tr><td>${X.dayDate(r.day)}</td><td>${r.peak == null ? '–' : r.peak < 5 ? '<5%' : Math.round(r.peak) + '%'}</td><td>${r.lightning == null ? '–' : r.lightning >= 5 ? `Yes · ${r.lightning}` : 'No'}</td><td><span class="verdict ${c}">${v}</span></td></tr>`; }).join(''); };
-      d.querySelectorAll('[data-accn]').forEach(b => b.onclick = () => { d.querySelectorAll('[data-accn]').forEach(x => x.setAttribute('aria-pressed', x === b)); fill(+b.dataset.accn); });
-      fill(7);
-    } else {
-      const [ml, ai] = await Promise.all([X.getDoc(X.doc(X.db, 'system_stats', 'hoco_ml')), X.getDoc(X.doc(X.db, 'system_stats', 'ai_hoco'))]);
-      const m = ml.exists() ? ml.data() : null, s = ai.exists() ? ai.data() : null, status = s?.status || 'training';
-      const checks = m?.readiness?.checks || [], passed = checks.filter(c => c.ok).length, ready = checks.length > 0 && passed === checks.length;
-      const trained = m?.trainedAt ? new Date(m.trainedAt) : null;
-      const chip = status === 'published' ? '<span class="tag live">Live</span>' : status === 'paused' ? '<span class="tag arch">Paused</span>' : '<span class="tag beta">Training</span>';
-      const row = (b, i) => { const e = status === 'published' ? s.model?.[b] : m?.candidate?.[b], vt = e?.vsTraditional, gain = vt ? 1 - vt.model.brier / vt.traditional.brier : NaN;
-        return `<tr><td>Day ${i}</td><td>${e ? ({ context: 'Setup model', weights: 'Learned weights', calibration: 'Calibrated' }[e.kind] || 'Learned') : '–'}</td><td><b class="${gain >= 0 ? 'good' : 'bad'}">${Number.isFinite(gain) ? `${gain >= 0 ? '+' : ''}${(gain * 100).toFixed(1)}%` : '–'}</b></td><td>${vt ? `${f2(vt.model.auc)} vs ${f2(vt.traditional.auc)}` : '–'}</td></tr>`; };
-      body.innerHTML = `<div class="rowbetween"><p class="lead">${status === 'published' ? `Live${s.version ? ` · v${esc(s.version)}` : ''}` : status === 'paused' ? 'Paused. Traditional is unaffected.' : 'Learning from verified lightning'}${trained && !isNaN(trained) ? ` · last trained ${X.dayDate(trained)}, ${X.hhmm(trained)}` : ''}${m?.data?.featureRuns ? ` · ${m.data.featureRuns} runs with per-model data` : ''}</p>${chip}</div>
-        <table class="acctable"><thead><tr><th>Day</th><th>Lab picked</th><th>Brier vs Trad</th><th>AUC</th></tr></thead><tbody>${['day0', 'day1', 'day2'].map(row).join('')}</tbody></table>
-        ${checks.length ? `<div class="setgrp"><span class="kicker">Launch checklist · ${passed} of ${checks.length}</span>${checks.map(c => `<div class="check ${c.ok ? 'ok' : ''}"><i>${c.ok ? '✓' : ''}</i><span>${esc(c.label)}<small>${esc(c.detail || '')}</small></span></div>`).join('')}</div>` : ''}
-        ${X.S.role === 'developer' ? `<div class="chips" style="justify-content:flex-end"><a class="btn" href="ai-lab.html" target="_blank" rel="noopener">Open the Lab ↗</a><button class="btn primary" id="aiPublish" ${status === 'published' ? 'disabled' : ''}>${status === 'published' ? 'Published' : ready ? 'Publish AI HOCO' : 'Publish AI HOCO (checks not passed)'}</button></div>
-          <small class="muted">Model weights stay in the Lab and are only shown to developers.</small>` : '<small class="muted">AI HOCO runs next to Traditional HOCO. Traditional keeps its own hand-tuned weights.</small>'}`;
-      $('aiPublish') && ($('aiPublish').onclick = async (ev) => {
-        if (!ready) { const w = prompt('Not every launch check has passed. AI HOCO may be worse than Traditional HOCO.\n\nType PUBLISH to publish anyway:'); if (w !== 'PUBLISH') return; }
-        else if (!confirm('Publish AI HOCO? AI runs will appear alongside Traditional HOCO from the next AUTO cycle.')) return;
-        const b = ev.currentTarget; b.disabled = true; b.textContent = 'Publishing…';
-        try { const r = await X.callable('aiHocoAdmin')({ action: 'publish', force: !ready }); X.toast(r.data?.message || 'AI HOCO published'); openAccuracy('ai'); }
-        catch (e) { X.toast(e.message || 'Publishing failed'); b.disabled = false; b.textContent = 'Publish AI HOCO'; } });
-    }
+          <div class="setgrp"><span class="kicker">Are the percentages honest? · ${dayName(x)}</span>${dualRelChart(x.tradBins, x.aiBins)}<small class="muted">Closer to the dashed line means better calibration.</small></div>
+          <div class="setgrp"><span class="kicker">Chance of lightning by risk band · ${dayName(x)}</span>${dualBandBars(x.tradBins, x.aiBins)}</div>
+        </div>`;
+    };
+
+    body.innerHTML = `
+      <div class="rowbetween">
+        <div class="acc-kpis">
+          ${verRuns != null ? `<span><b>${verRuns.toLocaleString()}</b> verified runs</span>` : ''}
+          ${lightDays != null ? `<span><b>${lightDays.toLocaleString()}</b> lightning days</span>` : ''}
+          ${trained && !isNaN(trained) ? `<span>Trained ${X.dayDate(trained)}</span>` : ''}
+        </div>
+        ${chip}
+      </div>
+      ${hasAnyMetrics ? `
+        <div class="rowbetween"><span class="kicker">Model comparison</span>${seg('accday', '0', [['0', 'Day 0'], ['1', 'Day 1'], ['2', 'Day 2']])}</div>
+        <div id="accPerf">${renderDayPerf(0)}</div>
+        <div class="setgrp"><span class="kicker">All forecast days · AI HOCO vs Traditional HOCO</span>
+          <div class="scroll"><table class="acctable"><thead><tr><th>Day</th><th>AI approach</th><th>Brier (AI vs Trad)</th><th>Improvement</th><th>AUC (AI vs Trad)</th></tr></thead><tbody>
+            ${dayData.map(x => `<tr><td><b>Day ${x.i}</b></td><td>${x.kind ? (kindLabels[x.kind] || esc(x.kind)) : 'Not proven yet'}</td><td><b>${f2(x.aiBrier, 4)}</b> <span class="muted">vs ${f2(x.tradBrier, 4)}</span></td><td>${x.gain != null ? `<b class="${x.gain >= 0 ? 'good' : 'bad'}">${x.gain >= 0 ? '+' : '−'}${Math.abs(x.gain).toFixed(1)}%</b>` : '–'}</td><td><b>${f2(x.aiAuc)}</b> <span class="muted">vs ${f2(x.tradAuc)}</span></td></tr>`).join('')}
+          </tbody></table></div>
+          ${liveNote}
+        </div>` : '<p class="muted">No verified model evaluation data available yet.</p>'}
+      ${(checks.length && (status !== 'published' || X.S.role === 'developer')) ? `
+        <div class="setgrp"><span class="kicker">AI readiness checklist · ${passed} of ${checks.length} passed</span>
+          ${checks.map(c => `<div class="check ${c.ok ? 'ok' : ''}"><i>${c.ok ? '✓' : ''}</i><span>${esc(c.label)}<small>${esc(c.detail || '')}</small></span></div>`).join('')}
+        </div>` : ''}
+      ${setupEffects.length ? `
+        <details class="acc-details"><summary>Weather setups: where AI adjusts Traditional HOCO (${setupEffects.length})</summary>
+          <div class="scroll" style="margin-top:8px"><table class="acctable"><thead><tr><th>Setup</th><th>Traditional</th><th>AI HOCO</th><th>Observed</th></tr></thead><tbody>
+            ${setupEffects.slice().sort((a, b) => (b.runs || 0) - (a.runs || 0)).map(e => {
+              const closer = Math.abs(e.ai - e.observed) < Math.abs(e.traditional - e.observed);
+              return `<tr><td>${e.season === 'cold' ? '❄ Cold' : '☀ Warm'} · ${esc(e.setup)} <span class="muted">(${e.runs || 0} runs)</span></td><td>${(e.traditional * 100).toFixed(1)}%</td><td class="${closer ? 'closer' : ''}"><b>${(e.ai * 100).toFixed(1)}%</b></td><td>${(e.observed * 100).toFixed(1)}%</td></tr>`;
+            }).join('')}
+          </tbody></table></div>
+        </details>` : ''}
+      <div class="setgrp"><div class="rowbetween"><span class="kicker">Recent days · ${esc(X.S.region)}</span>${seg('accn', 7, [[7, '7 days'], [14, '14 days']])}</div>
+        <div class="scroll"><table class="acctable"><thead id="accRecHead"><tr><th>Day</th><th>Traditional</th><th>Lightning</th><th>Result</th></tr></thead><tbody id="accRows"><tr><td colspan="4" class="muted">Checking recent days…</td></tr></tbody></table></div>
+        <small class="muted">Latest Day 0 peak risk vs observed lightning strikes in ${esc(X.S.region)} (5+ strikes counts as lightning).</small></div>
+      ${X.S.role === 'developer' ? `<div class="setgrp chips" style="justify-content:flex-end">
+        <button class="btn sm" id="accRecalc">↻ Recalculate live stats</button>
+        <a class="btn sm" href="ai-lab.html" target="_blank" rel="noopener">Open full AI Lab ↗</a>
+        ${status !== 'published' ? `<button class="btn sm primary" id="aiPublish">${ready ? 'Publish AI HOCO' : 'Publish AI HOCO (checks not passed)'}</button>` : ''}
+      </div>` : ''}
+      <div class="adslot hidden" data-ad="accuracy"></div>`;
+    renderAds();
+
+    d.querySelectorAll('[data-accday]').forEach(b => b.onclick = () => {
+      d.querySelectorAll('[data-accday]').forEach(x => x.setAttribute('aria-pressed', x === b));
+      const box = $('accPerf'); if (box) box.innerHTML = renderDayPerf(+b.dataset.accday);
+    });
+    $('accRecalc') && ($('accRecalc').onclick = async (ev) => {
+      const b = ev.currentTarget; b.disabled = true; b.textContent = 'Calculating…';
+      try { await X.callable('calculateAutoAccuracy')(); X.toast('Live accuracy recalculated'); openAccuracy(); }
+      catch (e) { X.toast('Recalculation failed'); b.disabled = false; b.textContent = '↻ Recalculate live stats'; }
+    });
+    $('aiPublish') && ($('aiPublish').onclick = async (ev) => {
+      if (!ready) { const w = prompt('Not every launch check has passed. AI HOCO may be worse than Traditional HOCO.\n\nType PUBLISH to publish anyway:'); if (w !== 'PUBLISH') return; }
+      else if (!confirm('Publish AI HOCO? AI runs will appear alongside Traditional HOCO from the next AUTO cycle.')) return;
+      const b = ev.currentTarget; b.disabled = true; b.textContent = 'Publishing…';
+      try { const r = await X.callable('aiHocoAdmin')({ action: 'publish', force: !ready }); X.toast(r.data?.message || 'AI HOCO published'); openAccuracy(); }
+      catch (e) { X.toast(e.message || 'Publishing failed'); b.disabled = false; b.textContent = 'Publish AI HOCO'; }
+    });
+
+    let job = 0;
+    const fill = async (n) => {
+      const me = ++job, rowsEl = $('accRows'), headEl = $('accRecHead'); if (!rowsEl) return;
+      rowsEl.innerHTML = `<tr><td colspan="5" class="muted"><span class="spin"></span> Checking ${n} days…</td></tr>`;
+      const list = await recentDays(n); if (me !== job || !$('accRows')) return;
+      const showAiCol = list.some(r => r.aiPeak != null);
+      if (headEl) headEl.innerHTML = `<tr><th>Day</th><th>Traditional</th>${showAiCol ? '<th>AI HOCO</th>' : ''}<th>Lightning</th><th>Result</th></tr>`;
+      $('accRows').innerHTML = list.map(r => {
+        const bestPeak = r.aiPeak != null ? Math.max(r.tradPeak ?? 0, r.aiPeak) : r.tradPeak;
+        const [v, c] = verdict(bestPeak, r.lightning);
+        return `<tr><td>${X.dayDate(r.day)}</td><td>${fmtPeak(r.tradPeak)}</td>${showAiCol ? `<td>${fmtPeak(r.aiPeak)}</td>` : ''}<td>${r.lightning == null ? '–' : r.lightning >= 5 ? `Yes · ${r.lightning}` : 'No'}</td><td><span class="verdict ${c}">${v}</span></td></tr>`;
+      }).join('');
+    };
+    d.querySelectorAll('[data-accn]').forEach(b => b.onclick = () => { d.querySelectorAll('[data-accn]').forEach(x => x.setAttribute('aria-pressed', x === b)); fill(+b.dataset.accn); });
+    fill(7);
   } catch (e) { console.error(e); body.innerHTML = '<p class="muted">Could not load this right now. Try again in a moment.</p>'; }
 }
 

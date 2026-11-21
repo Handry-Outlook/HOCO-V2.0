@@ -611,8 +611,8 @@ function renderDev(body) {
       <small class="muted">Which GitHub account's Actions run every HOCO job.</small>
       <div class="runners">${Object.entries(RUNNERS).map(([k, v]) => `<label class="runner${pick === k ? ' on' : ''}"><input type="radio" name="runner" value="${k}" ${pick === k ? 'checked' : ''}><span><b>${v.label}</b><small>${v.owner} / ${v.repo}</small></span>${cur === k ? '<span class="tag live">Active</span>' : ''}</label>`).join('')}</div>
       <button class="btn primary" id="saveRunner" ${pick === cur ? 'disabled' : ''}>Switch runner</button></section>
-    <section class="devsec"><b>Accuracy</b><small class="muted">Recalculate AUTO-HOCO accuracy against observed lightning.</small>
-      <div class="chips"><button class="btn" id="recalc">Recalculate now</button><a class="btn" href="ai-lab.html">Open the AI HOCO Lab</a></div></section>
+    <section class="devsec"><b>Accuracy &amp; AI Lab</b><small class="muted">Unified Traditional vs AI evaluation uses daily ML stats. Optionally run legacy live recalculation or open the full AI Lab.</small>
+      <div class="chips"><button class="btn" id="recalc">Recalculate live stats</button><a class="btn" href="ai-lab.html">Open full AI Lab</a></div></section>
     <section class="devsec"><div class="rowbetween"><b>Access requests</b><span class="tag">${T.reqs ? T.reqs.length : '…'}</span></div>
       ${T.reqs == null ? '<small class="muted">Loading…</small>' : !T.reqs.length ? '<small class="muted">No pending requests.</small>' : T.reqs.map(r => `<div class="req"><div><b>${esc(r.email)}</b> wants <b>${esc(r.requestedRole)}</b></div>
         <small class="muted">${esc(r.social)} · ${esc(r.reason)}</small><div class="chips"><button class="btn primary sm" data-ok="${esc(r.id)}">Approve</button><button class="btn sm" data-no="${esc(r.id)}">Reject</button></div></div>`).join('')}</section>
@@ -629,8 +629,8 @@ function renderDev(body) {
     catch (e) { X.toast('Could not switch the runner'); }
   };
   $('recalc').onclick = async (ev) => { const b = ev.currentTarget; b.disabled = true; b.textContent = 'Calculating…';
-    try { await httpsCallable(getFunctions(X.app, 'us-central1'), 'calculateAutoAccuracy')(); X.toast('Accuracy recalculated'); } catch (e) { X.toast('Recalculation failed'); }
-    finally { b.disabled = false; b.textContent = 'Recalculate now'; } };
+    try { await httpsCallable(getFunctions(X.app, 'us-central1'), 'calculateAutoAccuracy')(); X.toast('Live stats recalculated'); } catch (e) { X.toast('Recalculation failed'); }
+    finally { b.disabled = false; b.textContent = 'Recalculate live stats'; } };
   body.querySelectorAll('[data-ok]').forEach(b => b.onclick = async () => { const r = T.reqs.find(x => x.id === b.dataset.ok);
     try { await updateDoc(doc(X.db, 'users', r.userId), { role: r.requestedRole }); await updateDoc(doc(X.db, 'role_requests', r.id), { status: 'approved' }); X.toast('Approved'); } catch (e) { X.toast('Could not approve'); } });
   body.querySelectorAll('[data-no]').forEach(b => b.onclick = async () => { try { await updateDoc(doc(X.db, 'role_requests', b.dataset.no), { status: 'rejected' }); X.toast('Rejected'); } catch (e) { X.toast('Could not reject'); } });

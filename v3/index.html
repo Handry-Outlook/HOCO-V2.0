@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet">
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
-<link rel="stylesheet" href="styles.css?v=3">
+<link rel="stylesheet" href="styles.css?v=4">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="theme-color" content="#283673">
@@ -1009,8 +1009,7 @@ $('accountBtn').onclick = (e) => { e.stopPropagation();
     <button class="item" id="acctApi">API access</button>
     <button class="item" id="acctSettings">Settings</button>
     <button class="item" id="acctAlerts">Storm alerts</button>
-    <button class="item" id="acctAcc">How accurate is HOCO?</button>
-    <button class="item" id="acctAi">AI HOCO status</button>
+    <button class="item" id="acctAcc">Accuracy &amp; AI performance</button>
     ${Stage4.canInstall() ? '<button class="item" id="acctInstall">Install the HOCO app</button>' : ''}
     <button class="item" id="acctTour">Quick tutorial</button>
     <button class="item" id="acctKeys">Keyboard shortcuts</button>
@@ -1022,7 +1021,7 @@ $('accountBtn').onclick = (e) => { e.stopPropagation();
   const go = (id, fn) => { const b = $(id); if (b) b.onclick = () => { pop.classList.add('hidden'); fn(); }; };
   $('signOutBtn').onclick = () => { pop.classList.add('hidden'); signOut(auth); };
   go('acctRuns', () => Tools.openTab('runs', 'mine')); go('acctUpgrade', () => Stage4.openUpgrade()); go('acctApi', () => Stage4.openApi());
-  go('acctSettings', () => Stage4.openSettings()); go('acctAlerts', () => Extras.openAlerts()); go('acctAcc', () => Stage4.openAccuracy('accuracy')); go('acctAi', () => Stage4.openAccuracy('ai'));
+  go('acctSettings', () => Stage4.openSettings()); go('acctAlerts', () => Extras.openAlerts()); go('acctAcc', () => Stage4.openAccuracy());
   go('acctInstall', () => Stage4.install()); go('acctTour', () => Stage4.startTutorial(true)); go('acctKeys', () => Extras.openShortcuts()); go('acctCookies', () => Extras.openCookies());
 };
 async function share() {
@@ -1152,7 +1151,7 @@ $('welcomeClose').onclick = () => { $('welcome').classList.add('hidden'); Extras
 document.querySelectorAll('[data-signin]').forEach(b => b.onclick = () => showWelcome('signin'));
 document.querySelectorAll('[data-register]').forEach(b => b.onclick = () => showWelcome('register'));
 $('wTour').onclick = () => { onboardingDone = true; enterGuest(); $('cookieBar').classList.add('hidden'); setTimeout(() => Stage4.startTutorial(true), 1500); };
-$('wAcc').onclick = () => Stage4.openAccuracy('accuracy');
+$('wAcc').onclick = () => Stage4.openAccuracy();
 if (EMBED) { $('welcome').classList.add('hidden'); const u = new URL(location.href); u.searchParams.delete('embed'); u.searchParams.delete('theme'); u.searchParams.delete('layers'); $('embedCredit').href = u.href; startData(); }
 onAuthStateChanged(auth, async (user) => {
   if (EMBED) return;
@@ -1192,7 +1191,7 @@ import('./extras.js?v=29').then((m) => {
 }).catch((e) => console.error(e));
 
 // ---------- stage 4 (settings, compare, accuracy, alerts, install, tutorial, embed, ads) ----------
-import('./stage4.js?v=30').then((m) => {
+import('./stage4.js?v=31').then((m) => {
   m.initStage4({ hourcastRuns: timing.runs, hourcastWindows: timing.windowsFor, measureDock, baseDay, extras: () => Extras, map, S, BANDS, REGIONS, db, auth, storage, doc, getDoc, getDocs, query, collection, where, orderBy, limit, addDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, dateKey, nearestPlace, regionMatches,
     colorExpr, fillColor, styleUrl, applySettings, setTheme, setProduct, setRegion, runsFor, riskAt: riskAtGeo, embed: EMBED, goDay: (d) => { S.day = d; clearCustom(); renderAll(); },
     callable: (name) => async (data) => { const f = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js'); return f.httpsCallable(f.getFunctions(app, 'us-central1'), name)(data); },
@@ -1211,7 +1210,7 @@ function openHourcast(source, window) {
 }
 
 // ---------- tools (runs, ensemble, manual run, developer) ----------
-import('./tools.js?v=10').then((m) => {
+import('./tools.js?v=11').then((m) => {
   m.initTools({ hourcastWindows: timing.windowsFor, openHourcast, baseDay, app, auth, db, S, BANDS, REGIONS, fetchGeo, cachePut: (id, g) => cache.set(id, g), showCustom, clearCustom, toast,
     created, startOf, endOf, hhmm, dayName, dayDate, addDays, parseHocoTime, regionMatches, notifyDefault: SETTINGS.notifyRuns !== false,
     renderSettings: (b) => Stage4.renderSettings(b), comparing: () => Stage4.comparing(), loadTo: (r) => Stage4.loadTo(r), renderAds: () => Stage4.renderAds() });
