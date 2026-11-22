@@ -1,5 +1,6 @@
 // HOCO v3 account side: settings, compare maps (+ load a run into a map), accuracy, AI HOCO status,
 // upgrade requests, API access, install, tutorial, embed code, Europe map, ad spaces.
+import { syncSeverityLayers } from './severity.js?v=1';
 import { PRODUCTS, hasHourcast, hourcastRegion, productButtons, traditionalOnlyRegion } from './products.js?v=2';
 
 let X;
@@ -464,7 +465,7 @@ function discardCompareMaps() {
   CO.states = [];
   C.maps.forEach(m => m && m.remove());
   C.maps = []; C.marks = [];
-  paneGeo.length = paneStat.length = 0;
+  paneGeo.length = paneStat.length = paneSev.length = 0;
 }
 export function closeCompare() {
   const verification = C.verification;
@@ -507,7 +508,7 @@ function addPaneLayers(m, reference) {
     m.addLayer({ id: 'cx-coast', type: 'line', source: 'cx-ref', 'source-layer': 'water', paint: { 'line-color': 'rgba(15,27,45,0.55)', 'line-width': 0.7 } }, label);
     m.addLayer({ id: 'cx-borders', type: 'line', source: 'cx-ref', 'source-layer': 'admin', filter: ['all', ['<=', ['get', 'admin_level'], 1], ['==', ['get', 'maritime'], 'false']], paint: { 'line-color': 'rgba(15,27,45,0.5)', 'line-width': 0.8, 'line-dasharray': [2, 1] } }, label); } catch (e) { /* outlines are optional */ }
 }
-const paneGeo = [], paneStat = [];
+const paneGeo = [], paneStat = [], paneSev = [];
 async function loadPane(i) {
   const verification = C.verification;
   const m = C.maps[i], run = verification?.entry.run || findRun(C.panes[i]); if (!m || !run) return;
@@ -518,6 +519,9 @@ async function loadPane(i) {
     paneGeo[i] = g;
     if (!m.getSource('hoco')) addPaneLayers(m, observed ? verification.reference : null);
     m.getSource('hoco').setData(g);
+    const sevGeo = !observed && X.runMaxSeverity?.(run) >= 1 ? await X.fetchSeverityGeo?.(run) : null;
+    syncSeverityLayers(m, sevGeo, !!(X.severityOn ? X.severityOn() : true));
+    paneSev[i] = run?.severity || null;
     if (!observed) {
       m.setPaintProperty('hoco-fill', 'fill-opacity', Math.min(1, (g?.properties?.hoco_layout === 'bands_v2' ? 0.7 : 0.32) * getSettings().opacity));
       paneStat[i] = X.peakOf(g);
@@ -549,7 +553,9 @@ function renderStat(i, here) {
   const run = findRun(C.panes[i]), s = run && X.startOf(run), e = run && X.endOf(run);
   if (here) { el.innerHTML = `<b>${pctTxt(here.v[i])}</b><span>here</span>${i > 0 ? delta(here.v[i], here.v[0]) : ''}`; el.classList.add('here'); return; }
   el.classList.remove('here');
-  el.innerHTML = `<b>${pctTxt(pk.risk)}</b><span>peak${pk.lat != null && pk.risk >= 5 ? ` near ${esc(X.nearestPlace(pk.lat, pk.lon))}` : ''}</span>${i > 0 ? delta(pk.risk, paneStat[0]?.risk) : ''}<small>${run?.windowValidity ? esc(run.windowValidity) : s ? `${X.dayName(s)} ${X.hhmm(s)} – ${X.dayName(e)} ${X.hhmm(e)}` : ''}</small>`;
+  const sev = paneSev[i];
+  const sevTag = sev && sev.maxLevel >= 1 ? `<span class="sev-pill l${sev.maxLevel}">L${sev.maxLevel}</span>` : '';
+  el.innerHTML = `<b>${pctTxt(pk.risk)}</b><span>peak${pk.lat != null && pk.risk >= 5 ? ` near ${esc(X.nearestPlace(pk.lat, pk.lon))}` : ''}</span>${sevTag}${i > 0 ? delta(pk.risk, paneStat[0]?.risk) : ''}<small>${run?.windowValidity ? esc(run.windowValidity) : s ? `${X.dayName(s)} ${X.hhmm(s)} – ${X.dayName(e)} ${X.hhmm(e)}` : ''}</small>`;
 }
 function paneProbe(i, ll) {
   const v = C.panes.map((_, j) => C.verification && j === 1 ? C.verification.reference.valueAt(ll.lng, ll.lat) :

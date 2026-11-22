@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet">
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
-<link rel="stylesheet" href="styles.css?v=4">
+<link rel="stylesheet" href="styles.css?v=5">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="theme-color" content="#283673">
@@ -47,8 +47,10 @@
   <button class="sum-head" id="sumHead" aria-expanded="false" aria-controls="sumMore" title="Show details">
     <b id="sumPeak">–</b>
     <span class="sum-txt"><span class="kicker" id="sumKicker">AUTO-HOCO · Day 0</span><span class="sum-where"><span class="sum-lbl">peak chance </span><span id="sumWhere">–</span></span></span>
+    <span class="sev-badge hidden" id="sumSev"></span>
     <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
   </button>
+  <div class="sev-hazards hidden" id="sumHazards"></div>
   <div id="timingStatus" role="status"></div>
   <div class="legend mini" aria-label="Colour key: chance of lightning within 20 km"><div class="bar" id="legendBar"></div><div class="ticks"><span>5</span><span>15</span><span>30</span><span>50</span><span>70</span><span>90%</span></div></div>
   <div class="spread-key" id="spreadLegend" hidden></div>
@@ -161,6 +163,7 @@
 import { createStormTiming } from "./storm-timing.js?v=8";
 import { hourcastRegion, traditionalOnlyRegion } from "./products.js?v=2";
 import { decodeSpread, spreadAt, spreadMap, SPREAD_BANDS } from "./model-spread.js?v=1";
+import { fetchSeverityGeo, formatHazards, runMaxSeverity, SEVERITY_LEVELS, severityAt, syncSeverityLayers } from "./severity.js?v=1";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore, collection, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs, where, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -200,12 +203,12 @@ const PLACES = [['London',51.51,-0.13],['Brighton',50.82,-0.14],['Southampton',5
 let Tools = { onRuns() {}, signedOut() {}, openTab() {} };
 let Extras = { onShown() {}, onEmpty() {}, onStyle() {}, openShortcuts() {}, openCookies() {}, syncCookieBar() {}, checkAlerts() {}, archiveMode() {}, openAlerts() {} };
 let Stage4 = { canInstall: () => false, renderAds() {}, startTutorial() {}, openSettings() {}, openAccuracy() {}, install() {}, openEmbed() {}, openUpgrade() {}, openApi() {}, openEurope() {}, openCompare() {}, renderSettings() {}, comparing: () => false, loadTo() {}, installBanner() {} };
-const SET_DEFAULTS = { outlines: true, mapStyle: 'default', opacity: 1, radarOpacity: 0.85, region: '', changed: true, palette: 'standard', strikesDefault: false, notifyRuns: true };
+const SET_DEFAULTS = { outlines: true, severity: true, mapStyle: 'default', opacity: 1, radarOpacity: 0.85, region: '', changed: true, palette: 'standard', strikesDefault: false, notifyRuns: true };
 const SETTINGS = (() => { try { const s = { ...SET_DEFAULTS, ...JSON.parse(localStorage.getItem('hocoSettings') || '{}') }; if (s.mapStyle === 'standard' && !s.styleV2) s.mapStyle = 'default'; return s; } catch (e) { return { ...SET_DEFAULTS }; } })();
 const EMBED = new URLSearchParams(location.search).get('embed') === '1';
 if (EMBED) document.body.classList.add('embed');
 const S = { custom: null, theme: localStorage.getItem('hocoTheme') || 'auto', product: localStorage.getItem('hocoAutoProduct') === 'ai' ? 'ai' : 'traditional',
-  region: 'England', day: 0, follow: [true, true, true], runs: [], byDay: [[],[],[]], idx: [null,null,null], current: null, geo: null, peaks: {}, role: 'guest' };
+  region: 'England', day: 0, follow: [true, true, true], runs: [], byDay: [[],[],[]], idx: [null,null,null], current: null, geo: null, sevGeo: null, peaks: {}, role: 'guest' };
 const params = new URLSearchParams(location.search);
 if (SETTINGS.region && REGIONS.some(r => r.id === SETTINGS.region && r.west !== undefined)) S.region = SETTINGS.region;
 if (EMBED && ['light', 'dark'].includes(params.get('theme'))) S.theme = params.get('theme'); else if (EMBED) S.theme = 'auto';
@@ -309,10 +312,12 @@ function styleUrl() {
 }
 const fillOp = (g) => Math.min(1, (g?.properties?.hoco_layout === 'bands_v2' ? 0.7 : 0.32) * (SETTINGS.opacity || 1));
 function setTheme(t) { S.theme = t; if (!EMBED) localStorage.setItem('hocoTheme', t); applyTheme(); }
+const severityVisible = () => SETTINGS.severity !== false && !spreadActive() && !S.timing;
 function applySettings(s, patch) {
   Object.assign(SETTINGS, s);
   if ('mapStyle' in patch) map.setStyle(styleUrl());
   if ('outlines' in patch) setOutlines(s.outlines !== false);
+  if ('severity' in patch) syncSeverityLayers(map, S.sevGeo, severityVisible());
   if ('opacity' in patch && map.getLayer('hoco-fill')) map.setPaintProperty('hoco-fill', 'fill-opacity', fillOp(S.geo));
   if ('radarOpacity' in patch && map.getLayer('radar')) map.setPaintProperty('radar', 'raster-opacity', s.radarOpacity);
   if ('changed' in patch) document.querySelectorAll('[data-changed]').forEach(e => e.classList.toggle('hidden', !s.changed || !e.innerHTML));
@@ -363,6 +368,7 @@ function syncSpread() {
     map.setLayoutProperty('hoco-spread', 'visibility', 'visible');
   }
   Extras.syncForecastLayers?.();
+  syncSeverityLayers(map, S.sevGeo, severityVisible());
 }
 $('spreadLegend').innerHTML = `<b>Model spread · standard deviation in percentage points</b>
   <span class="spread-swatches">${SPREAD_BANDS.map(([min, colour], i) => `<span><i style="background:${colour}"></i>${min}${SPREAD_BANDS[i + 1] ? '–' + SPREAD_BANDS[i + 1][0] : '+'}</span>`).join('')}</span>
@@ -378,6 +384,7 @@ function addLayers() {
   if (!map.getLayer('hoco-points')) map.addLayer({ id: 'hoco-points', type: 'circle', source: 'hoco', filter: ['==', ['get', 'feature_type'], 'point'], paint: { 'circle-radius': 12, 'circle-opacity': 0 } });
   addOutlines(label);
   addRegionBoxes();
+  if (S.sevGeo) syncSeverityLayers(map, S.sevGeo, severityVisible());
 }
 function addRegionBoxes() {
   if (map.getSource('hoco-region-boxes')) return;
@@ -502,6 +509,8 @@ function showProbe(props, point) {
   const risk = riskOf(props), b = bandFor(risk), agree = Number(props.agree), nmod = Number(props.nmod);
   const pips = isFinite(agree) && isFinite(nmod) && nmod > 0 ? `<div class="agree">${Array.from({ length: nmod }, (_, i) => `<i class="${i < agree ? 'on' : ''}"></i>`).join('')}</div><small>${agree} of ${nmod} models show storms here</small>` : '';
   const near = point && map.unproject ? (() => { const ll = map.unproject([point.x, point.y]); return nearestPlace(ll.lat, ll.lng); })() : '';
+  const sev = point && map.unproject && S.sevGeo && severityVisible() ? (() => { const ll = map.unproject([point.x, point.y]); return severityAt(S.sevGeo, ll.lng, ll.lat); })() : null;
+  const sevHtml = sev ? `<div class="probe-sev"><span class="sev-badge l${sev.level}">${SEVERITY_LEVELS[sev.level]?.label || 'Severe'}</span><small>${formatHazards(sev.hazards).join(' · ') || (SEVERITY_LEVELS[sev.level]?.title || '')}</small></div>` : '';
   let contrib = '';
   if (S.role === 'developer' && props.src && !MODEL_NAMES) loadModelNames().then(() => { if (MODEL_NAMES && !probe.classList.contains('hidden') && lastProbe) showProbe(lastProbe.props, lastProbe.point); });
   if (S.role === 'developer' && props.src) {
@@ -510,7 +519,7 @@ function showProbe(props, point) {
   }
   if (!S.timing && S.role === 'developer' && !props.src && !geoHasSrc()) contrib = `<div class="contrib"><span class="kicker">Main contributors · developers only</span><small>This run has no model details saved. They are only in runs made from Tue 17 Nov, 16:05 onwards.</small></div>`;
   probe.innerHTML = props.spread && spreadActive() ? spreadProbe(props.spread, near) :
-    `<div class="top"><span class="sw" style="background:${b ? b.fill : 'transparent'};border:1px solid var(--border)"></span><b>${risk < 1 ? '<1' : Math.round(risk)}%</b><small>chance of lightning<br>within 20 km · ${bandLabel(b)}</small></div>${pips}<small>Near ${near} · ${S.timing ? 'selected window' : 'whole period'}</small>${contrib}`;
+    `<div class="top"><span class="sw" style="background:${b ? b.fill : 'transparent'};border:1px solid var(--border)"></span><b>${risk < 1 ? '<1' : Math.round(risk)}%</b><small>chance of lightning<br>within 20 km · ${bandLabel(b)}</small></div>${sevHtml}${pips}<small>Near ${near} · ${S.timing ? 'selected window' : 'whole period'}</small>${contrib}`;
   probe.classList.remove('hidden');
   if (innerWidth > 640) { const w = probe.offsetWidth || 250, h = probe.offsetHeight || 160; let x = point.x + 18, y = point.y + 18; if (x + w > innerWidth - 10) x = point.x - w - 18; if (y + h > innerHeight - 10) y = point.y - h - 18; probe.style.left = Math.max(10, x) + 'px'; probe.style.top = Math.max(10, y) + 'px'; }
 }
@@ -564,9 +573,10 @@ function renderDays() {
   const today = baseDay();
   $('dateLabel').textContent = S.archive ? today.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Today';
   $('dateBtn').classList.toggle('arch', !!S.archive);
-  $('dayTabs').innerHTML = [0, 1, 2].map(d => { const dt = addDays(today, d), last = S.byDay[d].at(-1), pk = last && runPeak(last);
+  $('dayTabs').innerHTML = [0, 1, 2].map(d => { const dt = addDays(today, d), last = S.byDay[d].at(-1), pk = last && runPeak(last), sevLvl = last ? runMaxSeverity(last) : 0;
     const b = pk != null ? bandFor(pk) : null;
-    return `<button class="daytab" role="tab" aria-selected="${d === S.day}" data-day="${d}"><span>Day ${d}<small>${dayName(dt)} ${dt.getDate()}</small></span>${pk != null ? `<em${b ? ` style="background:${b.fill};color:${bandInk(b.fill)}"` : ''}>${Math.round(pk)}%</em>` : ''}</button>`; }).join('');
+    const sevPill = sevLvl >= 1 ? `<em class="sev-pill l${sevLvl}" title="Severe Level ${sevLvl}">L${sevLvl}</em>` : '';
+    return `<button class="daytab" role="tab" aria-selected="${d === S.day}" data-day="${d}"><span>Day ${d}<small>${dayName(dt)} ${dt.getDate()}</small></span>${pk != null ? `<em${b ? ` style="background:${b.fill};color:${bandInk(b.fill)}"` : ''}>${Math.round(pk)}%</em>` : ''}${sevPill}</button>`; }).join('');
   $('dayTabs').querySelectorAll('.daytab').forEach(b => b.onclick = () => { S.day = +b.dataset.day; clearCustom(); renderAll(); });
 }
 async function loadPeaks() {
@@ -586,6 +596,7 @@ const timing = createStormTiming({ db, userId: () => auth.currentUser?.uid,
   display(geo, run, status = '') {
     $('probe').classList.add('hidden');
     S.current = run || null;
+    if (S.timing) loadSeverityForRun(null, loadToken);
     setGeo(geo);
     $('summary').classList.toggle('has-timed-map', !!run);
     $('timingStatus').textContent = status;
@@ -829,6 +840,41 @@ function setGeo(g) {
   if (map.getLayer('hoco-fill')) map.setPaintProperty('hoco-fill', 'fill-opacity', fillOp(g));
   syncSpread();
 }
+function updateSummarySeverity(run) {
+  const lvl = !S.timing ? runMaxSeverity(run) : 0;
+  const badge = $('sumSev'), hzBox = $('sumHazards');
+  if (!lvl || lvl < 1) {
+    badge?.classList.add('hidden');
+    if (hzBox) { hzBox.classList.add('hidden'); hzBox.innerHTML = ''; }
+    return;
+  }
+  const info = SEVERITY_LEVELS[lvl];
+  if (badge) {
+    badge.className = `sev-badge l${lvl}`;
+    badge.textContent = info?.label || `Level ${lvl}`;
+    badge.title = info?.title || '';
+  }
+  const chips = formatHazards(run?.severity?.hazards);
+  if (hzBox) {
+    if (chips.length) {
+      hzBox.innerHTML = chips.map(h => `<span class="sev-chip l${lvl}">${h}</span>`).join('');
+      hzBox.classList.remove('hidden');
+    } else {
+      hzBox.classList.add('hidden');
+      hzBox.innerHTML = '';
+    }
+  }
+}
+async function loadSeverityForRun(run, tok) {
+  S.sevGeo = null;
+  syncSeverityLayers(map, null, false);
+  updateSummarySeverity(run);
+  if (!run || S.timing || runMaxSeverity(run) < 1) return;
+  const sg = await fetchSeverityGeo(run);
+  if (tok !== loadToken || !sg) return;
+  S.sevGeo = sg;
+  syncSeverityLayers(map, sg, severityVisible());
+}
 const LABELS = { timing: 'Hourcast', ai: 'AI HOCO', automated: 'AUTO-HOCO', 'human-mimic': 'HOCO ENSEMBLE', manual: 'MANUAL HOCO' };
 // Show one chosen run (an ensemble, a manual run, an archived forecast) instead of the live day view.
 async function showCustom(run) {
@@ -850,7 +896,7 @@ async function showCustom(run) {
   const u = new URL(location.href); u.search = ''; u.searchParams.set('open', run.id); history.replaceState(null, '', u);
   try {
     const g = await fetchGeo(run); if (tok !== loadToken) return;
-    setGeo(g); Extras.onShown(run, g, null);
+    setGeo(g); loadSeverityForRun(run, tok); Extras.onShown(run, g, null);
     const pk = peakOf(g), where = pk.lat != null ? `near ${nearestPlace(pk.lat, pk.lon)}` : '';
     $('sumPeak').textContent = pk.risk >= 1 ? `${Math.round(pk.risk)}%` : '<5%';
     $('sumWhere').textContent = pk.risk >= 5 ? where : 'No notable risk';
@@ -891,7 +937,7 @@ async function renderAll() {
     $('emptyText').textContent = S.product === 'ai' ? 'No AI forecast is available for the selected date and region.' : 'The next run usually arrives within the hour.';
     if (S.archive) setNotice(`Archive · ${dayDate(baseDay())}`, 'Back to today', 'arch');
     $('runSlider').max = 0; $('runTime').textContent = '–'; $('runNote').textContent = ''; $('covers').textContent = '–'; $('runCount').textContent = '0 runs';
-    S.current = null; setGeo({ type: 'FeatureCollection', features: [] }); Extras.onEmpty(); return;
+    S.current = null; loadSeverityForRun(null, loadToken); setGeo({ type: 'FeatureCollection', features: [] }); Extras.onEmpty(); return;
   }
   $('empty').classList.add('hidden'); $('summary').classList.remove('hidden');
   let i = S.idx[S.day]; if (i == null || i >= n) i = n - 1;
@@ -919,7 +965,7 @@ async function renderAll() {
   const tok = ++loadToken;
   try {
     const g = await fetchGeo(run); if (tok !== loadToken) return;
-    S.current = run; setGeo(g); Extras.onShown(run, g, i > 0 ? runs[i - 1] : null); renderAiCmp(run, g); renderProc();
+    S.current = run; setGeo(g); loadSeverityForRun(run, tok); Extras.onShown(run, g, i > 0 ? runs[i - 1] : null); renderAiCmp(run, g); renderProc();
     S.peaks[run.id] = renderSummaryPeak(g);
     const u = new URL(location.href); u.search = '';
     if (EMBED) { u.searchParams.set('embed', '1'); ['theme', 'layers'].forEach(k => params.get(k) && u.searchParams.set(k, params.get(k))); }
@@ -1177,13 +1223,15 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ---------- extras (radar, strikes, export, search, change, cookies) ----------
-import('./extras.js?v=29').then((m) => {
+import('./extras.js?v=30').then((m) => {
   m.initExtras({ baseDay, runAt, showObsGeo, openSummary: () => { $('summary').classList.add('open'); $('sumHead').setAttribute('aria-expanded', 'true'); }, map, S, BANDS, REGIONS, TYPE_LABEL: LABELS, toast, openPop, measureDock, fetchGeo, peakOf, riskOf, bandFor, bandLabel, created, startOf, endOf, hhmm, dayName, dayDate,
     srcRuns, regionMatches, hidden, dateKey, styleUrl, fillColor, fillOp, outlineColor, mapIsDark, SPREAD_BANDS, decodeSpread, spreadMap, spreadGrid: () => spreadGrid, hourcastWindows: timing.windowsFor,
     embed: EMBED, embedLayers: EMBED ? (params.get('layers') || '') : null, radarOpacity: () => SETTINGS.radarOpacity, showChanged: () => SETTINGS.changed !== false, openEmbed: EMBED ? null : () => Stage4.openEmbed(),
     riskAtGeo, runsFor, addDays, nearestPlace, colorExpr, mapStyle: () => SETTINGS.mapStyle, setMapStyle: (k) => { const s = { ...SETTINGS, mapStyle: k, styleV2: true }; try { localStorage.setItem('hocoSettings', JSON.stringify(s)); } catch (e) { } applySettings(s, { mapStyle: k }); },
     spreadActive, spreadAvailable: () => !!spreadGrid,
     setSpread: on => { spreadWanted = on; $('probe').classList.add('hidden'); syncSpread(); },
+    severityOn: () => SETTINGS.severity !== false, setSeverity: (on) => { const s2 = { ...SETTINGS, severity: on, styleV2: true }; try { localStorage.setItem('hocoSettings', JSON.stringify(s2)); } catch (e) { } applySettings(s2, { severity: on }); },
+    getSeverityGeo: () => S.sevGeo, fetchSeverityGeo, runMaxSeverity,
     goDay: (d) => { S.day = d; clearCustom(); renderAll(); }, strikesDefault: () => SETTINGS.strikesDefault, onConsent: () => { Stage4.renderAds(); maybeStartOnboarding(); },
     outlines: () => SETTINGS.outlines !== false, setOutlines: (on) => { const s2 = { ...SETTINGS, outlines: on, styleV2: true }; try { localStorage.setItem('hocoSettings', JSON.stringify(s2)); } catch (e) { } applySettings(s2, { outlines: on }); } });
   Extras = m;
@@ -1191,9 +1239,10 @@ import('./extras.js?v=29').then((m) => {
 }).catch((e) => console.error(e));
 
 // ---------- stage 4 (settings, compare, accuracy, alerts, install, tutorial, embed, ads) ----------
-import('./stage4.js?v=31').then((m) => {
+import('./stage4.js?v=32').then((m) => {
   m.initStage4({ hourcastRuns: timing.runs, hourcastWindows: timing.windowsFor, measureDock, baseDay, extras: () => Extras, map, S, BANDS, REGIONS, db, auth, storage, doc, getDoc, getDocs, query, collection, where, orderBy, limit, addDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, dateKey, nearestPlace, regionMatches,
     colorExpr, fillColor, styleUrl, applySettings, setTheme, setProduct, setRegion, runsFor, riskAt: riskAtGeo, embed: EMBED, goDay: (d) => { S.day = d; clearCustom(); renderAll(); },
+    fetchSeverityGeo, runMaxSeverity, severityOn: () => SETTINGS.severity !== false,
     callable: (name) => async (data) => { const f = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js'); return f.httpsCallable(f.getFunctions(app, 'us-central1'), name)(data); },
     openTools: (t, filter, product) => Tools.openTab(t, filter, product), closeTools: () => Tools.toggle?.(false), openAlerts: (p) => Extras.openAlerts(p), openShortcuts: () => Extras.openShortcuts(), setNotifyRuns: (v) => Tools.setNotify?.(v) });
   Stage4 = m;

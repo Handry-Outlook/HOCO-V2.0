@@ -1,6 +1,6 @@
 // HOCO v3 extras: radar + lightning strikes with an "observed" time slider, PNG export,
 // place search, change since the previous run, cookie consent, offline notice, shortcuts.
-import { initExport } from './export.js?v=3';
+import { initExport } from './export.js?v=4';
 
 let X, Exp = null;
 const $ = (id) => document.getElementById(id);
@@ -384,6 +384,15 @@ export function syncForecastLayers() {
     toggle.disabled = !X.spreadAvailable();
     $('lySpreadNote').textContent = X.spreadAvailable() ? 'Standard deviation across contributing fields' : 'Unavailable for this forecast';
   }
+  const sevToggle = $('lySeverity');
+  if (sevToggle) {
+    const hasSev = (X.runMaxSeverity?.(O.run) || 0) >= 1 || !!(X.getSeverityGeo?.()?.features?.length);
+    sevToggle.checked = X.severityOn ? X.severityOn() !== false : true;
+    sevToggle.disabled = !hasSev || spread;
+    $('lySevNote').textContent = hasSev
+      ? `ESTOFEX Level ${X.runMaxSeverity?.(O.run) || 1} hatched contours`
+      : 'No severe threat forecast';
+  }
   if (forecast) forecast.disabled = spread;
 }
 function setOutlines(on) {
@@ -432,12 +441,14 @@ function renderLayersPop() {
     ${[['forecast', 'Forecast areas', 'HOCO thunderstorm risk'], ['radar', 'Rain radar', 'Observed rain through the period'], ['strikes', 'Lightning strikes', 'Newest in gold']].map(([k, l, d]) =>
       `<label class="item layer"><span><b>${l}</b><small>${d}</small></span><input type="checkbox" class="switch" data-layer="${k}" ${O[k] ? 'checked' : ''}></label>`).join('')}
     <label class="item layer"><span><b>Model spread</b><small id="lySpreadNote"></small></span><input type="checkbox" class="switch" id="lySpread" aria-describedby="lySpreadNote"></label>
+    <label class="item layer"><span><b>Severe threat (ESTOFEX)</b><small id="lySevNote"></small></span><input type="checkbox" class="switch" id="lySeverity" aria-describedby="lySevNote"></label>
     <label class="item layer"><span><b>Map outlines</b><small>Coasts and borders on top of the colours</small></span><input type="checkbox" class="switch" id="lyOutlines" ${X.outlines() ? 'checked' : ''}></label>
     <label class="item layer"><span><b>Forecast as outlines only</b><small>Handy with radar on</small></span><input type="checkbox" class="switch" id="lyHocoLines" ${O.outlines ? 'checked' : ''}></label>
     <span class="kicker" style="padding:10px 6px 6px;display:block">Map style</span>
     <div class="stylegrid">${STYLES.map(([k, l, d]) => `<button class="stylebtn" data-style="${k}" aria-pressed="${cur === k}" title="${d}"><i>${styleThumb(k)}</i><span>${l}</span></button>`).join('')}</div>`;
   pop.querySelectorAll('[data-layer]').forEach(i => i.onchange = () => setLayer(i.dataset.layer, i.checked));
   $('lySpread').onchange = (e) => X.setSpread(e.target.checked);
+  $('lySeverity').onchange = (e) => X.setSeverity?.(e.target.checked);
   syncForecastLayers();
   $('lyOutlines').onchange = (e) => X.setOutlines(e.target.checked);
   $('lyHocoLines').onchange = (e) => setOutlines(e.target.checked);
@@ -689,6 +700,10 @@ export function initExtras(ctx) {
     X, O, setLayer, paintRadar, newRadarState, renderRadarCanvas, frameOf, RADAR_STEP, OPERATIONAL,
     loadStrikes, strikeFeatures, strikeLayer, STRIKE_CLASSES, riskOutlineLayer,
     getDiffState: () => ({ diffOn, lastDiff }),
+    getSeverityGeo: () => X.getSeverityGeo?.() || null,
+    severityOn: () => (X.severityOn ? X.severityOn() !== false : true),
+    fetchSeverityGeo: (run) => X.fetchSeverityGeo?.(run) || null,
+    runMaxSeverity: (run) => X.runMaxSeverity?.(run) || 0,
   });
   window.__hocoRenderExport = (k, opts) => Exp.renderExport(k || 'landscape', opts).then(c => c.toDataURL('image/png'));   // for checking the layout
   window.__hocoExportApi = Exp;
