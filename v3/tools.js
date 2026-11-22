@@ -34,13 +34,14 @@ const role = () => X.S.role;
 const uid = () => X.auth.currentUser?.uid;
 
 export function typeInfo(r) {
-  if (r.type === 'timing' || isManualHourcast(r)) return { label: 'Hourcast', chip: 'HOURCAST', cls: 'beta' };
+  if (isManualHourcast(r)) return { label: 'Manual Hourcast HOCO', chip: 'HOURCAST', cls: 'beta' };
+  if (r.type === 'timing') return { label: 'Hourcast', chip: 'HOURCAST', cls: 'beta' };
   if (r.forecastProduct === 'timing' && r.type === 'human-mimic') return { label: 'Hourcast Ensemble', chip: 'ENSEMBLE', cls: 'ens' };
-  if (r.forecastProduct === 'ai' && r.type === 'manual') return { label: 'Manual AI HOCO', chip: 'AI', cls: 'beta' };
+  if (r.type === 'manual' && (r.forecastProduct === 'ai' || (!r.forecastProduct && r.ml?.mode && r.ml.mode !== 'hand_weights'))) return { label: 'Manual AI HOCO', chip: 'AI', cls: 'beta' };
   if (r.type === 'ai') return { label: 'AI HOCO', chip: 'AI', cls: 'beta' };
   if (r.type === 'automated') return { label: 'AUTO-HOCO', chip: 'AUTO', cls: 'live' };
   if (r.type === 'human-mimic') return { label: 'HOCO Ensemble', chip: 'ENSEMBLE', cls: 'ens' };
-  return { label: 'Manual HOCO', chip: r.userId === uid() ? 'MINE' : (r.public ? 'PUBLIC' : 'PRIVATE'), cls: 'arch' };
+  return { label: 'Manual Trad HOCO', chip: r.userId === uid() ? 'MINE' : (r.public ? 'PUBLIC' : 'PRIVATE'), cls: 'arch' };
 }
 function visible(r) {
   if (r.cancelled === true) return false;
@@ -484,7 +485,7 @@ function renderManual(body) {
   const nModels = new Set(M.scen.map(x => x.model)).size, mode = product === 'ai' && !traditionalOnly ? 'learned' : 'custom';
   const productNote = product === 'timing'
     ? ' Manual Hourcast uses hourly windows up to 24 hours.'
-    : product === 'ai' && hourcastRegion(chosenRegion)
+    : product === 'automated' && hourcastRegion(chosenRegion)
       ? (hours <= 24 ? ' Automatically includes Hourcast windows too.' : ' Choose up to 24 hours to automatically include Hourcast windows too.')
       : '';
   body.innerHTML = `

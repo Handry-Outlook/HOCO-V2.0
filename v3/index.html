@@ -161,7 +161,7 @@
 <div class="toast hidden" id="toast" role="status"></div>
 
 <script type="module">
-import { createStormTiming } from "./storm-timing.js?v=9";
+import { createStormTiming } from "./storm-timing.js?v=10";
 import { hourcastRegion, traditionalOnlyRegion } from "./products.js?v=2";
 import { decodeSpread, spreadAt, spreadMap, SPREAD_BANDS } from "./model-spread.js?v=1";
 import { fetchSeverityGeo, formatHazards, runMaxSeverity, setSeverityUrlResolver, SEVERITY_LEVELS, severityAt, syncSeverityLayers } from "./severity.js?v=3";
@@ -911,7 +911,17 @@ async function loadSeverityForRun(run, tok) {
   S.sevGeo = sg;
   syncSeverityLayers(map, sg, severityVisible());
 }
-const LABELS = { timing: 'Hourcast', ai: 'AI HOCO', automated: 'AUTO-HOCO', 'human-mimic': 'HOCO ENSEMBLE', manual: 'MANUAL HOCO' };
+const LABELS = { timing: 'Hourcast', ai: 'AI HOCO', automated: 'AUTO-HOCO', 'human-mimic': 'HOCO ENSEMBLE', manual: 'MANUAL TRAD HOCO' };
+function runLabel(run) {
+  if (!run) return 'HOCO';
+  if (run.type === 'human-mimic' && run.forecastProduct === 'timing') return 'Hourcast Ensemble';
+  if (run.type === 'manual') {
+    if (run.forecastProduct === 'timing') return 'MANUAL HOURCAST HOCO';
+    if (run.forecastProduct === 'ai' || (!run.forecastProduct && run.ml?.mode && run.ml.mode !== 'hand_weights')) return 'MANUAL AI HOCO';
+    return 'MANUAL TRAD HOCO';
+  }
+  return LABELS[run.type] || 'HOCO';
+}
 // Show one chosen run (an ensemble, a manual run, an archived forecast) instead of the live day view.
 async function showCustom(run) {
   if (S.timing) setTiming(false);
@@ -920,7 +930,7 @@ async function showCustom(run) {
   setVerificationAvailable(false);
   const tok = ++loadToken;
   $('empty').classList.add('hidden');
-  const label = run.type === 'human-mimic' && run.forecastProduct === 'timing' ? 'Hourcast Ensemble' : run.type === 'manual' && run.forecastProduct === 'ai' ? 'MANUAL AI HOCO' : LABELS[run.type] || 'HOCO', c = created(run), st = startOf(run), en = endOf(run);
+  const label = runLabel(run), c = created(run), st = startOf(run), en = endOf(run);
   $('sumKicker').textContent = label;
   $('sumTitle').textContent = `Thunderstorm risk, ${run.region || S.region}`;
   $('sumValid').textContent = st ? `${dayName(st)} ${hhmm(st)} – ${dayName(en)} ${hhmm(en)}` : '–';
@@ -993,6 +1003,7 @@ async function renderAll() {
   if (S.archive) setNotice(`Archive · ${dayDate(baseDay())}${isLatest ? '' : ` · run issued ${hhmm(created(run))}`}`, isLatest ? 'Back to today' : `Latest (${hhmm(created(runs[n - 1]))})`, 'arch');
   else setNotice(isLatest ? null : `You are viewing an older run, issued ${hhmm(created(run))}`, `Back to latest (${hhmm(created(runs[n - 1]))})`);
   if (S.timing) {
+    if (run.type === 'manual') $('sumKicker').textContent = 'MANUAL HOURCAST HOCO';
     timing.watch(S.region, S.day, run.id, initialWindow, run.type === "manual" ? run : null);
     initialWindow = null;
     return;
@@ -1273,8 +1284,8 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ---------- extras (radar, strikes, export, search, change, cookies) ----------
-import('./extras.js?v=31').then((m) => {
-  m.initExtras({ baseDay, runAt, showObsGeo, openSummary: () => { $('summary').classList.add('open'); $('sumHead').setAttribute('aria-expanded', 'true'); }, map, S, BANDS, REGIONS, TYPE_LABEL: LABELS, toast, openPop, measureDock, fetchGeo, peakOf, riskOf, bandFor, bandLabel, created, startOf, endOf, hhmm, dayName, dayDate,
+import('./extras.js?v=32').then((m) => {
+  m.initExtras({ baseDay, runAt, showObsGeo, openSummary: () => { $('summary').classList.add('open'); $('sumHead').setAttribute('aria-expanded', 'true'); }, map, S, BANDS, REGIONS, TYPE_LABEL: LABELS, runLabel, toast, openPop, measureDock, fetchGeo, peakOf, riskOf, bandFor, bandLabel, created, startOf, endOf, hhmm, dayName, dayDate,
     srcRuns, regionMatches, hidden, dateKey, styleUrl, fillColor, fillOp, outlineColor, mapIsDark, SPREAD_BANDS, decodeSpread, spreadMap, spreadGrid: () => spreadGrid, hourcastWindows: timing.windowsFor,
     embed: EMBED, embedLayers: EMBED ? (params.get('layers') || '') : null, radarOpacity: () => SETTINGS.radarOpacity, showChanged: () => SETTINGS.changed !== false, openEmbed: EMBED ? null : () => Stage4.openEmbed(),
     riskAtGeo, runsFor, addDays, nearestPlace, colorExpr, mapStyle: () => SETTINGS.mapStyle, setMapStyle: (k) => { const s = { ...SETTINGS, mapStyle: k, styleV2: true }; try { localStorage.setItem('hocoSettings', JSON.stringify(s)); } catch (e) { } applySettings(s, { mapStyle: k }); },
@@ -1309,7 +1320,7 @@ function openHourcast(source, window) {
 }
 
 // ---------- tools (runs, ensemble, manual run, developer) ----------
-import('./tools.js?v=12').then((m) => {
+import('./tools.js?v=13').then((m) => {
   m.initTools({ initialOpen: params.get('open'), initialTools: params.get('tools'), hourcastWindows: timing.windowsFor, openHourcast, baseDay, app, auth, db, S, BANDS, REGIONS, fetchGeo, cachePut: (id, g) => cache.set(id, g), showCustom, clearCustom, toast,
     created, startOf, endOf, hhmm, dayName, dayDate, addDays, parseHocoTime, regionMatches, notifyDefault: SETTINGS.notifyRuns !== false,
     renderSettings: (b) => Stage4.renderSettings(b), comparing: () => Stage4.comparing(), loadTo: (r) => Stage4.loadTo(r), renderAds: () => Stage4.renderAds() });

@@ -1080,15 +1080,17 @@ export function initExport(deps) {
           ? 'AI HOCO Thunderstorm Outlook · Lightning within 20 km (%)'
           : 'HOCO Thunderstorm Outlook · Lightning within 20 km (%)';
 
+    const typeTag = run.type === 'timing' && run.ownerId
+      ? 'MANUAL HOURCAST HOCO'
+      : (X.runLabel ? X.runLabel(run) : (X.TYPE_LABEL?.[run.type] || 'HOCO'));
     const dayPrefix = run.type === 'timing'
-      ? `Day ${X.S.day} Hourcast`
+      ? (run.ownerId ? 'Manual Hourcast HOCO' : `Day ${X.S.day} Hourcast`)
       : X.S.custom
-        ? (X.TYPE_LABEL?.[run.type] || 'Custom Run')
+        ? typeTag
         : `Day ${X.S.day}`;
     const validStr = run.type === 'timing' && run.windowValidity
       ? `${dayPrefix}  Valid: ${fmtUtc(st)} – ${fmtUtc(en)} (${run.windowValidity})`
       : `${dayPrefix}  Valid: ${st && en ? `${fmtUtc(st)} – ${fmtUtc(en)}` : '–'}`;
-    const typeTag = X.TYPE_LABEL?.[run.type] || 'HOCO';
     const initStr = `Init: ${cr ? fmtUtc(cr) : '–'}  ${typeTag}${X.S.archive ? '  ARCHIVE' : ''}`;
 
     const peakParts = items

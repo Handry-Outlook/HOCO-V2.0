@@ -187,7 +187,7 @@ export function createStormTiming({ db, display, userId }) {
         }
         if (privateSourceMeta) {
             $("timingSource").href = "./?" + new URLSearchParams({ open: record.sourceRunId });
-            $("timingSource").textContent = privateSourceMeta.forecastProduct === "ai" ? "Source AI HOCO run" : "Source full-period run";
+            $("timingSource").textContent = privateSourceMeta.forecastProduct === "ai" ? "Source Manual AI HOCO run" : "Source Manual Trad HOCO run";
         } else {
             $("timingSource").href = "./?" + new URLSearchParams({ region, day, run: record.sourceRunId });
             $("timingSource").textContent = "Source full-day run";
