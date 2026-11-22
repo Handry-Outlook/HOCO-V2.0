@@ -543,8 +543,8 @@ async function startManual() {
   if (!sIn || isNaN(s) || isNaN(e)) return X.toast('Choose when the run starts');
   if (s >= e) return X.toast('The start must be before the end');
   const product = M.product || 'automated';
-  if (product === 'timing' && (!hourcastRegion(M.region || X.S.region) || e - s > 864e5 || e <= new Date())) {
-    return X.toast('Choose an active period up to 24 hours in a supported Hourcast region.');
+  if (product === 'timing' && (!hourcastRegion(M.region || X.S.region) || e - s > 864e5)) {
+    return X.toast('Choose a period up to 24 hours in a supported Hourcast region.');
   }
   if (r !== 'developer' && (e - s) / 3.6e6 > 72) return X.toast('A run can cover up to 72 hours');
   if (cap !== Infinity && T.myToday >= cap) return X.toast(`You've used all ${cap} runs for today`);

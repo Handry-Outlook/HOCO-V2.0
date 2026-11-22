@@ -21,7 +21,7 @@
 <body>
 <div id="map" aria-label="Thunderstorm risk map"></div>
 
-<header class="topbar card" role="banner">
+<header class="topbar" role="banner">
   <div class="brand">
     <img src="https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png" alt="Handry Outlook">
     <div><b>HOCO</b><small>Thunderstorm outlook</small></div>
@@ -1320,7 +1320,7 @@ function openHourcast(source, window) {
 }
 
 // ---------- tools (runs, ensemble, manual run, developer) ----------
-import('./tools.js?v=13').then((m) => {
+import('./tools.js?v=14').then((m) => {
   m.initTools({ initialOpen: params.get('open'), initialTools: params.get('tools'), hourcastWindows: timing.windowsFor, openHourcast, baseDay, app, auth, db, S, BANDS, REGIONS, fetchGeo, cachePut: (id, g) => cache.set(id, g), showCustom, clearCustom, toast,
     created, startOf, endOf, hhmm, dayName, dayDate, addDays, parseHocoTime, regionMatches, notifyDefault: SETTINGS.notifyRuns !== false,
     renderSettings: (b) => Stage4.renderSettings(b), comparing: () => Stage4.comparing(), loadTo: (r) => Stage4.loadTo(r), renderAds: () => Stage4.renderAds() });
