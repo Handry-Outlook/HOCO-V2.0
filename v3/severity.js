@@ -3,9 +3,21 @@
 // high-DPI PNG/GIF/Video 2D canvas compositor, and KML export folder builder.
 
 export const SEVERITY_LEVELS = {
-  1: { level: 1, short: 'L1', label: 'Level 1', title: 'Level 1 · Marginal severe', color: '#d97706', ink: '#ffffff' },
-  2: { level: 2, short: 'L2', label: 'Level 2', title: 'Level 2 · Scattered severe', color: '#dc2626', ink: '#ffffff' },
-  3: { level: 3, short: 'L3', label: 'Level 3', title: 'Level 3 · Significant severe', color: '#7e22ce', ink: '#ffffff' },
+  1: {
+    level: 1, short: 'L1', label: 'Level 1', title: 'Level 1 · Marginal severe',
+    desc: 'Isolated severe gusts, hail or heavy downpours possible (~5–15% chance within 40 km). Most places stay non-severe.',
+    color: '#d97706', ink: '#ffffff',
+  },
+  2: {
+    level: 2, short: 'L2', label: 'Level 2', title: 'Level 2 · Scattered severe',
+    desc: 'Scattered severe thunderstorms possible (~15%+ chance within 40 km) — localised damaging gusts, large hail or brief tornadoes.',
+    color: '#dc2626', ink: '#ffffff',
+  },
+  3: {
+    level: 3, short: 'L3', label: 'Level 3', title: 'Level 3 · Significant severe',
+    desc: 'Rare, significant severe thunderstorm outbreak possible — widespread damaging gusts, very large hail or strong tornadoes.',
+    color: '#7e22ce', ink: '#ffffff',
+  },
 };
 
 export const HAZARD_LABELS = {
@@ -15,10 +27,18 @@ export const HAZARD_LABELS = {
   rain: 'Heavy rain / flooding',
 };
 
+export const HAZARD_LABELS_L1 = {
+  tornado: 'Isolated brief tornado',
+  hail: 'Isolated large hail',
+  wind: 'Isolated damaging gusts',
+  rain: 'Localised heavy rain',
+};
+
 export const runMaxSeverity = (run) => Number(run?.severity?.maxLevel || 0);
 
-export function formatHazards(list) {
-  return (list || []).map((k) => HAZARD_LABELS[k] || String(k));
+export function formatHazards(list, level = 2) {
+  const dict = Number(level) === 1 ? HAZARD_LABELS_L1 : HAZARD_LABELS;
+  return (list || []).map((k) => dict[k] || HAZARD_LABELS[k] || String(k));
 }
 
 const sevGeoCache = new Map();
@@ -289,7 +309,7 @@ export function severityKmlFolder(sevGeo, xe) {
   const ringStr = (ring) => ring.map(([lo, la]) => `${lo},${la},0`).join(' ');
   const marks = polys.map((f) => {
     const lvl = Number(f.properties.level || 1);
-    const hz = formatHazards(f.properties.hazards).join(', ');
+    const hz = formatHazards(f.properties.hazards, lvl).join(', ');
     const rings = f.geometry.type === 'Polygon' ? f.geometry.coordinates : (f.geometry.coordinates[0] || []);
     if (!rings.length) return '';
     const inner = rings.slice(1).map((r) => `<innerBoundaryIs><LinearRing><coordinates>${ringStr(r)}</coordinates></LinearRing></innerBoundaryIs>`).join('');

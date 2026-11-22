@@ -8,7 +8,7 @@ import {
   SEVERITY_LEVELS,
   severityKmlFolder,
   syncSeverityLayers,
-} from './severity.js?v=1';
+} from './severity.js?v=2';
 
 const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, '0');
@@ -1099,7 +1099,7 @@ export function initExport(deps) {
     const microParts = [`Peak: ${peakParts}`];
     if (!spreadActive && includeSeverity && sevLevels.length) {
       const maxSev = Math.max(...sevLevels);
-      const hzLabels = formatHazards([...new Set(items.flatMap((it) => it.run?.severity?.hazards || []))]);
+      const hzLabels = formatHazards([...new Set(items.flatMap((it) => it.run?.severity?.hazards || []))], maxSev);
       microParts.push(`Severe: Level ${maxSev}${hzLabels.length ? ` (${hzLabels.join(', ')})` : ''}`);
     }
     if (obsStamp) microParts.push(`Obs: ${fmtUtc(new Date(obsStamp))}`);

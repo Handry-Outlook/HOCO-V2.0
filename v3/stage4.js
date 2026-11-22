@@ -1,6 +1,6 @@
 // HOCO v3 account side: settings, compare maps (+ load a run into a map), accuracy, AI HOCO status,
 // upgrade requests, API access, install, tutorial, embed code, Europe map, ad spaces.
-import { syncSeverityLayers } from './severity.js?v=1';
+import { syncSeverityLayers } from './severity.js?v=2';
 import { PRODUCTS, hasHourcast, hourcastRegion, productButtons, traditionalOnlyRegion } from './products.js?v=2';
 
 let X;
