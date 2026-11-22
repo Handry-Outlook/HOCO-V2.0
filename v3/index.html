@@ -161,7 +161,7 @@
 <div class="toast hidden" id="toast" role="status"></div>
 
 <script type="module">
-import { createStormTiming } from "./storm-timing.js?v=8";
+import { createStormTiming } from "./storm-timing.js?v=9";
 import { hourcastRegion, traditionalOnlyRegion } from "./products.js?v=2";
 import { decodeSpread, spreadAt, spreadMap, SPREAD_BANDS } from "./model-spread.js?v=1";
 import { fetchSeverityGeo, formatHazards, runMaxSeverity, setSeverityUrlResolver, SEVERITY_LEVELS, severityAt, syncSeverityLayers } from "./severity.js?v=3";
@@ -784,6 +784,21 @@ function clearAiCmp() {
     el.classList.add('hidden');
   });
 }
+function renderCustomHourcast(run) {
+  const els = document.querySelectorAll('[data-aicmp]');
+  if (!(run && run.type === 'manual' && run.stormHour === true && auth.currentUser?.uid === run.userId)) {
+    clearAiCmp();
+    return;
+  }
+  const peakTxt = run.stormHourPeak != null ? `Peak ${Math.round(run.stormHourPeak)}%` : 'Hourly windows included';
+  els.forEach(el => {
+    el.innerHTML = `<div class="rowbetween"><span class="tag beta" style="margin:0">Hourcast</span><span class="src">${peakTxt}</span></div>
+      <button class="btn sm" data-open-hc>Open Hourcast windows</button>`;
+    el.classList.remove('hidden');
+    const b = el.querySelector('[data-open-hc]');
+    if (b) b.onclick = () => openHourcast(run);
+  });
+}
 async function renderAiCmp(run, g) {
   const els = document.querySelectorAll('[data-aicmp]');
   if (run.type === 'automated' && !S.custom) {
@@ -901,11 +916,11 @@ const LABELS = { timing: 'Hourcast', ai: 'AI HOCO', automated: 'AUTO-HOCO', 'hum
 async function showCustom(run) {
   if (S.timing) setTiming(false);
   S.custom = run; document.body.classList.add('custom');
-  clearAiCmp();
+  renderCustomHourcast(run);
   setVerificationAvailable(false);
   const tok = ++loadToken;
   $('empty').classList.add('hidden');
-  const label = run.type === 'human-mimic' && run.forecastProduct === 'timing' ? 'Hourcast Ensemble' : LABELS[run.type] || 'HOCO', c = created(run), st = startOf(run), en = endOf(run);
+  const label = run.type === 'human-mimic' && run.forecastProduct === 'timing' ? 'Hourcast Ensemble' : run.type === 'manual' && run.forecastProduct === 'ai' ? 'MANUAL AI HOCO' : LABELS[run.type] || 'HOCO', c = created(run), st = startOf(run), en = endOf(run);
   $('sumKicker').textContent = label;
   $('sumTitle').textContent = `Thunderstorm risk, ${run.region || S.region}`;
   $('sumValid').textContent = st ? `${dayName(st)} ${hhmm(st)} – ${dayName(en)} ${hhmm(en)}` : '–';
@@ -1202,8 +1217,10 @@ async function startData() {
       const upd = S.runs.find(r => r.id === S.custom.id);
       if (upd) {
         const sevChanged = S.custom.severity?.maxLevel !== upd.severity?.maxLevel || S.custom.severity?.geojsonUrl !== upd.severity?.geojsonUrl;
+        const hcChanged = S.custom.stormHour !== upd.stormHour || S.custom.stormHourPeak !== upd.stormHourPeak;
         Object.assign(S.custom, upd);
         if (sevChanged && S.geo) { loadSeverityForRun(S.custom, loadToken); Extras.onShown(S.custom, S.geo, null); }
+        if (hcChanged) { renderCustomHourcast(S.custom); measureDock(); }
       }
     }
     buildDays();
@@ -1292,8 +1309,8 @@ function openHourcast(source, window) {
 }
 
 // ---------- tools (runs, ensemble, manual run, developer) ----------
-import('./tools.js?v=11').then((m) => {
-  m.initTools({ hourcastWindows: timing.windowsFor, openHourcast, baseDay, app, auth, db, S, BANDS, REGIONS, fetchGeo, cachePut: (id, g) => cache.set(id, g), showCustom, clearCustom, toast,
+import('./tools.js?v=12').then((m) => {
+  m.initTools({ initialOpen: params.get('open'), initialTools: params.get('tools'), hourcastWindows: timing.windowsFor, openHourcast, baseDay, app, auth, db, S, BANDS, REGIONS, fetchGeo, cachePut: (id, g) => cache.set(id, g), showCustom, clearCustom, toast,
     created, startOf, endOf, hhmm, dayName, dayDate, addDays, parseHocoTime, regionMatches, notifyDefault: SETTINGS.notifyRuns !== false,
     renderSettings: (b) => Stage4.renderSettings(b), comparing: () => Stage4.comparing(), loadTo: (r) => Stage4.loadTo(r), renderAds: () => Stage4.renderAds() });
   Tools = m;

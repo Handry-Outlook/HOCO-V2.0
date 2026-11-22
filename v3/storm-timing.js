@@ -41,7 +41,7 @@ export function createStormTiming({ db, display, userId }) {
     const periods = $("timingPeriods");
     const slider = $("timingSlider"), preview = $("timingPreview");
     const cached = new Map(), manifests = new Map();
-    let key, stop, pending, windows = [], selected, record, region, day, sourceRun;
+    let key, stop, pending, windows = [], selected, record, region, day, sourceRun, privateSourceMeta = null;
 
     function previewWindow(index) {
         const item = windows[index];
@@ -70,7 +70,7 @@ export function createStormTiming({ db, display, userId }) {
     function reset() {
         stop?.(); stop = null;
         pending?.abort();
-        key = null; windows = []; record = null; selected = null; cached.clear();
+        key = null; windows = []; record = null; selected = null; privateSourceMeta = null; cached.clear();
         periods.hidden = true;
         $("timingSource").hidden = true;
         $("timingMethod").hidden = true;
@@ -177,14 +177,21 @@ export function createStormTiming({ db, display, userId }) {
         slider.disabled = windows.length < 2;
         const liveUrls = new Set(windows.map(item => item.geojsonUrl));
         for (const url of cached.keys()) if (!liveUrls.has(url)) cached.delete(url);
-        $("timingSource").hidden = !windows.length || !record?.sourceRunId;
+        const hasFullRun = !privateSourceMeta || !!(privateSourceMeta.geojsonUrl || privateSourceMeta.inlineGeojson || privateSourceMeta.inlineGeojsonText);
+        $("timingSource").hidden = !windows.length || !record?.sourceRunId || !hasFullRun;
         if (!windows.length) {
             selected = null;
             address(region, day);
             display(empty, null, sourceRun ? "No windows were saved for this run." : "No Hourcast forecast for this date and day.");
             return;
         }
-        $("timingSource").href = "./?" + new URLSearchParams({ region, day, run: record.sourceRunId });
+        if (privateSourceMeta) {
+            $("timingSource").href = "./?" + new URLSearchParams({ open: record.sourceRunId });
+            $("timingSource").textContent = privateSourceMeta.forecastProduct === "ai" ? "Source AI HOCO run" : "Source full-period run";
+        } else {
+            $("timingSource").href = "./?" + new URLSearchParams({ region, day, run: record.sourceRunId });
+            $("timingSource").textContent = "Source full-day run";
+        }
         const current = windows.find(w => w.validFrom.toDate().toISOString() === selected);
         const next = windows.find(w => w.validTo.toMillis() > Date.now());
         select(current || next || windows[0], region, day);
@@ -194,7 +201,7 @@ export function createStormTiming({ db, display, userId }) {
         const next = JSON.stringify([nextRegion, nextDay, runId]);
         if (key === next) return;
         reset();
-        region = nextRegion; day = nextDay; sourceRun = runId;
+        region = nextRegion; day = nextDay; sourceRun = runId; privateSourceMeta = privateSource || null;
         key = next; selected = initialWindow;
         if (!runId) { render(region, day); return; }
         display(empty, null, "Loading forecast windows…");

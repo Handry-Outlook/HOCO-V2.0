@@ -63,9 +63,9 @@ export function initTools(ctx) {
   $('toolsClose').onclick = () => toggle(false);
   document.querySelectorAll('#toolsTabs button').forEach(b => b.onclick = () => { T.tab = b.dataset.tab; render(); });
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && T.open) toggle(false); });
-  const p = new URLSearchParams(location.search);
-  if (p.get('tools')) { T.tab = ['runs', 'ensemble', 'manual', 'settings', 'dev'].includes(p.get('tools')) ? p.get('tools') : 'runs'; T.pendingOpen = true; }
-  T.wantOpen = p.get('open');
+  const p = new URLSearchParams(location.search), initToolsParam = X.initialTools ?? p.get('tools');
+  if (initToolsParam) { T.tab = ['runs', 'ensemble', 'manual', 'settings', 'dev'].includes(initToolsParam) ? initToolsParam : 'runs'; T.pendingOpen = true; }
+  T.wantOpen = X.initialOpen ?? p.get('open');
 }
 
 export function setNotify(v) { T.man.notify = !!v; }
@@ -481,10 +481,15 @@ function renderManual(body) {
   const chosenRegion = M.region || X.S.region, traditionalOnly = traditionalOnlyRegion(chosenRegion);
   if (traditionalOnly && M.product === 'ai') M.product = 'automated';
   const product = M.product || 'automated';
-  const nModels = new Set(M.scen.map(x => x.model)).size, mode = traditionalOnly ? 'custom' : product === 'ai' ? 'learned' : M.mode || 'custom';
+  const nModels = new Set(M.scen.map(x => x.model)).size, mode = product === 'ai' && !traditionalOnly ? 'learned' : 'custom';
+  const productNote = product === 'timing'
+    ? ' Manual Hourcast uses hourly windows up to 24 hours.'
+    : product === 'ai' && hourcastRegion(chosenRegion)
+      ? (hours <= 24 ? ' Automatically includes Hourcast windows too.' : ' Choose up to 24 hours to automatically include Hourcast windows too.')
+      : '';
   body.innerHTML = `
     <div class="field"><span class="kicker">Forecast product</span><div class="product-choices" role="group" aria-label="Forecast product">${productButtons('manual-product', product, traditionalOnly ? ['automated', 'timing'] : undefined)}</div>
-      <small class="muted">${PRODUCTS[product].detail}${product === 'timing' ? ' Manual Hourcast uses hourly windows up to 24 hours.' : ''}</small></div>
+      <small class="muted">${PRODUCTS[product].detail}${productNote}</small></div>
     <div class="field"><span class="kicker">Region</span><div class="chips">${X.REGIONS.filter(x => x.west !== undefined && (product !== 'timing' || hourcastRegion(x.id))).map(x => `<button class="chipbtn" data-reg="${x.id}" aria-pressed="${x.id === (M.region || X.S.region)}">${x.name}</button>`).join('')}</div></div>
     <div class="grid2"><label class="field"><span class="kicker">Starts</span><input type="datetime-local" id="mStart" value="${M.start}"></label>
       <div class="field"><span class="kicker">Length</span><div class="chips">${[3, 6, 12, 24].map(h => `<button class="chipbtn" data-h="${h}" aria-pressed="${!M.customEnd && M.len === h}">${h} h</button>`).join('')}</div></div></div>
@@ -492,7 +497,6 @@ function renderManual(body) {
     ${M.customEnd ? `<label class="field"><span class="kicker">Ends</span><input type="datetime-local" id="mEnd" value="${M.end || localInput(en)}"></label>` : ''}
     ${canScen ? `
       <div class="field"><div class="rowbetween"><span class="kicker">Models and runs</span><small class="muted">${M.scen.length ? `${M.scen.length} run${M.scen.length > 1 ? 's' : ''} · ${nModels} model${nModels > 1 ? 's' : ''}` : 'standard set'}</small></div>
-        <div class="seg wide" role="group" aria-label="Weighting">${traditionalOnly ? '' : `<button data-mode="learned" aria-pressed="${mode === 'learned'}">Learned</button>`}<button data-mode="custom" aria-pressed="${mode === 'custom'}" ${product === 'ai' ? 'disabled' : ''}>Custom</button></div>
         ${mode === 'learned' ? '<small class="muted">AI HOCO\'s learned weights decide how much each model counts. Falls back to the standard weights if none is live.</small>' : ''}
         <div class="chips modelchips">${Object.entries(MODELS).map(([k, m]) => `<button class="chipbtn" data-model="${k}" aria-pressed="${k === M.model}">${m.name}</button>`).join('')}</div>
         <div class="chips runchips">${opts.map(o => { const added = M.scen.some(x => x.model === M.model && x.run === o.iso);
@@ -520,7 +524,6 @@ function renderManual(body) {
   $('mCustomEnd').onclick = () => { M.customEnd = !M.customEnd; if (M.customEnd && !M.end) M.end = localInput(en); render(); };
   $('mEnd') && ($('mEnd').onchange = (e) => { M.end = e.target.value; render(); });
   if (canScen) {
-    body.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { M.mode = b.dataset.mode; render(); });
     body.querySelectorAll('[data-model]').forEach(b => b.onclick = () => { M.model = b.dataset.model; M.picked = new Set(); render(); });
     body.querySelectorAll('[data-iso]').forEach(b => b.onclick = () => { M.picked.has(b.dataset.iso) ? M.picked.delete(b.dataset.iso) : M.picked.add(b.dataset.iso); render(); });
     $('mAdd').onclick = () => { opts.filter(o => M.picked.has(o.iso)).forEach(o => { if (!M.scen.some(x => x.model === M.model && x.run === o.iso)) M.scen.push({ model: M.model, run: o.iso, runLabel: o.label, weight: 1 }); }); M.picked = new Set(); render(); };
@@ -548,10 +551,11 @@ async function startManual() {
   if (M.notify && 'Notification' in window && Notification.permission === 'default') { try { await Notification.requestPermission(); } catch (err) { /* ignore */ } }
   // Normal users always get the standard blend, as on the classic site. Weights left blank use the backend defaults.
   const canScen = r === 'exclusive' || r === 'developer';
-  const learned = product === 'ai' || (canScen && M.mode === 'learned');
+  const traditionalOnly = traditionalOnlyRegion(M.region);
+  const learned = product === 'ai' && !traditionalOnly;
   const scenarios = canScen ? M.scen.map(x => ({ model: x.model, run: x.run, label: `${MODELS[x.model].name} (${x.runLabel})`, ...(learned ? {} : { weight: x.weight }) })) : [];
   const weights = {};
-  if (r === 'developer') Object.entries(M.w || {}).forEach(([k, v]) => { if (v !== '' && Number.isFinite(+v)) weights[k] = +v; });
+  if (r === 'developer' && !learned) Object.entries(M.w || {}).forEach(([k, v]) => { if (v !== '' && Number.isFinite(+v)) weights[k] = +v; });
   if (product === 'timing') weights._mode = 'hourcast';
   else if (learned) weights._mode = 'learned';
   const payload = { forecastProduct: product, region: M.region, scenarios, startTime: fmtHoco(s), endTime: fmtHoco(e), weather: 'lightning', weights: JSON.stringify(weights),
