@@ -161,7 +161,7 @@
 <div class="toast hidden" id="toast" role="status"></div>
 
 <script type="module">
-import { createStormTiming } from "./storm-timing.js?v=10";
+import { createStormTiming } from "./storm-timing.js?v=11";
 import { hourcastRegion, traditionalOnlyRegion } from "./products.js?v=2";
 import { decodeSpread, spreadAt, spreadMap, SPREAD_BANDS } from "./model-spread.js?v=1";
 import { fetchSeverityGeo, formatHazards, runMaxSeverity, setSeverityUrlResolver, SEVERITY_LEVELS, severityAt, syncSeverityLayers } from "./severity.js?v=3";
@@ -260,6 +260,7 @@ async function resolveStorageUrl(url) {
   if (url && (url.includes('firebasestorage.googleapis.com') || url.includes('storage.googleapis.com'))) {
     try {
       const u = new URL(url);
+      if (u.hostname === 'firebasestorage.googleapis.com' && u.searchParams.has('token')) return url;
       const path = url.includes('firebasestorage.googleapis.com')
         ? decodeURIComponent(u.pathname.split('/o/')[1] || '')
         : decodeURIComponent(u.pathname.split('/').slice(2).join('/'));
@@ -607,7 +608,8 @@ const timing = createStormTiming({ db, userId: () => auth.currentUser?.uid,
   display(geo, run, status = '') {
     $('probe').classList.add('hidden');
     S.current = run || null;
-    if (S.timing) loadSeverityForRun(null, loadToken);
+    const tok = ++loadToken;
+    loadSeverityForRun(run || null, tok);
     setGeo(geo);
     $('summary').classList.toggle('has-timed-map', !!run);
     $('timingStatus').textContent = status;
@@ -867,7 +869,7 @@ function setGeo(g) {
   syncSpread();
 }
 function updateSummarySeverity(run) {
-  const lvl = !S.timing ? runMaxSeverity(run) : 0;
+  const lvl = runMaxSeverity(run);
   const badge = $('sumSev'), hzBox = $('sumHazards'), descEl = $('sumSevDesc');
   if (!lvl || lvl < 1) {
     badge?.classList.add('hidden');
@@ -905,7 +907,7 @@ async function loadSeverityForRun(run, tok) {
   S.sevGeo = null;
   syncSeverityLayers(map, null, false);
   updateSummarySeverity(run);
-  if (!run || S.timing || runMaxSeverity(run) < 1) return;
+  if (!run || runMaxSeverity(run) < 1) return;
   const sg = await fetchSeverityGeo(run);
   if (tok !== loadToken || !sg) return;
   S.sevGeo = sg;

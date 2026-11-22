@@ -31,6 +31,7 @@ function windowRun(record, item) {
     return {
         id: record.sourceRunId + "/" + start.toISOString(), type: "timing",
         sourceRunId: record.sourceRunId, region: record.region, geojsonUrl: item.geojsonUrl, basis: record.basis,
+        ...(item.severity ? { severity: item.severity } : {}),
         createdAt: record.issuedAt, ownerId: record.ownerId, validFrom: item.validFrom, validTo: item.validTo,
         windowLabel: windowHours(start, end),
         windowValidity: stamp.format(start) + " – " + stamp.format(end)
