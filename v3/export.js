@@ -8,7 +8,7 @@ import {
   SEVERITY_LEVELS,
   severityKmlFolder,
   syncSeverityLayers,
-} from './severity.js?v=2';
+} from './severity.js?v=3';
 
 const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, '0');

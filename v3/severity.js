@@ -42,6 +42,11 @@ export function formatHazards(list, level = 2) {
 }
 
 const sevGeoCache = new Map();
+let urlResolver = null;
+
+export function setSeverityUrlResolver(fn) {
+  urlResolver = typeof fn === 'function' ? fn : null;
+}
 
 export async function fetchSeverityGeo(run) {
   if (!run) return null;
@@ -50,9 +55,11 @@ export async function fetchSeverityGeo(run) {
   if (!meta || Number(meta.maxLevel || 0) < 1 || !meta.geojsonUrl) return null;
   const key = meta.geojsonUrl;
   if (sevGeoCache.has(key)) return sevGeoCache.get(key);
-  const p = fetch(key, { cache: 'default' })
-    .then((r) => (r.ok ? r.json() : null))
-    .catch(() => null);
+  const p = (async () => {
+    const url = urlResolver ? await urlResolver(key).catch(() => key) : key;
+    const r = await fetch(url, { cache: 'default' });
+    return r.ok ? r.json() : null;
+  })().catch(() => null);
   sevGeoCache.set(key, p);
   const res = await p;
   if (!res) sevGeoCache.delete(key);

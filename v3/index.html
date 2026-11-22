@@ -164,7 +164,7 @@
 import { createStormTiming } from "./storm-timing.js?v=8";
 import { hourcastRegion, traditionalOnlyRegion } from "./products.js?v=2";
 import { decodeSpread, spreadAt, spreadMap, SPREAD_BANDS } from "./model-spread.js?v=1";
-import { fetchSeverityGeo, formatHazards, runMaxSeverity, SEVERITY_LEVELS, severityAt, syncSeverityLayers } from "./severity.js?v=2";
+import { fetchSeverityGeo, formatHazards, runMaxSeverity, setSeverityUrlResolver, SEVERITY_LEVELS, severityAt, syncSeverityLayers } from "./severity.js?v=3";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore, collection, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs, where, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -256,6 +256,20 @@ const colorExpr = () => { const e = ['step', ['coalesce', ['get', 'risk'], 0], '
 const fillColor = () => SETTINGS.palette === 'colourblind' ? colorExpr() : ['coalesce', ['get', 'fill'], colorExpr()];
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.add('hidden'), 3000); }
 
+async function resolveStorageUrl(url) {
+  if (url && (url.includes('firebasestorage.googleapis.com') || url.includes('storage.googleapis.com'))) {
+    try {
+      const u = new URL(url);
+      const path = url.includes('firebasestorage.googleapis.com')
+        ? decodeURIComponent(u.pathname.split('/o/')[1] || '')
+        : decodeURIComponent(u.pathname.split('/').slice(2).join('/'));
+      if (path) return await getDownloadURL(ref(storage, path.split('?')[0]));
+    } catch (e) { /* fall back to stored URL */ }
+  }
+  return url;
+}
+setSeverityUrlResolver(resolveStorageUrl);
+
 async function fetchGeo(run) {
   if (run.type === "timing") return timing.fetchGeo(run);
   if (run.privateHourcastEnsemble && (!auth.currentUser || auth.currentUser.uid !== run.userId)) throw Error('Private forecast');
@@ -275,11 +289,7 @@ async function fetchGeo(run) {
     try { const r = await fetch(`https://api.github.com/repos/${p[3]}/${p[4]}/contents/${p.slice(6).join('/')}?ref=${p[5]}`, { headers: { Accept: 'application/vnd.github.v3.raw' } });
       if (!r.ok) throw 0; g = await r.json(); } catch (e) { const r = await fetch(run.geojsonUrl); if (!r.ok) throw new Error('fetch'); g = await r.json(); }
   } else if (run.geojsonUrl) {
-    let url = run.geojsonUrl;
-    if (url.includes('firebasestorage.googleapis.com') || url.includes('storage.googleapis.com')) {
-      try { const u = new URL(url); let path = url.includes('firebasestorage.googleapis.com') ? decodeURIComponent(u.pathname.split('/o/')[1] || '') : decodeURIComponent(u.pathname.split('/').slice(2).join('/'));
-        if (path) url = await getDownloadURL(ref(storage, path.split('?')[0])); } catch (e) { /* fall back to stored URL */ }
-    }
+    const url = await resolveStorageUrl(run.geojsonUrl);
     const r = await fetch(url); if (!r.ok) throw new Error('fetch'); g = await r.json();
   } else throw new Error('no geojson');
   if (!g || !Array.isArray(g.features)) throw new Error('bad geojson');
@@ -1180,8 +1190,20 @@ async function startData() {
       const update = S.runs.find(r => r.id === S.archive.sharedId);
       const pinned = S.archive.runs.find(r => r.id === S.archive.sharedId);
       if (update && pinned) {
+        const sevChanged = pinned.severity?.maxLevel !== update.severity?.maxLevel || pinned.severity?.geojsonUrl !== update.severity?.geojsonUrl;
         Object.assign(pinned, update);
-        if (S.current?.id === pinned.id && S.geo) renderAiCmp(pinned, S.geo);
+        if (S.current?.id === pinned.id && S.geo) {
+          renderAiCmp(pinned, S.geo);
+          if (sevChanged) { loadSeverityForRun(pinned, loadToken); renderDays(); Extras.onShown(pinned, S.geo, null); }
+        }
+      }
+    }
+    if (S.custom) {
+      const upd = S.runs.find(r => r.id === S.custom.id);
+      if (upd) {
+        const sevChanged = S.custom.severity?.maxLevel !== upd.severity?.maxLevel || S.custom.severity?.geojsonUrl !== upd.severity?.geojsonUrl;
+        Object.assign(S.custom, upd);
+        if (sevChanged && S.geo) { loadSeverityForRun(S.custom, loadToken); Extras.onShown(S.custom, S.geo, null); }
       }
     }
     buildDays();
