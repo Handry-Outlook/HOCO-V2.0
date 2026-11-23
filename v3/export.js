@@ -5,10 +5,13 @@ import { createGifEncoder } from './gif-encoder.js?v=2';
 import {
   drawSeverityOnCanvas,
   formatHazards,
+  HAZARD_PANELS,
+  mergeHazardSevGeos,
   SEVERITY_LEVELS,
+  severityHazardKmlFolders,
   severityKmlFolder,
   syncSeverityLayers,
-} from './severity.js?v=3';
+} from './severity.js?v=4';
 
 const $ = (id) => document.getElementById(id);
 const pad = (n) => String(n).padStart(2, '0');
@@ -30,6 +33,7 @@ const EX = {
   size: 'landscape',
   file: 'png',
   extent: 'region',
+  layout: 'single',
   key: true,
   bbox: true,
   graticule: true,
@@ -287,6 +291,7 @@ export function initExport(deps) {
         mergedGeo: geo,
         spreadGeo: null,
         mergedSevGeo,
+        sevGeos: mergedSevGeo ? [mergedSevGeo] : [],
       };
     }
 
@@ -332,23 +337,31 @@ export function initExport(deps) {
       if (spreadFeatures.length) spreadGeo = { type: 'FeatureCollection', features: spreadFeatures };
     }
 
-    const sevGeos = includeSeverity
+    const rawSevGeos = includeSeverity
       ? await Promise.all(items.map((it) => getSevForRun(it.run)))
       : [];
+    const sevGeos = rawSevGeos.filter(Boolean);
     const sevPolys = [];
+    const hzPolys = [];
     const sevPts = [];
     for (const sg of sevGeos) {
       for (const f of sg?.features || []) {
-        if (f.properties?.feature_type === 'severity_polygon') sevPolys.push(f);
-        else if (f.properties?.feature_type === 'severity_point') sevPts.push(f);
+        const ft = f.properties?.feature_type;
+        if (ft === 'severity_polygon') sevPolys.push(f);
+        else if (ft === 'hazard_polygon') hzPolys.push(f);
+        else if (ft === 'severity_point') sevPts.push(f);
       }
     }
     sevPolys.sort((a, b) => Number(a.properties?.level || 0) - Number(b.properties?.level || 0));
-    const mergedSevGeo = sevPolys.length || sevPts.length
-      ? { type: 'FeatureCollection', features: [...sevPolys, ...sevPts] }
+    const mergedSevGeo = sevPolys.length || hzPolys.length || sevPts.length
+      ? {
+        type: 'FeatureCollection',
+        properties: hzPolys.length ? { hazardPolygons: true } : {},
+        features: [...sevPolys, ...hzPolys, ...sevPts],
+      }
       : null;
 
-    return { items, mergedGeo, spreadGeo, mergedSevGeo };
+    return { items, mergedGeo, spreadGeo, mergedSevGeo, sevGeos };
   }
 
   function addForecastAndOverlaysToMap(m, { mergedGeo, spreadGeo, sevGeo, diffGeo, strikeGeo, includeStrikes, includeSeverity }) {
@@ -646,10 +659,10 @@ export function initExport(deps) {
   }
 
   // Draw official square Handry Outlook logo from v3/icons/icon-512.png
-  function drawBrandLogo(ctx, logoImg, { mapX, mapY, mapW, mapH, padIn, isDark, u }) {
+  function drawBrandLogo(ctx, logoImg, { mapX, mapY, mapW, mapH, padIn, isDark, u, sizeOverride = null }) {
     const halo = isDark ? 'rgba(8,14,24,0.92)' : 'rgba(255,255,255,0.94)';
     const ink = isDark ? '#f8fafc' : '#0b1320';
-    const size = Math.round(136 * u);
+    const size = Math.round(sizeOverride ?? 136 * u);
 
     if (logoImg && logoImg.naturalWidth > 0) {
       const nw = logoImg.naturalWidth, nh = logoImg.naturalHeight;
@@ -810,7 +823,7 @@ export function initExport(deps) {
     ctx.textBaseline = 'alphabetic';
   }
 
-  function drawGraticuleAndTicks(ctx, { mapX, mapY, mapW, mapH, project, unproject, isDark, u }) {
+  function drawGraticuleAndTicks(ctx, { mapX, mapY, mapW, mapH, project, unproject, isDark, u, drawLeftTicks = true, drawBottomTicks = true }) {
     let corners;
     try {
       corners = [unproject(0, 0), unproject(mapW, 0), unproject(mapW, mapH), unproject(0, mapH)];
@@ -851,41 +864,47 @@ export function initExport(deps) {
     }
     ctx.restore();
 
+    if (!drawLeftTicks && !drawBottomTicks) return;
+
     const tickLen = Math.round(5 * u);
     ctx.font = `600 ${Math.max(10, Math.round(12 * u))}px Inter, system-ui, sans-serif`;
     ctx.strokeStyle = '#0f172a';
     ctx.fillStyle = '#334155';
     ctx.lineWidth = Math.max(1.1, 1.3 * u);
 
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    let lastLatY = -Infinity;
-    for (const lat of lats) {
-      const py = mapY + project((minLon + maxLon) / 2, lat)[1];
-      if (py < mapY + 10 * u || py > mapY + mapH - 10 * u) continue;
-      ctx.beginPath();
-      ctx.moveTo(mapX - tickLen, py);
-      ctx.lineTo(mapX, py);
-      ctx.stroke();
-      if (Math.abs(py - lastLatY) >= 24 * u) {
-        ctx.fillText(fmtLat(lat), mapX - tickLen - 4 * u, py);
-        lastLatY = py;
+    if (drawLeftTicks) {
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      let lastLatY = -Infinity;
+      for (const lat of lats) {
+        const py = mapY + project((minLon + maxLon) / 2, lat)[1];
+        if (py < mapY + 10 * u || py > mapY + mapH - 10 * u) continue;
+        ctx.beginPath();
+        ctx.moveTo(mapX - tickLen, py);
+        ctx.lineTo(mapX, py);
+        ctx.stroke();
+        if (Math.abs(py - lastLatY) >= 24 * u) {
+          ctx.fillText(fmtLat(lat), mapX - tickLen - 4 * u, py);
+          lastLatY = py;
+        }
       }
     }
 
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    let lastLonX = -Infinity;
-    for (const lon of lons) {
-      const px = mapX + project(lon, (minLat + maxLat) / 2)[0];
-      if (px < mapX + 18 * u || px > mapX + mapW - 18 * u) continue;
-      ctx.beginPath();
-      ctx.moveTo(px, mapY + mapH);
-      ctx.lineTo(px, mapY + mapH + tickLen);
-      ctx.stroke();
-      if (px - lastLonX >= 46 * u) {
-        ctx.fillText(fmtLon(lon), px, mapY + mapH + tickLen + 3 * u);
-        lastLonX = px;
+    if (drawBottomTicks) {
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      let lastLonX = -Infinity;
+      for (const lon of lons) {
+        const px = mapX + project(lon, (minLat + maxLat) / 2)[0];
+        if (px < mapX + 18 * u || px > mapX + mapW - 18 * u) continue;
+        ctx.beginPath();
+        ctx.moveTo(px, mapY + mapH);
+        ctx.lineTo(px, mapY + mapH + tickLen);
+        ctx.stroke();
+        if (px - lastLonX >= 46 * u) {
+          ctx.fillText(fmtLon(lon), px, mapY + mapH + tickLen + 3 * u);
+          lastLonX = px;
+        }
       }
     }
     ctx.textAlign = 'left';
@@ -1054,7 +1073,7 @@ export function initExport(deps) {
     ctx.textBaseline = 'alphabetic';
   }
 
-  function computeLayout({ W, H, run, extent, items, includeStrikes, includeRadar, includeSeverity = false, sevLevels = [], withKey, withBbox, withGraticule, radarTime, strikeCount, obsStamp }) {
+  function computeLayout({ W, H, run, extent, items, includeStrikes, includeRadar, includeSeverity = false, hazards4 = false, sevLevels = [], withKey, withBbox, withGraticule, radarTime, strikeCount, obsStamp }) {
     const u = Math.min(W, H) / 1080;
     const F = (sz, wt = 700) => `${wt} ${Math.max(10, Math.round(sz * u))}px Inter, system-ui, sans-serif`;
     const isStory = W < H;
@@ -1074,11 +1093,13 @@ export function initExport(deps) {
 
     const titleText = spreadActive
       ? 'HOCO Model Spread · Standard Deviation Across Fields (pp)'
-      : run.type === 'timing'
-        ? 'Hourcast Short-Window Lightning Risk within 20 km (%)'
-        : run.type === 'ai'
-          ? 'AI HOCO Thunderstorm Outlook · Lightning within 20 km (%)'
-          : 'HOCO Thunderstorm Outlook · Lightning within 20 km (%)';
+      : hazards4
+        ? '4-Panel Severe Hazard Breakdown · Lightning within 20 km (%)'
+        : run.type === 'timing'
+          ? 'Hourcast Short-Window Lightning Risk within 20 km (%)'
+          : run.type === 'ai'
+            ? 'AI HOCO Thunderstorm Outlook · Lightning within 20 km (%)'
+            : 'HOCO Thunderstorm Outlook · Lightning within 20 km (%)';
 
     const typeTag = run.type === 'timing' && run.ownerId
       ? 'MANUAL HOURCAST HOCO'
@@ -1131,21 +1152,15 @@ export function initExport(deps) {
     };
   }
 
-  function composeChartFrame(g, layout, {
-    drawMapLayer, project, unproject, items, extent, isDark, logoImg,
-    withGraticule, withBbox, withKey, includeStrikes, includeRadar, sevLevels = [],
-    stampText, progressFrac,
-  }) {
+  function drawChartHeader(g, layout) {
     const {
-      W, H, u, F, isStory, topPad, mapX, mapY, mapW, mapH, tickBandH, legendH,
-      spreadActive, multiRegion, domainTag, titleText, validStr, initStr, microLeft, microRight, metaWrapped,
+      W, H, u, F, isStory, topPad, mapX, mapY, mapW,
+      domainTag, titleText, validStr, initStr, microLeft, microRight, metaWrapped,
     } = layout;
 
-    // 1. White Pivotal-Weather-style outer matte
     g.fillStyle = '#ffffff';
     g.fillRect(0, 0, W, H);
 
-    // 2. Top header typography
     let y = topPad + Math.round(22 * u);
     g.font = F(isStory ? 13.5 : 15, 700);
     const domW = g.measureText(domainTag).width;
@@ -1181,8 +1196,71 @@ export function initExport(deps) {
     g.fillText(microRight, mapX + mapW, microY);
     g.textAlign = 'left';
     g.fillText(microLeft, mapX, microY, Math.max(100, mapW - mrW - 16 * u));
+  }
 
-    // 3. Base map + animated/static overlays inside clipped map frame
+  function drawTimestampBadge(g, { mapX, mapY, mapW, stampText, isDark, F, u }) {
+    if (!stampText) return null;
+    g.font = F(13.5, 700);
+    const tw = g.measureText(stampText).width;
+    const sxPad = Math.round(10 * u);
+    const pillW = Math.round(tw + sxPad * 2 + 10 * u);
+    const pillH = Math.round(26 * u);
+    const px = mapX + mapW - Math.round(12 * u) - pillW;
+    const py = mapY + Math.round(12 * u);
+
+    g.save();
+    g.fillStyle = isDark ? 'rgba(11,18,32,0.9)' : 'rgba(255,255,255,0.94)';
+    g.strokeStyle = isDark ? 'rgba(248,250,252,0.65)' : 'rgba(15,27,45,0.55)';
+    g.lineWidth = Math.max(1.2, 1.3 * u);
+    roundRectPath(g, px, py, pillW, pillH, 5 * u);
+    g.fill();
+    g.stroke();
+
+    g.beginPath();
+    g.arc(px + sxPad + 3 * u, py + pillH / 2, Math.max(3, 3.5 * u), 0, Math.PI * 2);
+    g.fillStyle = '#16a34a';
+    g.fill();
+
+    g.fillStyle = isDark ? '#f8fafc' : '#0f172a';
+    g.textBaseline = 'middle';
+    g.textAlign = 'left';
+    g.fillText(stampText, px + sxPad + 11 * u, py + pillH / 2 + 0.5);
+    g.restore();
+    g.textBaseline = 'alphabetic';
+    return { x: px, y: py, w: pillW, h: pillH };
+  }
+
+  function computeQuadGeometry(layout) {
+    const { u, mapX, mapY, mapW, mapH } = layout;
+    const gap = Math.round(10 * u);
+    const cellW = Math.floor((mapW - gap) / 2);
+    const cellH = Math.floor((mapH - gap) / 2);
+    const barH = Math.max(22, Math.round(28 * u));
+    const subW = cellW;
+    const subH = Math.max(110, cellH - barH);
+    const cells = HAZARD_PANELS.map((panel, idx) => {
+      const col = idx % 2;
+      const row = Math.floor(idx / 2);
+      const cx = mapX + col * (cellW + gap);
+      const cy = mapY + row * (cellH + gap);
+      return { idx, col, row, panel, cx, cy, cellW, cellH, barH, mx: cx, my: cy + barH, subW, subH };
+    });
+    return { gap, cellW, cellH, barH, subW, subH, cells };
+  }
+
+  function composeChartFrame(g, layout, {
+    drawMapLayer, project, unproject, items, extent, isDark, logoImg,
+    withGraticule, withBbox, withKey, includeStrikes, includeRadar, sevLevels = [],
+    stampText, progressFrac,
+  }) {
+    const {
+      W, u, F, mapX, mapY, mapW, mapH, tickBandH, legendH,
+      spreadActive, multiRegion,
+    } = layout;
+
+    drawChartHeader(g, layout);
+
+    // Base map + animated/static overlays inside clipped map frame
     g.save();
     g.beginPath();
     g.rect(mapX, mapY, mapW, mapH);
@@ -1190,47 +1268,12 @@ export function initExport(deps) {
     drawMapLayer(g, mapX, mapY, mapW, mapH);
     g.restore();
 
-    // 4. Graticule + edge ticks
     if (withGraticule) {
       drawGraticuleAndTicks(g, { mapX, mapY, mapW, mapH, project, unproject, isDark, u });
     }
 
-    // 5. Draw top-right timestamp badge (if radar / animation timestamp active) & compute exclusion rects
-    let stampBox = null;
-    if (stampText) {
-      const sFont = F(13.5, 700);
-      g.font = sFont;
-      const tw = g.measureText(stampText).width;
-      const sxPad = Math.round(10 * u);
-      const pillW = Math.round(tw + sxPad * 2 + 10 * u);
-      const pillH = Math.round(26 * u);
-      const px = mapX + mapW - Math.round(12 * u) - pillW;
-      const py = mapY + Math.round(12 * u);
-      stampBox = { x: px, y: py, w: pillW, h: pillH };
+    const stampBox = drawTimestampBadge(g, { mapX, mapY, mapW, stampText, isDark, F, u });
 
-      g.save();
-      g.fillStyle = isDark ? 'rgba(11,18,32,0.9)' : 'rgba(255,255,255,0.94)';
-      g.strokeStyle = isDark ? 'rgba(248,250,252,0.65)' : 'rgba(15,27,45,0.55)';
-      g.lineWidth = Math.max(1.2, 1.3 * u);
-      roundRectPath(g, px, py, pillW, pillH, 5 * u);
-      g.fill();
-      g.stroke();
-
-      // Status dot
-      g.beginPath();
-      g.arc(px + sxPad + 3 * u, py + pillH / 2, Math.max(3, 3.5 * u), 0, Math.PI * 2);
-      g.fillStyle = '#16a34a';
-      g.fill();
-
-      g.fillStyle = isDark ? '#f8fafc' : '#0f172a';
-      g.textBaseline = 'middle';
-      g.textAlign = 'left';
-      g.fillText(stampText, px + sxPad + 11 * u, py + pillH / 2 + 0.5);
-      g.restore();
-      g.textBaseline = 'alphabetic';
-    }
-
-    // Optional thin playback progress bar across top inside border for GIF/Video animations
     if (progressFrac != null) {
       const barH = Math.max(3, Math.round(4 * u));
       g.fillStyle = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(15,23,42,0.12)';
@@ -1239,12 +1282,10 @@ export function initExport(deps) {
       g.fillRect(mapX, mapY, Math.round(mapW * Math.max(0, Math.min(1, progressFrac))), barH);
     }
 
-    // Estimate logo dimensions cleanly before drawDomainBoxes so region badges avoid it
     const estLogoSize = Math.round(136 * u);
     const estLogoW = logoImg && logoImg.naturalWidth > 0 ? estLogoSize : Math.round(145 * u);
     const estLogoH = logoImg && logoImg.naturalWidth > 0 ? estLogoSize : Math.round(28 * u);
 
-    // 6. Forecast domain bounding box(es) + non-overlapping region labels
     if (withBbox) {
       drawDomainBoxes(g, {
         items, mapX, mapY, mapW, mapH,
@@ -1256,7 +1297,6 @@ export function initExport(deps) {
       });
     }
 
-    // 7. Bottom corner attribution (left) & official repo logo (right)
     const halo = isDark ? 'rgba(8,14,24,0.92)' : 'rgba(255,255,255,0.94)';
     const ink = isDark ? '#f8fafc' : '#0b1320';
     const padIn = Math.round(12 * u);
@@ -1269,13 +1309,143 @@ export function initExport(deps) {
 
     drawBrandLogo(g, logoImg, { mapX, mapY, mapW, mapH, padIn, isDark, u });
 
-    // 8. Outer crisp border enclosing map viewport
     g.strokeStyle = '#0f172a';
     g.lineWidth = Math.max(1.6, 2 * u);
     g.lineJoin = 'miter';
     g.strokeRect(mapX, mapY, mapW, mapH);
 
-    // 9. Bottom colorbar + legend strip
+    if (withKey) {
+      drawLegendStrip(g, {
+        W, mapX, mapW,
+        stripY: mapY + mapH + tickBandH,
+        stripH: legendH,
+        spreadActive,
+        includeStrikes,
+        includeRadar,
+        sevLevels,
+        u,
+      });
+    }
+  }
+
+  function composeHazardQuadFrame(g, layout, quad, {
+    panelSevGeos, drawSubMap, project, unproject, items, extent, isDark, logoImg,
+    withGraticule, withBbox, withKey, includeStrikes, includeRadar, sevLevels = [],
+    stampText, progressFrac,
+  }) {
+    const { W, u, F, mapX, mapY, mapW, mapH, tickBandH, legendH, spreadActive, multiRegion } = layout;
+
+    drawChartHeader(g, layout);
+
+    const halo = isDark ? 'rgba(8,14,24,0.92)' : 'rgba(255,255,255,0.94)';
+    const ink = isDark ? '#f8fafc' : '#0b1320';
+    const padIn = Math.round(9 * u);
+    const logoSize = Math.round(88 * u);
+    const estLogoW = logoImg && logoImg.naturalWidth > 0 ? logoSize : Math.round(115 * u);
+    const estLogoH = logoImg && logoImg.naturalWidth > 0 ? logoSize : Math.round(24 * u);
+
+    for (const c of quad.cells) {
+      const { idx, col, row, panel, cx, cy, cellW, cellH, barH, mx, my, subW, subH } = c;
+      const pSev = panelSevGeos[idx];
+      const maxLvl = Number(pSev?.properties?.maxLevel || 0);
+      const lvlMeta = SEVERITY_LEVELS[maxLvl];
+      const pkVal = pSev?.properties?.peakMetric;
+
+      // 1. Panel header bar
+      g.fillStyle = isDark ? '#0f172a' : '#f8fafc';
+      g.fillRect(cx, cy, cellW, barH);
+      g.fillStyle = panel.accent;
+      g.fillRect(cx, cy, Math.max(4, Math.round(5 * u)), barH);
+
+      const badgeTxt = maxLvl >= 1 ? `Level ${maxLvl}` : 'No threat';
+      g.font = F(12, 800);
+      const bTextW = g.measureText(badgeTxt).width;
+      const bPadX = Math.round(8 * u);
+      const bW = Math.round(bTextW + bPadX * 2);
+      const bH = Math.round(barH * 0.66);
+      const bx = cx + cellW - bW - Math.round(8 * u);
+      const by = cy + Math.round((barH - bH) / 2);
+
+      g.fillStyle = maxLvl >= 1 ? (lvlMeta?.color || '#d97706') : (isDark ? '#1e293b' : '#e2e8f0');
+      roundRectPath(g, bx, by, bW, bH, bH / 2);
+      g.fill();
+
+      g.fillStyle = maxLvl >= 1 ? '#ffffff' : (isDark ? '#cbd5e1' : '#475569');
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(badgeTxt, bx + bW / 2, cy + barH / 2 + 0.5);
+
+      let pkStr = '';
+      if (maxLvl >= 1 && pkVal != null && Number.isFinite(Number(pkVal))) {
+        if (panel.key === 'tornado') pkStr = ` · STP ${Number(pkVal).toFixed(1)}`;
+        else if (panel.key === 'hail') pkStr = ` · SCP ${Number(pkVal).toFixed(1)}`;
+        else if (panel.key === 'wind') pkStr = ` · ${Math.round(Number(pkVal))} mph`;
+      }
+      g.font = F(14.5, 800);
+      g.fillStyle = isDark ? '#f8fafc' : '#0f172a';
+      g.textAlign = 'left';
+      g.fillText(`${panel.title}${pkStr}`, cx + Math.round(12 * u), cy + barH / 2 + 0.5, Math.max(80, bx - cx - Math.round(18 * u)));
+      g.textBaseline = 'alphabetic';
+
+      // 2. Clipped sub-map (base + default thunderstorm risk + single-hazard severity overlay)
+      g.save();
+      g.beginPath();
+      g.rect(mx, my, subW, subH);
+      g.clip();
+      drawSubMap(g, mx, my, subW, subH, pSev, idx);
+      g.restore();
+
+      if (withGraticule) {
+        drawGraticuleAndTicks(g, {
+          mapX: mx, mapY: my, mapW: subW, mapH: subH, project, unproject, isDark, u: Math.max(0.72, u * 0.85),
+          drawLeftTicks: col === 0,
+          drawBottomTicks: row === 1,
+        });
+      }
+
+      const cellStamp = idx === 1 ? drawTimestampBadge(g, { mapX: mx, mapY: my, mapW: subW, stampText, isDark, F, u: Math.max(0.75, u * 0.85) }) : null;
+
+      if (progressFrac != null && row === 0) {
+        const pH = Math.max(2, Math.round(3 * u));
+        g.fillStyle = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(15,23,42,0.12)';
+        g.fillRect(mx, my, subW, pH);
+        g.fillStyle = '#2f5fe0';
+        g.fillRect(mx, my, Math.round(subW * Math.max(0, Math.min(1, progressFrac))), pH);
+      }
+
+      if (withBbox) {
+        drawDomainBoxes(g, {
+          items, mapX: mx, mapY: my, mapW: subW, mapH: subH,
+          project, isDark, singleRegion: !multiRegion && extent !== 'current',
+          logoBox: idx === 3 ? { w: estLogoW, h: estLogoH } : { w: 0, h: 0 },
+          stampBox: cellStamp,
+        });
+      }
+
+      if (idx === 2) {
+        g.font = F(12.5, 700);
+        g.textAlign = 'left';
+        g.textBaseline = 'bottom';
+        drawHalodText(g, 'handry-outlook.github.io/HOCO-V2.0', mx + padIn, my + subH - padIn + 1, halo, ink, Math.max(2.5, 3.6 * u));
+        g.textBaseline = 'alphabetic';
+      }
+      if (idx === 3) {
+        drawBrandLogo(g, logoImg, { mapX: mx, mapY: my, mapW: subW, mapH: subH, padIn, isDark, u, sizeOverride: logoSize });
+      }
+
+      // Header separator & cell frame
+      g.strokeStyle = isDark ? 'rgba(248,250,252,0.22)' : 'rgba(15,23,42,0.28)';
+      g.lineWidth = Math.max(1, 1.2 * u);
+      g.beginPath();
+      g.moveTo(cx, my);
+      g.lineTo(cx + cellW, my);
+      g.stroke();
+
+      g.strokeStyle = '#0f172a';
+      g.lineWidth = Math.max(1.4, 1.8 * u);
+      g.strokeRect(cx, cy, cellW, cellH);
+    }
+
     if (withKey) {
       drawLegendStrip(g, {
         W, mapX, mapW,
@@ -1305,30 +1475,41 @@ export function initExport(deps) {
     const includeStrikes = opts.strikes !== undefined ? !!opts.strikes : !!O.strikes;
     const includeRadar = opts.radar !== undefined ? !!opts.radar : !!O.radar;
     const includeSeverity = opts.severity !== undefined ? !!opts.severity : !!(EX.severity && (severityOn ? severityOn() : true));
+    const wantHazards4 = (opts.layout || EX.layout) === 'hazards4' && includeSeverity && !X.spreadActive?.();
     const radarTime = opts.radarTime !== undefined ? opts.radarTime : (includeRadar ? O.t : null);
 
     const info = opts.regionInfo || findAvailableRegionRuns(run);
     const [data, logoImg] = await Promise.all([loadExportData(run, info, extent, includeSeverity), loadBrandLogo()]);
-    const { items, mergedGeo, spreadGeo, mergedSevGeo } = data;
-    const sevLevels = includeSeverity ? extractSevLevels(mergedSevGeo) : [];
+    const { items, mergedGeo, spreadGeo, mergedSevGeo, sevGeos } = data;
+    const hazards4 = wantHazards4 && sevGeos.length > 0;
+    const panelSevGeos = hazards4 ? HAZARD_PANELS.map((p) => mergeHazardSevGeos(sevGeos, p.key)) : null;
+    const sevLevels = includeSeverity
+      ? (hazards4
+        ? [...new Set([...extractSevLevels(mergedSevGeo), ...panelSevGeos.flatMap((pg) => extractSevLevels(pg))])].sort((a, b) => a - b)
+        : extractSevLevels(mergedSevGeo))
+      : [];
 
     const layout = computeLayout({
-      W, H, run, extent, items, includeStrikes, includeRadar, includeSeverity, sevLevels,
+      W, H, run, extent, items, includeStrikes, includeRadar, includeSeverity, hazards4, sevLevels,
       withKey, withBbox, withGraticule, radarTime,
     });
+    const quad = hazards4 ? computeQuadGeometry(layout) : null;
 
     const capture = await captureMapFrame({
-      mapW: layout.mapW, mapH: layout.mapH, extent, items, mergedGeo, spreadGeo,
-      sevGeo: mergedSevGeo, includeSeverity,
+      mapW: hazards4 ? quad.subW : layout.mapW,
+      mapH: hazards4 ? quad.subH : layout.mapH,
+      extent, items, mergedGeo, spreadGeo,
+      sevGeo: hazards4 ? null : mergedSevGeo,
+      includeSeverity: hazards4 ? false : includeSeverity,
       includeStrikes, includeRadar, radarTime,
     });
 
     try {
-      // Refresh microLeft if capture computed strike count
       const finalLayout = computeLayout({
-        W, H, run, extent, items, includeStrikes, includeRadar, includeSeverity, sevLevels,
+        W, H, run, extent, items, includeStrikes, includeRadar, includeSeverity, hazards4, sevLevels,
         withKey, withBbox, withGraticule, radarTime, strikeCount: capture.strikeCount,
       });
+      const finalQuad = hazards4 ? computeQuadGeometry(finalLayout) : null;
       const canvas = document.createElement('canvas');
       canvas.width = W;
       canvas.height = H;
@@ -1336,22 +1517,45 @@ export function initExport(deps) {
       const isDark = !!X.mapIsDark?.();
       const stampText = includeRadar && radarTime != null ? `Radar · ${fmtUtcShort(new Date(radarTime))}` : '';
 
-      composeChartFrame(g, finalLayout, {
-        drawMapLayer: (ctx, mx, my) => capture.drawMapTo(ctx, mx, my),
-        project: capture.project,
-        unproject: capture.unproject,
-        items,
-        extent: capture.effectiveExtent,
-        isDark,
-        logoImg,
-        withGraticule,
-        withBbox,
-        withKey,
-        includeStrikes,
-        includeRadar,
-        sevLevels,
-        stampText,
-      });
+      if (hazards4) {
+        composeHazardQuadFrame(g, finalLayout, finalQuad, {
+          panelSevGeos,
+          drawSubMap: (ctx, mx, my, mw, mh, pSev) => {
+            capture.drawMapTo(ctx, mx, my);
+            if (pSev) drawSeverityOnCanvas(ctx, pSev, capture.project, mx, my, Math.max(0.65, finalLayout.u * 0.72), isDark);
+          },
+          project: capture.project,
+          unproject: capture.unproject,
+          items,
+          extent: capture.effectiveExtent,
+          isDark,
+          logoImg,
+          withGraticule,
+          withBbox,
+          withKey,
+          includeStrikes,
+          includeRadar,
+          sevLevels,
+          stampText,
+        });
+      } else {
+        composeChartFrame(g, finalLayout, {
+          drawMapLayer: (ctx, mx, my) => capture.drawMapTo(ctx, mx, my),
+          project: capture.project,
+          unproject: capture.unproject,
+          items,
+          extent: capture.effectiveExtent,
+          isDark,
+          logoImg,
+          withGraticule,
+          withBbox,
+          withKey,
+          includeStrikes,
+          includeRadar,
+          sevLevels,
+          stampText,
+        });
+      }
 
       return canvas;
     } finally {
@@ -1499,6 +1703,7 @@ export function initExport(deps) {
     const animRadar = opts.animRadar !== undefined ? !!opts.animRadar : EX.animRadar;
     const animStrikes = opts.animStrikes !== undefined ? !!opts.animStrikes : EX.animStrikes;
     const includeSeverity = opts.severity !== undefined ? !!opts.severity : !!(EX.severity && (severityOn ? severityOn() : true));
+    const wantHazards4 = (opts.layout || EX.layout) === 'hazards4' && includeSeverity && !X.spreadActive?.();
     const onProgress = opts.onProgress;
     const signal = opts.signal;
 
@@ -1509,33 +1714,42 @@ export function initExport(deps) {
     const [W, H] = ANIM_SIZES[format]?.[sizeKey] || ANIM_SIZES.gif.landscape;
     const info = opts.regionInfo || findAvailableRegionRuns(run);
     const [data, logoImg] = await Promise.all([loadExportData(run, info, extent, includeSeverity), loadBrandLogo()]);
-    const { items, mergedGeo, spreadGeo, mergedSevGeo } = data;
-    const sevLevels = includeSeverity ? extractSevLevels(mergedSevGeo) : [];
+    const { items, mergedGeo, spreadGeo, mergedSevGeo, sevGeos } = data;
+    const hazards4 = wantHazards4 && sevGeos.length > 0;
+    const panelSevGeos = hazards4 ? HAZARD_PANELS.map((p) => mergeHazardSevGeos(sevGeos, p.key)) : null;
+    const sevLevels = includeSeverity
+      ? (hazards4
+        ? [...new Set([...extractSevLevels(mergedSevGeo), ...panelSevGeos.flatMap((pg) => extractSevLevels(pg))])].sort((a, b) => a - b)
+        : extractSevLevels(mergedSevGeo))
+      : [];
 
     const baseLayout = computeLayout({
       W, H, run, extent, items,
-      includeStrikes: animStrikes, includeRadar: animRadar, includeSeverity, sevLevels,
+      includeStrikes: animStrikes, includeRadar: animRadar, includeSeverity, hazards4, sevLevels,
       withKey, withBbox, withGraticule, obsStamp: win.startMs,
     });
+    const baseQuad = hazards4 ? computeQuadGeometry(baseLayout) : null;
+    const frameW = hazards4 ? baseQuad.subW : baseLayout.mapW;
+    const frameH = hazards4 ? baseQuad.subH : baseLayout.mapH;
 
     onProgress?.({ phase: 'Preparing map & strikes…', index: 0, total: win.frames.length, t: win.startMs });
 
     // Capture static base map (without radar/strikes/severity) ONCE, then release WebGL context immediately
     const capture = await captureMapFrame({
-      mapW: baseLayout.mapW, mapH: baseLayout.mapH, extent, items, mergedGeo, spreadGeo,
+      mapW: frameW, mapH: frameH, extent, items, mergedGeo, spreadGeo,
       includeStrikes: false, includeRadar: false, includeSeverity: false,
     });
 
     const baseCanvas = document.createElement('canvas');
-    baseCanvas.width = baseLayout.mapW;
-    baseCanvas.height = baseLayout.mapH;
+    baseCanvas.width = frameW;
+    baseCanvas.height = frameH;
     let proj, nw, se, effExtent;
     try {
       capture.drawMapTo(baseCanvas.getContext('2d'), 0, 0);
       nw = capture.nw;
       se = capture.se;
       effExtent = capture.effectiveExtent;
-      proj = createMercatorProjector(nw, se, baseLayout.mapW, baseLayout.mapH);
+      proj = createMercatorProjector(nw, se, frameW, frameH);
     } finally {
       capture.cleanup();
     }
@@ -1564,10 +1778,10 @@ export function initExport(deps) {
       if (signal?.aborted) throw new DOMException('Export cancelled', 'AbortError');
       if (animRadar && renderRadarCanvas) {
         const rdCtx = radarBuf.getContext('2d');
-        radarBuf.width = baseLayout.mapW;
-        radarBuf.height = baseLayout.mapH;
-        rdCtx.clearRect(0, 0, baseLayout.mapW, baseLayout.mapH);
-        await renderRadarCanvas(radarBuf, nw, se, baseLayout.mapW, baseLayout.mapH, t, Math.round(proj.approxZoom)).catch(() => 0);
+        radarBuf.width = frameW;
+        radarBuf.height = frameH;
+        rdCtx.clearRect(0, 0, frameW, frameH);
+        await renderRadarCanvas(radarBuf, nw, se, frameW, frameH, t, Math.round(proj.approxZoom)).catch(() => 0);
       }
 
       const d = new Date(t);
@@ -1578,27 +1792,28 @@ export function initExport(deps) {
 
       const layout = computeLayout({
         W, H, run, extent, items,
-        includeStrikes: animStrikes, includeRadar: animRadar, includeSeverity, sevLevels,
+        includeStrikes: animStrikes, includeRadar: animRadar, includeSeverity, hazards4, sevLevels,
         withKey, withBbox, withGraticule, obsStamp: t, strikeCount,
       });
 
-      composeChartFrame(fCtx, layout, {
-        drawMapLayer(ctx, mx, my, mw, mh) {
-          ctx.drawImage(baseCanvas, mx, my, mw, mh);
-          if (animRadar && radarBuf.width > 0) {
-            ctx.save();
-            ctx.globalAlpha = radarAlpha;
-            ctx.drawImage(radarBuf, mx, my, mw, mh);
-            ctx.restore();
-            drawRiskOutlines(ctx, mergedGeo, proj.project, mx, my, layout.u, isDark);
-          }
-          if (includeSeverity && mergedSevGeo) {
-            drawSeverityOnCanvas(ctx, mergedSevGeo, proj.project, mx, my, layout.u, isDark);
-          }
-          if (animStrikes) {
-            drawAccumulatingStrikes(ctx, allStrikes, t, decayRefMs, proj.project, mx, my, layout.u);
-          }
-        },
+      const paintFrameContent = (ctx, mx, my, mw, mh, sevOverlay, sevScale) => {
+        ctx.drawImage(baseCanvas, mx, my, mw, mh);
+        if (animRadar && radarBuf.width > 0) {
+          ctx.save();
+          ctx.globalAlpha = radarAlpha;
+          ctx.drawImage(radarBuf, mx, my, mw, mh);
+          ctx.restore();
+          drawRiskOutlines(ctx, mergedGeo, proj.project, mx, my, sevScale, isDark);
+        }
+        if (sevOverlay) {
+          drawSeverityOnCanvas(ctx, sevOverlay, proj.project, mx, my, sevScale, isDark);
+        }
+        if (animStrikes) {
+          drawAccumulatingStrikes(ctx, allStrikes, t, decayRefMs, proj.project, mx, my, sevScale);
+        }
+      };
+
+      const commonArgs = {
         project: proj.project,
         unproject: proj.unproject,
         items,
@@ -1613,7 +1828,21 @@ export function initExport(deps) {
         sevLevels,
         stampText: `${fmtUtcShort(d)} · ${fmtLocal(d)} loc`,
         progressFrac: totalFrames > 1 ? frameIdx / (totalFrames - 1) : 1,
-      });
+      };
+
+      if (hazards4) {
+        const quad = computeQuadGeometry(layout);
+        composeHazardQuadFrame(fCtx, layout, quad, {
+          ...commonArgs,
+          panelSevGeos,
+          drawSubMap: (ctx, mx, my, mw, mh, pSev) => paintFrameContent(ctx, mx, my, mw, mh, pSev, Math.max(0.65, layout.u * 0.72)),
+        });
+      } else {
+        composeChartFrame(fCtx, layout, {
+          ...commonArgs,
+          drawMapLayer: (ctx, mx, my, mw, mh) => paintFrameContent(ctx, mx, my, mw, mh, includeSeverity ? mergedSevGeo : null, layout.u),
+        });
+      }
 
       return { strikeCount };
     };
@@ -1697,7 +1926,7 @@ export function initExport(deps) {
 
   async function buildKml(run, info, extent, includeBbox = true, includeSeverity = true) {
     const data = await loadExportData(run, info, extent, includeSeverity);
-    const { items, mergedSevGeo } = data;
+    const { items, mergedSevGeo, sevGeos } = data;
     const st = X.startOf(run), en = X.endOf(run);
     const styles = X.BANDS.map((b, i) => `<Style id="b${i}"><LineStyle><color>${kmlColor(b.fill, 'ff')}</color><width>1</width></LineStyle><PolyStyle><color>${kmlColor(b.fill)}</color></PolyStyle></Style>`).join('')
       + `<Style id="bbox"><LineStyle><color>ff2d1b0f</color><width>2.5</width></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>`;
@@ -1707,13 +1936,14 @@ export function initExport(deps) {
       : geoPolygonsToKml(items[0].geo);
 
     const sevFolder = includeSeverity && mergedSevGeo ? severityKmlFolder(mergedSevGeo, xe) : '';
+    const hazardFolders = includeSeverity && sevGeos?.length ? severityHazardKmlFolders(sevGeos, xe, { includeStyles: !sevFolder }) : '';
     const bboxFolder = includeBbox && items.some((it) => Number.isFinite(it.region?.west))
       ? `<Folder><name>Domain Bounding Box${items.length > 1 ? 'es' : ''}</name>${items.filter((it) => Number.isFinite(it.region?.west)).map((it) => `<Placemark><name>${xe(it.region.name)} Domain</name><styleUrl>#bbox</styleUrl><LineString><tessellate>1</tessellate><coordinates>${bboxRing(it.region)}</coordinates></LineString></Placemark>`).join('')}</Folder>`
       : '';
 
     const regTitle = items.length > 1 ? `All Regions (${items.map((i) => i.region.name).join(', ')})` : items[0].region.name;
     const validDesc = run.windowValidity || (st && en ? `${X.dayName(st)} ${fmtLocal(st)} – ${X.dayName(en)} ${fmtLocal(en)}` : '');
-    return `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${run.type === 'timing' ? 'Hourcast' : 'HOCO'} ${xe(regTitle)} ${st ? X.dayDate(st) : ''}</name><description>Chance of lightning within 20 km. Valid ${xe(validDesc)}. Handry Outlook HOCO.</description>${styles}${body}${sevFolder}${bboxFolder}</Document></kml>`;
+    return `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${run.type === 'timing' ? 'Hourcast' : 'HOCO'} ${xe(regTitle)} ${st ? X.dayDate(st) : ''}</name><description>Chance of lightning within 20 km. Valid ${xe(validDesc)}. Handry Outlook HOCO.</description>${styles}${body}${sevFolder}${hazardFolders}${bboxFolder}</Document></kml>`;
   }
 
   async function download(blob, name) {
@@ -1743,14 +1973,23 @@ export function initExport(deps) {
 
   let dlgGen = 0;
 
-  function openExport() {
-    const run = O.run;
+  function openExport(opts = {}) {
+    const run = opts?.run || O.run;
     if (!run) return X.toast('Nothing to export yet');
     const gen = ++dlgGen;
     const d = $('cookieDlg'), st = X.startOf(run), en = X.endOf(run);
     const curReg = canonicalRegion(run);
     const info = findAvailableRegionRuns(run);
-    EX.severity = (runMaxSeverity && runMaxSeverity(run) >= 1 && severityOn) ? !!severityOn() : true;
+    const inHazardSplit = !!document.querySelector('#compare.cx-hazards');
+    if (opts?.layout === 'hazards4' || (!opts?.layout && inHazardSplit)) {
+      EX.layout = 'hazards4';
+      EX.severity = true;
+    } else if (opts?.layout === 'single' || (!opts?.layout && !inHazardSplit)) {
+      EX.layout = 'single';
+      EX.severity = (runMaxSeverity && runMaxSeverity(run) >= 1 && severityOn) ? !!severityOn() : true;
+    } else {
+      EX.severity = (runMaxSeverity && runMaxSeverity(run) >= 1 && severityOn) ? !!severityOn() : true;
+    }
     let busy = false;
     let abortCtrl = null;
     let confirmRadar = null; // null | { action: 'download' | 'share' }
@@ -1779,6 +2018,9 @@ export function initExport(deps) {
         || (info.entries || []).some((e) => runMaxSeverity && runMaxSeverity(e.run) >= 1);
       const isAnim = EX.file === 'gif' || EX.file === 'video';
       const isMedia = EX.file === 'png' || isAnim;
+      const showSev = hasSev && !X.spreadActive?.();
+      if (!showSev) EX.layout = 'single';
+      const activeLayout = showSev && EX.layout === 'hazards4' ? 'hazards4' : 'single';
       const animWin = isAnim ? animationWindow(run, EX.file) : null;
       const canVideo = typeof MediaRecorder !== 'undefined';
       if (EX.file === 'video' && !canVideo) EX.file = 'gif';
@@ -1854,7 +2096,13 @@ export function initExport(deps) {
           </div>
         </div>
         <label class="item layer"><span><b>Domain bounding box</b><small>Region boundary frame, corner peak label &amp; lat/lon ticks</small></span><input type="checkbox" class="switch" id="exBbox" ${EX.bbox ? 'checked' : ''}></label>
-        ${hasSev ? `<label class="item layer"><span><b>Severe threat (ESTOFEX)</b><small>Hatched Level 1–3 contours &amp; legend</small></span><input type="checkbox" class="switch" id="exSeverity" ${EX.severity ? 'checked' : ''}></label>` : ''}
+        ${showSev ? `<div class="setgrp"><span class="kicker">Hazard layout</span>
+          <div class="seg wide stack" role="group" aria-label="Hazard layout">
+            <button data-layout="single" aria-pressed="${activeLayout === 'single'}"><span>Single map</span><small>Combined severity overlay</small></button>
+            <button data-layout="hazards4" aria-pressed="${activeLayout === 'hazards4'}"><span>4-panel hazards</span><small>Flood · hail · tornado · gusts</small></button>
+          </div>
+        </div>
+        <label class="item layer"><span><b>Severe threat (ESTOFEX)</b><small>${activeLayout === 'hazards4' ? 'Per-hazard Level 1–3 contours &amp; legend' : 'Hatched Level 1–3 contours &amp; legend'}</small></span><input type="checkbox" class="switch" id="exSeverity" ${EX.severity ? 'checked' : ''}></label>` : ''}
         ${!isAnim ? `<label class="item layer"><span><b>Show lightning strikes</b><small>Observed strikes up to now, newest in gold</small></span><input type="checkbox" class="switch" id="exStrikes" ${O.strikes ? 'checked' : ''}></label>` : `
           <label class="item layer"><span><b>Animate rain radar</b><small>Observed radar frames through the HOCO period</small></span><input type="checkbox" class="switch" id="exAnimRadar" ${EX.animRadar ? 'checked' : ''}></label>
           <label class="item layer"><span><b>Accumulate lightning strikes</b><small>Strikes persist and decay in colour as storms evolve</small></span><input type="checkbox" class="switch" id="exAnimStrikes" ${EX.animStrikes ? 'checked' : ''}></label>
@@ -1903,8 +2151,9 @@ export function initExport(deps) {
           } else if (isAnim) {
             const res = await renderAnimation(EX.file, {
               run, regionInfo: info, extent: EX.extent, size: EX.size,
+              layout: activeLayout,
               key: EX.key, bbox: EX.bbox, graticule: EX.bbox,
-              severity: hasSev ? EX.severity : false,
+              severity: showSev ? EX.severity : false,
               animRadar: EX.animRadar, animStrikes: EX.animStrikes,
               signal,
               onProgress({ phase, index, total }) {
@@ -1916,14 +2165,15 @@ export function initExport(deps) {
           } else {
             if (O.strikes && O.loadingStrikes) await new Promise((r) => setTimeout(r, 1500));
             const c = await renderExport(EX.size, {
-              run, regionInfo: info, extent: EX.extent, key: EX.key, bbox: EX.bbox, graticule: EX.bbox,
-              severity: hasSev ? EX.severity : false, ...overrides,
+              run, regionInfo: info, extent: EX.extent, layout: activeLayout, key: EX.key, bbox: EX.bbox, graticule: EX.bbox,
+              severity: showSev ? EX.severity : false, ...overrides,
             });
             blob = await new Promise((resolve, reject) => c.toBlob((b) => b ? resolve(b) : reject(new Error('PNG encode failed')), 'image/png'));
           }
 
           const outExt = ext;
-          const suffix = EX.file === 'kml' ? '' : `-${EX.size}`;
+          const hzTag = activeLayout === 'hazards4' && showSev && EX.severity && EX.file !== 'kml' ? '-4panel-hazards' : '';
+          const suffix = EX.file === 'kml' ? '' : `-${EX.size}${hzTag}`;
           const filename = `${fileBase(run, EX.extent, info.entries)}${suffix}.${outExt}`;
 
           if (action === 'share') {
@@ -1966,7 +2216,10 @@ export function initExport(deps) {
       }
 
       $('exBbox').onchange = (e) => { EX.bbox = e.target.checked; };
-      $('exSeverity') && ($('exSeverity').onchange = (e) => { EX.severity = e.target.checked; });
+      $('exSeverity') && ($('exSeverity').onchange = (e) => { EX.severity = e.target.checked; if (!EX.severity && EX.layout === 'hazards4') { EX.layout = 'single'; draw(); } });
+      d.querySelectorAll('[data-layout]').forEach((b) => {
+        b.onclick = () => { if (busy) return; EX.layout = b.dataset.layout; if (EX.layout === 'hazards4') EX.severity = true; draw(); };
+      });
       $('exStrikes') && ($('exStrikes').onchange = (e) => setLayer('strikes', e.target.checked));
       $('exAnimRadar') && ($('exAnimRadar').onchange = (e) => { EX.animRadar = e.target.checked; });
       $('exAnimStrikes') && ($('exAnimStrikes').onchange = (e) => { EX.animStrikes = e.target.checked; });

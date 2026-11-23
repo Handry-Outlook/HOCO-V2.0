@@ -1,6 +1,6 @@
 // HOCO v3 account side: settings, compare maps (+ load a run into a map), accuracy, AI HOCO status,
 // upgrade requests, API access, install, tutorial, embed code, Europe map, ad spaces.
-import { syncSeverityLayers } from './severity.js?v=3';
+import { HAZARD_PANELS, SEVERITY_LEVELS, hazardSeverityGeo, severityAt, syncSeverityLayers } from './severity.js?v=4';
 import { PRODUCTS, hasHourcast, hourcastRegion, productButtons, traditionalOnlyRegion } from './products.js?v=2';
 
 let X;
@@ -93,8 +93,8 @@ export function openSettings() {
   renderSettings($('setRoot'));
 }
 
-// ------------------------------------------------------------------ compare maps: 1-4 maps side by side, or two maps with a swipe divider
-const C = { panes: [], hourcast: new Map(), days: [], maps: [], marks: [], link: true, syncing: false, day: 0, mode: 'side', split: 0.5 };
+// ------------------------------------------------------------------ compare maps: 1-4 maps side by side, 2 with swipe, or 4-panel severe hazards
+const C = { panes: [], hourcast: new Map(), days: [], maps: [], marks: [], link: true, syncing: false, day: 0, mode: 'side', split: 0.5, hazards: null };
 const typeLabel = (r) => (r?.forecastProduct === 'timing' && r.type === 'human-mimic' ? 'Hourcast Ensemble' : PRODUCTS[r?.type]?.label || ({'human-mimic':'Ensemble',manual:'Manual'}[r?.type]) || 'Run');
 const typeCls = (r) => ({ timing: 'ai', automated: 'trad', ai: 'ai', 'human-mimic': 'ens', manual: 'man' }[r?.type] || 'man');
 const runDay = (r) => { const s = r && X.startOf(r); if (!s) return null; const t = X.baseDay(); const d = Math.round((new Date(s).setHours(0, 0, 0, 0) - t) / 864e5); return d >= 0 && d <= 2 ? d : null; };
@@ -114,7 +114,7 @@ function obsRange() {
     const { start, end } = C.verification.entry, frame = E()?.frameOf || (time => Math.floor(time / 3e5) * 3e5);
     return { s: frame(start), e: frame(end) };
   }
-  const runs = C.panes.map(findRun).filter(Boolean), now = Date.now();
+  const runs = (C.hazards ? [C.hazards.run] : C.panes.map(findRun)).filter(Boolean), now = Date.now();
   const starts = runs.map(r => X.startOf(r)?.getTime()).filter(Number.isFinite), ends = runs.map(r => X.endOf(r)?.getTime()).filter(Number.isFinite);
   if (!starts.length) return null;
   const s = Math.min(...starts), e = Math.max(...ends);
@@ -244,7 +244,15 @@ async function compareHourcast(n) {
   const source = X.runsFor(C.day, 'automated').find(item => item.id === run.sourceRunId);
   openCompare(n, [run.id, previous?.id || source?.id].filter(Boolean));
 }
+function hazardInitialBounds(run) {
+  const reg = (run && X.REGIONS.find(r => X.regionMatches?.(r.id, run) && r.west !== undefined))
+    || X.REGIONS.find(r => r.id === X.S.region && r.west !== undefined);
+  const rb = reg && [[reg.west, reg.south], [reg.east, reg.north]];
+  const fitZ = rb ? X.map.cameraForBounds(rb)?.zoom : null;
+  return rb && (fitZ == null || X.map.getZoom() < fitZ + 0.6) ? rb : X.map.getBounds();
+}
 export function openCompare(n = 2, sel) {
+  C.hazards = null;
   if (X.S.timing && !sel) return compareHourcast(n);
   if (!X.S.timing) C.hourcast.clear();
   const latest = (d, t) => X.runsFor(d, t).at(-1)?.id, prev = (d, t) => X.runsFor(d, t).at(-2)?.id;
@@ -255,13 +263,25 @@ export function openCompare(n = 2, sel) {
     C.panes = (n === 4 ? [latest(0, 'automated'), latest(1, 'automated'), latest(2, 'automated'), latest(day, 'ai') || prev(day, 'automated')]
       : [latest(day, 'automated'), latest(day, 'ai') || prev(day, 'automated')]).slice(0, n).filter(Boolean);
   }
-  // Start on the forecast region, or on what you were looking at if you had zoomed in further than that.
-  const reg = X.REGIONS.find(r => r.id === X.S.region && r.west !== undefined), rb = reg && [[reg.west, reg.south], [reg.east, reg.north]];
-  const fitZ = rb ? X.map.cameraForBounds(rb)?.zoom : null;
-  C.view = rb && (fitZ == null || X.map.getZoom() < fitZ + 0.6) ? rb : X.map.getBounds();
+  C.view = hazardInitialBounds(null);
+  drawCompare();
+}
+export function openHazardSplit(targetRun) {
+  const run = targetRun || X.S.custom || X.S.current;
+  if (!run) return X.toast('Select a forecast first');
+  if (!X.runMaxSeverity || X.runMaxSeverity(run) < 1) return X.toast('No severe hazard breakdown for this run');
+  X.closeTools?.();
+  C.verification = null;
+  C.pickInto = null;
+  C.mode = 'side';
+  C.link = true;
+  C.hazards = { run, geo: null, sevGeo: null, panelGeos: [null, null, null, null], dataPromise: null };
+  C.panes = HAZARD_PANELS.map(p => p.key);
+  C.view = hazardInitialBounds(run);
   drawCompare();
 }
 function showVerificationMap(entries, selected, region, buildReference, returnToVerification) {
+  C.hazards = null;
   const previous = { panes: C.panes, mode: C.mode, split: C.split, view: C.view };
   const previousObs = { ...CO };
   C.verification = {
@@ -294,6 +314,11 @@ function setVerificationWindow(index) {
 }
 const CHEV = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
 function paneHead(i) {
+  if (C.hazards) {
+    const hp = HAZARD_PANELS[i];
+    return `<div class="cx-chip cx-hz-chip"><span class="cx-hz-dot" style="background:${hp.accent}" aria-hidden="true"></span><span class="cx-hz-title">${esc(hp.title)}</span><span class="cx-hz-lvl" id="cxHzLvl${i}">…</span></div>
+      <div class="cx-stat" id="cxStat${i}" aria-live="polite">Loading…</div>`;
+  }
   if (C.verification) {
     const label = i === 0 ? typeLabel(C.verification.entry.run) : 'Lightning hindcast';
     return `<div class="cx-chip cx-ver-label"><b>${esc(label)}</b></div>
@@ -307,31 +332,48 @@ function paneHead(i) {
     <div class="cx-stat" id="cxStat${i}" aria-live="polite">Loading…</div>`;
 }
 function drawCompare() {
+  const hazards = C.hazards;
   const n = C.panes.length; if (n !== 2 && C.mode === 'swipe') C.mode = 'side';
   const verification = C.verification;
   C.swipeResize?.disconnect();
   document.body.classList.add('comparing');
   const el = $('compare'); el.classList.remove('hidden'); el.classList.add('cx');
   el.classList.toggle('cx-verifying', !!verification);
-  const reg = X.REGIONS.find(r => r.id === X.S.region), dt = X.baseDay(); dt.setDate(dt.getDate() + C.day);
+  el.classList.toggle('cx-hazards', !!hazards);
+  const reg = X.REGIONS.find(r => hazards ? X.regionMatches?.(r.id, hazards.run) : r.id === X.S.region) || X.REGIONS.find(r => r.id === X.S.region);
+  const dt = X.baseDay(); dt.setDate(dt.getDate() + C.day);
   const verificationWindows = verification?.entries.length > 1
     ? `<select id="cxVerWindow" aria-label="Hourcast window">${verification.entries.map((entry, i) =>
       `<option value="${i}"${i === verification.index ? ' selected' : ''}>${esc(entry.label)}</option>`).join('')}</select>`
     : '';
+  let titleHtml = `<b>Compare maps</b><small>${esc(reg?.name || X.S.region)} · ${n} map${n > 1 ? 's' : ''}</small>`;
+  let toolsHtml = '';
+  if (verification) {
+    titleHtml = `<b>Forecast vs observations</b><small>${esc(verification.entry.label)}</small>`;
+    toolsHtml = verificationWindows;
+  } else if (hazards) {
+    const hRun = hazards.run, hs = X.startOf(hRun), he = X.endOf(hRun);
+    const hValid = hRun.windowValidity || (hs && he ? `${X.dayName(hs)} ${X.hhmm(hs)} – ${X.dayName(he)} ${X.hhmm(he)}` : '');
+    const hLbl = X.runLabel ? X.runLabel(hRun) : typeLabel(hRun);
+    titleHtml = `<b>4-panel hazards</b><small>${esc(hLbl)} · ${esc(reg?.name || hRun.region || X.S.region)}${hValid ? ` · ${esc(hValid)}` : ''}</small>`;
+    toolsHtml = `<div class="cx-sevkey" aria-label="ESTOFEX severity key">${[1, 2, 3].map(l => `<span class="sev-pill l${l}" title="${esc(SEVERITY_LEVELS[l].title)}">L${l}</span>`).join('')}</div>
+      <label class="cx-sync" title="Pan and zoom all maps together"><input type="checkbox" id="cmpLink" ${C.link ? 'checked' : ''}><svg class="cx-short" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span class="cx-long">Move together</span></label>
+      <button class="btn primary sm" id="cmpExportHazards" type="button">Export 4-panel</button>`;
+  } else {
+    toolsHtml = `<div class="seg" role="group" aria-label="Forecast day for Traditional and AI maps">${[0, 1, 2].map(d => { const x = new Date(dt); x.setDate(x.getDate() - C.day + d); return `<button data-cday="${d}" aria-pressed="${C.day === d}" title="${X.dayDate(x)}">Day ${d}</button>`; }).join('')}</div>
+      ${n === 2 ? `<div class="seg" role="group" aria-label="Layout"><button data-cmode="side" aria-pressed="${C.mode === 'side'}">Side<span class="cx-long"> by side</span></button><button data-cmode="swipe" aria-pressed="${C.mode === 'swipe'}">Swipe</button></div>` : ''}
+      <button class="btn" id="cmpAdd" ${n >= 4 ? 'disabled title="Up to 4 maps"' : 'title="Add a map"'} aria-label="Add a map">+<span class="cx-long">&nbsp;Add map</span></button>
+      <label class="cx-sync" title="Pan and zoom all maps together"><input type="checkbox" id="cmpLink" ${C.link || C.mode === 'swipe' ? 'checked' : ''} ${C.mode === 'swipe' ? 'disabled' : ''}><svg class="cx-short" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span class="cx-long">Move together</span></label>`;
+  }
   el.innerHTML = `<header class="cx-top">
       <button class="btn icon" id="cmpBack" aria-label="${verification ? 'Back to verification' : 'Back to the forecast map'}" title="Back (Esc)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
-      <div class="cx-title"><b>${verification ? 'Forecast vs observations' : 'Compare maps'}</b><small>${verification ? esc(verification.entry.label) : `${esc(reg?.name || X.S.region)} · ${n} map${n > 1 ? 's' : ''}`}</small></div>
-      <div class="cx-tools">
-        ${verification ? verificationWindows : `<div class="seg" role="group" aria-label="Forecast day for Traditional and AI maps">${[0, 1, 2].map(d => { const x = new Date(dt); x.setDate(x.getDate() - C.day + d); return `<button data-cday="${d}" aria-pressed="${C.day === d}" title="${X.dayDate(x)}">Day ${d}</button>`; }).join('')}</div>`}
-        ${n === 2 ? `<div class="seg" role="group" aria-label="Layout"><button data-cmode="side" aria-pressed="${C.mode === 'side'}">Side<span class="cx-long"> by side</span></button><button data-cmode="swipe" aria-pressed="${C.mode === 'swipe'}">Swipe</button></div>` : ''}
-        ${verification ? '' : `<button class="btn" id="cmpAdd" ${n >= 4 ? 'disabled title="Up to 4 maps"' : 'title="Add a map"'} aria-label="Add a map">+<span class="cx-long">&nbsp;Add map</span></button>
-        <label class="cx-sync" title="Pan and zoom all maps together"><input type="checkbox" id="cmpLink" ${C.link || C.mode === 'swipe' ? 'checked' : ''} ${C.mode === 'swipe' ? 'disabled' : ''}><svg class="cx-short" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg><span class="cx-long">Move together</span></label>`}
-      </div>
+      <div class="cx-title">${titleHtml}</div>
+      <div class="cx-tools">${toolsHtml}</div>
       <span class="cx-obsbtns">${obsButtons()}</span>
       <div class="cx-key" aria-label="Colour key: chance of lightning within 20 km"><span class="cx-bar">${X.BANDS.map(b => `<i style="background:${b.fill}"></i>`).join('')}</span><span class="cx-ticks"><span>5%</span><span>50%</span><span>90%</span></span></div>
       <button class="btn primary" id="cmpClose">Done</button>
     </header>
-    <div class="cx-grid" data-n="${n}" data-mode="${C.mode}">${C.panes.map((_, i) => `<section class="cx-pane" data-i="${i}" aria-label="${verification ? (i === 0 ? 'Forecast map' : 'Observed lightning map') : 'Map ' + (i + 1)}"><div class="cx-map" id="cmpMap${i}"></div>${paneHead(i)}</section>`).join('')}
+    <div class="cx-grid" data-n="${n}" data-mode="${C.mode}">${C.panes.map((_, i) => `<section class="cx-pane" data-i="${i}" ${hazards ? `data-hazard="${esc(HAZARD_PANELS[i].key)}" ` : ''}aria-label="${hazards ? esc(`${HAZARD_PANELS[i].title} hazard map`) : verification ? (i === 0 ? 'Forecast map' : 'Observed lightning map') : 'Map ' + (i + 1)}"><div class="cx-map" id="cmpMap${i}"></div>${paneHead(i)}</section>`).join('')}
       ${C.mode === 'swipe' ? `<div class="cx-divider" id="cxDiv" role="slider" tabindex="0" aria-label="${verification ? 'Swipe between forecast and observed lightning' : 'Swipe between map 1 and map 2'}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(C.split * 100)}"><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6-6 6 6 6M15 6l6 6-6 6"/></svg></span></div>` : ''}
     </div>
     <div id="cxObsHost"></div>
@@ -363,7 +405,7 @@ function drawCompare() {
       m.once('remove', () => resize.disconnect());
     }
     if (i === C.panes.length - 1) m.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-right');
-    m.on('style.load', () => { addPaneLayers(m, i === 1 ? verification?.reference : null); loadPane(i).then(() => { if (C.maps[i] === m) applyObs(i); }); });
+    m.on('style.load', () => { addPaneLayers(m, !hazards && i === 1 ? verification?.reference : null); loadPane(i).then(() => { if (C.maps[i] === m) applyObs(i); }); });
     m.on('moveend', () => { if (CO.radar) paintPane(i); });
     m.on('move', () => { if (C.syncing) return; if (i === 0 || verification || C.link || C.mode === 'swipe') C.view = m.getBounds(); if (!verification && !C.link && C.mode !== 'swipe') return; C.syncing = true; C.maps.forEach(o => { if (o !== m) o.jumpTo({ center: m.getCenter(), zoom: m.getZoom() }); }); C.syncing = false; });
     m.on('mousemove', (e) => paneProbe(i, e.lngLat));
@@ -382,6 +424,7 @@ function drawCompare() {
   el.querySelectorAll('[data-cmode]').forEach(b => b.onclick = () => { C.mode = b.dataset.cmode; drawCompare(); });
   if ($('cmpAdd')) $('cmpAdd').onclick = (e) => { e.stopPropagation(); if (C.panes.length >= 4) return; openMenu(C.panes.length, $('cmpAdd')); };
   if ($('cmpLink')) $('cmpLink').onchange = (e) => { C.link = e.target.checked; };
+  if ($('cmpExportHazards')) $('cmpExportHazards').onclick = () => E()?.openExport?.({ layout: 'hazards4', run: C.hazards?.run });
   if ($('cxVerWindow')) $('cxVerWindow').onchange = (e) => { setVerificationWindow(+e.target.value); $('cxVerWindow').focus(); };
   $('cmpClose').onclick = closeCompare; $('cmpBack').onclick = closeCompare;
   el.onclick = (e) => { if (!e.target.closest('#cxMenu,[data-pick],#cmpAdd')) $('cxMenu')?.classList.add('hidden'); };
@@ -470,11 +513,13 @@ function discardCompareMaps() {
 export function closeCompare() {
   const verification = C.verification;
   C.verification = null;
+  C.hazards = null;
   C.pickInto = null;
   stopObs();
   C.swipeResize?.disconnect();
   discardCompareMaps();
   const el = $('compare');
+  el.classList.remove('cx-verifying', 'cx-hazards');
   el.classList.add('hidden'); el.innerHTML = '';
   document.body.classList.remove('comparing');
   X.map.resize();
@@ -509,7 +554,60 @@ function addPaneLayers(m, reference) {
     m.addLayer({ id: 'cx-borders', type: 'line', source: 'cx-ref', 'source-layer': 'admin', filter: ['all', ['<=', ['get', 'admin_level'], 1], ['==', ['get', 'maritime'], 'false']], paint: { 'line-color': 'rgba(15,27,45,0.5)', 'line-width': 0.8, 'line-dasharray': [2, 1] } }, label); } catch (e) { /* outlines are optional */ }
 }
 const paneGeo = [], paneStat = [], paneSev = [];
+function formatHazardPeak(key, val) {
+  if (val == null || !Number.isFinite(Number(val))) return '';
+  if (key === 'tornado') return `Peak STP ${Number(val).toFixed(1)}`;
+  if (key === 'hail') return `Peak SCP ${Number(val).toFixed(1)}`;
+  if (key === 'wind') return `Peak gust ${Math.round(Number(val))} mph`;
+  if (key === 'rain') return `Peak score ${Number(val).toFixed(2)}`;
+  return '';
+}
+function formatHazardMetric(key, s) {
+  if (!s) return '';
+  if (key === 'tornado' && s.stp != null) return `STP ${Number(s.stp).toFixed(1)}`;
+  if (key === 'hail' && s.scp != null) return `SCP ${Number(s.scp).toFixed(1)}`;
+  if (key === 'wind' && s.gustMph > 0) return `Gust ${Math.round(Number(s.gustMph))} mph`;
+  if (key === 'rain' && s.score != null) return `Score ${Number(s.score).toFixed(2)}`;
+  return '';
+}
 async function loadPane(i) {
+  const hz = C.hazards;
+  if (hz) {
+    const m = C.maps[i]; if (!m) return;
+    try {
+      if (!hz.dataPromise) {
+        const r = hz.run;
+        const curId = (X.S.custom || X.S.current)?.id;
+        const geoP = (curId === r.id && X.S.geo) ? Promise.resolve(X.S.geo) : X.fetchGeo(r);
+        const cachedSev = (curId === r.id && X.getSeverityGeo?.()) || null;
+        const sevP = cachedSev ? Promise.resolve(cachedSev) : (X.fetchSeverityGeo?.(r) || Promise.resolve(null));
+        hz.dataPromise = Promise.all([geoP, sevP]);
+      }
+      const [g, sevGeo] = await hz.dataPromise;
+      if (C.maps[i] !== m || C.hazards !== hz) return;
+      hz.geo = g;
+      hz.sevGeo = sevGeo;
+      const hp = HAZARD_PANELS[i];
+      const hzGeo = hazardSeverityGeo(sevGeo, hp.key);
+      hz.panelGeos[i] = hzGeo;
+      if (!m.getSource('hoco')) addPaneLayers(m, null);
+      m.getSource('hoco').setData(g);
+      m.setPaintProperty('hoco-fill', 'fill-opacity', Math.min(1, (g?.properties?.hoco_layout === 'bands_v2' ? 0.7 : 0.32) * getSettings().opacity));
+      syncSeverityLayers(m, hzGeo, true);
+      paneGeo[i] = g;
+      paneStat[i] = X.peakOf(g);
+      const maxLevel = Number(hzGeo.properties?.maxLevel || 0);
+      paneSev[i] = { maxLevel, peakMetric: hzGeo.properties?.peakMetric ?? null, hazard: hp.key };
+      const lvlEl = $(`cxHzLvl${i}`);
+      if (lvlEl) {
+        lvlEl.innerHTML = maxLevel >= 1
+          ? `<span class="sev-badge l${maxLevel}">Level ${maxLevel}</span>`
+          : `<span class="cx-hz-none">No threat</span>`;
+      }
+      renderStat(i);
+    } catch (e) { const s = $(`cxStat${i}`); if (C.maps[i] === m && s) s.textContent = 'Could not load this map'; }
+    return;
+  }
   const verification = C.verification;
   const m = C.maps[i], run = verification?.entry.run || findRun(C.panes[i]); if (!m || !run) return;
   try {
@@ -533,6 +631,27 @@ const pctTxt = (v) => v >= 5 ? Math.round(v) + '%' : '<5%';
 function delta(a, b) { if (a == null || b == null) return ''; const d = Math.round(Math.max(a, 0)) - Math.round(Math.max(b, 0)); return `<span class="cx-d ${d > 0 ? 'up' : d < 0 ? 'down' : ''}">${d === 0 ? '±0' : (d > 0 ? '+' : '−') + Math.abs(d)} vs map 1</span>`; }
 function renderStat(i, here) {
   const el = $(`cxStat${i}`), pk = paneStat[i]; if (!el) return;
+  if (C.hazards) {
+    const hp = HAZARD_PANELS[i], ps = paneSev[i] || {};
+    el.classList.toggle('here', !!here);
+    if (here) {
+      const hv = here.v[i];
+      const rTxt = hv?.risk == null ? '–' : pctTxt(hv.risk);
+      const s = hv?.sev;
+      const diag = s ? formatHazardMetric(hp.key, s) : '';
+      const sBadge = s ? `<span class="sev-badge l${s.level}">Level ${s.level}</span>` : '<span class="cx-hz-none">No threat here</span>';
+      el.innerHTML = `<b>${rTxt}</b><span>tstorm</span>${sBadge}${diag ? `<small>${esc(diag)}</small>` : ''}`;
+      return;
+    }
+    if (!pk && !paneSev[i]) return;
+    const mx = Number(ps.maxLevel || 0);
+    const metricStr = formatHazardPeak(hp.key, ps.peakMetric);
+    const peakRisk = pk ? pctTxt(pk.risk) : '–';
+    el.innerHTML = mx >= 1
+      ? `<span class="sev-badge l${mx}">Max L${mx}</span><span>Tstorm peak ${peakRisk}</span>${metricStr ? `<small>${esc(metricStr)}</small>` : ''}`
+      : `<span class="cx-hz-none">No ${esc(hp.short.toLowerCase())} threat</span><span>Tstorm peak ${peakRisk}</span>`;
+    return;
+  }
   const verification = C.verification;
   if (verification) {
     el.classList.toggle('here', !!here);
@@ -558,6 +677,16 @@ function renderStat(i, here) {
   el.innerHTML = `<b>${pctTxt(pk.risk)}</b><span>peak${pk.lat != null && pk.risk >= 5 ? ` near ${esc(X.nearestPlace(pk.lat, pk.lon))}` : ''}</span>${sevTag}${i > 0 ? delta(pk.risk, paneStat[0]?.risk) : ''}<small>${run?.windowValidity ? esc(run.windowValidity) : s ? `${X.dayName(s)} ${X.hhmm(s)} – ${X.dayName(e)} ${X.hhmm(e)}` : ''}</small>`;
 }
 function paneProbe(i, ll) {
+  if (C.hazards) {
+    const risk = C.hazards.geo ? X.riskAt(C.hazards.geo, ll.lng, ll.lat) : null;
+    const v = C.panes.map((_, j) => ({
+      risk,
+      sev: C.hazards.panelGeos[j] ? severityAt(C.hazards.panelGeos[j], ll.lng, ll.lat) : null,
+    }));
+    C.marks.forEach((mk, j) => { if (j === i || !C.maps[j]) mk.remove(); else mk.setLngLat(ll).addTo(C.maps[j]); });
+    C.panes.forEach((_, j) => renderStat(j, { v }));
+    return;
+  }
   const v = C.panes.map((_, j) => C.verification && j === 1 ? C.verification.reference.valueAt(ll.lng, ll.lat) :
     paneGeo[j] ? X.riskAt(paneGeo[j], ll.lng, ll.lat) : null);
   C.marks.forEach((mk, j) => { if (j === i || !C.maps[j]) mk.remove(); else mk.setLngLat(ll).addTo(C.maps[j]); });
@@ -1268,10 +1397,17 @@ export function initStage4(ctx) {
   verify.onclick = openRunVerification;
   verify.disabled = verify.dataset.ready !== 'true';
   addEventListener('keydown', (e) => {
-    if ($('verResults') && !$('cookieDlg').classList.contains('hidden')) {
-      if (e.key === 'Escape') $('cookieDlg').querySelector('[data-x]').click();
+    if (!$('cookieDlg').classList.contains('hidden')) {
+      if (e.key === 'Escape') $('cookieDlg').querySelector('[data-x]')?.click();
       return;
     }
     if (e.key === 'Escape' && comparing()) closeCompare();
-    if (e.key.toLowerCase() === 'c' && !e.target.closest('input,textarea,select') && !e.metaKey && !e.ctrlKey) comparing() ? closeCompare() : openCompare(2); });
+    if (e.target.closest('input,textarea,select') || e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k === 'c') comparing() ? closeCompare() : openCompare(2);
+    else if (k === 'h') {
+      if (comparing() && C.hazards) closeCompare();
+      else if (!comparing()) openHazardSplit();
+    }
+  });
 }

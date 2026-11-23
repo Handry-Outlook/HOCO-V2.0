@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet">
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
-<link rel="stylesheet" href="styles.css?v=7">
+<link rel="stylesheet" href="styles.css?v=8">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="theme-color" content="#283673">
@@ -52,6 +52,7 @@
   </button>
   <div class="sev-hazards hidden" id="sumHazards"></div>
   <p class="sev-desc hidden" id="sumSevDesc"></p>
+  <button class="btn sm hazard-split-btn hidden" id="hazardSplitBtn" type="button" title="Split severe hazards into 4 panels (H)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg><span>4-panel hazards</span></button>
   <div id="timingStatus" role="status"></div>
   <div class="legend mini" aria-label="Colour key: chance of lightning within 20 km"><div class="bar" id="legendBar"></div><div class="ticks"><span>5</span><span>15</span><span>30</span><span>50</span><span>70</span><span>90%</span></div></div>
   <div class="spread-key" id="spreadLegend" hidden></div>
@@ -164,7 +165,7 @@
 import { createStormTiming } from "./storm-timing.js?v=11";
 import { hourcastRegion, traditionalOnlyRegion } from "./products.js?v=2";
 import { decodeSpread, spreadAt, spreadMap, SPREAD_BANDS } from "./model-spread.js?v=1";
-import { fetchSeverityGeo, formatHazards, runMaxSeverity, setSeverityUrlResolver, SEVERITY_LEVELS, severityAt, syncSeverityLayers } from "./severity.js?v=3";
+import { fetchSeverityGeo, formatHazards, runMaxSeverity, setSeverityUrlResolver, SEVERITY_LEVELS, severityAt, syncSeverityLayers } from "./severity.js?v=4";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore, collection, query, orderBy, limit, onSnapshot, doc, getDoc, getDocs, where, addDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -203,7 +204,7 @@ const PLACES = [['London',51.51,-0.13],['Brighton',50.82,-0.14],['Southampton',5
 // ---------- state ----------
 let Tools = { onRuns() {}, signedOut() {}, openTab() {} };
 let Extras = { onShown() {}, onEmpty() {}, onStyle() {}, openShortcuts() {}, openCookies() {}, syncCookieBar() {}, checkAlerts() {}, archiveMode() {}, openAlerts() {} };
-let Stage4 = { canInstall: () => false, renderAds() {}, startTutorial() {}, openSettings() {}, openAccuracy() {}, install() {}, openEmbed() {}, openUpgrade() {}, openApi() {}, openEurope() {}, openCompare() {}, renderSettings() {}, comparing: () => false, loadTo() {}, installBanner() {} };
+let Stage4 = { canInstall: () => false, renderAds() {}, startTutorial() {}, openSettings() {}, openAccuracy() {}, install() {}, openEmbed() {}, openUpgrade() {}, openApi() {}, openEurope() {}, openCompare() {}, openHazardSplit() {}, renderSettings() {}, comparing: () => false, loadTo() {}, installBanner() {} };
 const SET_DEFAULTS = { outlines: true, severity: true, mapStyle: 'default', opacity: 1, radarOpacity: 0.85, region: '', changed: true, palette: 'standard', strikesDefault: false, notifyRuns: true };
 const SETTINGS = (() => { try { const s = { ...SET_DEFAULTS, ...JSON.parse(localStorage.getItem('hocoSettings') || '{}') }; if (s.mapStyle === 'standard' && !s.styleV2) s.mapStyle = 'default'; return s; } catch (e) { return { ...SET_DEFAULTS }; } })();
 const EMBED = new URLSearchParams(location.search).get('embed') === '1';
@@ -870,9 +871,10 @@ function setGeo(g) {
 }
 function updateSummarySeverity(run) {
   const lvl = runMaxSeverity(run);
-  const badge = $('sumSev'), hzBox = $('sumHazards'), descEl = $('sumSevDesc');
+  const badge = $('sumSev'), hzBox = $('sumHazards'), descEl = $('sumSevDesc'), splitBtn = $('hazardSplitBtn');
   if (!lvl || lvl < 1) {
     badge?.classList.add('hidden');
+    splitBtn?.classList.add('hidden');
     if (hzBox) { hzBox.classList.add('hidden'); hzBox.innerHTML = ''; }
     if (descEl) { descEl.classList.add('hidden'); descEl.textContent = ''; }
     return;
@@ -883,6 +885,7 @@ function updateSummarySeverity(run) {
     badge.textContent = info?.label || `Level ${lvl}`;
     badge.title = info?.title || '';
   }
+  splitBtn?.classList.remove('hidden');
   const chips = formatHazards(run?.severity?.hazards, lvl);
   if (hzBox) {
     if (chips.length) {
@@ -1125,6 +1128,7 @@ async function share() {
   else { try { await navigator.clipboard.writeText(url); toast('Link copied'); } catch (e) { toast(url); } }
 }
 $('shareBtn').onclick = share;
+$('hazardSplitBtn').onclick = () => Stage4.openHazardSplit?.();
 
 // ---------- phone sheet ----------
 $('sumHead').onclick = () => { const o = !$('summary').classList.contains('open'); $('summary').classList.toggle('open', o); $('sumHead').setAttribute('aria-expanded', o); try { localStorage.setItem('hocoSumOpen', o ? '1' : '0'); } catch (e) {} };
@@ -1286,7 +1290,7 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 // ---------- extras (radar, strikes, export, search, change, cookies) ----------
-import('./extras.js?v=32').then((m) => {
+import('./extras.js?v=33').then((m) => {
   m.initExtras({ baseDay, runAt, showObsGeo, openSummary: () => { $('summary').classList.add('open'); $('sumHead').setAttribute('aria-expanded', 'true'); }, map, S, BANDS, REGIONS, TYPE_LABEL: LABELS, runLabel, toast, openPop, measureDock, fetchGeo, peakOf, riskOf, bandFor, bandLabel, created, startOf, endOf, hhmm, dayName, dayDate,
     srcRuns, regionMatches, hidden, dateKey, styleUrl, fillColor, fillOp, outlineColor, mapIsDark, SPREAD_BANDS, decodeSpread, spreadMap, spreadGrid: () => spreadGrid, hourcastWindows: timing.windowsFor,
     embed: EMBED, embedLayers: EMBED ? (params.get('layers') || '') : null, radarOpacity: () => SETTINGS.radarOpacity, showChanged: () => SETTINGS.changed !== false, openEmbed: EMBED ? null : () => Stage4.openEmbed(),
@@ -1302,10 +1306,10 @@ import('./extras.js?v=32').then((m) => {
 }).catch((e) => console.error(e));
 
 // ---------- stage 4 (settings, compare, accuracy, alerts, install, tutorial, embed, ads) ----------
-import('./stage4.js?v=34').then((m) => {
+import('./stage4.js?v=35').then((m) => {
   m.initStage4({ hourcastRuns: timing.runs, hourcastWindows: timing.windowsFor, measureDock, baseDay, extras: () => Extras, map, S, BANDS, REGIONS, db, auth, storage, doc, getDoc, getDocs, query, collection, where, orderBy, limit, addDoc, ref, getDownloadURL, toast, fetchGeo, peakOf, created, startOf, endOf, hhmm, dayName, dayDate, dateKey, nearestPlace, regionMatches,
     colorExpr, fillColor, styleUrl, applySettings, setTheme, setProduct, setRegion, runsFor, riskAt: riskAtGeo, embed: EMBED, goDay: (d) => { S.day = d; clearCustom(); renderAll(); },
-    fetchSeverityGeo, runMaxSeverity, severityOn: () => SETTINGS.severity !== false,
+    fetchSeverityGeo, getSeverityGeo: () => S.sevGeo, runMaxSeverity, runLabel, severityOn: () => SETTINGS.severity !== false,
     callable: (name) => async (data) => { const f = await import('https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js'); return f.httpsCallable(f.getFunctions(app, 'us-central1'), name)(data); },
     openTools: (t, filter, product) => Tools.openTab(t, filter, product), closeTools: () => Tools.toggle?.(false), openAlerts: (p) => Extras.openAlerts(p), openShortcuts: () => Extras.openShortcuts(), setNotifyRuns: (v) => Tools.setNotify?.(v) });
   Stage4 = m;

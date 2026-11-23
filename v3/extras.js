@@ -1,6 +1,6 @@
 // HOCO v3 extras: radar + lightning strikes with an "observed" time slider, PNG export,
 // place search, change since the previous run, cookie consent, offline notice, shortcuts.
-import { initExport } from './export.js?v=6';
+import { initExport } from './export.js?v=7';
 
 let X, Exp = null;
 const $ = (id) => document.getElementById(id);
@@ -471,7 +471,7 @@ export function archiveMode(on) {
 }
 
 // ------------------------------------------------------------------ export: Pivotal-style chart or KML (export.js)
-export function openExport() { return Exp?.openExport(); }
+export function openExport(opts) { return Exp?.openExport(opts); }
 
 // ------------------------------------------------------------------ places: search, saved places, place card, alerts
 let placeMarker = null, place = null;
@@ -688,7 +688,7 @@ export function openCookies() {
 export function openShortcuts() {
   const d = $('cookieDlg');
   d.innerHTML = `<section class="dialog" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts"><div class="rowbetween"><h2>Keyboard shortcuts</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
-    <div class="keys">${[['← →', 'Previous / next run'], ['1 2 3', 'Day 0, 1, 2'], ['T', 'Traditional or AI HOCO'], ['R', 'Radar on or off'], ['S', 'Strikes on or off'], ['Space', 'Play / pause radar and strikes'], ['/', 'Search for a place'], ['C', 'Compare maps'], ['E', 'Export'], ['?', 'Show this list'], ['Esc', 'Close panels']]
+    <div class="keys">${[['← →', 'Previous / next run'], ['1 2 3', 'Day 0, 1, 2'], ['T', 'Traditional or AI HOCO'], ['R', 'Radar on or off'], ['S', 'Strikes on or off'], ['Space', 'Play / pause radar and strikes'], ['/', 'Search for a place'], ['C', 'Compare maps'], ['H', '4-panel hazard breakdown'], ['E', 'Export'], ['?', 'Show this list'], ['Esc', 'Close panels']]
       .map(([k, l]) => `<div><kbd>${k}</kbd><span>${l}</span></div>`).join('')}</div></section>`;
   d.classList.remove('hidden'); d.querySelector('[data-x]').onclick = () => d.classList.add('hidden');
 }
