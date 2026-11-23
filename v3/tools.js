@@ -15,9 +15,9 @@ const CAPS = { normal: 7, external_developer: 7, exclusive: 15, developer: Infin
 const ROLES = [['guest', 'Guest'], ['normal', 'Normal'], ['exclusive', 'Exclusive'], ['external_developer', 'External developer'], ['developer', 'Developer']];
 
 let X;               // context from the main page
-let T = { open: false, tab: 'runs', filter: 'all', product: 'all', date: null, archive: null, archiveKey: '', showMore: false,
+let T = { open: false, tab: 'runs', filter: 'all', product: 'all', region: null, date: null, archive: null, archiveKey: '', showMore: false,
   ens: { key: '', src: 'automated', mix: 50, sel: new Set(), w: {}, busy: false },
-  man: { scen: [], picked: new Set(), model: 'swisseu', busy: false, notify: true },
+  man: { scen: [], model: 'swisseu', scenMode: 'standard', showAllOpts: false, busy: false, notify: true },
   known: new Map(), devUnsubs: [], runner: null, myToday: 0 };
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -152,7 +152,8 @@ function render() {
   const dev = role() === 'developer';
   document.querySelectorAll('#toolsTabs button').forEach(b => { b.setAttribute('aria-selected', b.dataset.tab === T.tab); if (b.dataset.tab === 'dev') b.classList.toggle('hidden', !dev); });
   if (T.tab === 'dev' && !dev) T.tab = 'runs';
-  const body = $('toolsBody'), keep = body.scrollTop;
+  const body = $('toolsBody'), keep = T.lastTab === T.tab ? body.scrollTop : 0;
+  T.lastTab = T.tab;
   ({ runs: renderRuns, ensemble: renderEnsemble, manual: renderManual, dev: renderDev, settings: (b) => X.renderSettings(b) })[T.tab](body);
   body.scrollTop = keep;
 }
@@ -171,81 +172,181 @@ async function loadArchive(key) {
   } catch (e) { console.error(e); if (T.archiveKey === key) { T.archive = []; X.toast('Could not load that date'); render(); } }
 }
 
-function forecastsOn(date, overlapping = false) {
+function forecastsOn(date, overlapping = false, regionOpt = undefined) {
   loadArchive(date);
   if (!T.archive || T.archiveKey !== date) return null;
+  const reg = regionOpt === undefined ? X.S.region : regionOpt;
   const byId = new Map(T.archive.map(r => [r.id, r]));
   X.S.runs.forEach(r => byId.set(r.id, r));          // live copies win (status changes while processing)
-  return [...byId.values()].filter(r => visible(r) && X.regionMatches(X.S.region, r) && X.startOf(r) && (dateKey(X.startOf(r)) === date ||
+  return [...byId.values()].filter(r => visible(r) && (reg === 'all' || X.regionMatches(reg, r)) && X.startOf(r) && (dateKey(X.startOf(r)) === date ||
       overlapping && dateKey(X.startOf(r)) < date && X.endOf(r) && dateKey(X.endOf(r)) >= date))
     .sort((a, b) => (X.created(b)?.getTime() || 0) - (X.created(a)?.getTime() || 0));
 }
 
-function runsForDate() {
-  const list = forecastsOn(T.date);
-  if (!list) return null;
-  return list.filter(r => {
-    const product = T.product;
-    if (product === 'timing' && !(hasHourcast(r) || r.forecastProduct === 'timing')) return false;
-    if (product === 'ai' && !(r.type === 'ai' || r.forecastProduct === 'ai')) return false;
-    if (product === 'automated' && !['automated','manual','human-mimic'].includes(r.type)) return false;
-    if (product === 'automated' && ['timing','ai'].includes(r.forecastProduct)) return false;
-    const filter = T.filter;
-    return filter === 'all' || (filter === 'mine' && r.userId === uid()) ||
-      (filter === 'ens' && r.type === 'human-mimic') ||
-      (filter === 'manens' && !['automated','ai'].includes(r.type)) ||
-      (filter === 'auto' && ['automated','ai'].includes(r.type)) ||
-      (filter === 'pub' && r.public === true);
-  });
+function matchesProduct(r, product) {
+  if (product === 'timing') return !!(hasHourcast(r) || r.forecastProduct === 'timing');
+  if (product === 'ai') return r.type === 'ai' || r.forecastProduct === 'ai';
+  if (product === 'automated') return ['automated', 'manual', 'human-mimic'].includes(r.type) && !['timing', 'ai'].includes(r.forecastProduct);
+  return true;
 }
 
-function runRow(r) {
-  const ti = T.product === "timing" && hasHourcast(r) ? typeInfo({type:"timing"}) : typeInfo(r), c = X.created(r), s = X.startOf(r), e = X.endOf(r), mine = r.userId === uid();
+function matchesSource(r, filter) {
+  if (filter === 'mine') return r.userId === uid();
+  if (filter === 'ens') return r.type === 'human-mimic';
+  if (filter === 'manens') return !['automated', 'ai'].includes(r.type);
+  if (filter === 'auto') return ['automated', 'ai'].includes(r.type);
+  if (filter === 'pub') return r.public === true;
+  return true;
+}
+
+function shortBadge(r) {
+  if (isManualHourcast(r)) return { chip: 'HOURCAST', cls: 'beta' };
+  if (T.product === 'timing' && hasHourcast(r)) return { chip: 'HOURCAST', cls: 'beta' };
+  if (r.type === 'timing') return { chip: 'HOURCAST', cls: 'beta' };
+  if (r.forecastProduct === 'timing' && r.type === 'human-mimic') return { chip: 'ENSEMBLE', cls: 'ens' };
+  if (r.type === 'manual' && (r.forecastProduct === 'ai' || (!r.forecastProduct && r.ml?.mode && r.ml.mode !== 'hand_weights'))) return { chip: 'MANUAL AI', cls: 'beta' };
+  if (r.type === 'ai') return { chip: 'AI', cls: 'beta' };
+  if (r.type === 'automated') return { chip: 'AUTO', cls: 'live' };
+  if (r.type === 'human-mimic') return { chip: 'ENSEMBLE', cls: 'ens' };
+  return { chip: 'MANUAL TRAD', cls: 'arch' };
+}
+
+function runRow(r, activeId, showRegion) {
+  const b = shortBadge(r), c = X.created(r), s = X.startOf(r), e = X.endOf(r), mine = r.userId === uid();
+  const isAct = r.id === activeId;
   let right;
   if (isPending(r)) {
     const mins = c ? Math.max(0, Math.round((Date.now() - c.getTime()) / 60000)) : 0;
-    right = `<span class="proc"><span class="spin"></span><span>Processing<br><small>${mins} of about ${estMinutes(r)} min</small></span></span>`;
-  } else if (isFailed(r)) right = `<span class="tag" style="color:#b42318">Failed</span>`;
-  else right = `<div class="run-actions">
-    ${(T.product !== 'timing' && !isManualHourcast(r)) || !hasHourcast(r) ? `<button class="btn" data-open="${esc(r.id)}">Load</button>` : ''}
-    ${hasHourcast(r) ? `<button class="btn" data-timed="${esc(r.id)}">${T.product === 'timing' ? 'Choose window' : 'Hourcast'}</button>` : ''}
-  </div>`;
+    right = `<span class="proc"><span class="spin"></span><span>Processing<br><small>${mins}/${estMinutes(r)} min</small></span></span>`;
+  } else if (isFailed(r)) {
+    right = `<span class="tag" style="color:#b42318">Failed</span>`;
+  } else {
+    right = `<div class="run-actions">
+      ${(T.product !== 'timing' && !isManualHourcast(r)) || !hasHourcast(r) ? `<button class="btn" data-open="${esc(r.id)}">${X.comparing?.() ? 'Compare' : (isAct ? 'Viewing' : 'View')}</button>` : ''}
+      ${hasHourcast(r) ? `<button class="btn" data-timed="${esc(r.id)}">${isManualHourcast(r) || T.product === 'timing' ? 'Windows ▾' : 'Hourly ▾'}</button>` : ''}
+    </div>`;
+  }
+  const lvl = r.severity?.maxLevel;
+  const pk = T.product === 'timing' ? r.stormHourPeak : (X.S.peaks?.[r.id] ?? (r.stormHourPeak != null ? r.stormHourPeak : null));
+  const badges = [
+    lvl >= 1 ? `<span class="sev-pill l${lvl}">L${lvl}</span>` : '',
+    pk != null ? `<span class="ri-peak">${pk >= 5 ? Math.round(pk) + '%' : '<5%'}</span>` : '',
+    mine && !['automated', 'ai'].includes(r.type) ? '<span class="ri-yours">Yours</span>' : '',
+    isAct ? '<span class="ri-on">On map</span>' : ''
+  ].filter(Boolean).join('');
   const devPub = role() === 'developer' && !isPending(r) && r.public !== true && !isManualHourcast(r) && !r.privateHourcastEnsemble && r.type !== 'automated' && r.type !== 'ai'
     ? `<button class="linkbtn" data-pub="${esc(r.id)}">Make public</button>` : '';
-  const scen = Array.isArray(r.scenarios) && r.scenarios.length ? ` · ${r.scenarios.length} model run${r.scenarios.length > 1 ? 's' : ''}` : '';
-  const srcs = r.type === 'human-mimic' && r.sourceRunCount ? ` · ${r.sourceRunCount} runs blended` : '';
-  return `<div class="runitem${X.S.custom?.id === r.id ? ' on' : ''}"><span class="tag ${ti.cls}">${ti.chip}</span>
-    <div class="ri-main"><b>${c ? X.hhmm(c) : '–'} <span class="ri-type">${ti.label}${c && dateKey(c) !== T.date ? ` · issued ${X.dayName(c)}` : ''}</span></b><small>${s ? `${X.dayName(s)} ${X.hhmm(s)}` : '–'} → ${e ? `${X.dayName(e)} ${X.hhmm(e)}` : '–'}${scen}${srcs}${mine && r.type !== 'automated' && r.type !== 'ai' ? ' · yours' : ''}</small>${devPub}</div>${right}</div>`;
+  const scen = Array.isArray(r.scenarios) && r.scenarios.length ? ` · ${r.scenarios.length} model${r.scenarios.length > 1 ? 's' : ''}` : '';
+  const srcs = r.type === 'human-mimic' && r.sourceRunCount ? ` · ${r.sourceRunCount} blended` : '';
+  const regTag = showRegion && r.region ? ` · ${esc(r.region)}` : '';
+  const issuedTag = c && dateKey(c) !== T.date ? ` · issued ${X.dayName(c)}` : '';
+  return `<div class="runitem${isAct ? ' on' : ''}" data-run-id="${esc(r.id)}">
+    <div class="ri-main">
+      <div class="ri-top"><b>${c ? X.hhmm(c) : '–'}</b><span class="tag ${b.cls}">${b.chip}</span>${badges}</div>
+      <small>Valid ${s ? `${X.dayName(s)} ${X.hhmm(s)}` : '–'} → ${e ? `${X.dayName(e)} ${X.hhmm(e)}` : '–'}${regTag}${issuedTag}${scen}${srcs}</small>
+      ${devPub}
+    </div>${right}</div>`;
 }
 
 function renderRuns(body) {
-  const list = runsForDate(), d = new Date(T.date + 'T00:00:00'), isToday = T.date === dateKey(new Date());
-  const chips = [['all', 'All'], ['auto', 'AUTO'], ['manens', 'Manual + Ensemble'], ['mine', 'My runs'], ['pub', 'Public']]
-    .map(([k, l]) => `<button class="chipbtn" aria-pressed="${T.filter === k}" data-f="${k}">${l}</button>`).join('');
-  const mine = X.S.runs.filter(r => r.userId === uid() && isPending(r));
+  const reg = T.region || X.S.region;
+  const raw = forecastsOn(T.date, false, reg);
+  const byProduct = raw ? raw.filter(r => matchesProduct(r, T.product)) : null;
+  const list = byProduct ? byProduct.filter(r => matchesSource(r, T.filter)) : null;
+  const d = new Date(T.date + 'T00:00:00'), todayKey = dateKey(new Date()), isToday = T.date === todayKey;
+  const yestKey = dateKey(new Date(Date.now() - 864e5)), tomKey = dateKey(new Date(Date.now() + 864e5));
+  const prodOpts = [['all', 'All'], ['automated', 'Traditional'], ['ai', 'AI HOCO'], ['timing', 'Hourcast']];
+  const srcOpts = [['all', 'All'], ['auto', 'AUTO'], ['manens', 'Manual & Ens'], ['mine', 'My runs'], ['pub', 'Public']];
+  const minePending = X.S.runs.filter(r => r.userId === uid() && isPending(r));
+  const activeId = X.S.custom?.id || (!X.S.custom && X.S.current?.id) || null;
+  const showRegion = reg === 'all';
   const shown = list ? (T.showMore ? list : list.slice(0, 40)) : [];
+  const hasFilters = T.filter !== 'all' || T.product !== 'all' || reg === 'all' || (T.region && T.region !== X.S.region);
+
+  let listHtml;
+  if (list == null) {
+    listHtml = '<div class="muted center"><span class="spin"></span> Loading runs…</div>';
+  } else if (!shown.length) {
+    listHtml = `<div class="t-empty">
+      <b>No runs match these filters</b>
+      <small>${esc(reg === 'all' ? 'All regions' : reg)} · ${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</small>
+      <div class="chips" style="justify-content:center">
+        ${hasFilters ? '<button class="btn sm" id="rResetFilters">Reset filters</button>' : ''}
+        ${!isToday ? '<button class="btn sm" id="rJumpToday">Jump to today</button>' : ''}
+        ${role() !== 'guest' ? '<button class="btn primary sm" id="rBuildNew">Build a run</button>' : ''}
+      </div>
+    </div>`;
+  } else if (T.filter === 'all') {
+    const proc = shown.filter(r => isPending(r));
+    const custom = shown.filter(r => !isPending(r) && !['automated', 'ai'].includes(r.type));
+    const auto = shown.filter(r => !isPending(r) && ['automated', 'ai'].includes(r.type));
+    listHtml = [
+      proc.length ? `<div class="t-subhead"><span>Processing</span><span>${proc.length}</span></div>${proc.map(r => runRow(r, activeId, showRegion)).join('')}` : '',
+      custom.length ? `<div class="t-subhead"><span>Manual &amp; Ensembles</span><span>${custom.length}</span></div>${custom.map(r => runRow(r, activeId, showRegion)).join('')}` : '',
+      auto.length ? `<div class="t-subhead"><span>Scheduled AUTO &amp; AI</span><span>${auto.length}</span></div>${auto.map(r => runRow(r, activeId, showRegion)).join('')}` : ''
+    ].filter(Boolean).join('');
+  } else {
+    listHtml = `<div class="t-subhead"><span>Matching runs · newest first</span><span>${list.length}</span></div>${shown.map(r => runRow(r, activeId, showRegion)).join('')}`;
+  }
+
   body.innerHTML = `
-    ${mine.length ? `<div class="note good"><span class="spin"></span><div><b>${mine.length} run${mine.length > 1 ? 's' : ''} processing</b><br><small>You can keep using HOCO. We'll show a message when ${mine.length > 1 ? 'each one is' : "it's"} ready.</small></div></div>` : ''}
-    <div class="datebar"><button class="btn icon" id="dPrev" aria-label="Previous day">‹</button>
-      <label class="dateinput"><span class="kicker">Forecasts valid on</span><input type="date" id="dPick" value="${T.date}" max="${dateKey(new Date(Date.now() + 2 * 864e5))}"></label>
-      <button class="btn icon" id="dNext" aria-label="Next day">›</button></div>
-    <div class="product-choices" role="group" aria-label="Forecast product">${productButtons('forecast', T.product, ['all','automated','ai','timing'])}</div>
-    <div class="chips">${chips}</div>
-    <div class="muted" style="font-size:13px">${esc(X.S.region)} · ${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}${isToday ? ' (today)' : ''}</div>
-    <div class="runlist">${list == null ? '<div class="muted center"><span class="spin"></span> Loading runs…</div>' : shown.length ? shown.map(runRow).join('') : `<div class="muted center">No runs here${T.filter !== 'all' ? ' with this filter' : ''}.</div>`}</div>
+    <div class="t-intro"><b>Browse &amp; load runs</b><p>Pick a date and region, filter by forecast type, or open your own manual and ensemble runs.</p></div>
+    ${X.comparing?.() ? '<div class="t-banner">Comparing maps: tap any run below to place it into your comparison.</div>' : ''}
+    ${minePending.length ? `<div class="note good"><span class="spin"></span><div><b>${minePending.length} run${minePending.length > 1 ? 's' : ''} processing</b><br><small>You can keep using HOCO. We'll notify you when ${minePending.length > 1 ? 'each one is' : "it's"} ready.</small></div></div>` : ''}
+    <div class="t-card">
+      <div class="t-bar"><label class="t-inline-lbl" for="rRegion">Region</label>
+        <select id="rRegion">
+          <option value="all" ${reg === 'all' ? 'selected' : ''}>All regions</option>
+          ${X.REGIONS.filter(x => x.west !== undefined).map(x => `<option value="${esc(x.id)}" ${reg === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}
+        </select></div>
+      <div class="datebar">
+        <button class="btn icon" id="dPrev" aria-label="Previous day">‹</button>
+        <label class="dateinput"><span class="sr">Forecasts valid on</span><input type="date" id="dPick" value="${T.date}" max="${dateKey(new Date(Date.now() + 2 * 864e5))}"></label>
+        <button class="btn icon" id="dNext" aria-label="Next day">›</button>
+      </div>
+      <div class="t-quick">
+        <button class="chipbtn" data-jump="${yestKey}" aria-pressed="${T.date === yestKey}">Yesterday</button>
+        <button class="chipbtn" data-jump="${todayKey}" aria-pressed="${T.date === todayKey}">Today</button>
+        <button class="chipbtn" data-jump="${tomKey}" aria-pressed="${T.date === tomKey}">Tomorrow</button>
+      </div>
+    </div>
+    <div class="t-card">
+      <div class="field"><span class="kicker">Forecast type</span>
+        <div class="seg wide t-seg" role="group" aria-label="Forecast product">
+          ${prodOpts.map(([k, l]) => `<button data-forecast="${k}" aria-pressed="${T.product === k}">${l}</button>`).join('')}
+        </div></div>
+      <div class="field"><span class="kicker">Source</span>
+        <div class="chips">${srcOpts.map(([k, l]) => {
+          const cnt = byProduct ? byProduct.filter(r => matchesSource(r, k)).length : null;
+          return `<button class="chipbtn" aria-pressed="${T.filter === k}" data-f="${k}">${l}${cnt != null ? ` <small>${cnt}</small>` : ''}</button>`;
+        }).join('')}</div></div>
+    </div>
+    <div class="runlist">${listHtml}</div>
     ${list && list.length > shown.length ? `<button class="btn" id="moreRuns">Show all ${list.length} runs</button>` : ''}
     <div class="adslot hidden" data-ad="runs"></div>`;
+
   const shift = (n) => { const x = new Date(T.date + 'T00:00:00'); x.setDate(x.getDate() + n); T.date = dateKey(x); T.showMore = false; render(); };
+  $('rRegion').onchange = (e) => { T.region = e.target.value === X.S.region ? null : e.target.value; T.showMore = false; render(); };
   $('dPrev').onclick = () => shift(-1); $('dNext').onclick = () => shift(1);
   $('dPick').onchange = (e) => { if (e.target.value) { T.date = e.target.value; T.showMore = false; render(); } };
+  body.querySelectorAll('[data-jump]').forEach(b => b.onclick = () => { T.date = b.dataset.jump; T.showMore = false; render(); });
   body.querySelectorAll('[data-forecast]').forEach(b => b.onclick = () => { T.product = b.dataset.forecast; T.showMore = false; render(); });
-  body.querySelectorAll('[data-timed]').forEach(b => b.onclick = () => pickRunWindow(b, list.find(r => r.id === b.dataset.timed)));
   body.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { T.filter = b.dataset.f; T.showMore = false; render(); });
+  $('rResetFilters') && ($('rResetFilters').onclick = () => { T.product = 'all'; T.filter = 'all'; T.region = null; T.showMore = false; render(); });
+  $('rJumpToday') && ($('rJumpToday').onclick = () => { T.date = todayKey; T.showMore = false; render(); });
+  $('rBuildNew') && ($('rBuildNew').onclick = () => { T.tab = 'manual'; render(); });
   $('moreRuns') && ($('moreRuns').onclick = () => { T.showMore = true; render(); });
+  body.querySelectorAll('[data-timed]').forEach(b => b.onclick = () => pickRunWindow(b, list.find(r => r.id === b.dataset.timed)));
   body.querySelectorAll('[data-open]').forEach(b => b.onclick = () => {
     const r = [...X.S.runs, ...(T.archive || [])].find(x => x.id === b.dataset.open); if (!r) return;
     if (X.comparing?.()) { X.loadTo(r); return; }
     X.showCustom(r); if (innerWidth <= 640) toggle(false); else render();
+  });
+  body.querySelectorAll('.runitem[data-run-id]').forEach(row => row.onclick = (ev) => {
+    if (ev.target.closest('button, a, input, select')) return;
+    const openBtn = row.querySelector('[data-open]');
+    if (openBtn) openBtn.click();
+    else row.querySelector('[data-timed]')?.click();
   });
   X.renderAds?.();
   body.querySelectorAll('[data-pub]').forEach(b => b.onclick = async () => {
@@ -266,16 +367,37 @@ async function pickRunWindow(button, source) {
     const windows = await X.hourcastWindows(source);
     if (!panel.isConnected) return;
     if (!windows.length) { panel.textContent = 'No Hourcast windows were saved for this run.'; return; }
-    panel.innerHTML = `<label class="field"><span class="kicker">Valid window</span><select>${windows.map((w,i) => `<option value="${i}">${esc(w.windowValidity)}</option>`).join('')}</select></label><button class="btn primary sm">${X.comparing() ? 'Add to compare' : 'Open Hourcast'}</button>`;
-    panel.querySelector('button').onclick = () => {
-      const window = windows[Number(panel.querySelector('select').value)];
-      if (X.comparing()) X.loadTo(window);
-      else X.openHourcast(source, window);
-    };
-    panel.querySelector('select').focus();
+    panel.innerHTML = `<div class="rowbetween"><span class="kicker">Pick a window (${windows.length})</span>
+      ${!X.comparing() ? '<button class="linkbtn" data-hc-full>Open full timeline →</button>' : ''}</div>
+      <div class="hc-grid">${windows.map((w, i) => {
+        const st = X.startOf(w), en = X.endOf(w);
+        const lbl = st && en ? `${X.hhmm(st)}–${X.hhmm(en)}` : esc(w.windowValidity);
+        const lvl = w.severity?.maxLevel;
+        return `<button class="hc-win" data-win-idx="${i}"><span>${esc(lbl)}</span>${lvl >= 1 ? `<span class="sev-pill l${lvl}">L${lvl}</span>` : ''}</button>`;
+      }).join('')}</div>`;
+    panel.querySelector('[data-hc-full]')?.addEventListener('click', () => X.openHourcast(source));
+    panel.querySelectorAll('[data-win-idx]').forEach(btn => btn.onclick = () => {
+      const win = windows[+btn.dataset.winIdx];
+      if (X.comparing()) X.loadTo(win);
+      else X.openHourcast(source, win);
+    });
+    panel.querySelector('[data-win-idx]')?.focus({ preventScroll: true });
   } catch {
     if (panel.isConnected) panel.textContent = 'Could not load the Hourcast windows.';
   }
+}
+
+// ---------------------------------------------------------------- shared workflow helpers
+function stepHeader(num, title, sub = '', meta = '', metaCls = '') {
+  return `<div class="t-step"><span class="t-num">${num}</span><div class="t-stitle"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</div>${meta ? `<span class="t-meta${metaCls ? ' ' + metaCls : ''}">${meta}</span>` : ''}</div>`;
+}
+
+function humanDayLabel(d) {
+  const k = dateKey(d), today = dateKey(new Date());
+  if (k === today) return 'Today';
+  if (k === dateKey(new Date(Date.now() + 864e5))) return 'Tomorrow';
+  if (k === dateKey(new Date(Date.now() - 864e5))) return 'Yesterday';
+  return X.dayDate(d);
 }
 
 // ---------------------------------------------------------------- ensemble
@@ -300,16 +422,33 @@ function ensembleGroups() {
 function defaultWeights(runs) {   // newer runs count a little more: 1.0 → 1.4, like the classic ensemble
   const out = {}; runs.forEach((r, i) => { out[r.id] = +(1 + (runs.length > 1 ? i / (runs.length - 1) : 0) * 0.4).toFixed(1); }); return out;
 }
+function effWeight(E, r, dw) {
+  if (E.wmode === 'custom') return E.w[r.id] ?? dw[r.id] ?? 1;
+  if (E.wmode === 'equal') return 1;
+  return dw[r.id] ?? 1;
+}
+
+const ENS_PRODS = [
+  ['automated', 'Traditional', 'Physics blend runs'],
+  ['ai', 'AI HOCO', 'ML-calibrated runs'],
+  ['both', 'Trad + AI', 'Mix both products'],
+  ['timing', 'Hourcast', 'Matching time windows']
+];
+const ENS_HINTS = {
+  automated: 'Blend recent AUTO-HOCO runs covering the same forecast day.',
+  ai: 'Blend recent AI HOCO runs covering the same forecast day.',
+  both: 'Combine Traditional and AI HOCO runs and adjust the balance between them.',
+  timing: 'Blend Hourcast runs from different issue times that share the exact same window.'
+};
 
 function renderEnsemble(body) {
-  if (role() === 'guest') { body.innerHTML = '<div class="note">Sign in to build ensembles.</div>'; return; }
+  if (role() === 'guest') { body.innerHTML = '<div class="note">Sign in with a free account to build ensembles.</div>'; return; }
   const E = T.ens, timed = E.src === 'timing';
-  const nav = `<div class="product-choices" role="group" aria-label="Forecast product">
-    ${productButtons('ens-product', E.src)}
-    <button class="chipbtn" data-ens-product="both" aria-pressed="${E.src === 'both'}">Traditional + AI</button>
-  </div>`;
-  if (timed) renderHourcastEnsemble(body, nav);
-  else renderEnsembleControls(body, ensembleGroups(), nav);
+  const prodHtml = `<div class="ens-prods" role="group" aria-label="Forecast product">
+    ${ENS_PRODS.map(([k, title, sub]) => `<button class="ens-prod-btn" data-ens-product="${k}" aria-pressed="${E.src === k}"><b>${title}</b><small>${sub}</small></button>`).join('')}
+  </div><p class="t-helper">${ENS_HINTS[E.src] || ''}</p>`;
+  if (timed) renderHourcastEnsemble(body, prodHtml);
+  else renderEnsembleControls(body, ensembleGroups(), prodHtml, false);
   body.querySelectorAll('[data-ens-product]').forEach(button => button.onclick = () => {
     if (E.busy) return;
     E.sel = new Set(); E.w = {};
@@ -318,10 +457,10 @@ function renderEnsemble(body) {
   });
 }
 
-function renderHourcastEnsemble(body, nav) {
+function renderHourcastEnsemble(body, prodHtml) {
   const E = T.ens;
   E.date ||= dateKey(X.addDays(X.baseDay(), X.S.day));
-  const list = forecastsOn(E.date, true);
+  const list = forecastsOn(E.date, true, X.S.region);
   const runs = list?.filter(r => hasHourcast(r) && !isPending(r) && !isFailed(r));
   const key = runs && JSON.stringify([E.date, X.S.region, runs.map(r => r.id)]);
   if (key && E.windowsKey !== key) {
@@ -333,11 +472,11 @@ function renderHourcastEnsemble(body, nav) {
       for (const run of lists.flat()) {
         const start = X.startOf(run), end = X.endOf(run);
         if (dateKey(start) !== date) continue;
-        const key = start.toISOString() + '/' + end.toISOString();
-        if (!groups.has(key)) groups.set(key, { key, start, end, label: run.windowValidity, runs: [] });
-        groups.get(key).runs.push(run);
+        const k = start.toISOString() + '/' + end.toISOString();
+        if (!groups.has(k)) groups.set(k, { key: k, start, end, label: run.windowValidity, runs: [] });
+        groups.get(k).runs.push(run);
       }
-      E.groups = [...groups.values()].sort((a,b) => a.start - b.start || a.end - b.end);
+      E.groups = [...groups.values()].sort((a, b) => a.start - b.start || a.end - b.end);
       if (T.tab === 'ensemble' && E.src === 'timing') render();
     }).catch(() => {
       if (E.windowsKey !== key) return;
@@ -345,16 +484,33 @@ function renderHourcastEnsemble(body, nav) {
       if (T.tab === 'ensemble' && E.src === 'timing') render();
     });
   }
-  const header = `${nav}<label class="field"><span class="kicker">Forecast date</span><input type="date" id="ensDate" value="${E.date}"></label>`;
+  const datePicker = `<div class="field"><span class="kicker">Hourcast date</span>
+    <div class="datebar"><button class="btn icon" id="edPrev" aria-label="Previous day">‹</button>
+      <input type="date" id="ensDate" value="${E.date}">
+      <button class="btn icon" id="edNext" aria-label="Next day">›</button></div></div>`;
   const groups = key && E.windowsKey === key ? E.groups : null;
-  if (groups?.length) renderEnsembleControls(body, groups, header, true);
-  else body.innerHTML = `${header}<div class="note" role="status">${E.windowError && groups ? 'Could not load the saved windows.' : groups ? 'No Hourcast windows for this date.' : 'Loading Hourcast windows…'}</div>`;
-  $('ensDate').onchange = e => { if (e.target.value && !E.busy) { E.date = e.target.value; E.key = ''; E.seed = null; render(); } };
+  if (groups?.length) {
+    renderEnsembleControls(body, groups, `${prodHtml}${datePicker}`, true);
+  } else {
+    body.innerHTML = `<div class="t-intro"><b>Ensemble builder</b><p>Combine multiple runs into one consensus outlook with model spread.</p></div>
+      <div class="t-card">${stepHeader(1, 'Choose what to blend', `${esc(X.S.region)}`)}${prodHtml}${datePicker}</div>
+      <div class="t-empty" role="status"><b>${E.windowError && groups ? 'Could not load windows' : groups ? 'No Hourcast windows on this date' : 'Loading Hourcast windows…'}</b>
+        <small>${groups ? 'Try another date or pick a different forecast product above.' : 'Checking saved runs for matching time windows.'}</small></div>`;
+  }
+  const shiftE = (n) => { if (E.busy) return; const x = new Date(E.date + 'T00:00:00'); x.setDate(x.getDate() + n); E.date = dateKey(x); E.key = ''; E.seed = null; render(); };
+  $('edPrev') && ($('edPrev').onclick = () => shiftE(-1));
+  $('edNext') && ($('edNext').onclick = () => shiftE(1));
+  $('ensDate') && ($('ensDate').onchange = e => { if (e.target.value && !E.busy) { E.date = e.target.value; E.key = ''; E.seed = null; render(); } });
 }
 
-function renderEnsembleControls(body, groups, header, timed = false) {
+function renderEnsembleControls(body, groups, step1Controls, timed = false) {
   const E = T.ens;
-  if (!groups.length) { body.innerHTML = `${header}<div class="note">No finished runs to blend for ${esc(X.S.region)} yet.</div>`; return; }
+  if (!groups.length) {
+    body.innerHTML = `<div class="t-intro"><b>Ensemble builder</b><p>Combine multiple runs into one consensus outlook with model spread.</p></div>
+      <div class="t-card">${stepHeader(1, 'Choose what to blend', `${esc(X.S.region)}`)}${step1Controls}</div>
+      <div class="t-empty"><b>No finished runs to blend yet</b><small>Nothing available for ${esc(X.S.region)} in this category.</small></div>`;
+    return;
+  }
   const want = dateKey(X.addDays(X.baseDay(), X.S.day));
   let grp = groups.find(x => x.key === E.key) || (timed ? groups.find(x => x.runs.length >= 2) : groups.find(x => x.key === want)) || groups.at(-1);
   if (grp.key !== E.key) { E.key = grp.key; E.sel = new Set(); E.w = {}; }
@@ -362,46 +518,149 @@ function renderEnsembleControls(body, groups, header, timed = false) {
   const dw = defaultWeights(pool);
   pool.forEach(r => { if (E.w[r.id] == null) E.w[r.id] = dw[r.id]; });
   if (E.seed !== `${grp.key}|${E.src}`) { E.seed = `${grp.key}|${E.src}`; E.sel = new Set(pool.slice(-6).map(r => r.id)); }
-  const chosen = pool.filter(r => E.sel.has(r.id)), mixOn = E.src === 'both' && chosen.some(r => r.type === 'ai') && chosen.some(r => r.type === 'automated');
-  if (E.wmode !== 'custom') pool.forEach(r => { E.w[r.id] = dw[r.id]; });
-  const share = (r) => !mixOn ? 1 : (r.type === 'ai' ? (100 - E.mix) / 50 : E.mix / 50);
-  const tot = chosen.reduce((a, r) => a + E.w[r.id] * share(r), 0) || 1, pctOf = (r) => E.sel.has(r.id) ? Math.round(E.w[r.id] * share(r) / tot * 100) : 0;
+  if (E.wmode !== 'custom' && E.wmode !== 'equal') E.wmode = 'auto';
+
+  const effMap = Object.fromEntries(pool.map(r => [r.id, effWeight(E, r, dw)]));
+  const chosen = pool.filter(r => E.sel.has(r.id));
+  const mixOn = E.src === 'both' && chosen.some(r => r.type === 'ai') && chosen.some(r => r.type === 'automated');
+  const share = (r, m = E.mix) => !mixOn ? 1 : (r.type === 'ai' ? (100 - m) / 50 : m / 50);
+  const computeShares = (m = E.mix) => {
+    const raw = Object.fromEntries(chosen.map(r => [r.id, effMap[r.id] * share(r, m)]));
+    const tot = Object.values(raw).reduce((a, b) => a + b, 0) || 1;
+    const pct = Object.fromEntries(chosen.map(r => [r.id, Math.round(raw[r.id] / tot * 100)]));
+    const trad = chosen.filter(r => r.type !== 'ai').reduce((a, r) => a + raw[r.id], 0);
+    const tradPct = Math.round(trad / tot * 100);
+    return { pct, tradPct, aiPct: 100 - tradPct };
+  };
+  const shares = computeShares();
+  const minReq = timed ? 2 : 1, readyToBuild = chosen.length >= minReq;
+  const blendableCnt = timed ? groups.filter(x => x.runs.length >= 2).length : 0;
+  const modeHint = E.wmode === 'custom'
+    ? 'Drag any slider below to give that run more or less influence.'
+    : E.wmode === 'equal'
+      ? 'Every selected run has the exact same weight. Tap any bar or Custom to tweak.'
+      : 'Newer runs count slightly more (1.0× to 1.4×). Tap any bar or Custom to tweak.';
+  const weightSummary = E.wmode === 'custom' ? 'Custom weights' : E.wmode === 'equal' ? 'Equal weights' : 'Newer weighted';
+
+  const step1Picker = timed
+    ? `<label class="field"><div class="rowbetween"><span class="kicker">Valid window</span><small class="muted">${blendableCnt} of ${groups.length} ready to blend</small></div>
+        <select id="enWindow">${groups.map(x => `<option value="${x.key}" ${x.key === grp.key ? 'selected' : ''}>${esc(x.label)} · ${x.runs.length >= 2 ? `✓ ${x.runs.length} runs` : '1 run · need 2+'}</option>`).join('')}</select>
+        ${grp.runs.length < 2 ? '<div class="t-warn">This window only has 1 run. Pick a window marked ✓ to blend 2 or more runs.</div>' : ''}</label>`
+    : `<div class="field"><span class="kicker">Valid day</span><div class="chips">${groups.map(x => {
+        const cnt = E.src === 'both' ? x.runs.length : x.runs.filter(r => r.type === E.src).length;
+        return `<button class="chipbtn ens-daybtn" aria-pressed="${x.key === grp.key}" data-g="${x.key}"><span>${humanDayLabel(x.start)}</span><small>${X.dayDate(x.start)} · ${cnt}</small></button>`;
+      }).join('')}</div></div>`;
+
+  const wlistHtml = !pool.length
+    ? '<div class="t-empty"><b>No runs here yet</b><small>Try switching the product or day in Step 1.</small></div>'
+    : pool.slice().reverse().map((r, idx) => {
+      const c = X.created(r), on = E.sel.has(r.id), w = effMap[r.id], ti = typeInfo(r), p = on ? (shares.pct[r.id] ?? 0) : 0;
+      const rightCtrl = !on
+        ? '<span class="wexcl">Excluded</span>'
+        : E.wmode === 'custom'
+          ? `<input type="range" min="0.1" max="2" step="0.1" value="${w}" data-w="${esc(r.id)}" aria-label="Weight for run issued ${X.hhmm(c)}" style="--pct:${(w - 0.1) / 1.9 * 100}%"><output>${p}%</output>`
+          : `<button type="button" class="wbar" data-wbar="${esc(r.id)}" title="Click to adjust weights" aria-label="${p}% share — click to customise"><i style="width:${p}%"></i></button><output>${p}%</output>`;
+      return `<div class="wrow${E.wmode === 'custom' ? '' : ' ens-bar-row'}${on ? '' : ' off'}" data-wrow="${esc(r.id)}">
+        <label class="chk"><input type="checkbox" data-sel="${esc(r.id)}" ${on ? 'checked' : ''}><span><b>${X.hhmm(c)}</b> <small>${idx === 0 ? 'Latest' : X.dayName(c)}</small></span></label>
+        ${E.src === 'both' ? `<span class="tag ${ti.cls}">${ti.chip}</span>` : '<span></span>'}
+        ${rightCtrl}
+      </div>`;
+    }).join('');
+
   body.innerHTML = `
-    <p class="lead">Blend several runs into one forecast. Newer runs count a little more by default; drag a weight to change that.</p>
-    ${header}
-    ${timed ? `<label class="field"><span class="kicker">Valid window</span><select id="enWindow">
-      ${groups.map(x => `<option value="${x.key}" ${x.key === grp.key ? 'selected' : ''}>${esc(x.label)} · ${x.runs.length} run${x.runs.length===1?'':'s'}</option>`).join('')}
-    </select><small class="muted">Select at least two runs with the same start and end time.</small></label>`
-      : `<div class="field"><span class="kicker">Day</span><div class="chips">${groups.map(x => `<button class="chipbtn" aria-pressed="${x.key === grp.key}" data-g="${x.key}">${X.dayDate(x.start)}<small>${x.runs.length} runs</small></button>`).join('')}</div></div>`}
-    ${!pool.length ? '<small class="muted">No runs for this product on the selected day.</small>' : ''}
-    ${mixOn ? `<div class="field"><span class="kicker">Traditional vs AI HOCO</span><input type="range" id="mix" min="0" max="100" step="5" value="${E.mix}" style="--pct:${E.mix}%">
-      <div class="ticks2"><span>Traditional ${E.mix}%</span><span>AI HOCO ${100 - E.mix}%</span></div></div>` : ''}
-    <div class="field"><div class="rowbetween"><span class="kicker">Run weights</span><span><button class="linkbtn" id="selLatest">Latest 6</button> · <button class="linkbtn" id="selAll">All</button></span></div>
-      <div class="seg wide" role="group"><button data-wmode="auto" aria-pressed="${E.wmode !== 'custom'}">Auto (newer counts more)</button><button data-wmode="custom" aria-pressed="${E.wmode === 'custom'}">Custom</button></div>
-      <div class="wlist">${pool.slice().reverse().map(r => { const c = X.created(r), on = E.sel.has(r.id), w = E.w[r.id], ti = typeInfo(r);
-        return `<div class="wrow${on ? '' : ' off'}"><label class="chk"><input type="checkbox" data-sel="${esc(r.id)}" ${on ? 'checked' : ''}><span><b>${X.hhmm(c)}</b> <small>${X.dayName(c)}</small></span></label>
-          <span class="tag ${ti.cls}">${ti.chip}</span>
-          <input type="range" min="0.1" max="2" step="0.1" value="${w}" data-w="${esc(r.id)}" aria-label="Weight for run issued ${X.hhmm(c)}" style="--pct:${(w - 0.1) / 1.9 * 100}%" ${on && E.wmode === 'custom' ? '' : 'disabled'}>
-          <output>${on ? pctOf(r) + '%' : '–'}</output></div>`; }).join('')}</div>
-      <small class="muted">Weights always add up to 100%. Untick a run to leave it out.</small></div>
-    <div class="runfoot"><button class="btn" id="resetW">Reset</button><button class="btn primary big" id="buildEns" ${E.busy || chosen.length < (timed ? 2 : 1) ? 'disabled' : ''}>${E.busy ? '<span class="spin light"></span> Building…' : `Build ensemble (${chosen.length} run${chosen.length === 1 ? '' : 's'})`}</button></div>
-    <small class="muted" id="ensStatus">${timed ? 'Saved to My runs. The ensemble map is visible only to your account.' : 'Saved to your runs. Only you can see it unless a developer makes it public.'}</small>`;
+    <div class="t-intro"><b>Ensemble builder</b><p>Combine multiple runs into one consensus outlook with model spread.</p></div>
+    <div class="t-card">
+      ${stepHeader(1, 'Choose what to blend', `${esc(X.S.region)}`, `${pool.length} available`)}
+      ${step1Controls}
+      ${step1Picker}
+    </div>
+    <div class="t-card">
+      ${stepHeader(2, 'Select runs &amp; weights', 'Untick older runs or adjust their influence', `${chosen.length} of ${pool.length}`, readyToBuild ? 'ok' : 'bad')}
+      <div class="t-quick">
+        <button class="chipbtn" id="selLatest3">Latest 3</button>
+        <button class="chipbtn" id="selLatest">Latest 6</button>
+        <button class="chipbtn" id="selAll">All</button>
+        <button class="chipbtn" id="selNone">Clear</button>
+      </div>
+      <div class="seg wide t-seg" role="group" aria-label="Weighting mode">
+        <button data-wmode="auto" aria-pressed="${E.wmode === 'auto'}">Newer weighted</button>
+        <button data-wmode="equal" aria-pressed="${E.wmode === 'equal'}">Equal</button>
+        <button data-wmode="custom" aria-pressed="${E.wmode === 'custom'}">Custom</button>
+      </div>
+      <p class="t-helper">${modeHint}</p>
+      ${mixOn ? `<div class="mix-card">
+        <div class="rowbetween"><span class="kicker">Traditional vs AI share</span><b style="font-size:12px" id="mixReadout">Trad ${shares.tradPct}% · AI ${shares.aiPct}%</b></div>
+        <div class="mix-bar" aria-hidden="true"><i class="mix-trad" id="mixBarTrad" style="width:${shares.tradPct}%"></i><i class="mix-ai"></i></div>
+        <input type="range" id="mix" min="0" max="100" step="5" value="${E.mix}" aria-label="Traditional vs AI balance" style="--pct:${E.mix}%">
+        <div class="ticks2"><span>Traditional ${E.mix}%</span><span>AI HOCO ${100 - E.mix}%</span></div>
+      </div>` : ''}
+      <div class="wlist">${wlistHtml}</div>
+    </div>
+    <div class="runfoot">
+      <div class="runfoot-top">
+        ${readyToBuild
+          ? `<span class="t-sumline">Blending ${chosen.length} run${chosen.length === 1 ? '' : 's'} · ${esc(X.S.region)} · ${weightSummary}</span>`
+          : `<div class="t-warn">Select at least ${minReq} run${minReq > 1 ? 's' : ''} above to build an ensemble.</div>`}
+        <small id="ensStatus">${timed ? 'Saved privately to My runs in Hourcast format.' : 'Saved to My runs. Only visible to you unless made public.'}</small>
+      </div>
+      <div class="runfoot-acts">
+        <button class="btn" id="resetW">Reset</button>
+        <button class="btn primary big" id="buildEns" ${E.busy || !readyToBuild ? 'disabled' : ''}>${E.busy ? '<span class="spin light"></span> Building…' : `Build ensemble (${chosen.length})`}</button>
+      </div>
+    </div>`;
+
+  const syncSharesUi = () => {
+    const sh = computeShares();
+    const ro = $('mixReadout'), mb = $('mixBarTrad');
+    if (ro) ro.textContent = `Trad ${sh.tradPct}% · AI ${sh.aiPct}%`;
+    if (mb) mb.style.width = sh.tradPct + '%';
+    chosen.forEach(r => {
+      const row = body.querySelector(`.wrow[data-wrow="${CSS.escape(r.id)}"]`); if (!row) return;
+      const p = sh.pct[r.id] ?? 0;
+      const out = row.querySelector('output'); if (out) out.textContent = p + '%';
+      const bar = row.querySelector('.wbar i'); if (bar) bar.style.width = p + '%';
+    });
+  };
+
   body.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { E.key = b.dataset.g; E.sel = new Set(); E.w = {}; render(); });
   if ($('enWindow')) $('enWindow').onchange = e => { if (!E.busy) { E.key = e.target.value; E.sel = new Set(); E.w = {}; render(); } };
-  $('mix') && ($('mix').oninput = (e) => { E.mix = +e.target.value; e.target.style.setProperty('--pct', E.mix + '%'); const t = e.target.nextElementSibling.children; t[0].textContent = `Traditional ${E.mix}%`; t[1].textContent = `AI HOCO ${100 - E.mix}%`; });
+  $('mix') && ($('mix').oninput = (e) => {
+    E.mix = +e.target.value;
+    e.target.style.setProperty('--pct', E.mix + '%');
+    const t = e.target.nextElementSibling.children;
+    t[0].textContent = `Traditional ${E.mix}%`;
+    t[1].textContent = `AI HOCO ${100 - E.mix}%`;
+    syncSharesUi();
+  });
   body.querySelectorAll('[data-sel]').forEach(c => c.onchange = () => { c.checked ? E.sel.add(c.dataset.sel) : E.sel.delete(c.dataset.sel); render(); });
-  body.querySelectorAll('[data-w]').forEach(x => { x.oninput = () => { E.w[x.dataset.w] = +x.value; x.style.setProperty('--pct', (x.value - 0.1) / 1.9 * 100 + '%');
-    const t2 = chosen.reduce((a, r) => a + E.w[r.id] * share(r), 0) || 1; body.querySelectorAll('[data-w]').forEach(y => { const rr = pool.find(r => r.id === y.dataset.w); if (rr && E.sel.has(rr.id)) y.nextElementSibling.textContent = Math.round(E.w[rr.id] * share(rr) / t2 * 100) + '%'; }); }; });
-  body.querySelectorAll('[data-wmode]').forEach(b => b.onclick = () => { E.wmode = b.dataset.wmode; render(); });
+  body.querySelectorAll('[data-wbar]').forEach(b => b.onclick = () => {
+    const id = b.dataset.wbar;
+    pool.forEach(r => { E.w[r.id] = effWeight(E, r, dw); });
+    E.wmode = 'custom'; render();
+    body.querySelector(`[data-w="${CSS.escape(id)}"]`)?.focus();
+  });
+  body.querySelectorAll('[data-w]').forEach(x => {
+    x.oninput = () => {
+      E.w[x.dataset.w] = +x.value; effMap[x.dataset.w] = +x.value;
+      x.style.setProperty('--pct', (x.value - 0.1) / 1.9 * 100 + '%');
+      syncSharesUi();
+    };
+  });
+  body.querySelectorAll('[data-wmode]').forEach(b => b.onclick = () => {
+    if (b.dataset.wmode === 'custom' && E.wmode !== 'custom') pool.forEach(r => { E.w[r.id] = effWeight(E, r, dw); });
+    E.wmode = b.dataset.wmode; render();
+  });
+  $('selLatest3').onclick = () => { E.sel = new Set(pool.slice(-3).map(r => r.id)); render(); };
   $('selLatest').onclick = () => { E.sel = new Set(pool.slice(-6).map(r => r.id)); render(); };
   $('selAll').onclick = () => { E.sel = new Set(pool.map(r => r.id)); render(); };
-  $('resetW').onclick = () => { E.w = { ...E.w, ...dw }; E.wmode = 'auto'; E.sel = new Set(pool.slice(-6).map(r => r.id)); E.mix = 50; render(); };
-  $('buildEns').onclick = () => buildEnsemble(grp, chosen, mixOn, timed);
+  $('selNone').onclick = () => { E.sel = new Set(); render(); };
+  $('resetW').onclick = () => { E.w = { ...dw }; E.wmode = 'auto'; E.sel = new Set(pool.slice(-6).map(r => r.id)); E.mix = 50; render(); };
+  $('buildEns').onclick = () => buildEnsemble(grp, chosen, mixOn, timed, effMap);
 }
 
-async function buildEnsemble(grp, chosen, mixOn, timed) {
+async function buildEnsemble(grp, chosen, mixOn, timed, effWeights = T.ens.w) {
   const E = T.ens; if (E.busy) return;
-  const weights = { ...E.w }, mix = E.mix, region = X.S.region, user = uid();
+  const weights = { ...effWeights }, mix = E.mix, region = X.S.region, user = uid();
   E.busy = true; render();
   const status = (t) => { const s = $('ensStatus'); if (s) s.textContent = t; };
   try {
@@ -412,7 +671,7 @@ async function buildEnsemble(grp, chosen, mixOn, timed) {
     if (loaded.length < chosen.length) X.toast(`${chosen.length - loaded.length} run(s) could not be loaded and were skipped`);
     status('Blending…');
     await new Promise(r => setTimeout(r, 30));
-    const entries = loaded.map(({ r, geojson }) => ({ geojson, weight: +(weights[r.id] * share(r)).toFixed(3), createdMs: X.created(r)?.getTime() || 0, r }));
+    const entries = loaded.map(({ r, geojson }) => ({ geojson, weight: +((weights[r.id] ?? 1) * share(r)).toFixed(3), createdMs: X.created(r)?.getTime() || 0, r }));
     const geo = blendRuns(entries, X.BANDS, { allowQuiet: timed });
     const used = entries.filter(e => e.weight > 0);
     const area = X.REGIONS.find(item => item.id === region && Number.isFinite(item.west));
@@ -471,68 +730,183 @@ function runOptions(model, startVal) {
     return { iso: d.toISOString(), label: `${pad(d.getUTCDate())}/${pad(d.getUTCMonth() + 1)} ${pad(d.getUTCHours())}z` }; });
 }
 
+function nextHourLocal() {
+  const d = new Date(); d.setMinutes(0, 0, 0); d.setHours(d.getHours() + 1); return localInput(d);
+}
+function dayAt06Local(offsetDays) {
+  const d = new Date(); d.setDate(d.getDate() + offsetDays); d.setHours(6, 0, 0, 0); return localInput(d);
+}
+
 function manualEst(nScen, hours) { return Math.max(2, Math.ceil((nScen || 6) * 35 * (hours / 24) / 60)); }
 function renderManual(body) {
   const M = T.man, r = role(), cap = CAPS[r], canScen = r === 'exclusive' || r === 'developer', dev = r === 'developer';
-  if (r === 'guest') { body.innerHTML = `<div class="note">Guests can't start runs. Sign in with a free account to run HOCO.</div>`; return; }
-  if (!M.start) { const d = new Date(); d.setMinutes(0, 0, 0); d.setHours(d.getHours() + 1); M.start = localInput(d); }
+  if (r === 'guest') { body.innerHTML = '<div class="note">Guests can\'t start runs. Sign in with a free account to build your own forecasts.</div>'; return; }
+  if (!M.start) M.start = nextHourLocal();
   if (!M.len) M.len = 12;
-  const st = new Date(M.start), en = M.customEnd && M.end ? new Date(M.end) : new Date(st.getTime() + M.len * 3.6e6), hours = Math.max(1, (en - st) / 3.6e6);
+  const st = new Date(M.start), en = M.customEnd && M.end ? new Date(M.end) : new Date(st.getTime() + M.len * 3.6e6);
+  const rawHours = (en - st) / 3.6e6, hours = Math.max(1, rawHours || 12);
   const left = cap === Infinity ? Infinity : Math.max(0, cap - T.myToday), opts = runOptions(M.model, M.start);
   const chosenRegion = M.region || X.S.region, traditionalOnly = traditionalOnlyRegion(chosenRegion);
   if (traditionalOnly && M.product === 'ai') M.product = 'automated';
   const product = M.product || 'automated';
-  const nModels = new Set(M.scen.map(x => x.model)).size, mode = product === 'ai' && !traditionalOnly ? 'learned' : 'custom';
+  const mode = product === 'ai' && !traditionalOnly ? 'learned' : 'custom';
   const productNote = product === 'timing'
     ? ' Manual Hourcast uses hourly windows up to 24 hours.'
     : product === 'automated' && hourcastRegion(chosenRegion)
       ? (hours <= 24 ? ' Automatically includes Hourcast windows too.' : ' Choose up to 24 hours to automatically include Hourcast windows too.')
       : '';
+
+  const prodCards = [
+    ['automated', 'Traditional', hourcastRegion(chosenRegion) ? 'Full period + Hourcast ≤24 h' : 'Full forecast period'],
+    ...(!traditionalOnly ? [['ai', 'AI HOCO', 'ML-calibrated full period']] : []),
+    ['timing', 'Hourcast', 'Hourly · max 24 h']
+  ];
+
+  let timeErr = '';
+  if (!M.start || isNaN(st) || isNaN(en)) timeErr = 'Choose a valid start and end time.';
+  else if (st >= en) timeErr = 'End time must be after start time.';
+  else if (product === 'timing' && !hourcastRegion(chosenRegion)) timeErr = 'Hourcast is not supported for this region.';
+  else if (product === 'timing' && rawHours > 24) timeErr = 'Manual Hourcast covers up to 24 hours. Shorten the duration or choose Traditional.';
+  else if (r !== 'developer' && rawHours > 72) timeErr = 'A manual run can cover up to 72 hours.';
+
+  const presets = [
+    ['next12', 'Next 12 h', nextHourLocal(), 12],
+    ['next24', 'Next 24 h', nextHourLocal(), 24],
+    ['today06', 'Today 06–06', dayAt06Local(0), 24],
+    ['tom06', 'Tomorrow 06–06', dayAt06Local(1), 24]
+  ];
+
+  const activeScen = canScen && M.scenMode === 'custom' ? M.scen : [];
+  const totW = M.scen.reduce((a, x) => a + (+x.weight || 1), 0) || 1;
+  const visibleOpts = M.showAllOpts ? opts : opts.slice(0, 8);
+  const autoHcBadge = product === 'automated' && hourcastRegion(chosenRegion) && !timeErr && rawHours <= 24;
+
+  const step3Body = canScen ? `
+    ${stepHeader(3, 'Weather models', 'Leave on Standard blend or hand-pick specific model runs', M.scenMode === 'custom' && M.scen.length ? `${M.scen.length} selected` : 'Standard')}
+    <div class="seg wide t-seg" role="group" aria-label="Model selection mode">
+      <button data-scen-mode="standard" aria-pressed="${M.scenMode !== 'custom'}">Standard blend</button>
+      <button data-scen-mode="custom" aria-pressed="${M.scenMode === 'custom'}">Custom runs${M.scen.length ? ` (${M.scen.length})` : ''}</button>
+    </div>
+    ${M.scenMode !== 'custom'
+      ? `<p class="t-helper">Uses the latest runs from HOCO's full weather-model suite${mode === 'learned' ? ' with AI learned weights' : ''}. Recommended for most forecasts.</p>`
+      : `${mode === 'learned' ? '<p class="t-helper">AI HOCO applies its learned weights to whichever runs you add below.</p>' : ''}
+        <div class="rowbetween"><button class="btn sm" id="mAddLatestAll">Add latest of each model</button>${M.scen.length ? `<button class="linkbtn" id="mClearScen">Clear all (${M.scen.length})</button>` : ''}</div>
+        <div class="chips modelchips">${Object.entries(MODELS).map(([k, m]) => {
+          const cnt = M.scen.filter(x => x.model === k).length;
+          return `<button class="chipbtn" data-model="${k}" aria-pressed="${k === M.model}">${m.name}${cnt ? ` <b>${cnt}</b>` : ''}</button>`;
+        }).join('')}</div>
+        <div class="scen-grid">${visibleOpts.map(o => {
+          const added = M.scen.some(x => x.model === M.model && x.run === o.iso);
+          return `<button class="chipbtn" data-iso="${o.iso}" aria-pressed="${added}" title="${added ? 'Click to remove' : 'Click to add'}">${added ? '✓ ' : ''}${o.label}</button>`;
+        }).join('')}</div>
+        ${opts.length > 8 ? `<button class="linkbtn" id="mMoreOpts" style="align-self:flex-start">${M.showAllOpts ? 'Show fewer runs' : `Show ${opts.length - 8} older ${MODELS[M.model].name} runs`}</button>` : ''}
+        ${M.scen.length ? `<div class="wlist">${M.scen.map((x, i) => {
+          const pct = Math.round((+x.weight || 1) / totW * 100);
+          return `<div class="wrow scen-row${mode === 'learned' ? ' learned-row' : ''}" data-srow="${i}">
+            <span class="scenlabel"><b>${esc(MODELS[x.model]?.name || x.model)}</b> <small>${esc(x.runLabel)}</small></span>
+            ${mode === 'custom'
+              ? `<input type="range" min="0.1" max="2" step="0.1" value="${x.weight}" data-sw="${i}" aria-label="Weight for ${esc(MODELS[x.model]?.name || x.model)} ${esc(x.runLabel)}" style="--pct:${(x.weight - 0.1) / 1.9 * 100}%"><output>×${(+x.weight).toFixed(1)} · ${pct}%</output>`
+              : '<span class="tag beta">Learned</span>'}
+            <button class="btn icon sm" data-rm="${i}" aria-label="Remove">✕</button></div>`;
+        }).join('')}</div>`
+          : '<p class="t-helper">Tap any run times above to add them immediately — or switch models and pick several runs.</p>'}`}
+    ${dev ? `<details class="field devbox" ${M.devOpen ? 'open' : ''}><summary><span class="kicker">Developer · override backend weights</span></summary>
+      <small class="muted">${mode === 'learned' ? 'Ignored when AI HOCO is selected; applies to Traditional &amp; Hourcast only.' : 'Leave blank to use the backend default weight for each model.'}</small>
+      <div class="grid3">${Object.entries(MODELS).map(([k, m]) => `<label><small>${m.name}</small><input type="number" step="0.1" min="0" id="mw-${k}" placeholder="default" value="${M.w?.[k] ?? ''}"></label>`).join('')}</div></details>` : ''}`
+    : `${stepHeader(3, 'Weather models', '', 'Standard blend')}
+       <p class="t-helper">Uses HOCO's full multi-model blend automatically. Exclusive accounts can pick individual model runs and weights.</p>`;
+
   body.innerHTML = `
-    <div class="field"><span class="kicker">Forecast product</span><div class="product-choices" role="group" aria-label="Forecast product">${productButtons('manual-product', product, traditionalOnly ? ['automated', 'timing'] : undefined)}</div>
-      <small class="muted">${PRODUCTS[product].detail}${productNote}</small></div>
-    <div class="field"><span class="kicker">Region</span><div class="chips">${X.REGIONS.filter(x => x.west !== undefined && (product !== 'timing' || hourcastRegion(x.id))).map(x => `<button class="chipbtn" data-reg="${x.id}" aria-pressed="${x.id === (M.region || X.S.region)}">${x.name}</button>`).join('')}</div></div>
-    <div class="grid2"><label class="field"><span class="kicker">Starts</span><input type="datetime-local" id="mStart" value="${M.start}"></label>
-      <div class="field"><span class="kicker">Length</span><div class="chips">${[3, 6, 12, 24].map(h => `<button class="chipbtn" data-h="${h}" aria-pressed="${!M.customEnd && M.len === h}">${h} h</button>`).join('')}</div></div></div>
-    <div class="rowbetween"><small class="muted">→ ends <b>${X.dayName(en)} ${X.hhmm(en)}</b> · ${Math.round(hours)} h</small><button class="linkbtn" id="mCustomEnd">${M.customEnd ? 'Use a length' : 'Pick an end time'}</button></div>
-    ${M.customEnd ? `<label class="field"><span class="kicker">Ends</span><input type="datetime-local" id="mEnd" value="${M.end || localInput(en)}"></label>` : ''}
-    ${canScen ? `
-      <div class="field"><div class="rowbetween"><span class="kicker">Models and runs</span><small class="muted">${M.scen.length ? `${M.scen.length} run${M.scen.length > 1 ? 's' : ''} · ${nModels} model${nModels > 1 ? 's' : ''}` : 'standard set'}</small></div>
-        ${mode === 'learned' ? '<small class="muted">AI HOCO\'s learned weights decide how much each model counts. Falls back to the standard weights if none is live.</small>' : ''}
-        <div class="chips modelchips">${Object.entries(MODELS).map(([k, m]) => `<button class="chipbtn" data-model="${k}" aria-pressed="${k === M.model}">${m.name}</button>`).join('')}</div>
-        <div class="chips runchips">${opts.map(o => { const added = M.scen.some(x => x.model === M.model && x.run === o.iso);
-          return `<button class="chipbtn${added ? ' added' : ''}" data-iso="${o.iso}" aria-pressed="${M.picked.has(o.iso)}" ${added ? 'disabled title="Already added"' : ''}>${o.label}</button>`; }).join('')}</div>
-        <button class="btn" id="mAdd" ${M.picked.size ? '' : 'disabled'}>Add ${M.picked.size || ''} ${MODELS[M.model].name} run${M.picked.size === 1 ? '' : 's'}</button>
-        <div class="wlist">${M.scen.length ? M.scen.map((x, i) => `<div class="wrow"><span class="scenlabel"><b>${esc(MODELS[x.model]?.name || x.model)}</b> <small>${esc(x.runLabel)}</small></span>
-          ${mode === 'custom' ? `<input type="range" min="0.1" max="2" step="0.1" value="${x.weight}" data-sw="${i}" aria-label="Weight" style="--pct:${(x.weight - 0.1) / 1.9 * 100}%"><output>×${(+x.weight).toFixed(1)}</output>` : '<span class="muted" style="font-size:12px">learned</span><span></span>'}
-          <button class="btn icon sm" data-rm="${i}" aria-label="Remove">✕</button></div>`).join('') : ''}</div>
-        <small class="muted">Add the same model more than once to use several of its runs.${mode === 'custom' ? ' Each run has its own weight.' : ''}</small>
-      </div>` : `<div class="note slim">Your runs use HOCO's standard model blend. Exclusive accounts can pick model runs and weights.</div>`}
-    ${dev ? `<details class="field devbox" ${M.devOpen ? 'open' : ''}><summary><span class="kicker">Developer · model weighting</span></summary>
-      <small class="muted">Leave blank to use the backend default for that model.</small>
-      <div class="grid3">${Object.entries(MODELS).map(([k, m]) => `<label><small>${m.name}</small><input type="number" step="0.1" min="0" id="mw-${k}" placeholder="default" value="${M.w?.[k] ?? ''}"></label>`).join('')}</div></details>` : ''}
+    <div class="t-intro"><b>Build a custom run</b><p>Start an on-demand HOCO forecast for any region and time window — live or archived.</p></div>
+    <div class="t-card">
+      ${stepHeader(1, 'Forecast type &amp; region')}
+      <div class="field"><span class="kicker">Forecast product</span>
+        <div class="prod-cards${traditionalOnly ? ' cols2' : ''}" role="group" aria-label="Forecast product">
+          ${prodCards.map(([k, title, sub]) => `<button class="prod-card" data-manual-product="${k}" aria-pressed="${product === k}"><b>${title}</b><small>${sub}</small></button>`).join('')}
+        </div>
+        <small class="muted">${PRODUCTS[product].detail}${productNote}</small>
+      </div>
+      <div class="field"><span class="kicker">Region</span>
+        <div class="chips">${X.REGIONS.filter(x => x.west !== undefined && (product !== 'timing' || hourcastRegion(x.id))).map(x => `<button class="chipbtn" data-reg="${x.id}" aria-pressed="${x.id === chosenRegion}">${x.name}</button>`).join('')}</div>
+        ${traditionalOnly ? `<p class="t-helper">AI HOCO is not trained for ${esc(chosenRegion)} yet, so Traditional is used.</p>` : ''}
+      </div>
+    </div>
+    <div class="t-card">
+      ${stepHeader(2, 'Forecast time window', 'Local time — works for live or archived dates', timeErr ? 'Check time' : `${Math.round(hours)} h`, timeErr ? 'bad' : 'ok')}
+      <div class="t-quick">${presets.map(([pid, plbl, pstart, plen]) =>
+        `<button class="chipbtn" data-tpreset="${pid}" aria-pressed="${!M.customEnd && M.start === pstart && M.len === plen}">${plbl}</button>`).join('')}</div>
+      <label class="field"><span class="kicker">Starts</span><input type="datetime-local" id="mStart" value="${M.start}"></label>
+      <div class="field">
+        <div class="rowbetween"><span class="kicker">Length</span><button class="linkbtn" id="mCustomEnd">${M.customEnd ? 'Use preset length' : 'Pick an end time'}</button></div>
+        <div class="chips">${[3, 6, 12, 24].map(h => `<button class="chipbtn" data-h="${h}" aria-pressed="${!M.customEnd && M.len === h}">${h} h</button>`).join('')}</div>
+      </div>
+      ${M.customEnd ? `<label class="field"><span class="kicker">Ends</span><input type="datetime-local" id="mEnd" value="${M.end || localInput(en)}"></label>` : ''}
+      ${timeErr
+        ? `<div class="t-warn" id="mTimeWarn">${timeErr}</div>`
+        : `<div class="t-period-preview"><span>Covers <b>${X.dayDate(st)} ${X.hhmm(st)}</b> → <b>${X.dayDate(en)} ${X.hhmm(en)}</b></span>${autoHcBadge ? '<span class="t-ok">+ Auto Hourcast</span>' : ''}</div>`}
+    </div>
+    <div class="t-card">${step3Body}</div>
     <label class="chk"><input type="checkbox" id="mNotify" ${M.notify ? 'checked' : ''}><span>Notify me when it's ready</span></label>
-    <div class="runfoot"><span><b>${cap === Infinity ? 'Unlimited runs' : `${left} of ${cap} runs left today`}</b><small>Takes about ${manualEst(M.scen.length, hours)} min</small></span>
-      <button class="btn primary big" id="mGo" ${M.busy || (cap !== Infinity && !left) ? 'disabled' : ''}>${M.busy ? '<span class="spin light"></span> Starting…' : `Run ${PRODUCTS[product].label}`}</button></div>`;
+    <div class="runfoot">
+      <div class="runfoot-top">
+        <span class="t-sumline">${esc(chosenRegion)} · ${PRODUCTS[product].label}${autoHcBadge ? ' + Hourcast' : ''} · ${timeErr ? 'check period' : `${Math.round(hours)} h`} · ${activeScen.length ? `${activeScen.length} custom run${activeScen.length > 1 ? 's' : ''}` : 'Standard blend'}</span>
+        <small>${cap === Infinity ? 'Unlimited runs' : `${left} of ${cap} runs left today`} · Takes about ${manualEst(activeScen.length, hours)} min</small>
+      </div>
+      <div class="runfoot-acts">
+        <button class="btn primary big" id="mGo" ${M.busy || (cap !== Infinity && !left) || !!timeErr ? 'disabled' : ''}>${M.busy ? '<span class="spin light"></span> Starting…' : `Run ${PRODUCTS[product].label}`}</button>
+      </div>
+    </div>`;
+
   body.querySelectorAll('[data-manual-product]').forEach(b => b.onclick = () => {
     M.product = b.dataset.manualProduct;
     if (M.product === 'timing' && !hourcastRegion(chosenRegion)) M.region = 'England';
     render();
   });
   body.querySelectorAll('[data-reg]').forEach(b => b.onclick = () => { M.region = b.dataset.reg; render(); });
+  body.querySelectorAll('[data-tpreset]').forEach(b => b.onclick = () => {
+    const p = presets.find(x => x[0] === b.dataset.tpreset); if (!p) return;
+    M.start = p[2]; M.len = p[3]; M.customEnd = false; render();
+  });
   $('mStart').onchange = (e) => { M.start = e.target.value || M.start; render(); };
   body.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { M.len = +b.dataset.h; M.customEnd = false; render(); });
   $('mCustomEnd').onclick = () => { M.customEnd = !M.customEnd; if (M.customEnd && !M.end) M.end = localInput(en); render(); };
   $('mEnd') && ($('mEnd').onchange = (e) => { M.end = e.target.value; render(); });
   if (canScen) {
-    body.querySelectorAll('[data-model]').forEach(b => b.onclick = () => { M.model = b.dataset.model; M.picked = new Set(); render(); });
-    body.querySelectorAll('[data-iso]').forEach(b => b.onclick = () => { M.picked.has(b.dataset.iso) ? M.picked.delete(b.dataset.iso) : M.picked.add(b.dataset.iso); render(); });
-    $('mAdd').onclick = () => { opts.filter(o => M.picked.has(o.iso)).forEach(o => { if (!M.scen.some(x => x.model === M.model && x.run === o.iso)) M.scen.push({ model: M.model, run: o.iso, runLabel: o.label, weight: 1 }); }); M.picked = new Set(); render(); };
-    body.querySelectorAll('[data-sw]').forEach(x => x.oninput = () => { M.scen[+x.dataset.sw].weight = +x.value; x.style.setProperty('--pct', (x.value - 0.1) / 1.9 * 100 + '%'); x.nextElementSibling.textContent = `×${(+x.value).toFixed(1)}`; });
+    body.querySelectorAll('[data-scen-mode]').forEach(b => b.onclick = () => { M.scenMode = b.dataset.scenMode; render(); });
+    body.querySelectorAll('[data-model]').forEach(b => b.onclick = () => { M.model = b.dataset.model; render(); });
+    body.querySelectorAll('[data-iso]').forEach(b => b.onclick = () => {
+      const idx = M.scen.findIndex(x => x.model === M.model && x.run === b.dataset.iso);
+      if (idx >= 0) M.scen.splice(idx, 1);
+      else {
+        const o = opts.find(x => x.iso === b.dataset.iso);
+        if (o) M.scen.push({ model: M.model, run: o.iso, runLabel: o.label, weight: 1 });
+      }
+      render();
+    });
+    $('mAddLatestAll') && ($('mAddLatestAll').onclick = () => {
+      Object.keys(MODELS).forEach(k => {
+        const latest = runOptions(k, M.start)[0];
+        if (latest && !M.scen.some(x => x.model === k && x.run === latest.iso)) M.scen.push({ model: k, run: latest.iso, runLabel: latest.label, weight: 1 });
+      });
+      render();
+    });
+    $('mClearScen') && ($('mClearScen').onclick = () => { M.scen = []; render(); });
+    $('mMoreOpts') && ($('mMoreOpts').onclick = () => { M.showAllOpts = !M.showAllOpts; render(); });
+    body.querySelectorAll('[data-sw]').forEach(x => x.oninput = () => {
+      M.scen[+x.dataset.sw].weight = +x.value;
+      x.style.setProperty('--pct', (x.value - 0.1) / 1.9 * 100 + '%');
+      const tot = M.scen.reduce((a, it) => a + (+it.weight || 1), 0) || 1;
+      M.scen.forEach((it, idx) => {
+        const out = body.querySelector(`.wrow[data-srow="${idx}"] output`);
+        if (out) out.textContent = `×${(+it.weight).toFixed(1)} · ${Math.round((+it.weight || 1) / tot * 100)}%`;
+      });
+    });
     body.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { M.scen.splice(+b.dataset.rm, 1); render(); });
   }
-  if (dev) { body.querySelector('.devbox').ontoggle = (e) => { M.devOpen = e.target.open; };
-    Object.keys(MODELS).forEach(k => $(`mw-${k}`).oninput = (e) => { M.w = { ...(M.w || {}), [k]: e.target.value }; }); }
+  if (dev && body.querySelector('.devbox')) {
+    body.querySelector('.devbox').ontoggle = (e) => { M.devOpen = e.target.open; };
+    Object.keys(MODELS).forEach(k => { const inp = $(`mw-${k}`); if (inp) inp.oninput = (e) => { M.w = { ...(M.w || {}), [k]: e.target.value }; }; });
+  }
   $('mNotify').onchange = (e) => { M.notify = e.target.checked; };
   $('mGo').onclick = startManual;
 }
@@ -554,7 +928,8 @@ async function startManual() {
   const canScen = r === 'exclusive' || r === 'developer';
   const traditionalOnly = traditionalOnlyRegion(M.region);
   const learned = product === 'ai' && !traditionalOnly;
-  const scenarios = canScen ? M.scen.map(x => ({ model: x.model, run: x.run, label: `${MODELS[x.model].name} (${x.runLabel})`, ...(learned ? {} : { weight: x.weight }) })) : [];
+  const chosenScen = canScen && M.scenMode === 'custom' ? M.scen : [];
+  const scenarios = chosenScen.map(x => ({ model: x.model, run: x.run, label: `${MODELS[x.model].name} (${x.runLabel})`, ...(learned ? {} : { weight: x.weight }) }));
   const weights = {};
   if (r === 'developer' && !learned) Object.entries(M.w || {}).forEach(([k, v]) => { if (v !== '' && Number.isFinite(+v)) weights[k] = +v; });
   if (product === 'timing') weights._mode = 'hourcast';
@@ -572,7 +947,7 @@ async function startManual() {
       X.toast('The run was saved but the backend did not start it.');
       return;
     }
-    M.scen = []; M.picked = new Set();
+    M.scen = []; M.scenMode = 'standard';
     X.toast('Run started. We\'ll tell you when it\'s ready.');
     T.tab = 'runs'; T.filter = 'mine'; T.product = product; T.date = dateKey(s);
   } catch (err) { console.error(err); X.toast('Could not start the run'); }
