@@ -32,6 +32,7 @@ function windowRun(record, item) {
         id: record.sourceRunId + "/" + start.toISOString(), type: "timing",
         sourceRunId: record.sourceRunId, region: record.region, geojsonUrl: item.geojsonUrl, basis: record.basis,
         ...(item.severity ? { severity: item.severity } : {}),
+        ...(item.inlineSeverityGeojson ? { inlineSeverityGeojson: item.inlineSeverityGeojson } : {}),
         createdAt: record.issuedAt, ownerId: record.ownerId, validFrom: item.validFrom, validTo: item.validTo,
         windowLabel: windowHours(start, end),
         windowValidity: stamp.format(start) + " – " + stamp.format(end)
@@ -48,7 +49,8 @@ export function createStormTiming({ db, display, userId }) {
         const item = windows[index];
         if (!item) return;
         const start = item.validFrom.toDate(), end = windowDisplayEnd(record, item);
-        preview.textContent = windowHours(start, end);
+        const sevLvl = Number(item.severity?.maxLevel || 0);
+        preview.textContent = windowHours(start, end) + (sevLvl >= 1 ? ` · L${sevLvl}` : "");
         slider.setAttribute("aria-valuetext", stamp.format(start) + " to " + stamp.format(end));
         slider.style.setProperty("--pct", windows.length > 1 ? index / (windows.length - 1) * 100 + "%" : "100%");
     }

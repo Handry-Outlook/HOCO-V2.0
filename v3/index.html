@@ -162,7 +162,7 @@
 <div class="toast hidden" id="toast" role="status"></div>
 
 <script type="module">
-import { createStormTiming } from "./storm-timing.js?v=11";
+import { createStormTiming } from "./storm-timing.js?v=12";
 import { hourcastRegion, traditionalOnlyRegion } from "./products.js?v=2";
 import { decodeSpread, spreadAt, spreadMap, SPREAD_BANDS } from "./model-spread.js?v=1";
 import { fetchSeverityGeo, formatHazards, runMaxSeverity, setSeverityUrlResolver, SEVERITY_LEVELS, severityAt, syncSeverityLayers } from "./severity.js?v=4";
@@ -325,7 +325,7 @@ function styleUrl() {
 }
 const fillOp = (g) => Math.min(1, (g?.properties?.hoco_layout === 'bands_v2' ? 0.7 : 0.32) * (SETTINGS.opacity || 1));
 function setTheme(t) { S.theme = t; if (!EMBED) localStorage.setItem('hocoTheme', t); applyTheme(); }
-const severityVisible = () => SETTINGS.severity !== false && !spreadActive() && !S.timing;
+const severityVisible = () => SETTINGS.severity !== false && !spreadActive();
 function applySettings(s, patch) {
   Object.assign(SETTINGS, s);
   if ('mapStyle' in patch) map.setStyle(styleUrl());
@@ -610,8 +610,8 @@ const timing = createStormTiming({ db, userId: () => auth.currentUser?.uid,
     $('probe').classList.add('hidden');
     S.current = run || null;
     const tok = ++loadToken;
-    loadSeverityForRun(run || null, tok);
     setGeo(geo);
+    loadSeverityForRun(run || null, tok);
     $('summary').classList.toggle('has-timed-map', !!run);
     $('timingStatus').textContent = status;
     $('shareBtn').disabled = !run;
@@ -910,11 +910,15 @@ async function loadSeverityForRun(run, tok) {
   S.sevGeo = null;
   syncSeverityLayers(map, null, false);
   updateSummarySeverity(run);
-  if (!run || runMaxSeverity(run) < 1) return;
+  if (!run || runMaxSeverity(run) < 1) {
+    Extras.syncForecastLayers?.();
+    return;
+  }
   const sg = await fetchSeverityGeo(run);
-  if (tok !== loadToken || !sg) return;
-  S.sevGeo = sg;
-  syncSeverityLayers(map, sg, severityVisible());
+  if (tok !== loadToken) return;
+  S.sevGeo = sg || null;
+  syncSeverityLayers(map, S.sevGeo, severityVisible());
+  Extras.syncForecastLayers?.();
 }
 const LABELS = { timing: 'Hourcast', ai: 'AI HOCO', automated: 'AUTO-HOCO', 'human-mimic': 'HOCO ENSEMBLE', manual: 'MANUAL TRAD HOCO' };
 function runLabel(run) {
