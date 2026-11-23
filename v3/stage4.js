@@ -1056,10 +1056,10 @@ export async function openUpgrade() {
 }
 export function openApi() {
   dialog(`<div class="rowbetween"><h2>API access</h2><button class="btn icon" data-x aria-label="Close">✕</button></div>
-    <div class="note slim"><span class="tag live" style="margin:0">Public</span><span>No personal key. Public AUTO-HOCO runs are read straight from the HOCO database with the shared web key in the guide.</span></div>
-    <div class="setgrp"><span class="kicker">1 · Find the latest runs (catalogue)</span><code class="apiline"><b>POST</b> firestore …/documents:runQuery?key=&lt;web key&gt;</code></div>
-    <div class="setgrp"><span class="kicker">2 · Download a run as GeoJSON</span><code class="apiline"><b>GET</b> firebasestorage …/o/&lt;run file&gt;?alt=media&amp;token=&lt;downloadToken&gt;</code></div>
-    <p class="lead">The guide has ready-made JavaScript and Python code and the list of supported regions.</p>
+    <div class="note slim"><span class="tag live" style="margin:0">Public</span><span>No personal key. Public Traditional, AI HOCO, Hourcast and Severity forecasts are read straight from Firebase with the shared web key in the guide.</span></div>
+    <div class="setgrp"><span class="kicker">1 · Find runs &amp; active windows</span><code class="apiline"><b>POST</b> hoco_requests (Traditional/AI/Severity) · system_stats/storm_timing_* (Hourcast)</code></div>
+    <div class="setgrp"><span class="kicker">2 · Download a forecast as GeoJSON</span><code class="apiline"><b>GET</b> doc.geojsonUrl or firebasestorage …/o/&lt;run file&gt;?alt=media&amp;token=&lt;downloadToken&gt;</code></div>
+    <p class="lead">Covers all 6 active regions (England, Scotland, Germany, Poland, Baltics, France) with JavaScript, Python and Leaflet examples.</p>
     <div class="chips" style="justify-content:flex-end"><a class="btn primary" href="developers.html" target="_blank" rel="noopener">Open the API guide ↗</a></div>`, 'API access');
 }
 

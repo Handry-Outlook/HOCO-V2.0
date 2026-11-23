@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>HOCO for developers · Handry Outlook</title>
-<meta name="description" content="How to find public AUTO-HOCO thunderstorm forecasts, download the GeoJSON and draw it on a map.">
+<meta name="description" content="How to find public Traditional AUTO-HOCO, AI HOCO, Hourcast and Severity thunderstorm forecasts, download the GeoJSON and draw it on a map.">
 <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -49,16 +49,19 @@ code,pre,.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospac
 .toc .kicker{padding:0 10px 8px}
 main{min-width:0;display:flex;flex-direction:column;gap:56px}
 section>h2{margin:0 0 6px;font-size:24px;letter-spacing:-.015em}
-section>p.lead{margin:0 0 18px;color:var(--muted);font-size:15px;line-height:1.55;max-width:720px}
+section>p.lead{margin:0 0 18px;color:var(--muted);font-size:15px;line-height:1.55;max-width:740px}
 h3{margin:22px 0 8px;font-size:16px}
 p{line-height:1.6}
 /* hero */
 .hero{display:flex;flex-direction:column;gap:14px;padding:30px;border-radius:22px;background:linear-gradient(135deg,var(--accent-soft),transparent 60%),var(--solid);border:1px solid var(--border);box-shadow:var(--shadow)}
-.hero h1{margin:0;font-size:38px;letter-spacing:-.025em;line-height:1.08;max-width:720px}
-.hero p{margin:0;color:var(--muted);font-size:16px;line-height:1.55;max-width:680px}
+.hero h1{margin:0;font-size:38px;letter-spacing:-.025em;line-height:1.08;max-width:760px}
+.hero p{margin:0;color:var(--muted);font-size:16px;line-height:1.55;max-width:720px}
 .hero .chips{display:flex;gap:8px;flex-wrap:wrap}
 .badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--chip);border:1px solid var(--border)}
 .badge.ok{background:var(--good-soft);color:var(--good);border-color:transparent}
+.badge.beta{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.sev-pill{display:inline-block;font-size:10.5px;font-weight:800;padding:2px 6px;border-radius:999px;color:#fff;line-height:1.2}
+.sev-pill.l1{background:#d97706}.sev-pill.l2{background:#dc2626}.sev-pill.l3{background:#7e22ce}
 /* flow */
 .flow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .fstep{position:relative;padding:16px;border-radius:16px;background:var(--solid);border:1px solid var(--border);display:flex;flex-direction:column;gap:6px}
@@ -93,12 +96,12 @@ p{line-height:1.6}
 .tbl tr:last-child td{border-bottom:none}
 .scroll{overflow-x:auto;border-radius:14px}
 .sw{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:6px;border:1px solid rgba(0,0,0,.12)}
-.st{font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px}.st.on{background:var(--good-soft);color:var(--good)}.st.off{background:var(--chip);color:var(--muted)}
+.st{font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}.st.on{background:var(--good-soft);color:var(--good)}.st.off{background:var(--chip);color:var(--muted)}
 .callout{display:flex;gap:12px;padding:14px 16px;border-radius:14px;background:var(--warn-soft);font-size:14px;line-height:1.5;margin:12px 0}
 .callout.info{background:var(--accent-soft)}
 .callout b{display:block;margin-bottom:2px}
 /* playground */
-.play{display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:0;border-radius:18px;overflow:hidden;background:var(--solid);border:1px solid var(--border);box-shadow:var(--shadow);min-height:560px}
+.play{display:grid;grid-template-columns:minmax(0,370px) minmax(0,1fr);gap:0;border-radius:18px;overflow:hidden;background:var(--solid);border:1px solid var(--border);box-shadow:var(--shadow);min-height:580px}
 .pside{display:flex;flex-direction:column;border-right:1px solid var(--border);min-height:0}
 .pfilters{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px;border-bottom:1px solid var(--border)}
 .pfilters label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--muted)}
@@ -108,22 +111,23 @@ p{line-height:1.6}
 .plist{flex:1;min-height:0;overflow-y:auto;max-height:520px;scrollbar-width:thin}
 .prow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px;align-items:center;width:100%;padding:10px 14px;border:none;border-bottom:1px solid var(--border);background:transparent;text-align:left;color:inherit}
 .prow:hover{background:var(--chip)}.prow[aria-pressed="true"]{background:var(--accent-soft)}
-.prow b{font-size:13.5px}.prow small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.prow b{font-size:13.5px;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}.prow small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 .prow .tagd{font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;background:var(--chip)}
 .pmain{position:relative;display:flex;flex-direction:column;min-width:0}
 #map{flex:1;min-height:380px;background:var(--chip)}
 [data-theme="dark"] #map .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.9)}
 .leaflet-container{font-family:Inter,system-ui,sans-serif}
-.pkey{position:absolute;right:12px;top:12px;z-index:500;padding:8px 10px;border-radius:12px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);width:180px}
+.pkey{position:absolute;right:12px;top:12px;z-index:500;padding:8px 10px;border-radius:12px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);width:186px}
 .pkey .bar{display:flex;height:8px;border-radius:999px;overflow:hidden}.pkey .bar i{flex:1}
 .pkey .ticks{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);margin-top:3px}
+.pkey .sevkey{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);font-size:10.5px;color:var(--muted)}
 .pdetail{border-top:1px solid var(--border);padding:12px 14px;display:flex;flex-direction:column;gap:8px;font-size:13px}
-.kv{display:grid;grid-template-columns:120px minmax(0,1fr) auto;gap:6px 10px;align-items:center}
+.kv{display:grid;grid-template-columns:124px minmax(0,1fr) auto;gap:6px 10px;align-items:center}
 .kv>span:first-child{color:var(--muted);font-size:12px;font-weight:600}
 .kv code{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;max-width:100%}
 .ok{color:var(--good);font-weight:600}.err{color:var(--bad);font-weight:600}
 .foot{margin-top:20px;padding-top:20px;border-top:1px solid var(--border);color:var(--muted);font-size:13px;display:flex;gap:16px;flex-wrap:wrap}
-@media (max-width:1100px){ .layout{grid-template-columns:1fr;gap:20px} .toc{position:sticky;top:57px;z-index:10;flex-direction:row;overflow-x:auto;scrollbar-width:none;margin:0 -20px;padding:8px 20px;background:var(--surface);border-bottom:1px solid var(--border);backdrop-filter:blur(14px)} .toc::-webkit-scrollbar{display:none} .toc .kicker{display:none} .toc a{flex:none;border-left:none;border-radius:9px}.toc a.on{border-radius:9px} .top nav{display:none} }
+@media (max-width:1100px){ .layout{grid-template-columns:minmax(0,1fr);gap:20px} .toc{position:sticky;top:57px;z-index:10;flex-direction:row;min-width:0;max-width:100vw;overflow-x:auto;scrollbar-width:none;margin:0 -20px;padding:8px 20px;background:var(--surface);border-bottom:1px solid var(--border);backdrop-filter:blur(14px)} .toc::-webkit-scrollbar{display:none} .toc .kicker{display:none} .toc a{flex:none;border-left:none;border-radius:9px}.toc a.on{border-radius:9px} .top nav{display:none} }
 @media (max-width:820px){ .play{grid-template-columns:1fr} .pside{border-right:none;border-bottom:1px solid var(--border)} .plist{max-height:260px} .flow{grid-template-columns:1fr} .fstep:not(:last-child)::after{content:'↓';right:auto;left:50%;top:auto;bottom:-16px;transform:translateX(-50%)} }
 @media (max-width:640px){
   .top-in{padding:8px 12px}.brand small{display:none}.backtxt{display:none}
@@ -131,6 +135,8 @@ p{line-height:1.6}
   .hero{padding:20px}.hero h1{font-size:28px}.hero p{font-size:15px}
   section>h2{font-size:21px}
   main{gap:40px}
+  :not(pre)>code{white-space:normal;overflow-wrap:anywhere}
+  .tbl :not(pre)>code{white-space:nowrap;overflow-wrap:normal}
   .kv{grid-template-columns:1fr auto}.kv>span:first-child{grid-column:1/-1}
   .code pre{font-size:12px}
 }
@@ -138,67 +144,86 @@ p{line-height:1.6}
 </head>
 <body>
 <header class="top"><div class="top-in">
-  <a class="brand" href="./"><img src="https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png" alt=""><span><b>HOCO for developers</b><small>Public AUTO-HOCO forecast data</small></span></a>
+  <a class="brand" href="./"><img src="https://raw.githubusercontent.com/Handry-Outlook/Convective-Outlook/refs/heads/main/Handry_outlook_icon_pride_small.png" alt=""><span><b>HOCO for developers</b><small>Public forecast data &amp; API guide</small></span></a>
   <span class="sp"></span>
-  <nav aria-label="Main"><a href="#start">Quick start</a><a href="#format">Data format</a><a href="#code">Code</a><a href="#try">Try it</a></nav>
+  <nav aria-label="Main"><a href="#products">Products</a><a href="#start">Quick start</a><a href="#format">Data format</a><a href="#code">Code</a><a href="#try">Try it</a></nav>
   <button class="btn icon" id="themeBtn" aria-label="Switch light or dark theme"></button>
   <a class="btn" href="./"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg><span class="backtxt">Back to HOCO</span></a>
 </div></header>
 
 <div class="layout">
   <nav class="toc" id="toc" aria-label="On this page"><span class="kicker">On this page</span>
-    <a href="#overview">Overview</a><a href="#start">Quick start</a><a href="#ids">Run IDs</a><a href="#config">Connect</a><a href="#regions">Regions</a><a href="#format">Data format</a><a href="#code">Code examples</a><a href="#try">Try it live</a>
+    <a href="#overview">Overview</a><a href="#products">Products</a><a href="#start">Quick start</a><a href="#ids">Run IDs</a><a href="#config">Connect</a><a href="#regions">Regions</a><a href="#format">Data format</a><a href="#code">Code examples</a><a href="#try">Try it live</a>
   </nav>
   <main>
     <section id="overview">
       <div class="hero">
-        <div class="chips"><span class="badge ok">● Public data</span><span class="badge">No API key for reading</span><span class="badge">GeoJSON</span><span class="badge">Updated every 3 hours</span></div>
-        <h1>Put HOCO thunderstorm outlooks in your own app</h1>
-        <p>Every AUTO-HOCO run is published as a GeoJSON file: shaded areas for the chance of lightning within 20 km, for today and the next two days. Find the runs in Firestore, download the file from Firebase Storage, and draw it with any map library.</p>
-        <div class="chips"><a class="btn primary" href="#try">Try it live</a><a class="btn" href="#code">See the code</a></div>
+        <div class="chips"><span class="badge ok">● Public data</span><span class="badge">No API key for reading</span><span class="badge">GeoJSON</span><span class="badge">Every 3h (UK) · 6h (Europe)</span><span class="badge beta">Traditional · AI · Hourcast · Severity</span></div>
+        <h1>Put HOCO thunderstorm &amp; severe outlooks in your own app</h1>
+        <p>Every scheduled HOCO run publishes GeoJSON outlooks for the chance of lightning within 20 km across today and the next two days — covering <b>Traditional AUTO-HOCO</b>, <b>AI HOCO (Beta)</b>, <b>Hourcast (Beta)</b> sub-daily windows, and <b>ESTOFEX-style Severity (Level 1–3)</b>. Discover runs in Firestore, download GeoJSON over HTTPS, and render with any map library.</p>
+        <div class="chips"><a class="btn primary" href="#try">Try it live</a><a class="btn" href="#code">See the code</a><a class="btn" href="#products">Compare products</a></div>
       </div>
       <h3>How it works</h3>
       <div class="flow">
-        <div class="fstep"><span class="n">1</span><b>Find runs</b><span>Query the <code>hoco_requests</code> collection for public, completed AUTO-HOCO runs.</span></div>
-        <div class="fstep"><span class="n">2</span><b>Get the file</b><span>Build the Storage URL from the run ID, read its download token, fetch the GeoJSON.</span></div>
-        <div class="fstep"><span class="n">3</span><b>Draw it</b><span>Add the GeoJSON to Leaflet, Mapbox or MapLibre and colour it by <code>risk</code>.</span></div>
+        <div class="fstep"><span class="n">1</span><b>Find forecasts</b><span>Query <code>hoco_requests</code> for Traditional, AI HOCO &amp; Severity, or read <code>system_stats/storm_timing_*</code> for Hourcast.</span></div>
+        <div class="fstep"><span class="n">2</span><b>Download GeoJSON</b><span>Use the document's <code>geojsonUrl</code> (or <code>downloadTokens</code> for older archives) plus any <code>severity.geojsonUrl</code>.</span></div>
+        <div class="fstep"><span class="n">3</span><b>Draw the map</b><span>Style <code>feature_type == "polygon"</code> by <code>risk</code> and overlay <code>severity_polygon</code> levels 1–3.</span></div>
       </div>
+    </section>
+
+    <section id="products">
+      <h2>Public forecast products</h2>
+      <p class="lead">All four public products below can be read without authentication using the Firebase config in <a href="#config">Connect</a>.</p>
+      <div class="scroll"><table class="tbl"><thead><tr><th>Product</th><th>Firestore source</th><th>Query / document path</th><th>Regions</th><th>Cadence &amp; resolution</th></tr></thead><tbody>
+        <tr><td><b>Traditional</b> <span class="badge">AUTO</span></td><td><code>hoco_requests</code></td><td><code>public == true</code>, <code>status == "completed"</code>, <code>type == "automated"</code></td><td>All 6 active regions</td><td>Every 3h (England, Scotland) or 6h (Europe) · Days 0–2 (<code>bands_v2</code>)</td></tr>
+        <tr><td><b>AI HOCO</b> <span class="badge beta">Beta</span></td><td><code>hoco_requests</code></td><td><code>public == true</code>, <code>status == "completed"</code>, <code>type == "ai"</code> (also linked via <code>aiRunId</code>)</td><td><code>England</code>, <code>Scotland</code></td><td>Every 3h when verifying lightning coverage exists (individual runs may report <code>aiStatus: "skipped"</code>)</td></tr>
+        <tr><td><b>Hourcast</b> <span class="badge beta">Beta</span></td><td><code>system_stats</code></td><td>Latest: <code>storm_timing_{region}_{day}</code> (<code>day0</code>–<code>day2</code>)<br>Per-run archive: <code>storm_timing_run_{runId}</code></td><td>All 6 active regions (<code>basis: "traditional"</code> in Europe)</td><td>1h windows (Day 0), 2h (Day 1), 3h covering first 18h (Day 2)</td></tr>
+        <tr><td><b>ESTOFEX Severity</b> <span class="sev-pill l2">L1–L3</span></td><td>Field on run or window doc</td><td><code>severity.geojsonUrl</code> when <code>severity.maxLevel &gt;= 1</code> (full-day also at <code>forecasts/{runId}_severity.geojson</code>)</td><td>All 6 active regions</td><td>Per full-day run (Trad/AI) and per Hourcast window (<code>hoco_severity: "estofex_v1"</code>)</td></tr>
+      </tbody></table></div>
     </section>
 
     <section id="start">
       <h2>Quick start</h2>
-      <p class="lead">Seven steps from nothing to a map. Each one has working code in <a href="#code">Code examples</a>.</p>
+      <p class="lead">Seven steps from nothing to a map for full-day Traditional or AI HOCO runs, plus Hourcast and Severity overlays.</p>
       <ol class="steps">
         <li><div><b>Connect to the HOCO Firebase project</b>Use the Firebase Web SDK with the <a href="#config">config below</a>, or the Firestore REST API from any language.</div></li>
         <li><div><b>Query <code>hoco_requests</code></b>Every forecast run is one document in this collection.</div></li>
-        <li><div><b>Keep only public, completed AUTO-HOCO runs</b><div class="code"><div class="code-head"><span>Filters</span></div><pre>public == true
+        <li><div><b>Filter public, completed runs</b><div class="code"><div class="code-head"><span>Filters</span></div><pre>public == true
 status == "completed"
-type   == "automated"</pre></div></div></li>
-        <li><div><b>Read the document ID</b>The document ID is the run ID, for example <code>AUTO-1782803122360-England-Day1-2</code>. See <a href="#ids">Run IDs</a>.</div></li>
-        <li><div><b>Build the Storage metadata URL</b><div class="code"><div class="code-head"><span>URL</span><button class="btn sm" data-copy>Copy</button></div><pre>https://firebasestorage.googleapis.com/v0/b/hoco-3b23e.firebasestorage.app/o/forecasts%2F{runId}.geojson</pre></div></div></li>
-        <li><div><b>Fetch the metadata and read <code>downloadTokens</code></b>Add <code>?alt=media&amp;token={token}</code> to the same URL to get the file itself.</div></li>
-        <li><div><b>Fetch the GeoJSON and draw it</b>Colour each area by its <code>risk</code> value, or use the <code>fill</code> colour that comes with it.</div></li>
+type   == "automated"   # use "ai" for AI HOCO (England &amp; Scotland)</pre></div></div></li>
+        <li><div><b>Read the document ID</b>For example <code>AUTO-1782803122360-England-Day1-2</code> or <code>AI-AUTO-1782803122360-England-Day1-2</code>. See <a href="#ids">Run IDs</a>.</div></li>
+        <li><div><b>Use <code>geojsonUrl</code> or build the Storage metadata URL</b>Recent runs include a signed HTTPS <code>geojsonUrl</code> (valid 7 days). For permanent archive access on older runs, fetch the Firebase Storage metadata JSON instead:<div class="code"><div class="code-head"><span>URL</span><button class="btn sm" data-copy>Copy</button></div><pre>https://firebasestorage.googleapis.com/v0/b/hoco-3b23e.firebasestorage.app/o/forecasts%2F{runId}.geojson</pre></div></div></li>
+        <li><div><b>Read <code>downloadTokens</code> (when using metadata)</b>Append <code>?alt=media&amp;token={token}</code> to the metadata URL to download the GeoJSON file.</div></li>
+        <li><div><b>Draw GeoJSON &amp; optional overlays</b>Colour each <code>feature_type == "polygon"</code> by <code>risk</code>, and if <code>doc.severity?.maxLevel &gt;= 1</code>, fetch <code>doc.severity.geojsonUrl</code> for Level 1–3 threat areas.</div></li>
       </ol>
-      <div class="callout info"><span aria-hidden="true">💡</span><span><b>Don't guess run IDs</b>The number in a run ID is not predictable. Always discover runs from Firestore first.</span></div>
+      <div class="callout info"><span aria-hidden="true">⏱️</span><span><b>Hourcast sub-daily windows</b>Read <code>system_stats/storm_timing_{region}_{day}</code> (lowercase region ID + <code>day0</code>, <code>day1</code>, or <code>day2</code>), or <code>system_stats/storm_timing_run_{runId}</code> for any AUTO run where <code>stormHour == true</code>. Each entry in <code>windows[]</code> already includes a persistent HTTPS <code>geojsonUrl</code> and optional per-window <code>severity</code>.</span></div>
+      <div class="callout"><span aria-hidden="true">💡</span><span><b>Don't guess run IDs</b>The numeric code inside a run ID is not predictable. Always discover runs from Firestore first.</span></div>
     </section>
 
     <section id="ids">
-      <h2>Run IDs</h2>
-      <p class="lead">A run ID tells you what the run is without opening it.</p>
+      <h2>Run IDs &amp; paths</h2>
+      <p class="lead">Every public run ID and stats document path follows a predictable naming scheme.</p>
       <div class="idbox" aria-label="AUTO-1782803122360-England-Day1-2"><span class="a"><small>type</small>AUTO</span><i>-</i><span class="b"><small>autoCode</small>1782803122360</span><i>-</i><span class="c"><small>region</small>England</span><i>-</i><span class="d"><small>forecastDay</small>Day1-2</span></div>
-      <div class="scroll" style="margin-top:12px"><table class="tbl"><thead><tr><th>Part</th><th>Meaning</th></tr></thead><tbody>
-        <tr><td><code>AUTO</code></td><td>An automated run, made by HOCO on a schedule.</td></tr>
-        <tr><td><code>1782803122360</code></td><td>The <code>autoCode</code>: a unique number for this run.</td></tr>
-        <tr><td><code>England</code></td><td>The region. See <a href="#regions">Regions</a>.</td></tr>
-        <tr><td><code>Day0-1</code>, <code>Day1-2</code>, <code>Day2-3</code></td><td>Which day the run covers: today, tomorrow, or the day after.</td></tr>
+      <div class="scroll" style="margin-top:12px"><table class="tbl"><thead><tr><th>ID / path pattern</th><th>Meaning</th></tr></thead><tbody>
+        <tr><td><code>AUTO-{code}-{region}-Day{N}-{N+1}</code></td><td>Traditional scheduled AUTO-HOCO run (<code>type == "automated"</code>). <code>Day0-1</code> today, <code>Day1-2</code> tomorrow, <code>Day2-3</code> day after.</td></tr>
+        <tr><td><code>AI-AUTO-{code}-{region}-Day{N}-{N+1}</code></td><td>Paired AI HOCO run (<code>type == "ai"</code>, published for England &amp; Scotland when live).</td></tr>
+        <tr><td><code>forecasts/{runId}.geojson</code></td><td>Cloud Storage object path for Traditional / AI GeoJSON files.</td></tr>
+        <tr><td><code>forecasts/{sourceRunId}_severity.geojson</code></td><td>Cloud Storage object path for full-day ESTOFEX Severity GeoJSON when <code>severity.maxLevel &gt;= 1</code>.</td></tr>
+        <tr><td><code>system_stats/storm_timing_{region}_{day}</code></td><td>Latest active Hourcast manifest for a region and day (e.g. <code>storm_timing_france_day0</code>).</td></tr>
+        <tr><td><code>system_stats/storm_timing_run_{runId}</code></td><td>Archived Hourcast manifest tied to a specific AUTO run (<code>stormHour == true</code>).</td></tr>
       </tbody></table></div>
-      <div class="code"><div class="code-head"><span>JavaScript · parse a run ID</span><button class="btn sm" data-copy>Copy</button></div><pre>const m = runId.match(/^AUTO-(\d+)-(.+)-(Day\d+-\d+)$/);
-const { autoCode, region, forecastDay } = { autoCode: m?.[1], region: m?.[2], forecastDay: m?.[3] };</pre></div>
+      <div class="code"><div class="code-head"><span>JavaScript · parse a Traditional or AI run ID</span><button class="btn sm" data-copy>Copy</button></div><pre>const m = runId.match(/^(?:(AI)-)?AUTO-(\d+)-(.+)-(Day\d+-\d+)$/);
+const { isAi, autoCode, region, forecastDay } = {
+  isAi: Boolean(m?.[1]),
+  autoCode: m?.[2] || null,
+  region: m?.[3] || null,
+  forecastDay: m?.[4] || null
+};</pre></div>
     </section>
 
     <section id="config">
       <h2>Connect</h2>
-      <p class="lead">Copy this into a Firebase Web SDK app. Reading public runs needs no sign-in. Access is controlled by Firestore and Storage rules.</p>
+      <p class="lead">Copy this into a Firebase Web SDK app. Reading public runs, Hourcast manifests and severity files needs no sign-in. Access is controlled by Firestore and Storage rules.</p>
       <div class="code"><div class="code-head"><span>JavaScript · Firebase config</span><button class="btn sm" data-copy>Copy</button></div><pre>const firebaseConfig = {
   apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ",
   authDomain: "hoco-3b23e.firebaseapp.com",
@@ -211,56 +236,90 @@ const { autoCode, region, forecastDay } = { autoCode: m?.[1], region: m?.[2], fo
 
     <section id="regions">
       <h2>Regions</h2>
-      <p class="lead">Use the region ID in the <code>region</code> filter. Inactive regions are listed so your code keeps working when they launch.</p>
-      <div class="scroll"><table class="tbl" id="regionTable"><thead><tr><th>ID</th><th>Name</th><th>Status</th><th>Bounds (W, S, E, N)</th></tr></thead><tbody></tbody></table></div>
+      <p class="lead">Use the region ID in the <code>region</code> filter (or lowercase region ID in <code>storm_timing_{region}_{day}</code>). Six regions are currently active; <code>Spain</code> is listed for forward compatibility.</p>
+      <div class="scroll"><table class="tbl" id="regionTable"><thead><tr><th>ID</th><th>Name</th><th>Status</th><th>Products</th><th>Schedule</th><th>Bounds (W, S, E, N)</th></tr></thead><tbody></tbody></table></div>
+      <div class="callout info"><span aria-hidden="true">🕒</span><span><b>Scheduled start times (UTC)</b><b>3-hourly (England, Scotland):</b> <code>01:05</code>, <code>04:05</code>, <code>07:05</code>, <code>10:05</code>, <code>13:05</code>, <code>16:05</code>, <code>19:05</code>, <code>22:05</code> UTC.<br><b>6-hourly (Germany, Poland, Baltics, France):</b> <code>01:05</code>, <code>07:05</code>, <code>13:05</code>, <code>19:05</code> UTC.</span></div>
       <div class="code"><div class="code-head"><span>JavaScript · regions</span><button class="btn sm" data-copy>Copy</button></div><pre>const HOCO_REGIONS = [
-  { id: 'England', name: 'England', status: 'active', west: -10.234, south: 48.788, east: 5.471, north: 56.578 },
-  { id: 'Scotland', name: 'Scotland (Beta)', status: 'active', west: -9.4482, south: 55.9161, east: 0, north: 60 },
-  { id: 'France', name: 'Coming Soon', status: 'inactive', west: -7.9761, south: 42.1448, east: 12.0850, north: 53.2849 },
-  { id: 'Spain', name: 'Coming Soon', status: 'inactive', west: -9.5, south: 36.0, east: 4.5, north: 43.8 },
-  { id: 'Germany', name: 'Germany (Beta)', status: 'active', west: 0.9558, south: 46.9809, east: 16.9409, north: 55.8567 },
-  { id: 'Poland', name: 'Poland (Beta)', status: 'active', west: 11.7142, south: 47.9787, east: 27.1252, north: 55.4243 },
-  { id: 'Baltics', name: 'Baltics (Beta)', status: 'active', west: 11.6949, south: 52.7695, east: 36.4801, north: 63.4481 }
+  { id: 'England',  name: 'England',          status: 'active',   schedule: 'Every 3h', products: ['Traditional', 'AI HOCO', 'Hourcast', 'Severity'], west: -10.234, south: 48.788,  east: 5.471,   north: 56.578 },
+  { id: 'Scotland', name: 'Scotland (Beta)',  status: 'active',   schedule: 'Every 3h', products: ['Traditional', 'AI HOCO', 'Hourcast', 'Severity'], west: -9.4482, south: 55.9161, east: 0,       north: 60 },
+  { id: 'Germany',  name: 'Germany (Beta)',   status: 'active',   schedule: 'Every 6h', products: ['Traditional', 'Hourcast', 'Severity'],            west: 0.9558,  south: 46.9809, east: 16.9409, north: 55.8567 },
+  { id: 'Poland',   name: 'Poland (Beta)',    status: 'active',   schedule: 'Every 6h', products: ['Traditional', 'Hourcast', 'Severity'],            west: 11.7142, south: 47.9787, east: 27.1252, north: 55.4243 },
+  { id: 'Baltics',  name: 'Baltics (Beta)',   status: 'active',   schedule: 'Every 6h', products: ['Traditional', 'Hourcast', 'Severity'],            west: 11.6949, south: 52.7695, east: 36.4801, north: 63.4481 },
+  { id: 'France',   name: 'France (Beta)',    status: 'active',   schedule: 'Every 6h', products: ['Traditional', 'Hourcast', 'Severity'],            west: -7.9761, south: 42.1448, east: 12.0850, north: 53.2849 },
+  { id: 'Spain',    name: 'Coming Soon',      status: 'inactive', schedule: 'Planned',  products: [],                                                 west: -9.5,    south: 36.0,    east: 4.5,     north: 43.8 }
 ];</pre></div>
     </section>
 
     <section id="format">
       <h2>Data format</h2>
-      <p class="lead">Each file is a GeoJSON <code>FeatureCollection</code>. Newer runs use the banded layout: one polygon per chance band, nested from low to high.</p>
-      <h3>Run document fields you can rely on</h3>
+      <p class="lead">Risk maps are GeoJSON <code>FeatureCollection</code> documents using the non-overlapping <code>bands_v2</code> contour layout, paired with optional ESTOFEX severity layers.</p>
+
+      <h3><code>hoco_requests</code> document fields</h3>
       <div class="scroll"><table class="tbl"><thead><tr><th>Field</th><th>Example</th><th>Meaning</th></tr></thead><tbody>
-        <tr><td><code>region</code></td><td>England</td><td>Region ID</td></tr>
-        <tr><td><code>startTime</code>, <code>endTime</code></td><td>2026-11-18T06:00</td><td>The period the forecast covers</td></tr>
+        <tr><td><code>type</code></td><td><code>"automated"</code> | <code>"ai"</code></td><td>Forecast product type on public catalogue documents</td></tr>
+        <tr><td><code>region</code></td><td><code>England</code></td><td>Region ID</td></tr>
+        <tr><td><code>startTime</code>, <code>endTime</code></td><td><code>18/11/2026 06:00</code></td><td>Validity period string (<code>DD/MM/YYYY HH:MM</code> UTC)</td></tr>
+        <tr><td><code>validFrom</code>, <code>validTo</code></td><td>Timestamp</td><td>Exact UTC start/end timestamps</td></tr>
         <tr><td><code>createdAt</code>, <code>completedAt</code></td><td>Timestamp</td><td>When the run started and finished</td></tr>
-        <tr><td><code>geojsonUrl</code></td><td>https://…</td><td>A direct link to the file (you can use this instead of steps 5 and 6)</td></tr>
-        <tr><td><code>geojsonLayout</code></td><td>bands_v2</td><td>Which layout the file uses</td></tr>
+        <tr><td><code>geojsonUrl</code></td><td><code>https://storage.googleapis.com/…</code></td><td>Signed HTTPS URL (valid 7 days); use Storage <code>downloadTokens</code> for older archives</td></tr>
+        <tr><td><code>geojsonLayout</code></td><td><code>bands_v2</code></td><td>Polygon contour band layout</td></tr>
+        <tr><td><code>aiRunId</code>, <code>aiStatus</code></td><td><code>AI-AUTO-…</code>, <code>"available"</code></td><td>On Traditional runs in AI regions: links to the AI HOCO twin (<code>"available"</code> | <code>"pending"</code> | <code>"skipped"</code> | <code>"failed"</code>)</td></tr>
+        <tr><td><code>sourceRunId</code></td><td><code>AUTO-…</code></td><td>On AI HOCO runs: links back to the parent Traditional run ID</td></tr>
+        <tr><td><code>stormHour</code>, <code>stormHourPeak</code></td><td><code>true</code>, <code>42</code></td><td>Present on AUTO runs with archived Hourcast windows in <code>system_stats/storm_timing_run_{runId}</code></td></tr>
+        <tr><td><code>severity</code></td><td><code>{ v:1, scale:"estofex", maxLevel:2, hazards:[…], geojsonUrl:"…" }</code></td><td>Severe weather summary; <code>geojsonUrl</code> is populated whenever <code>maxLevel &gt;= 1</code></td></tr>
       </tbody></table></div>
-      <h3>Feature properties</h3>
+
+      <h3>Hourcast manifest (<code>system_stats/storm_timing_*</code>)</h3>
+      <div class="scroll"><table class="tbl"><thead><tr><th>Field</th><th>Example</th><th>Meaning</th></tr></thead><tbody>
+        <tr><td><code>schema</code>, <code>day</code>, <code>region</code></td><td><code>1</code>, <code>"day0"</code>, <code>"France"</code></td><td>Manifest schema version, horizon (<code>day0</code>–<code>day2</code>), and region ID</td></tr>
+        <tr><td><code>sourceRunId</code>, <code>basis</code></td><td><code>"AUTO-…"</code>, <code>"traditional"</code></td><td>Source AUTO run ID; <code>basis: "traditional"</code> appears on Germany, Poland, Baltics &amp; France</td></tr>
+        <tr><td><code>issuedAt</code>, <code>validFrom</code>, <code>validTo</code></td><td>Timestamps</td><td>Run issue time and full manifest bounds</td></tr>
+        <tr><td><code>bounds</code></td><td><code>[-10.234, 48.788, 5.471, 56.578]</code></td><td>Region bounding box <code>[west, south, east, north]</code></td></tr>
+        <tr><td><code>windows[]</code></td><td>Array of window objects</td><td>Each window has <code>validFrom</code>, <code>validTo</code> (exclusive end), <code>geojsonUrl</code>, and optional per-window <code>severity</code> (<code>maxLevel</code>, <code>hazards</code>, <code>peaks</code>, <code>geojsonUrl</code>)</td></tr>
+      </tbody></table></div>
+
+      <h3>Lightning GeoJSON feature properties (<code>bands_v2</code>)</h3>
       <div class="scroll"><table class="tbl"><thead><tr><th>Property</th><th>Example</th><th>Meaning</th></tr></thead><tbody>
-        <tr><td><code>feature_type</code></td><td>polygon</td><td><code>polygon</code> for shaded areas, <code>point</code> for the grid values underneath</td></tr>
-        <tr><td><code>risk</code></td><td>30</td><td>Chance of lightning within 20 km, in %. On polygons it is the band's lower edge</td></tr>
-        <tr><td><code>band_min</code>, <code>band_max</code>, <code>band_label</code></td><td>30, 40, "30-40%"</td><td>The band a polygon belongs to</td></tr>
-        <tr><td><code>fill</code>, <code>stroke</code>, <code>fill-opacity</code></td><td>#ffb327</td><td>HOCO's own colours, ready to use</td></tr>
+        <tr><td><code>feature_type</code></td><td><code>polygon</code></td><td><code>polygon</code> for shaded risk bands, <code>point</code> for sampled grid points underneath</td></tr>
+        <tr><td><code>risk</code></td><td><code>30</code></td><td>Chance of lightning within 20 km (%), or the lower edge of a polygon band</td></tr>
+        <tr><td><code>band_min</code>, <code>band_max</code>, <code>band_label</code></td><td><code>30</code>, <code>40</code>, <code>"30-40%"</code></td><td>Risk band bounds for a polygon</td></tr>
+        <tr><td><code>fill</code>, <code>stroke</code>, <code>fill-opacity</code></td><td><code>#ffb327</code></td><td>HOCO colour palette values</td></tr>
+        <tr><td><code>agree</code>, <code>nmod</code></td><td><code>4</code>, <code>6</code></td><td>On point features (&ge;5%): how many models agree (&ge;25%) out of total available models</td></tr>
       </tbody></table></div>
-      <p class="muted" style="font-size:13.5px">Draw only <code>feature_type == "polygon"</code> for the shaded map. Grid points are many thousands of features and are meant for looking up a value at one spot.</p>
-      <h3>HOCO colours</h3>
-      <div class="scroll"><table class="tbl" id="bandTable"><thead><tr><th>Chance of lightning</th><th>Colour</th></tr></thead><tbody></tbody></table></div>
+      <p class="muted" style="font-size:13.5px">Draw only <code>feature_type == "polygon"</code> (or exclude <code>"point"</code>) for shaded maps. Grid points hold point values for hover tooltips. Traditional runs also embed optional compact multi-model spread data under GeoJSON <code>properties.modelSpread</code>.</p>
+
+      <h3>Severity GeoJSON (<code>hoco_severity: "estofex_v1"</code>)</h3>
+      <div class="scroll"><table class="tbl"><thead><tr><th>Feature / property</th><th>Example</th><th>Meaning</th></tr></thead><tbody>
+        <tr><td><code>severity_polygon</code></td><td><code>level: 2</code>, <code>label: "Level 2"</code>, <code>color: "#dc2626"</code>, <code>hazards: ["hail", "wind"]</code></td><td>Contoured severe thunderstorm threat polygons for ESTOFEX Levels 1–3</td></tr>
+        <tr><td><code>severity_point</code></td><td><code>level: 2</code>, <code>score: 1.65</code>, <code>hazards: […]</code>, <code>scp</code>, <code>stp</code>, <code>gustMph</code></td><td>Sampled severity grid values for cursor inspection</td></tr>
+        <tr><td>Hazard keys</td><td><code>"wind"</code>, <code>"hail"</code>, <code>"tornado"</code>, <code>"rain"</code></td><td>Damaging gusts, large hail, tornado risk, or heavy rain / flooding</td></tr>
+      </tbody></table></div>
+
+      <div class="grid2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:14px">
+        <div>
+          <h3>HOCO risk colours</h3>
+          <div class="scroll"><table class="tbl" id="bandTable"><thead><tr><th>Chance of lightning</th><th>Colour</th></tr></thead><tbody></tbody></table></div>
+        </div>
+        <div>
+          <h3>ESTOFEX severity levels</h3>
+          <div class="scroll"><table class="tbl"><thead><tr><th>Level</th><th>Colour</th><th>Guidance</th></tr></thead><tbody>
+            <tr><td><span class="sev-pill l1">Level 1</span></td><td><span class="sw" style="background:#d97706"></span><code>#d97706</code></td><td>Isolated severe gusts, hail or heavy downpours possible (~5–15% within 40 km)</td></tr>
+            <tr><td><span class="sev-pill l2">Level 2</span></td><td><span class="sw" style="background:#dc2626"></span><code>#dc2626</code></td><td>Scattered severe thunderstorms possible (~15%+ within 40 km)</td></tr>
+            <tr><td><span class="sev-pill l3">Level 3</span></td><td><span class="sw" style="background:#7e22ce"></span><code>#7e22ce</code></td><td>Rare, significant severe thunderstorm outbreak possible</td></tr>
+          </tbody></table></div>
+        </div>
+      </div>
     </section>
 
     <section id="code">
       <h2>Code examples</h2>
-      <p class="lead">Complete, copy-and-run examples. JavaScript runs in the browser, Python uses the Firestore REST API.</p>
-      <div class="tabsbar" role="tablist" aria-label="Language"><button role="tab" data-lang="js" aria-selected="true">JavaScript</button><button role="tab" data-lang="py" aria-selected="false">Python</button><button role="tab" data-lang="leaflet" aria-selected="false">Draw with Leaflet</button></div>
-      <div data-langpanel="js"><div class="code"><div class="code-head"><span>index.html · find AUTO-HOCO runs</span><button class="btn sm" data-copy>Copy</button></div><pre>&lt;script type="module"&gt;
+      <p class="lead">Complete, copy-and-run examples covering Traditional &amp; AI HOCO, Hourcast windows, Severity overlays, and Leaflet rendering.</p>
+      <div class="tabsbar" role="tablist" aria-label="Language"><button role="tab" data-lang="js" aria-selected="true">JavaScript</button><button role="tab" data-lang="hourcast" aria-selected="false">Hourcast (JS)</button><button role="tab" data-lang="py" aria-selected="false">Python</button><button role="tab" data-lang="leaflet" aria-selected="false">Draw with Leaflet</button></div>
+
+      <div data-langpanel="js"><div class="code"><div class="code-head"><span>index.html · Traditional, AI HOCO &amp; Severity runs</span><button class="btn sm" data-copy>Copy</button></div><pre>&lt;script type="module"&gt;
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import {
-  getFirestore,
-  collection,
-  query,
-  where,
-  orderBy,
-  limit,
-  getDocs
+  getFirestore, collection, query, where, orderBy, limit, getDocs
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -275,12 +334,13 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-function parseAutoHocoRunId(runId) {
-  const match = String(runId).match(/^AUTO-(\d+)-(.+)-(Day\d+-\d+)$/);
+function parseHocoRunId(runId) {
+  const match = String(runId).match(/^(?:(AI)-)?AUTO-(\d+)-(.+)-(Day\d+-\d+)$/);
   return {
-    autoCode: match?.[1] || null,
-    region: match?.[2] || null,
-    forecastDay: match?.[3] || null
+    isAi: Boolean(match?.[1]),
+    autoCode: match?.[2] || null,
+    region: match?.[3] || null,
+    forecastDay: match?.[4] || null
   };
 }
 
@@ -290,41 +350,83 @@ function buildMetadataUrl(runId) {
   return `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(objectPath)}`;
 }
 
-async function fetchAutoHocoRuns() {
-  const q = query(
-    collection(db, "hoco_requests"),
+// product: "automated" (all 6 active regions) or "ai" (England &amp; Scotland)
+async function fetchHocoRuns({ product = "automated", region = null, count = 20 } = {}) {
+  const filters = [
     where("public", "==", true),
     where("status", "==", "completed"),
-    where("type", "==", "automated"),
-    orderBy("completedAt", "desc"),
-    limit(20)
-  );
+    where("type", "==", product)
+  ];
+  if (region) filters.push(where("region", "==", region));
 
+  const q = query(collection(db, "hoco_requests"), ...filters, orderBy("completedAt", "desc"), limit(count));
   const snapshot = await getDocs(q);
 
   return snapshot.docs.map((docSnap) =&gt; {
     const runId = docSnap.id;
-    const parsed = parseAutoHocoRunId(runId);
-
     const data = docSnap.data();
-
     return {
       runId,
-      ...parsed,
+      ...parseHocoRunId(runId),
       region: data.region,
       startTime: data.startTime,
       endTime: data.endTime,
       completedAt: data.completedAt,
       geojsonUrl: data.geojsonUrl,
-      metadataUrl: buildMetadataUrl(runId)
+      metadataUrl: buildMetadataUrl(runId),
+      stormHour: Boolean(data.stormHour),
+      stormHourPeak: data.stormHourPeak ?? null,
+      severity: data.severity || null,
+      aiRunId: data.aiRunId || null
     };
   });
 }
 
-const runs = await fetchAutoHocoRuns();
-console.log(runs);
+const franceTradRuns = await fetchHocoRuns({ product: "automated", region: "France" });
+const englandAiRuns = await fetchHocoRuns({ product: "ai", region: "England" });
+console.log({ franceTradRuns, englandAiRuns });
 &lt;/script&gt;</pre></div></div>
-      <div data-langpanel="py" class="hidden"><div class="callout info"><span aria-hidden="true">📦</span><span>Install the one dependency first: <code>pip install requests</code></span></div><div class="code"><div class="code-head"><span>hoco.py · find, download and save a run</span><button class="btn sm" data-copy>Copy</button></div><pre>import re
+
+      <div data-langpanel="hourcast" class="hidden"><div class="code"><div class="code-head"><span>hourcast.js · fetch Hourcast windows &amp; per-window Severity</span><button class="btn sm" data-copy>Copy</button></div><pre>&lt;script type="module"&gt;
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ",
+  authDomain: "hoco-3b23e.firebaseapp.com",
+  projectId: "hoco-3b23e",
+  storageBucket: "hoco-3b23e.firebasestorage.app",
+  messagingSenderId: "409513272369",
+  appId: "1:409513272369:web:a857d9b039d53710f8a110"
+});
+const db = getFirestore(app);
+
+// Active regions: england, scotland, germany, poland, baltics, france
+// day: "day0" (1h), "day1" (2h), "day2" (3h covering first 18h)
+async function fetchLatestHourcast(region = "France", day = "day0") {
+  const docId = `storm_timing_${region.toLowerCase()}_${day}`;
+  const snap = await getDoc(doc(db, "system_stats", docId));
+  return snap.exists() ? snap.data() : null;
+}
+
+// Archived Hourcast manifest tied to a specific AUTO run where run.stormHour === true:
+async function fetchHourcastForRun(autoRunId) {
+  const snap = await getDoc(doc(db, "system_stats", `storm_timing_run_${autoRunId}`));
+  return snap.exists() ? snap.data() : null;
+}
+
+const manifest = await fetchLatestHourcast("England", "day0");
+if (manifest?.windows?.length) {
+  const firstWindow = manifest.windows[0];
+  const lightningGeojson = await fetch(firstWindow.geojsonUrl).then((r) =&gt; r.json());
+  const severityGeojson = firstWindow.severity?.maxLevel &gt;= 1 &amp;&amp; firstWindow.severity?.geojsonUrl
+    ? await fetch(firstWindow.severity.geojsonUrl).then((r) =&gt; r.json())
+    : null;
+  console.log({ region: manifest.region, basis: manifest.basis || "ml-blend", lightningGeojson, severityGeojson });
+}
+&lt;/script&gt;</pre></div></div>
+
+      <div data-langpanel="py" class="hidden"><div class="callout info"><span aria-hidden="true">📦</span><span>Install the one dependency first: <code>pip install requests</code></span></div><div class="code"><div class="code-head"><span>hoco.py · Traditional, AI HOCO, Hourcast &amp; Severity</span><button class="btn sm" data-copy>Copy</button></div><pre>import re
 import json
 import requests
 from urllib.parse import quote
@@ -333,245 +435,129 @@ API_KEY = "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ"
 PROJECT_ID = "hoco-3b23e"
 DATABASE_ID = "(default)"
 STORAGE_BUCKET = "hoco-3b23e.firebasestorage.app"
+FIRESTORE_BASE = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/{DATABASE_ID}"
 
 HOCO_REGIONS = [
-    { "id": "England", "name": "England", "status": "active", "west": -10.234, "south": 48.788, "east": 5.471, "north": 56.578 },
-    { "id": "Scotland", "name": "Scotland (Beta)", "status": "active", "west": -9.4482, "south": 55.9161, "east": 0, "north": 60 },
-    { "id": "France", "name": "Coming Soon", "status": "inactive", "west": -7.9761, "south": 42.1448, "east": 12.0850, "north": 53.2849 },
-    { "id": "Spain", "name": "Coming Soon", "status": "inactive", "west": -9.5, "south": 36.0, "east": 4.5, "north": 43.8 },
-    { "id": "Germany", "name": "Germany (Beta)", "status": "active", "west": 0.9558, "south": 46.9809, "east": 16.9409, "north": 55.8567 },
-    { "id": "Poland", "name": "Poland (Beta)", "status": "active", "west": 11.7142, "south": 47.9787, "east": 27.1252, "north": 55.4243 },
-    { "id": "Baltics", "name": "Baltics (Beta)", "status": "active", "west": 11.6949, "south": 52.7695, "east": 36.4801, "north": 63.4481 }
+    { "id": "England",  "name": "England",         "status": "active",   "schedule": "Every 3h", "west": -10.234, "south": 48.788,  "east": 5.471,   "north": 56.578 },
+    { "id": "Scotland", "name": "Scotland (Beta)", "status": "active",   "schedule": "Every 3h", "west": -9.4482, "south": 55.9161, "east": 0,       "north": 60 },
+    { "id": "Germany",  "name": "Germany (Beta)",  "status": "active",   "schedule": "Every 6h", "west": 0.9558,  "south": 46.9809, "east": 16.9409, "north": 55.8567 },
+    { "id": "Poland",   "name": "Poland (Beta)",   "status": "active",   "schedule": "Every 6h", "west": 11.7142, "south": 47.9787, "east": 27.1252, "north": 55.4243 },
+    { "id": "Baltics",  "name": "Baltics (Beta)",  "status": "active",   "schedule": "Every 6h", "west": 11.6949, "south": 52.7695, "east": 36.4801, "north": 63.4481 },
+    { "id": "France",   "name": "France (Beta)",   "status": "active",   "schedule": "Every 6h", "west": -7.9761, "south": 42.1448, "east": 12.0850, "north": 53.2849 },
+    { "id": "Spain",    "name": "Coming Soon",     "status": "inactive", "schedule": "Planned",  "west": -9.5,    "south": 36.0,    "east": 4.5,     "north": 43.8 }
 ]
 
-def parse_auto_hoco_run_id(run_id):
-    match = re.match(r"^AUTO-(\d+)-(.+)-(Day\d+-\d+)$", run_id)
-
+def parse_hoco_run_id(run_id):
+    match = re.match(r"^(?:(AI)-)?AUTO-(\d+)-(.+)-(Day\d+-\d+)$", run_id)
     if not match:
-        return {
-            "autoCode": None,
-            "regionFromId": None,
-            "forecastDay": None
-        }
-
+        return { "isAi": False, "autoCode": None, "regionFromId": None, "forecastDay": None }
     return {
-        "autoCode": match.group(1),
-        "regionFromId": match.group(2),
-        "forecastDay": match.group(3)
+        "isAi": bool(match.group(1)),
+        "autoCode": match.group(2),
+        "regionFromId": match.group(3),
+        "forecastDay": match.group(4)
     }
 
 def firestore_value_to_python(value):
-    if "stringValue" in value:
-        return value["stringValue"]
-
-    if "booleanValue" in value:
-        return value["booleanValue"]
-
-    if "integerValue" in value:
-        return int(value["integerValue"])
-
-    if "doubleValue" in value:
-        return float(value["doubleValue"])
-
-    if "timestampValue" in value:
-        return value["timestampValue"]
-
+    if "stringValue" in value: return value["stringValue"]
+    if "booleanValue" in value: return value["booleanValue"]
+    if "integerValue" in value: return int(value["integerValue"])
+    if "doubleValue" in value: return float(value["doubleValue"])
+    if "timestampValue" in value: return value["timestampValue"]
     if "arrayValue" in value:
-        return [
-            firestore_value_to_python(item)
-            for item in value.get("arrayValue", {}).get("values", [])
-        ]
-
+        return [firestore_value_to_python(i) for i in value.get("arrayValue", {}).get("values", [])]
     if "mapValue" in value:
-        return {
-            key: firestore_value_to_python(item)
-            for key, item in value.get("mapValue", {}).get("fields", {}).items()
-        }
-
+        return {k: firestore_value_to_python(v) for k, v in value.get("mapValue", {}).get("fields", {}).items()}
     return None
 
 def firestore_doc_to_python(document):
-    fields = document.get("fields", {})
-
-    data = {
-        key: firestore_value_to_python(value)
-        for key, value in fields.items()
-    }
-
-    document_path = document.get("name", "")
-    run_id = document_path.split("/")[-1]
-
+    data = {k: firestore_value_to_python(v) for k, v in document.get("fields", {}).items()}
+    run_id = document.get("name", "").split("/")[-1]
     data["runId"] = data.get("id") or run_id
-
     return data
 
-def build_storage_metadata_url(run_id):
-    object_path = f"forecasts/{run_id}.geojson"
-    encoded_path = quote(object_path, safe="")
-    return f"https://firebasestorage.googleapis.com/v0/b/{STORAGE_BUCKET}/o/{encoded_path}"
+def build_storage_metadata_url(object_path):
+    return f"https://firebasestorage.googleapis.com/v0/b/{STORAGE_BUCKET}/o/{quote(object_path, safe='')}"
 
-def build_geojson_download_url_from_metadata(metadata):
-    bucket = metadata["bucket"]
-    name = metadata["name"]
-
+def build_download_url_from_metadata(metadata):
     token = metadata.get("downloadTokens", "").split(",")[0]
-    encoded_name = quote(name, safe="")
+    return f"https://firebasestorage.googleapis.com/v0/b/{metadata['bucket']}/o/{quote(metadata['name'], safe='')}?alt=media&amp;token={token}"
 
-    return f"https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{encoded_name}?alt=media&amp;token={token}"
-
-def fetch_storage_metadata(metadata_url):
-    response = requests.get(metadata_url)
-    response.raise_for_status()
-    return response.json()
-
-def fetch_geojson(download_url):
-    response = requests.get(download_url)
-    response.raise_for_status()
-    return response.json()
-
-def fetch_auto_hoco_catalogue(region=None, forecast_day=None, limit_count=20):
-    url = (
-        f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}"
-        f"/databases/{DATABASE_ID}/documents:runQuery?key={API_KEY}"
-    )
-
+# run_type: "automated" (all 6 active regions) or "ai" (England &amp; Scotland)
+def fetch_hoco_catalogue(region=None, forecast_day=None, run_type="automated", limit_count=20):
+    url = f"{FIRESTORE_BASE}/documents:runQuery?key={API_KEY}"
     filters = [
-        {
-            "fieldFilter": {
-                "field": { "fieldPath": "public" },
-                "op": "EQUAL",
-                "value": { "booleanValue": True }
-            }
-        },
-        {
-            "fieldFilter": {
-                "field": { "fieldPath": "status" },
-                "op": "EQUAL",
-                "value": { "stringValue": "completed" }
-            }
-        },
-        {
-            "fieldFilter": {
-                "field": { "fieldPath": "type" },
-                "op": "EQUAL",
-                "value": { "stringValue": "automated" }
-            }
-        }
+        { "fieldFilter": { "field": { "fieldPath": "public" }, "op": "EQUAL", "value": { "booleanValue": True } } },
+        { "fieldFilter": { "field": { "fieldPath": "status" }, "op": "EQUAL", "value": { "stringValue": "completed" } } },
+        { "fieldFilter": { "field": { "fieldPath": "type" }, "op": "EQUAL", "value": { "stringValue": run_type } } }
     ]
-
     if region:
-        filters.append({
-            "fieldFilter": {
-                "field": { "fieldPath": "region" },
-                "op": "EQUAL",
-                "value": { "stringValue": region }
-            }
-        })
+        filters.append({ "fieldFilter": { "field": { "fieldPath": "region" }, "op": "EQUAL", "value": { "stringValue": region } } })
 
     body = {
         "structuredQuery": {
-            "from": [
-                { "collectionId": "hoco_requests" }
-            ],
-            "where": {
-                "compositeFilter": {
-                    "op": "AND",
-                    "filters": filters
-                }
-            },
-            "orderBy": [
-                {
-                    "field": { "fieldPath": "completedAt" },
-                    "direction": "DESCENDING"
-                }
-            ],
+            "from": [{ "collectionId": "hoco_requests" }],
+            "where": { "compositeFilter": { "op": "AND", "filters": filters } },
+            "orderBy": [{ "field": { "fieldPath": "completedAt" }, "direction": "DESCENDING" }],
             "limit": limit_count
         }
     }
-
-    response = requests.post(url, json=body)
+    response = requests.post(url, json=body, timeout=20)
     response.raise_for_status()
 
-    raw_results = response.json()
     runs = []
-
-    for item in raw_results:
+    for item in response.json():
         document = item.get("document")
-
         if not document:
             continue
-
         run = firestore_doc_to_python(document)
-        run_id = run["runId"]
-        parsed = parse_auto_hoco_run_id(run_id)
-
-        catalogue_item = {
-            "runId": run_id,
-            "autoCode": parsed["autoCode"],
+        parsed = parse_hoco_run_id(run["runId"])
+        entry = {
+            "runId": run["runId"],
+            "type": run_type,
             "region": run.get("region") or parsed["regionFromId"],
             "forecastDay": parsed["forecastDay"],
-            "weather": run.get("weather"),
             "startTime": run.get("startTime"),
             "endTime": run.get("endTime"),
-            "createdAt": run.get("createdAt"),
-            "completedAt": run.get("completedAt"),
-            "metadataUrl": build_storage_metadata_url(run_id),
-            "existingGeojsonUrl": run.get("geojsonUrl")
+            "stormHour": bool(run.get("stormHour")),
+            "severity": run.get("severity"),
+            "geojsonUrl": run.get("geojsonUrl"),
+            "metadataUrl": build_storage_metadata_url(f"forecasts/{run['runId']}.geojson")
         }
-
-        if forecast_day and catalogue_item["forecastDay"] != forecast_day:
+        if forecast_day and entry["forecastDay"] != forecast_day:
             continue
-
-        runs.append(catalogue_item)
-
+        runs.append(entry)
     return runs
 
+def fetch_hourcast_manifest(region="France", day="day0"):
+    doc_id = f"storm_timing_{region.lower()}_{day}"
+    r = requests.get(f"{FIRESTORE_BASE}/documents/system_stats/{doc_id}?key={API_KEY}", timeout=20)
+    if r.status_code == 404:
+        return None
+    r.raise_for_status()
+    return firestore_doc_to_python(r.json())
+
 if __name__ == "__main__":
-    runs = fetch_auto_hoco_catalogue(
-        region="England",
-        forecast_day=None,
-        limit_count=10
-    )
+    runs = fetch_hoco_catalogue(region="France", run_type="automated", limit_count=5)
+    print(f"Found {len(runs)} Traditional France runs")
+    if runs:
+        meta = requests.get(runs[0]["metadataUrl"], timeout=20).json()
+        geojson = requests.get(build_download_url_from_metadata(meta), timeout=30).json()
+        print("Lightning features:", len(geojson.get("features", [])))
+        sev = runs[0].get("severity") or {}
+        if sev.get("maxLevel", 0) &gt;= 1 and sev.get("geojsonUrl"):
+            sev_geo = requests.get(sev["geojsonUrl"], timeout=30).json()
+            print("Severity features:", len(sev_geo.get("features", [])))
 
-    print(f"Found {len(runs)} AUTO-HOCO runs")
+    hc = fetch_hourcast_manifest(region="England", day="day0")
+    print("Hourcast windows:", len((hc or {}).get("windows", [])))</pre></div></div>
 
-    for run in runs:
-        print(json.dumps(run, indent=2))
-
-    if not runs:
-        raise SystemExit("No AUTO-HOCO runs found.")
-
-    selected_run = runs[0]
-
-    print("\nSelected run:")
-    print(selected_run["runId"])
-
-    metadata = fetch_storage_metadata(selected_run["metadataUrl"])
-
-    print("\nStorage metadata:")
-    print(json.dumps(metadata, indent=2))
-
-    download_url = build_geojson_download_url_from_metadata(metadata)
-
-    print("\nGeoJSON download URL:")
-    print(download_url)
-
-    geojson = fetch_geojson(download_url)
-
-    feature_count = len(geojson.get("features", []))
-    print(f"\nGeoJSON loaded. Feature count: {feature_count}")
-
-    output_file = f"{selected_run['runId']}.geojson"
-
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(geojson, f)
-
-    print(f"Saved GeoJSON to {output_file}")</pre></div></div>
-      <div data-langpanel="leaflet" class="hidden"><div class="code"><div class="code-head"><span>JavaScript · draw a run with Leaflet</span><button class="btn sm" data-copy>Copy</button></div><pre>// HOCO's colour bands (chance of lightning within 20 km, %)
+      <div data-langpanel="leaflet" class="hidden"><div class="code"><div class="code-head"><span>JavaScript · draw risk bands &amp; Severity with Leaflet</span><button class="btn sm" data-copy>Copy</button></div><pre>// HOCO's colour bands (chance of lightning within 20 km, %)
 const HOCO_BANDS = [
   [5, "#9fd8c4"], [10, "#66c2a4"], [15, "#b3e05a"], [20, "#fff200"], [30, "#ffb327"], [40, "#ff7f27"],
   [50, "#ff4127"], [60, "#e0182d"], [70, "#b0186b"], [80, "#8a2bbd"], [90, "#4b1fd1"]
 ];
+const SEVERITY_COLOURS = { 1: "#d97706", 2: "#dc2626", 3: "#7e22ce" };
 
 function getRiskColor(risk) {
   let color = "#b8c2cc";
@@ -579,76 +565,86 @@ function getRiskColor(risk) {
   return color;
 }
 
-// Draw only the shaded areas, not the grid points
+// 1. Draw only the shaded lightning polygons, not the grid points
 const areas = { ...geojson, features: geojson.features.filter((f) =&gt; f.properties?.feature_type !== "point") };
-
-const layer = L.geoJSON(areas, {
-  style: function(feature) {
-    const risk = Number(
-      feature.properties?.riskValue ??
-      feature.properties?.peak_risk ??
-      feature.properties?.risk ??
-      0
-    );
-
-    return {
-      color: getRiskColor(risk),
-      weight: 2,
-      fillColor: getRiskColor(risk),
-      fillOpacity: 0.35
-    };
-  },
-  onEachFeature: function(feature, layer) {
-    layer.bindPopup(JSON.stringify(feature.properties, null, 2));
+const riskLayer = L.geoJSON(areas, {
+  style: (feature) =&gt; {
+    const risk = Number(feature.properties?.riskValue ?? feature.properties?.peak_risk ?? feature.properties?.risk ?? 0);
+    return { color: getRiskColor(risk), weight: 1.5, fillColor: getRiskColor(risk), fillOpacity: 0.45 };
   }
 }).addTo(map);
 
-map.fitBounds(layer.getBounds());</pre></div></div>
+// 2. Optional: overlay ESTOFEX Severity polygons when present (doc.severity?.geojsonUrl)
+if (severityGeojson?.features?.length) {
+  const sevPolys = {
+    ...severityGeojson,
+    features: severityGeojson.features.filter((f) =&gt; f.properties?.feature_type === "severity_polygon")
+  };
+  L.geoJSON(sevPolys, {
+    style: (f) =&gt; {
+      const lvl = Number(f.properties?.level || 1);
+      const col = SEVERITY_COLOURS[lvl] || "#d97706";
+      return { color: col, weight: lvl &gt;= 2 ? 2.8 : 2, dashArray: lvl === 1 ? "6 4" : null, fillColor: col, fillOpacity: 0.16 };
+    },
+    onEachFeature: (f, l) =&gt; l.bindTooltip(`${f.properties?.label} · ${(f.properties?.hazards || []).join(", ")}`)
+  }).addTo(map);
+}
+
+map.fitBounds(riskLayer.getBounds());</pre></div></div>
     </section>
 
     <section id="try">
       <h2>Try it live</h2>
-      <p class="lead">This uses exactly the steps above. Load runs, pick one, and it is drawn on the map with the URLs it used.</p>
+      <p class="lead">Inspect live Traditional, AI HOCO and Hourcast runs directly from Firestore — including France and ESTOFEX severity overlays.</p>
       <div class="play">
         <div class="pside">
           <div class="pfilters">
+            <label>Product<select id="productSelect"><option value="automated">Traditional (AUTO)</option><option value="ai">AI HOCO (Beta)</option><option value="timing">Hourcast (Beta)</option></select></label>
             <label>Region<select id="regionSelect"></select></label>
             <label>Day<select id="daySelect"><option value="">Any day</option><option value="Day0-1">Day 0 · today</option><option value="Day1-2">Day 1</option><option value="Day2-3">Day 2</option></select></label>
             <label>How many<select id="limitSelect"><option value="20">20 runs</option><option value="50" selected>50 runs</option><option value="100">100 runs</option></select></label>
-            <label style="justify-content:flex-end"><span>&nbsp;</span><button class="btn primary" id="loadRunsBtn">Load runs</button></label>
+            <button class="btn primary" id="loadRunsBtn">Load forecasts</button>
           </div>
-          <div class="pstatus" id="catalogueStatus" role="status">Press Load runs to start.</div>
+          <div class="pstatus" id="catalogueStatus" role="status">Press Load forecasts to start.</div>
           <div class="plist" id="runList"></div>
         </div>
         <div class="pmain">
           <div id="map" aria-label="Map preview"></div>
-          <div class="pkey" aria-label="Colour key"><div class="bar" id="keyBar"></div><div class="ticks"><span>5%</span><span>50%</span><span>90%</span></div></div>
-          <div class="pdetail" id="detail"><span class="muted">Pick a run to see the URLs and draw it.</span></div>
+          <div class="pkey" aria-label="Colour key">
+            <div class="bar" id="keyBar"></div>
+            <div class="ticks"><span>5%</span><span>50%</span><span>90%</span></div>
+            <div class="sevkey"><span>Severity</span><span><span class="sev-pill l1">L1</span> <span class="sev-pill l2">L2</span> <span class="sev-pill l3">L3</span></span></div>
+          </div>
+          <div class="pdetail" id="detail"><span class="muted">Pick a run or window to see the URLs and draw it.</span></div>
         </div>
       </div>
-      <div class="foot"><span>Need more than public reads? Request API access from your HOCO account menu.</span><a href="./">Open HOCO</a><a href="privacy.html">Privacy</a></div>
+      <div class="foot"><span>Need custom runs or higher quotas? Request access from your HOCO account menu.</span><a href="./">Open HOCO</a><a href="privacy.html">Privacy</a></div>
     </section>
   </main>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getFirestore, collection, query, where, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, collection, doc, getDoc, getDocs, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
 const app = initializeApp({ apiKey: "AIzaSyA8IYTApDl8vhZENPJXIw48rR_SUhfFPVQ", authDomain: "hoco-3b23e.firebaseapp.com", projectId: "hoco-3b23e", storageBucket: "hoco-3b23e.firebasestorage.app", messagingSenderId: "409513272369", appId: "1:409513272369:web:a857d9b039d53710f8a110" });
 const db = getFirestore(app);
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const STORAGE_BUCKET = "hoco-3b23e.firebasestorage.app";
+
 const HOCO_REGIONS = [
-  { id: "England", name: "England", status: "active", west: -10.234, south: 48.788, east: 5.471, north: 56.578 },
-  { id: "Scotland", name: "Scotland (Beta)", status: "active", west: -9.4482, south: 55.9161, east: 0, north: 60 },
-  { id: "France", name: "Coming Soon", status: "inactive", west: -7.9761, south: 42.1448, east: 12.0850, north: 53.2849 },
-  { id: "Spain", name: "Coming Soon", status: "inactive", west: -9.5, south: 36.0, east: 4.5, north: 43.8 },
-  { id: "Germany", name: "Germany (Beta)", status: "active", west: 0.9558, south: 46.9809, east: 16.9409, north: 55.8567 },
-  { id: "Poland", name: "Poland (Beta)", status: "active", west: 11.7142, south: 47.9787, east: 27.1252, north: 55.4243 },
-  { id: "Baltics", name: "Baltics (Beta)", status: "active", west: 11.6949, south: 52.7695, east: 36.4801, north: 63.4481 }
+  { id: "England",  name: "England",         status: "active",   schedule: "Every 3h", products: ["Traditional", "AI HOCO", "Hourcast", "Severity"], west: -10.234, south: 48.788,  east: 5.471,   north: 56.578 },
+  { id: "Scotland", name: "Scotland (Beta)", status: "active",   schedule: "Every 3h", products: ["Traditional", "AI HOCO", "Hourcast", "Severity"], west: -9.4482, south: 55.9161, east: 0,       north: 60 },
+  { id: "Germany",  name: "Germany (Beta)",  status: "active",   schedule: "Every 6h", products: ["Traditional", "Hourcast", "Severity"],            west: 0.9558,  south: 46.9809, east: 16.9409, north: 55.8567 },
+  { id: "Poland",   name: "Poland (Beta)",   status: "active",   schedule: "Every 6h", products: ["Traditional", "Hourcast", "Severity"],            west: 11.7142, south: 47.9787, east: 27.1252, north: 55.4243 },
+  { id: "Baltics",  name: "Baltics (Beta)",  status: "active",   schedule: "Every 6h", products: ["Traditional", "Hourcast", "Severity"],            west: 11.6949, south: 52.7695, east: 36.4801, north: 63.4481 },
+  { id: "France",   name: "France (Beta)",   status: "active",   schedule: "Every 6h", products: ["Traditional", "Hourcast", "Severity"],            west: -7.9761, south: 42.1448, east: 12.0850, north: 53.2849 },
+  { id: "Spain",    name: "Coming Soon",     status: "inactive", schedule: "Planned",  products: [],                                                 west: -9.5,    south: 36.0,    east: 4.5,     north: 43.8 }
 ];
+
 const BANDS = [[5,'#9fd8c4','5-10%'],[10,'#66c2a4','10-15%'],[15,'#b3e05a','15-20%'],[20,'#fff200','20-30%'],[30,'#ffb327','30-40%'],[40,'#ff7f27','40-50%'],[50,'#ff4127','50-60%'],[60,'#e0182d','60-70%'],[70,'#b0186b','70-80%'],[80,'#8a2bbd','80-90%'],[90,'#4b1fd1','90%+']];
+const SEV_COLORS = { 1: '#d97706', 2: '#dc2626', 3: '#7e22ce' };
 const colorFor = (r) => { let c = null; for (const [m, f] of BANDS) if (r >= m) c = f; return c; };
 
 // theme
@@ -660,21 +656,34 @@ const applyTheme = () => { document.documentElement.dataset.theme = theme(); $('
 $('themeBtn').onclick = () => { try { localStorage.setItem('hocoTheme', theme() === 'dark' ? 'light' : 'dark'); } catch (e) {} applyTheme(); };
 media.addEventListener?.('change', applyTheme); applyTheme();
 
-// light syntax colouring for the code blocks (keeps the text as it is)
+// syntax colouring for code blocks
 function paint(pre) {
   const lang = pre.closest('[data-langpanel="py"]') ? 'py' : 'js';
-  const kw = lang === 'py' ? /\b(import|from|def|return|if|not|for|in|with|as|raise|None|True|False|and|or|continue|print|open)\b/g : /\b(import|from|const|let|function|return|async|await|if|else|new|export|true|false|null)\b/g;
+  const kw = lang === 'py' ? /\b(import|from|def|return|if|not|for|in|with|as|raise|None|True|False|and|or|continue|print|open|bool|int|float|len)\b/g : /\b(import|from|const|let|function|return|async|await|if|else|new|export|true|false|null)\b/g;
   const parts = pre.textContent.split(/("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`|#[^\n]*|\/\/[^\n]*)/g);
-  pre.innerHTML = parts.map((p, i) => { if (i % 2) { if (p.startsWith('#') && lang === 'py' || p.startsWith('//')) return `<span class="c">${esc(p)}</span>`; if (p.startsWith('#')) return esc(p); return `<span class="s">${esc(p)}</span>`; }
-    return esc(p).replace(kw, '<span class="k">$1</span>').replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="n">$1</span>'); }).join('');
+  pre.innerHTML = parts.map((p, i) => {
+    if (i % 2) {
+      if (p.startsWith('#') && lang === 'py' || p.startsWith('//')) return `<span class="c">${esc(p)}</span>`;
+      if (p.startsWith('#')) return esc(p);
+      return `<span class="s">${esc(p)}</span>`;
+    }
+    return esc(p).replace(kw, '<span class="k">$1</span>').replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="n">$1</span>');
+  }).join('');
 }
 document.querySelectorAll('.code pre').forEach(paint);
 document.querySelectorAll('[data-copy]').forEach(b => b.onclick = async () => { const t = b.closest('.code').querySelector('pre').textContent; try { await navigator.clipboard.writeText(t); b.textContent = 'Copied'; } catch (e) { b.textContent = 'Press Ctrl+C'; } setTimeout(() => b.textContent = 'Copy', 1400); });
 document.querySelectorAll('[data-lang]').forEach(b => b.onclick = () => { document.querySelectorAll('[data-lang]').forEach(x => x.setAttribute('aria-selected', x === b)); document.querySelectorAll('[data-langpanel]').forEach(p => p.classList.toggle('hidden', p.dataset.langpanel !== b.dataset.lang)); });
 
 // tables
-$('regionTable').querySelector('tbody').innerHTML = HOCO_REGIONS.map(r => `<tr><td><code>${r.id}</code></td><td>${esc(r.name)}</td><td><span class="st ${r.status === 'active' ? 'on' : 'off'}">${r.status}</span></td><td class="mono" style="font-size:12px;white-space:nowrap">${r.west}, ${r.south}, ${r.east}, ${r.north}</td></tr>`).join('');
-$('bandTable').querySelector('tbody').innerHTML = BANDS.map(([m, f, l]) => `<tr><td>${l}</td><td><span class="sw" style="background:${f}"></span><code>${f}</code></td></tr>`).join('');
+$('regionTable').querySelector('tbody').innerHTML = HOCO_REGIONS.map(r => `<tr>
+  <td><code>${r.id}</code></td>
+  <td>${esc(r.name)}</td>
+  <td><span class="st ${r.status === 'active' ? 'on' : 'off'}">${r.status}</span></td>
+  <td>${r.products.length ? r.products.map(esc).join(', ') : '<span class="muted">Planned</span>'}</td>
+  <td>${esc(r.schedule)}</td>
+  <td class="mono" style="font-size:12px;white-space:nowrap">${r.west}, ${r.south}, ${r.east}, ${r.north}</td>
+</tr>`).join('');
+$('bandTable').querySelector('tbody').innerHTML = BANDS.map(([, f, l]) => `<tr><td>${l}</td><td><span class="sw" style="background:${f}"></span><code>${f}</code></td></tr>`).join('');
 $('keyBar').innerHTML = BANDS.map(([, f]) => `<i style="background:${f}"></i>`).join('');
 
 // table of contents highlight
@@ -683,58 +692,129 @@ const io = new IntersectionObserver((es) => { es.forEach(e => { if (e.isIntersec
 secs.forEach(s => s && io.observe(s));
 
 // ---------- live demo ----------
-const regionSelect = $('regionSelect');
+const productSelect = $('productSelect'), regionSelect = $('regionSelect'), daySelect = $('daySelect');
 regionSelect.innerHTML = '<option value="">All active regions</option>' + HOCO_REGIONS.map(r => `<option value="${r.id}" ${r.status !== 'active' ? 'disabled' : ''}>${r.id}${r.status !== 'active' ? ' (coming soon)' : ''}</option>`).join('');
 regionSelect.value = 'England';
 const map = L.map('map', { center: [54.5, -2.5], zoom: 5, zoomControl: true });
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 12, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
-let layer = null;
+let riskLayer = null, sevLayer = null;
 const fit = (r) => r && map.fitBounds([[r.south, r.west], [r.north, r.east]], { padding: [20, 20] });
 fit(HOCO_REGIONS[0]);
-const parseId = (id) => { const m = String(id).match(/^AUTO-(\d+)-(.+)-(Day\d+-\d+)$/); return { autoCode: m?.[1] || null, regionFromId: m?.[2] || null, forecastDay: m?.[3] || null }; };
+const parseId = (id) => { const m = String(id).match(/^(?:(AI)-)?AUTO-(\d+)-(.+)-(Day\d+-\d+)$/); return { isAi: !!m?.[1], autoCode: m?.[2] || null, regionFromId: m?.[3] || null, forecastDay: m?.[4] || null }; };
 const metaUrl = (id) => `https://firebasestorage.googleapis.com/v0/b/${STORAGE_BUCKET}/o/${encodeURIComponent(`forecasts/${id}.geojson`)}`;
 const fileUrl = (meta) => `https://firebasestorage.googleapis.com/v0/b/${meta.bucket}/o/${encodeURIComponent(meta.name)}?alt=media&token=${String(meta.downloadTokens || '').split(',')[0]}`;
-const when = (v) => { const d = v?.toDate ? v.toDate() : v ? new Date(v) : null; return d && !isNaN(d) ? d.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '–'; };
+const toDate = (v) => { const d = v?.toDate ? v.toDate() : v ? new Date(v) : null; return d && !isNaN(d) ? d : null; };
+const when = (v) => { const d = toDate(v); return d ? d.toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '–'; };
 const dayTxt = { 'Day0-1': 'Day 0', 'Day1-2': 'Day 1', 'Day2-3': 'Day 2' };
-let runs = [];
+const dayToTiming = { '': 'day0', 'Day0-1': 'day0', 'Day1-2': 'day1', 'Day2-3': 'day2' };
+let items = [];
+
 $('loadRunsBtn').onclick = async () => {
-  const st = $('catalogueStatus'); st.textContent = 'Loading runs…'; $('runList').innerHTML = ''; $('loadRunsBtn').disabled = true;
+  const st = $('catalogueStatus'); st.textContent = 'Loading forecasts…'; $('runList').innerHTML = ''; $('loadRunsBtn').disabled = true;
   try {
-    const reg = regionSelect.value, n = Number($('limitSelect').value || 50), day = $('daySelect').value;
-    const f = [where("public", "==", true), where("status", "==", "completed"), where("type", "==", "automated")]; if (reg) f.push(where("region", "==", reg));
-    const snap = await getDocs(query(collection(db, "hoco_requests"), ...f, orderBy("completedAt", "desc"), limit(n)));
-    // Only the documented fields are read here.
-    runs = snap.docs.map(d => { const x = d.data(), id = x.id || d.id, p = parseId(id); return { runId: id, ...p, region: x.region || p.regionFromId, startTime: x.startTime || null, endTime: x.endTime || null, completedAt: x.completedAt || null, geojsonUrl: x.geojsonUrl || null, metadataUrl: metaUrl(id) }; });
-    if (day) runs = runs.filter(r => r.forecastDay === day);
-    st.textContent = `${runs.length} run${runs.length === 1 ? '' : 's'} found${day ? ` for ${dayTxt[day]}` : ''}.`;
-    fit(HOCO_REGIONS.find(r => r.id === reg));
-    $('runList').innerHTML = runs.length ? runs.map((r, i) => `<button class="prow" data-i="${i}" aria-pressed="false"><span><b>${esc(r.region)} · ${esc(dayTxt[r.forecastDay] || r.forecastDay || '')}</b><small>Finished ${when(r.completedAt)}</small></span><span class="tagd mono">${esc(r.autoCode?.slice(-6) || '')}</span></button>`).join('')
-      : '<div class="pstatus">No runs found. Try another region or day, or load more.</div>';
-    $('runList').querySelectorAll('[data-i]').forEach(b => b.onclick = () => { $('runList').querySelectorAll('[data-i]').forEach(x => x.setAttribute('aria-pressed', x === b)); show(runs[+b.dataset.i]); });
-    if (runs[0]) $('runList').querySelector('[data-i="0"]').click();
-  } catch (e) { st.innerHTML = `<span class="err">Could not load runs: ${esc(e.message)}</span>`; }
+    const prod = productSelect.value, reg = regionSelect.value, n = Number($('limitSelect').value || 50), day = daySelect.value;
+    if (prod === 'timing') {
+      const targetRegion = reg || 'England', targetDay = dayToTiming[day] || 'day0';
+      const docId = `storm_timing_${targetRegion.toLowerCase()}_${targetDay}`;
+      const snap = await getDoc(doc(db, 'system_stats', docId));
+      const data = snap.exists() ? snap.data() : null;
+      items = (data?.windows || []).map((w, idx) => {
+        const ws = toDate(w.validFrom), we = toDate(w.validTo);
+        const label = ws && we ? `${ws.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}–${we.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : `Window ${idx + 1}`;
+        return { kind: 'timing', runId: `${data.sourceRunId || docId}#${idx}`, manifestDoc: `system_stats/${docId}`, region: data.region || targetRegion, basis: data.basis || null, label, validFrom: w.validFrom, validTo: w.validTo, geojsonUrl: w.geojsonUrl, severity: w.severity || null };
+      });
+      st.textContent = items.length ? `${items.length} Hourcast window${items.length === 1 ? '' : 's'} · ${targetRegion} (${targetDay}).` : `No active Hourcast windows in ${docId}.`;
+      fit(HOCO_REGIONS.find(r => r.id === targetRegion));
+      $('runList').innerHTML = items.length ? items.map((w, i) => `<button class="prow" data-i="${i}" aria-pressed="false"><span><b>${esc(w.region)} · ${esc(w.label)}${w.severity?.maxLevel >= 1 ? ` <span class="sev-pill l${w.severity.maxLevel}">L${w.severity.maxLevel}</span>` : ''}</b><small>${esc(when(w.validFrom))}${w.basis ? ` · ${esc(w.basis)} basis` : ''}</small></span><span class="tagd mono">#${i + 1}</span></button>`).join('')
+        : '<div class="pstatus">No active Hourcast manifest for this region and day.</div>';
+    } else {
+      const f = [where('public', '==', true), where('status', '==', 'completed'), where('type', '==', prod)];
+      if (reg) f.push(where('region', '==', reg));
+      const snap = await getDocs(query(collection(db, 'hoco_requests'), ...f, orderBy('completedAt', 'desc'), limit(n)));
+      items = snap.docs.map(d => {
+        const x = d.data(), id = x.id || d.id, p = parseId(id);
+        return { kind: prod, runId: id, ...p, region: x.region || p.regionFromId, startTime: x.startTime || null, endTime: x.endTime || null, completedAt: x.completedAt || null, geojsonUrl: x.geojsonUrl || null, metadataUrl: metaUrl(id), severity: x.severity || null, stormHour: !!x.stormHour };
+      });
+      if (day) items = items.filter(r => r.forecastDay === day);
+      const prodNote = prod === 'ai' && !items.length && reg && !['England', 'Scotland'].includes(reg) ? ' (AI HOCO runs only in England & Scotland)' : '';
+      st.textContent = `${items.length} ${prod === 'ai' ? 'AI HOCO' : 'Traditional'} run${items.length === 1 ? '' : 's'} found${day ? ` for ${dayTxt[day]}` : ''}${prodNote}.`;
+      fit(HOCO_REGIONS.find(r => r.id === reg));
+      $('runList').innerHTML = items.length ? items.map((r, i) => `<button class="prow" data-i="${i}" aria-pressed="false"><span><b>${esc(r.region)} · ${esc(dayTxt[r.forecastDay] || r.forecastDay || '')}${r.severity?.maxLevel >= 1 ? ` <span class="sev-pill l${r.severity.maxLevel}">L${r.severity.maxLevel}</span>` : ''}</b><small>Finished ${when(r.completedAt)}${r.stormHour ? ' · Hourcast' : ''}</small></span><span class="tagd mono">${esc(r.autoCode?.slice(-6) || '')}</span></button>`).join('')
+        : `<div class="pstatus">No runs found${prodNote}. Try another product, region or day.</div>`;
+    }
+    $('runList').querySelectorAll('[data-i]').forEach(b => b.onclick = () => { $('runList').querySelectorAll('[data-i]').forEach(x => x.setAttribute('aria-pressed', x === b)); show(items[+b.dataset.i]); });
+    if (items[0]) $('runList').querySelector('[data-i="0"]').click();
+  } catch (e) { st.innerHTML = `<span class="err">Could not load forecasts: ${esc(e.message)}</span>`; }
   $('loadRunsBtn').disabled = false;
 };
+
 const kv = (k, v, copy) => `<div class="kv"><span>${k}</span><code title="${esc(v)}">${esc(v)}</code>${copy ? `<button class="btn sm" data-c="${esc(v)}">Copy</button>` : '<span></span>'}</div>`;
-async function show(run) {
-  const d = $('detail'); d.innerHTML = `<div class="kv"><span>Run ID</span><code>${esc(run.runId)}</code><span></span></div><span class="muted">Step 1 of 2 · fetching Storage metadata…</span>`;
-  try {
-    const mr = await fetch(run.metadataUrl); if (!mr.ok) throw new Error(`metadata request failed (${mr.status})`); const meta = await mr.json();
-    const url = fileUrl(meta); d.lastElementChild.textContent = 'Step 2 of 2 · downloading the GeoJSON…';
-    const gr = await fetch(url); if (!gr.ok) throw new Error(`GeoJSON request failed (${gr.status})`); const g = await gr.json();
-    draw(g);
-    const polys = (g.features || []).filter(f => f.properties?.feature_type !== 'point').length, peak = Math.max(0, ...(g.features || []).map(f => +f.properties?.risk || 0));
-    d.innerHTML = kv('Run ID', run.runId, true) + kv('Covers', `${run.startTime || '–'} → ${run.endTime || '–'}`) + kv('Metadata URL', run.metadataUrl, true) + kv('GeoJSON URL', url, true)
-      + `<div class="kv"><span>Result</span><span class="ok">✓ ${(g.features || []).length.toLocaleString()} features · ${polys} areas · peak ${Math.round(peak)}%</span><a class="btn sm" href="${esc(url)}" target="_blank" rel="noopener">Open file</a></div>`;
-    d.querySelectorAll('[data-c]').forEach(b => b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.c); b.textContent = 'Copied'; setTimeout(() => b.textContent = 'Copy', 1200); } catch (e) {} });
-  } catch (e) { d.innerHTML = kv('Run ID', run.runId, true) + `<span class="err">${esc(e.message)}</span>`; }
+async function fetchRiskJson(item) {
+  if (item.metadataUrl) {
+    try {
+      const mr = await fetch(item.metadataUrl);
+      if (mr.ok) {
+        const meta = await mr.json();
+        const url = fileUrl(meta);
+        const gr = await fetch(url);
+        if (gr.ok) return { url, geo: await gr.json() };
+      }
+    } catch (e) {}
+  }
+  if (item.geojsonUrl) {
+    const gr = await fetch(item.geojsonUrl);
+    if (!gr.ok) throw new Error(`GeoJSON request failed (${gr.status})`);
+    return { url: item.geojsonUrl, geo: await gr.json() };
+  }
+  throw new Error('Could not resolve GeoJSON URL');
 }
-function draw(g) {
-  if (layer) map.removeLayer(layer);
+
+async function show(item) {
+  const d = $('detail'); d.innerHTML = `<div class="kv"><span>${item.kind === 'timing' ? 'Manifest' : 'Run ID'}</span><code>${esc(item.manifestDoc || item.runId)}</code><span></span></div><span class="muted">Downloading GeoJSON…</span>`;
+  try {
+    const { url, geo } = await fetchRiskJson(item);
+    let sevGeo = null;
+    if (item.severity?.maxLevel >= 1 && item.severity?.geojsonUrl) {
+      try { const sr = await fetch(item.severity.geojsonUrl); if (sr.ok) sevGeo = await sr.json(); } catch (e) {}
+    }
+    draw(geo, sevGeo);
+    const polys = (geo.features || []).filter(f => f.properties?.feature_type !== 'point').length;
+    const peak = Math.max(0, ...(geo.features || []).map(f => +f.properties?.risk || 0));
+    const sevSummary = item.severity?.maxLevel >= 1
+      ? ` · Level ${item.severity.maxLevel}${(item.severity.hazards || []).length ? ' (' + item.severity.hazards.join(', ') + ')' : ''}`
+      : '';
+    const coverText = item.kind === 'timing' ? `${when(item.validFrom)} → ${when(item.validTo)}` : `${item.startTime || '–'} → ${item.endTime || '–'}`;
+    d.innerHTML = kv(item.kind === 'timing' ? 'Window' : 'Run ID', item.kind === 'timing' ? item.manifestDoc : item.runId, true)
+      + kv('Covers', coverText)
+      + (item.metadataUrl ? kv('Metadata URL', item.metadataUrl, true) : '')
+      + kv('GeoJSON URL', url, true)
+      + (item.severity?.geojsonUrl ? kv('Severity URL', item.severity.geojsonUrl, true) : '')
+      + `<div class="kv"><span>Result</span><span class="ok">✓ ${(geo.features || []).length.toLocaleString()} features · ${polys} areas · peak ${Math.round(peak)}%${esc(sevSummary)}</span><a class="btn sm" href="${esc(url)}" target="_blank" rel="noopener">Open file</a></div>`;
+    d.querySelectorAll('[data-c]').forEach(b => b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.c); b.textContent = 'Copied'; setTimeout(() => b.textContent = 'Copy', 1200); } catch (e) {} });
+  } catch (e) { d.innerHTML = kv('ID', item.runId, true) + `<span class="err">${esc(e.message)}</span>`; }
+}
+
+function draw(g, sevGeo = null) {
+  if (riskLayer) map.removeLayer(riskLayer);
+  if (sevLayer) map.removeLayer(sevLayer);
   const polys = { ...g, features: (g.features || []).filter(f => f.properties?.feature_type !== 'point') };
-  layer = L.geoJSON(polys, { style: (f) => { const r = +f.properties?.risk || 0, c = f.properties?.fill || colorFor(r) || '#b8c2cc'; return { color: 'rgba(15,27,45,.45)', weight: .6, fillColor: c, fillOpacity: .7 }; },
-    onEachFeature: (f, l) => l.bindTooltip(`${esc(f.properties?.band_label || (Math.round(+f.properties?.risk || 0) + '%+'))} chance of lightning`, { sticky: true }) }).addTo(map);
-  const b = layer.getBounds(); if (b.isValid()) map.fitBounds(b, { padding: [20, 20] });
+  riskLayer = L.geoJSON(polys, {
+    style: (f) => { const r = +f.properties?.risk || 0, c = f.properties?.fill || colorFor(r) || '#b8c2cc'; return { color: 'rgba(15,27,45,.45)', weight: .6, fillColor: c, fillOpacity: .65 }; },
+    onEachFeature: (f, l) => l.bindTooltip(`${esc(f.properties?.band_label || (Math.round(+f.properties?.risk || 0) + '%+'))} chance of lightning`, { sticky: true })
+  }).addTo(map);
+  if (sevGeo?.features?.length) {
+    const sevPolys = { ...sevGeo, features: sevGeo.features.filter(f => f.properties?.feature_type === 'severity_polygon') };
+    if (sevPolys.features.length) {
+      sevLayer = L.geoJSON(sevPolys, {
+        style: (f) => {
+          const lvl = +f.properties?.level || 1, col = SEV_COLORS[lvl] || '#d97706';
+          return { color: col, weight: lvl >= 2 ? 2.8 : 2, dashArray: lvl === 1 ? '6 4' : null, fillColor: col, fillOpacity: 0.16 };
+        },
+        onEachFeature: (f, l) => l.bindTooltip(`${esc(f.properties?.label || 'Severity')}${(f.properties?.hazards || []).length ? ' · ' + esc(f.properties.hazards.join(', ')) : ''}`, { sticky: true })
+      }).addTo(map);
+    }
+  }
+  const b = riskLayer.getBounds(); if (b.isValid()) map.fitBounds(b, { padding: [20, 20] });
 }
 new ResizeObserver(() => map.invalidateSize()).observe($('map'));
 </script>
