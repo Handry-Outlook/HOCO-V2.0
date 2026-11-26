@@ -292,7 +292,8 @@ function showVerificationMap(entries, selected, region, buildReference, returnTo
       returnToVerification();
     }
   };
-  C.mode = 'swipe';
+  let saved = null; try { saved = localStorage.getItem('hocoVerMode'); } catch (e) { /* storage off */ }
+  C.mode = saved === 'side' ? 'side' : 'swipe';
   C.split = 0.5;
   C.view = [[region.west, region.south], [region.east, region.north]];
   Object.assign(CO, { radar: false, strikes: false, keyOpen: false });
@@ -350,7 +351,7 @@ function drawCompare() {
   let toolsHtml = '';
   if (verification) {
     titleHtml = `<b>Forecast vs observations</b><small>${esc(verification.entry.label)}</small>`;
-    toolsHtml = verificationWindows;
+    toolsHtml = `<div class="seg" role="group" aria-label="Layout"><button data-cmode="swipe" aria-pressed="${C.mode === 'swipe'}">Slider</button><button data-cmode="side" aria-pressed="${C.mode === 'side'}">Side<span class="cx-long"> by side</span></button></div>${verificationWindows}`;
   } else if (hazards) {
     const hRun = hazards.run, hs = X.startOf(hRun), he = X.endOf(hRun);
     const hValid = hRun.windowValidity || (hs && he ? `${X.dayName(hs)} ${X.hhmm(hs)} – ${X.dayName(he)} ${X.hhmm(he)}` : '');
@@ -421,7 +422,11 @@ function drawCompare() {
   el.querySelectorAll('[data-cday]').forEach(b => b.onclick = () => { C.day = +b.dataset.cday;
     C.panes = C.panes.map(id => { const r = findRun(id); if (!r || (r.type !== 'automated' && r.type !== 'ai')) return id; const list = X.runsFor(runDay(r) ?? C.day, r.type), back = list.length - 1 - list.findIndex(x => x.id === id), t = X.runsFor(C.day, r.type); return t[Math.max(0, t.length - 1 - back)]?.id || id; });
     drawCompare(); });
-  el.querySelectorAll('[data-cmode]').forEach(b => b.onclick = () => { C.mode = b.dataset.cmode; drawCompare(); });
+  el.querySelectorAll('[data-cmode]').forEach(b => b.onclick = () => {
+    C.mode = b.dataset.cmode;
+    if (C.verification) { try { localStorage.setItem('hocoVerMode', C.mode); } catch (e) { /* storage off */ } }
+    drawCompare();
+  });
   if ($('cmpAdd')) $('cmpAdd').onclick = (e) => { e.stopPropagation(); if (C.panes.length >= 4) return; openMenu(C.panes.length, $('cmpAdd')); };
   if ($('cmpLink')) $('cmpLink').onchange = (e) => { C.link = e.target.checked; };
   if ($('cmpExportHazards')) $('cmpExportHazards').onclick = () => E()?.openExport?.({ layout: 'hazards4', run: C.hazards?.run });
