@@ -677,7 +677,7 @@ async function buildEnsemble(grp, chosen, mixOn, timed, effWeights = T.ens.w) {
     const area = X.REGIONS.find(item => item.id === region && Number.isFinite(item.west));
     if (area && used.length >= 2 && used.every(({ r }) => r.region === region)) {
       try {
-        const { forecastSampler } = await import('./run-verification.js?v=5');
+        const { forecastSampler } = await import('./run-verification.js?v=7');
         const members = used.map(({ r, weight, geojson }) => ({
           id: r.id, weight, label: `${PRODUCTS[r.type]?.label || 'Run'} ${X.hhmm(X.created(r))}`,
           sample: forecastSampler(geojson)

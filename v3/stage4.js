@@ -767,7 +767,7 @@ async function openRunVerification() {
     }
     let timeout;
     try {
-      const { OBSERVATION_DELAY, loadObservations, verifyMap, combinedVerification, observedReference } = await import('./run-verification.js?v=4');
+      const { OBSERVATION_DELAY, loadObservations, verifyMap, combinedVerification, observedReference } = await import('./run-verification.js?v=7');
       if (Date.now() < end + OBSERVATION_DELAY) {
         status('Verification is available after the forecast period ends and lightning observations have arrived.');
         return;

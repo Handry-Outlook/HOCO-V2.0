@@ -9,7 +9,9 @@ const EVENT_KM = 20;
 const EARTH_RADIUS_KM = 6371;
 const HINDCAST_SIGMA_KM = 30;
 const BUCKET_DEGREES = 0.5;
-const COVERAGE = { west: -17.8, east: 7.8, south: 48.7, north: 63, slope: 0.3491, intercept: 49.3739 };
+// UKWX Europe lightning (archive from 1 Apr 2026) covers roughly 25°W–50°E, 34°N–70°N. The old box was the
+// UK-only feed's area and blocked every non-UK region. slope 0 / intercept = south: no slanted edge any more.
+const COVERAGE = { west: -25, east: 50, south: 34, north: 70, slope: 0, intercept: 34 };
 export const OBSERVATION_DELAY = 15 * MINUTE;
 
 const dayStart = ms => Math.floor((ms - SIX_HOURS) / DAY) * DAY + SIX_HOURS;
